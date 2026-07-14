@@ -31,7 +31,8 @@ The original technical plan and PRD are preserved byte-for-byte under [the sourc
 
 ## Validate this preparation
 
-No dependency installation is required. From the repository root, run one of:
+No product/runtime dependency installation is required for validation. From the
+repository root, run one of:
 
 ```text
 python scripts/check_no_secrets.py
@@ -48,15 +49,20 @@ The verifier checks archives and hashes, required documents, manifest paths, JSO
 
 ## GSD status and exact next step
 
-GSD Core has **not** been installed or run. `.planning/` does not exist. No dependency, model weight, cloud resource, product implementation, commit, push, or PR was created by this preparation.
+GSD Core has **not** been installed project-locally or run for this repository,
+and `.planning/` does not exist. An older user-global GSD `1.5.0` surface is a
+documented onboarding stop condition. Three pinned, license-reviewed
+project-local Codex skills cover the native Swift gap; they are agent tooling,
+not product/runtime/build dependencies. No model weight, cloud resource,
+product implementation, commit, push, or PR was created by this preparation.
 
-After all readiness checks pass, the exact first human action is to explicitly authorize the GSD onboarding run and confirm every item in [the runbook's §1 Preconditions](docs/gsd/GSD_MANUAL_ONBOARDING_RUNBOOK.md#1-preconditions). Do not execute an onboarding command before that authorization. The first subsequent shell action is to establish a clean Git baseline beginning with:
+After all readiness checks pass, the exact first human action is to explicitly authorize the GSD onboarding run and confirm [the onboarding guide's complete preflight](docs/gsd/ONBOARDING_AND_CONTINUATION.md#5-preflight-before-the-first-run). Do not execute an onboarding command before that authorization. The first subsequent shell action is to establish a clean Git baseline beginning with:
 
 ```text
 git status --short
 ```
 
-Do not proceed unless the result is clean and the other runbook preconditions pass. The exact first GSD invocation later in that runbook is:
+Do not proceed unless the result is clean and every other preflight condition passes. The exact first GSD invocation later in that guide is:
 
 ```text
 $gsd-ingest-docs --mode new --manifest docs/gsd/ingest-manifest.yml

@@ -1,6 +1,9 @@
 # Project-scoped Codex configuration. Secrets are inherited by environment name only.
 sandbox_mode = "workspace-write"
 
+[shell_environment_policy]
+ignore_default_excludes = false
+
 [sandbox_workspace_write]
 network_access = true
 

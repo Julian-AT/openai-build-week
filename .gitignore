@@ -44,5 +44,7 @@ dist/
 build/
 coverage/
 *.log
+*.trace
+*.trace/
 
 # Deliberately do not ignore .planning/: pinned GSD recommends committing planning docs.

@@ -57,4 +57,8 @@ A `Provisional` ADR is usable only behind its provider/contract boundary. It mus
 
 The exact ordered 28-entry set is `docs/gsd/ingest-manifest.yml`. This index is ingested as the sole highest-authority `DOC` at precedence `-10`, so all 16 human locks outrank accepted ADRs at `0`; provisional ADRs use `10`, specifications/contracts `20`, PRD `30`, and supporting canonical documents `40`. The compact set includes development, test, risk, research, glossary, and contract documents and excludes archives, audits, prompts, Codex/GSD setup material, and raw research.
 
-GSD has not been installed or run and `.planning/` must not exist until the human follows the manual runbook.
+GSD has not been installed project-locally or run for this repository, and
+`.planning/` must not exist until the human follows
+`docs/gsd/ONBOARDING_AND_CONTINUATION.md`. An older user-global GSD `1.5.0`
+surface is workstation context, not project authority, and must be reconciled
+through that guide before onboarding.
