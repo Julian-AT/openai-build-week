@@ -30,6 +30,8 @@ ASSIGNMENT = re.compile(
 
 PLACEHOLDER_VALUES = {
     "",
+    "***",
+    "...",
     "null",
     "none",
     "redacted",
@@ -38,11 +40,12 @@ PLACEHOLDER_VALUES = {
     "changeme",
     "example",
     "example_value",
+    "value",
 }
 
 
 def is_placeholder(value: str) -> bool:
-    lowered = value.strip().lower()
+    lowered = value.strip().strip("`").lower()
     return (
         lowered in PLACEHOLDER_VALUES
         or lowered.startswith("<") and lowered.endswith(">")
@@ -65,6 +68,7 @@ def is_unquoted_code_reference(key: str, quote: str, value: str) -> bool:
         value_name in {"string", "substring", "str", "bytes", "data"}
         or value_name == key_name
         or value_name == f"current{key_name}"
+        or value.lower().startswith("process.env")
     )
 
 

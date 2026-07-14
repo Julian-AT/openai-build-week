@@ -371,6 +371,21 @@ also initialize user-scoped `~/.gsd/defaults.json` (including
 `resolve_model_ids: "omit"` on non-Claude runtimes); inspect and record that
 side effect without exposing unrelated user data.
 
+The first reviewed Codex-local installation on 2026-07-14 exposed two stable
+`1.6.1` projection defects that the tracked local baseline hardens. The
+installer removed the existing `[agents]` concurrency bounds while registering
+the 34 GSD agents, so `.codex/config.toml` restores `max_threads = 3` and
+`max_depth = 1`. It also installed `gsd-check-update.js` without the worker it
+spawns. The baseline therefore includes the worker and managed-hook registry
+from the exact pinned npm package (source SHA-256 values
+`16f4ebb94930af55555534c21c7586327d4756b9cd10cc05350bd4de2a552fd9`
+and `ea876b1ec185173e064ebe503c5d05c4782c1a6c9deeffa2bfe91bb8fcd16941`),
+with the worker version marker rendered to `1.6.1`; its tracked rendered hash is
+`9ad1973af7fc531ef5ed1667207ea73e8bfcc163a07a0659f3a337e639c1b166`.
+All four hook registrations use explicit Windows commands and ten-second
+timeouts. After any reinstall, inspect these exact properties before restart;
+do not assume the installer preserved them and do not bypass hook trust.
+
 Before relying on the ReRoom profile, inspect `~/.gsd/defaults.json` locally for
 non-empty `model_overrides` or `effort.agent_overrides`. Stable `1.6.1` merges
 those global maps into project settings, so an empty project map cannot cancel

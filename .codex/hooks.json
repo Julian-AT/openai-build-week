@@ -1,0 +1,52 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-check-update.cmd\"",
+            "commandWindows": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-check-update.cmd\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-context-monitor.cmd\"",
+            "commandWindows": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-context-monitor.cmd\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-context-monitor.cmd\"",
+            "commandWindows": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-context-monitor.cmd\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-context-monitor.cmd\"",
+            "commandWindows": "\"C:/Development/Private/openai-build-week/.codex/hooks/gsd-context-monitor.cmd\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
