@@ -152,6 +152,10 @@ Record that a human has authorized this specific onboarding. Confirm that the
 authorization covers local GSD installation and `.planning/` creation, but not
 implementation, remote mutation, or deployment.
 
+Authorization was recorded on 2026-07-14 for project-local GSD installation,
+planning-artifact generation, and `.planning/` creation. It does not authorize
+product implementation, remote mutation, publication, or deployment.
+
 ### 5.2 Validate the prepared repository
 
 From the ReRoom repository root, run:
@@ -276,25 +280,48 @@ the task that would invoke them.
 
 | Skill | Audited tag and resolved commit | `SKILL.md` SHA-256 | LF tree SHA-256 | Notice |
 |---|---|---|---|---|
-| `swiftui-expert-skill` | `AvdLee/SwiftUI-Agent-Skill` `4.0.0`; `65118ba010cbfcd4b985a4c83e29c74f37d1c1f1` | `e74c27b66f5ff5da524ede219348e7f9ddb7602ca9288cc5e3972e8e05e3ba29` | `838594f4412a71d8faee00ddd02410daa816e3646cc239902cbc67b1fdec5760` | MIT notice copied from the tag |
+| `swiftui-expert-skill` | `AvdLee/SwiftUI-Agent-Skill` `4.0.0`; `65118ba010cbfcd4b985a4c83e29c74f37d1c1f1` | `e74c27b66f5ff5da524ede219348e7f9ddb7602ca9288cc5e3972e8e05e3ba29` | `77468736fd8af123619e9d10d00bf602406f5eecd0707968d986ad7978e8687f` | MIT notice copied from the tag |
 | `swift-concurrency` | `AvdLee/Swift-Concurrency-Agent-Skill` `2.1.1`; `faa595ee186dbd23a390dc1e7b06df40948941ab` | `d3cb40aef411f1cfeae4bdd6bc9925a8ad55fdc70804e6d3ffdee188499deb64` | `1dac74c169e426fcc61fb3ebb9c94526438eb7ed2c2b94d4c9e53ea06a2e508e` | MIT notice copied from the tag |
 | `swift-testing-expert` | `AvdLee/Swift-Testing-Agent-Skill` `1.2.0`; `798e9b1a2bcac164d4f0c781908199e754f0bab6` | `d039eb55cfbaa379d308ff42c1e459dea355edb869ec0a4d6f488759d2156aec` | `7527c21fdb97ed949e302a1213c644017c70294383f48ce49f249667eeeff45d` | MIT notice copied from the tag |
 
-The tree digest is SHA-256 over each sorted
-`relative-path NUL lowercase-file-SHA256 newline` tuple, including the retained
-MIT license. Skill text is normalized to LF and `.gitattributes` enforces LF,
-so the byte pins and Python shebangs survive Windows and POSIX checkouts. The
-readiness validator checks the exact lock entries, file counts,
-skill and tree hashes, notices, frontmatter, and absence of extra skill roots.
+The tree digest is SHA-256 over each case-insensitively sorted
+`relative-path NUL lowercase-file-SHA256 newline` tuple, with the original path
+as a deterministic tie-break. Known text files are normalized to LF; binary
+assets remain byte-exact. The retained MIT licenses are included, and
+`.gitattributes` enforces LF for copied skill text. The SwiftUI tree pin was
+recomputed after a clean clone of immutable commit
+`65118ba010cbfcd4b985a4c83e29c74f37d1c1f1`; its 41-file copied tree plus the
+root MIT notice is byte-identical to the repository copy. The readiness
+validator checks every lock entry and skill root, file counts, skill and tree
+hashes, required notices, frontmatter, and rejects unlocked roots.
+
+Five additional locked skills are retained as useful project-local convenience
+tools. They do not define product behavior, are not shipping dependencies, and
+do not gain execution authority from being present. Their lock metadata is
+provenance-only; the readiness gate independently pins the copied bytes. Read a
+selected `SKILL.md` completely and review any command it proposes before use.
+
+| Supplemental skill | Files | `SKILL.md` SHA-256 | LF-text/binary-exact tree SHA-256 |
+|---|---:|---|---|
+| `agent-browser` | 1 | `bb6b4c5aae49ff88addb31312437f94242a3e5aae950503ab4f332e28186c261` | `d90860bd424c0888e5ae5e9a52bb1cd96b0ca51725f9e209b7e52b1545509d33` |
+| `find-skills` | 1 | `deddc03b4b5f50755b97fcdb737a786676992ef7e9be614d2cd2c71e0320bebf` | `de65c847e3929b71a535f055183e3adc7a3454361ae4f4f9c7bb21d8e0aeb68e` |
+| `improve-codebase-architecture` | 3 | `4b4cb798c3863d5b6f5c0b4604af1ecb5beb6df82553c972898a91ba38bcf289` | `b43ea86ec00eef865aa2ce1ddea630ca0a13fae7790298e082c35772b51b759e` |
+| `shadcn` | 15 | `a45cddd4511f8262df05b20506f4d52be8210a9ee05a13d9e36d4ee321bab593` | `679eca9603c19c3ae81e13dabe400de0de4889d6bc184b35f69b545abafb9c7c` |
+| `vercel-react-best-practices` | 76 | `71ed7794962fa6e803ee83030517b5b93a9f70fbfeb431ec4535c5480a8d8355` | `1eac6c4db59291404dff537eb9607e125fd31ebdc17a5fbc0631e0ec0c5d1b05` |
+
 The SwiftUI skill contains optional local `xctrace` Python helpers; they do not
 run automatically. Before an explicit profiling task, review argv, target,
 scope, input size, and output paths; never pass secrets through `--env`, use
 `--all-processes`, expose unredacted `--list-logs` output, follow a symlinked
 output, or treat trace-derived Markdown as trusted instructions. The other two
-installed releases contain no executables.
+audited Apple releases contain no executables.
 
-Do not add duplicate React/Next.js, backend, Python, E2E, OpenAI-docs, or
-verification skills: equivalent global/system skills are already present.
+Additional project-local skills are allowed when they solve a concrete project
+need and are added deliberately to `skills-lock.json` with local tree pins,
+frontmatter validation, executable review, source/license notes, and a full
+readiness run. Prefer the locked local copy when a same-name global skill also
+exists so behavior is deterministic. Do not refresh or expand the portfolio as
+an incidental side effect of another command.
 `dpearson2699/swift-ios-skills@realitykit` was deliberately not installed
 because its PolyForm Perimeter terms require a separate licensing decision.
 Do not run `npx skills install`, `npx skills update`, `npx skills check`, or an
@@ -308,16 +335,27 @@ mutable tag. Any skill change requires a new
 source/tag/commit/license/script audit, copied notice, lock/tree hash update,
 and full readiness run.
 
-This workstation also contains an older global GSD `1.5.0` surface at
-`~/.agents/gsd-core` and `~/.codex/gsd-core`, with duplicate global `gsd-*`
-skills and Codex agent files. It was not invoked, upgraded, or deleted during
-this PRE-GSD run. Codex does not merge same-name skills and may show both, so
-this is a **manual-onboarding stop condition**: before installing local `1.6.1`,
-inspect both `VERSION` files and the global skill picker, obtain explicit
-authorization for a version-matched global uninstall or upgrade, fully restart
-Codex, and prove that no stale `1.5.0` skill can compete with the local pin. Do
-not hand-delete user-home GSD state and do not run an old global skill in this
-repository.
+This workstation previously had a split global GSD state: a legacy Kimi-style
+installation under `~/.agents` was `1.5.0`, while the intended Codex-global
+installation under `~/.codex` was `1.6.1`. The older copy predated ReRoom and
+was not required by this repository. With explicit authorization on 2026-07-14,
+the exact pinned installer first reconciled that copy to `1.6.1`, then its
+runtime- and path-scoped uninstaller removed the Kimi/`.agents` GSD core,
+69 `gsd-*` skills, agent definition, manifest, and owned script files. The two
+named GSD migration residues left by the uninstaller were removed separately
+after resolving and validating both targets beneath `~/.agents`. All 85
+unrelated `.agents` skill directories remained present.
+
+The sole user-global GSD surface is now `~/.codex` at `1.6.1`, with 69 GSD
+skills. The user-level defaults contain no model or effort overrides and no
+secret-like keys. The intended final topology is this Codex-global surface plus
+the ReRoom-local `.codex` surface installed in section 6; project-local
+`.agents/skills` remain separately locked tooling, not another GSD install.
+Fully restart Codex before trusting the skill picker or installing the local
+surface because a running process retains its previously loaded skill registry.
+Future reappearance or version drift is a stop condition: use the exact pinned,
+runtime- and scope-specific installer/uninstaller, inspect its manifest and
+output, and do not broadly delete user-home state.
 
 ## 6. Install and discover stable GSD
 

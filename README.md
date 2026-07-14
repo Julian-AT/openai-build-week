@@ -50,13 +50,17 @@ The verifier checks archives and hashes, required documents, manifest paths, JSO
 ## GSD status and exact next step
 
 GSD Core has **not** been installed project-locally or run for this repository,
-and `.planning/` does not exist. An older user-global GSD `1.5.0` surface is a
-documented onboarding stop condition. Three pinned, license-reviewed
-project-local Codex skills cover the native Swift gap; they are agent tooling,
-not product/runtime/build dependencies. No model weight, cloud resource,
-product implementation, commit, push, or PR was created by this preparation.
+and `.planning/` does not exist. The sole user-global GSD installation is the
+pinned `1.6.1` Codex surface under `~/.codex`; the redundant Kimi/`.agents`
+surface and its GSD migration residue have been removed. A full Codex restart
+remains mandatory before project-local installation. Eight project-local skills
+are explicitly locked: three source/notice-audited Apple skills form the native
+baseline and five supplemental tools remain non-authoritative conveniences.
+They are agent tooling, not product/runtime/build dependencies. No model weight,
+cloud resource, product implementation, commit, push, or PR was created by this
+preparation.
 
-After all readiness checks pass, the exact first human action is to explicitly authorize the GSD onboarding run and confirm [the onboarding guide's complete preflight](docs/gsd/ONBOARDING_AND_CONTINUATION.md#5-preflight-before-the-first-run). Do not execute an onboarding command before that authorization. The first subsequent shell action is to establish a clean Git baseline beginning with:
+Onboarding authorization is recorded in [the onboarding guide](docs/gsd/ONBOARDING_AND_CONTINUATION.md#51-obtain-explicit-authorization). After all readiness checks pass and Codex has been fully restarted, establish the required clean Git baseline beginning with:
 
 ```text
 git status --short
