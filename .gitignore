@@ -1,0 +1,48 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+credentials.json
+secrets.json
+.credentials/
+
+# Generated caches and temporary research
+.cache/
+.tmp/
+tmp/
+temp/
+firecrawl-cache/
+research-crawls/
+*.crawl.json
+
+# Python and validation caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Codex/GSD transient state (project config and later planning docs are retained)
+.codex/log/
+.codex/tmp/
+.codex/sessions/
+.planning/.gsd-trace.jsonl
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Build/output noise if created after onboarding
+dist/
+build/
+coverage/
+*.log
+
+# Deliberately do not ignore .planning/: pinned GSD recommends committing planning docs.

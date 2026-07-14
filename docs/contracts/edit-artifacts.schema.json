@@ -1,0 +1,445 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reroom:schema:edit-artifacts:1",
+  "title": "ReRoom EditArtifact v1",
+  "description": "Tagged artifact union. Every external payload uses a named codec, content hash, revision, coordinate epoch, provenance, and capability readiness.",
+  "oneOf": [
+    { "$ref": "#/$defs/maskVolume" },
+    { "$ref": "#/$defs/surfaceMesh" },
+    { "$ref": "#/$defs/obb" },
+    { "$ref": "#/$defs/occluderChunk" },
+    { "$ref": "#/$defs/revealBundle" },
+    { "$ref": "#/$defs/assetManifest" },
+    { "$ref": "#/$defs/worldFrameCorrection" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "finiteNumber": {
+      "type": "number",
+      "minimum": -3.4028234663852886e38,
+      "maximum": 3.4028234663852886e38,
+      "description": "Finite binary32-range JSON number; deterministic validation applies RR-FLOAT-1 conversion and semantic checks."
+    },
+    "archiveRelativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$",
+      "description": "Normalized forward-slash path relative to the artifact root; no absolute, drive, UNC/backslash, dot, or dot-dot segments."
+    },
+    "readiness": { "enum": ["unavailable", "warming", "ready", "degraded", "failed"] },
+    "matrix4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "scalar_type", "math_convention", "units", "values"],
+      "properties": {
+        "layout": { "const": "row_major" },
+        "scalar_type": { "const": "float32" },
+        "math_convention": { "const": "column_vector" },
+        "units": { "const": "meters" },
+        "values": { "type": "array", "minItems": 16, "maxItems": 16, "items": { "$ref": "#/$defs/finiteNumber" } }
+      }
+    },
+    "worldMeshEncoding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "coordinate_convention", "vertex_coordinate_space", "units"],
+      "properties": {
+        "kind": { "const": "mesh_vertices_in_artifact_world_frame" },
+        "coordinate_convention": { "const": "RR-COORD-1" },
+        "vertex_coordinate_space": { "const": "artifact_world_frame" },
+        "units": { "const": "meters" }
+      },
+      "description": "Every GLB/PLY vertex is already expressed in the artifact's named RR-COORD-1 world frame/version; no node transform, asset-local convention, or implicit scale may be applied."
+    },
+    "voxelGridEncoding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "coordinate_convention", "world_from_volume", "voxel_size_xyz_m", "dimensions_xyz", "array_shape_order", "memory_order", "dtype", "empty_value", "occupied_value", "voxel_center_convention"],
+      "properties": {
+        "kind": { "const": "sparse_voxel_grid_v1" },
+        "coordinate_convention": { "const": "RR-COORD-1" },
+        "world_from_volume": { "$ref": "#/$defs/matrix4", "description": "Rigid transform from volume-local meter coordinates to the artifact's named world frame/version." },
+        "voxel_size_xyz_m": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/finiteNumber", "exclusiveMinimum": 0 } },
+        "dimensions_xyz": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "integer", "minimum": 1, "maximum": 16384 } },
+        "array_shape_order": { "const": "z_y_x", "description": "The NPY shape is exactly [dimensions_xyz[2], dimensions_xyz[1], dimensions_xyz[0]]." },
+        "memory_order": { "const": "c_contiguous" },
+        "dtype": { "const": "uint8" },
+        "empty_value": { "const": 0 },
+        "occupied_value": { "const": 1 },
+        "voxel_center_convention": { "const": "index_plus_half_times_voxel_size", "description": "Voxel (x,y,z) center in volume-local meters is ((x+0.5)*sx,(y+0.5)*sy,(z+0.5)*sz)." }
+      }
+    },
+    "maskSpatialEncoding": {
+      "oneOf": [
+        { "$ref": "#/$defs/worldMeshEncoding" },
+        { "$ref": "#/$defs/voxelGridEncoding" }
+      ]
+    },
+    "planarRevealMapping": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "coordinate_convention", "world_from_surface", "surface_plane", "polygon_rule", "texture_uv_convention", "vertices"],
+      "properties": {
+        "kind": { "const": "planar_polygon_uv_v1" },
+        "coordinate_convention": { "const": "RR-COORD-1" },
+        "world_from_surface": { "$ref": "#/$defs/matrix4", "description": "Rigid transform from layer-local surface coordinates to the reveal artifact's named world frame/version." },
+        "surface_plane": { "const": "local_xy_z_zero_meters" },
+        "polygon_rule": { "const": "convex_counter_clockwise_positive_z_triangle_fan_vertex_0", "description": "Vertices form a non-self-intersecting convex polygon, are counter-clockwise when seen from +Z, and triangles are (0,i,i+1)." },
+        "texture_uv_convention": { "const": "normalized_top_left_u_right_v_down" },
+        "vertices": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["surface_xy_m", "texture_uv"],
+            "properties": {
+              "surface_xy_m": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/finiteNumber" } },
+              "texture_uv": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 } }
+            }
+          }
+        }
+      },
+      "description": "P0's closed surface-to-texture mapping. Generic mesh UV atlases require a future contract version."
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "codec", "media_type", "byte_length", "sha256"],
+      "properties": {
+        "relative_path": { "$ref": "#/$defs/archiveRelativePath" },
+        "codec": { "enum": ["glb2", "ply_binary_little_endian_1_0", "npy_1_0", "json_jcs_1", "png", "jpeg", "ktx2_2_0", "usdz"] },
+        "media_type": { "type": "string", "minLength": 1 },
+        "byte_length": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "base": {
+      "type": "object",
+      "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256"],
+      "properties": {
+        "schema_version": { "const": "1.0.0" },
+        "artifact_id": { "type": "string", "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "artifact_type": { "type": "string" },
+        "artifact_revision": { "type": "integer", "minimum": 1 },
+        "origin_revision_branch_id": { "type": "string", "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Branch on which the immutable payload was first produced." },
+        "activation_revision_branch_id": { "type": "string", "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "Branch for which this artifact record is validated/eligible. Cross-fork reuse requires a new record that preserves content hash, origin branch, and compatible world epoch." },
+        "producing_authority_id": { "type": "string", "pattern": "^(device|gateway)_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "scene_revision": { "type": "integer", "minimum": 0 },
+        "world_frame_id": { "type": "string", "pattern": "^world_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "world_frame_version": { "type": "integer", "minimum": 1 },
+        "readiness": { "$ref": "#/$defs/readiness" },
+        "provider": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version", "configuration_sha256", "provenance"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 },
+            "configuration_sha256": { "$ref": "#/$defs/sha256" },
+            "provenance": { "enum": ["arkit", "deterministic_local", "learned_local", "learned_server", "human_validated"] }
+          }
+        },
+        "created_at_utc": { "type": "string", "format": "date-time" },
+        "content_sha256_algorithm": { "const": "RR-JCS-SHA256-1" },
+        "content_sha256_scope": { "const": "entire_artifact_record_with_content_sha256_member_omitted", "description": "Payload references and their raw-file SHA-256 values remain included; external payload bytes are not inlined into this structured digest." },
+        "content_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "maskVolume": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "object_id", "representation", "payload", "spatial_encoding", "source_frame_ids", "conservative_margin_m"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "mask_volume" },
+            "object_id": { "type": "string", "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "representation": { "enum": ["visual_hull_mesh", "sparse_voxel_occupancy"] },
+            "payload": { "$ref": "#/$defs/payload" },
+            "spatial_encoding": { "$ref": "#/$defs/maskSpatialEncoding" },
+            "source_frame_ids": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^frame_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } },
+            "conservative_margin_m": { "$ref": "#/$defs/finiteNumber", "minimum": 0 },
+            "valid_view_envelope_id": { "type": ["string", "null"], "pattern": "^envelope_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "representation": { "const": "visual_hull_mesh" } }, "required": ["representation"] },
+              "then": { "properties": { "payload": { "properties": { "codec": { "enum": ["glb2", "ply_binary_little_endian_1_0"] } } }, "spatial_encoding": { "$ref": "#/$defs/worldMeshEncoding" } } }
+            },
+            {
+              "if": { "properties": { "representation": { "const": "sparse_voxel_occupancy" } }, "required": ["representation"] },
+              "then": { "properties": { "payload": { "properties": { "codec": { "const": "npy_1_0" } } }, "spatial_encoding": { "$ref": "#/$defs/voxelGridEncoding" } } }
+            }
+          ]
+        }
+      ]
+    },
+    "surfaceMesh": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "owner_id", "payload", "spatial_encoding", "metric_scale_verified"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "surface_mesh" },
+            "owner_id": { "type": "string", "pattern": "^(object|surface)_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "payload": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "enum": ["glb2", "ply_binary_little_endian_1_0"] } } }] },
+            "spatial_encoding": { "$ref": "#/$defs/worldMeshEncoding" },
+            "metric_scale_verified": { "type": "boolean" },
+            "observed_support_fraction": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    },
+    "obb": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "object_id", "world_from_obb", "half_extents_m", "confidence"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "obb" },
+            "object_id": { "type": "string", "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "world_from_obb": { "$ref": "#/$defs/matrix4" },
+            "half_extents_m": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/finiteNumber", "exclusiveMinimum": 0 } },
+            "confidence": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 }
+          }
+        }
+      ]
+    },
+    "occluderChunk": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "canonical_owner_ids", "payload", "spatial_encoding", "coverage_envelope_id"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "occluder_chunk" },
+            "canonical_owner_ids": { "type": "array", "items": { "type": "string", "pattern": "^(object|surface)_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } },
+            "payload": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "enum": ["glb2", "ply_binary_little_endian_1_0"] } } }] },
+            "spatial_encoding": { "$ref": "#/$defs/worldMeshEncoding" },
+            "coverage_envelope_id": { "type": "string", "pattern": "^envelope_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+          }
+        }
+      ]
+    },
+    "revealLayer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer_id", "surface_id", "provenance", "payload", "mapping", "observed_coverage", "confidence"],
+      "properties": {
+        "layer_id": { "type": "string", "pattern": "^layer_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "surface_id": { "type": "string", "pattern": "^surface_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "provenance": { "enum": ["observed_atlas", "deterministic_fill", "bounded_neural_fill"] },
+        "payload": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "enum": ["png", "jpeg", "ktx2_2_0"] } } }] },
+        "mapping": { "$ref": "#/$defs/planarRevealMapping" },
+        "observed_coverage": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+        "confidence": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "viewEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["envelope_id", "sampled_camera_poses", "containment_rule"],
+      "properties": {
+        "envelope_id": { "type": "string", "pattern": "^envelope_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "sampled_camera_poses": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/matrix4" } },
+        "containment_rule": { "enum": ["nearest_pose_translation_rotation_bounds", "convex_pose_region"] },
+        "max_translation_m": { "$ref": "#/$defs/finiteNumber", "minimum": 0 },
+        "max_rotation_deg": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 180 }
+      }
+    },
+    "revealBundle": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "object_id", "layers", "supported_view_envelope", "foreground_occluder_artifact_ids", "quality"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "reveal_bundle" },
+            "object_id": { "type": "string", "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "layers": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/revealLayer" } },
+            "supported_view_envelope": { "$ref": "#/$defs/viewEnvelope" },
+            "foreground_occluder_artifact_ids": { "type": "array", "items": { "type": "string", "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } },
+            "quality": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["gate_id", "gate_revision", "fixture_id", "metric_version", "evidence_record_sha256", "coverage_p10", "coverage_median", "largest_uncovered_component_fraction", "synthesized_fraction", "foreground_overwrite_fraction", "severe_foreground_overwrite", "seam_severity", "severe_surface_order_artifact", "human_visual_votes_pass", "human_visual_votes_total"],
+              "properties": {
+                "gate_id": { "const": "GATE-006" },
+                "gate_revision": { "const": "1.0.0" },
+                "fixture_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "metric_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+                "evidence_record_sha256": { "$ref": "#/$defs/sha256" },
+                "coverage_p10": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+                "coverage_median": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+                "largest_uncovered_component_fraction": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+                "synthesized_fraction": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1, "description": "Aggregate fraction not sourced from observed atlas pixels; per-layer provenance remains authoritative." },
+                "foreground_overwrite_fraction": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+                "severe_foreground_overwrite": { "type": "boolean", "description": "Gate-aligned categorical result from the versioned foreground-overwrite rubric; false is mandatory for ready." },
+                "seam_severity": { "enum": ["none", "minor", "severe"] },
+                "severe_surface_order_artifact": { "type": "boolean" },
+                "human_visual_votes_pass": { "type": "integer", "minimum": 0, "maximum": 5 },
+                "human_visual_votes_total": { "const": 5 }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "readiness": { "const": "ready" } }, "required": ["readiness"] },
+              "then": {
+                "properties": {
+                  "quality": {
+                    "properties": {
+                      "coverage_p10": { "minimum": 0.95 },
+                      "coverage_median": { "minimum": 0.98 },
+                      "largest_uncovered_component_fraction": { "maximum": 0.01 },
+                      "severe_foreground_overwrite": { "const": false },
+                      "seam_severity": { "enum": ["none", "minor"] },
+                      "severe_surface_order_artifact": { "const": false },
+                      "human_visual_votes_pass": { "minimum": 4, "maximum": 5 },
+                      "human_visual_votes_total": { "const": 5 }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "assetManifest": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "asset_id", "display_name", "canonical_dimensions_m", "visual_bounds_m", "origin_convention", "forward_axis", "source", "license", "texture_budget", "delivery", "usdz", "glb", "collision", "lods", "validation_evidence_sha256"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "asset_manifest" },
+            "asset_id": { "type": "string", "pattern": "^asset_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "canonical_dimensions_m": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/finiteNumber", "exclusiveMinimum": 0 } },
+            "visual_bounds_m": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["minimum", "maximum"],
+              "properties": {
+                "minimum": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/finiteNumber" } },
+                "maximum": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "$ref": "#/$defs/finiteNumber" } }
+              },
+              "description": "Axis-wise minimum must be below maximum; deterministic validation enforces the cross-field relation."
+            },
+            "origin_convention": { "const": "floor_center_y_up" },
+            "forward_axis": { "const": "minus_z" },
+            "source": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source_url", "source_revision", "source_sha256", "author"],
+              "properties": {
+                "source_url": { "type": "string", "format": "uri" },
+                "source_revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "source_sha256": { "$ref": "#/$defs/sha256" },
+                "author": { "type": "string", "minLength": 1, "maxLength": 128 }
+              }
+            },
+            "license": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["spdx_or_terms", "terms_revision", "source_url", "use_approved", "redistribution_allowed", "attribution_required", "attribution", "approval_evidence_sha256"],
+              "properties": {
+                "spdx_or_terms": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "terms_revision": { "type": "string", "minLength": 1, "maxLength": 128 },
+                "source_url": { "type": "string", "format": "uri" },
+                "use_approved": { "const": true },
+                "redistribution_allowed": { "type": "boolean" },
+                "attribution_required": { "type": "boolean" },
+                "attribution": { "type": "string", "maxLength": 1024 },
+                "approval_evidence_sha256": { "$ref": "#/$defs/sha256" }
+              },
+              "allOf": [
+                {
+                  "if": { "properties": { "attribution_required": { "const": true } }, "required": ["attribution_required"] },
+                  "then": { "properties": { "attribution": { "minLength": 1 } } },
+                  "else": { "properties": { "attribution": { "const": "" } } }
+                }
+              ]
+            },
+            "texture_budget": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["max_dimension_px", "max_total_bytes", "allowed_formats"],
+              "properties": {
+                "max_dimension_px": { "type": "integer", "minimum": 1, "maximum": 8192 },
+                "max_total_bytes": { "type": "integer", "minimum": 1 },
+                "allowed_formats": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["png", "jpeg", "ktx2_2_0"] } }
+              }
+            },
+            "delivery": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["state", "network_required_at_edit_time", "native_verified", "web_verified"],
+              "properties": {
+                "state": { "enum": ["bundled_local", "preloaded_cache"] },
+                "network_required_at_edit_time": { "const": false },
+                "native_verified": { "const": true },
+                "web_verified": { "const": true }
+              }
+            },
+            "usdz": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "const": "usdz" } } }] },
+            "glb": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "const": "glb2" } } }] },
+            "collision": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "enum": ["glb2", "ply_binary_little_endian_1_0"] } } }] },
+            "lods": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "allOf": [{ "$ref": "#/$defs/payload" }, { "properties": { "codec": { "enum": ["glb2", "usdz"] } } }] } },
+            "validation_evidence_sha256": { "$ref": "#/$defs/sha256" }
+          },
+          "allOf": [
+            {
+              "if": { "properties": { "readiness": { "const": "ready" } }, "required": ["readiness"] },
+              "then": {
+                "properties": {
+                  "license": {
+                    "properties": {
+                      "use_approved": { "const": true },
+                      "redistribution_allowed": { "const": true }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "worldFrameCorrection": {
+      "allOf": [
+        { "$ref": "#/$defs/base" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "artifact_id", "artifact_type", "artifact_revision", "origin_revision_branch_id", "activation_revision_branch_id", "producing_authority_id", "scene_revision", "world_frame_id", "world_frame_version", "readiness", "provider", "created_at_utc", "content_sha256_algorithm", "content_sha256_scope", "content_sha256", "from_world_frame_version", "to_world_frame_version", "transform_status", "to_from_from_transform", "reason"],
+          "properties": {
+            "schema_version": {}, "artifact_id": {}, "artifact_revision": {}, "origin_revision_branch_id": {}, "activation_revision_branch_id": {}, "producing_authority_id": {}, "scene_revision": {}, "world_frame_id": {}, "world_frame_version": {}, "readiness": {}, "provider": {}, "created_at_utc": {}, "content_sha256_algorithm": {}, "content_sha256_scope": {}, "content_sha256": {},
+            "artifact_type": { "const": "world_frame_correction" },
+            "from_world_frame_version": { "type": "integer", "minimum": 1, "description": "Source epoch. Deterministic validation requires from_world_frame_version < to_world_frame_version." },
+            "to_world_frame_version": { "type": "integer", "minimum": 2, "description": "Destination epoch; must equal base world_frame_version and be greater than the source version." },
+            "transform_status": { "const": "validated", "description": "An unknown transform must not be represented as a correction artifact; consumers quarantine the new epoch until validated alignment or explicit reseed." },
+            "to_from_from_transform": { "$ref": "#/$defs/matrix4", "description": "Directed rigid transform T_to_from_from: p_to = T_to_from_from * p_from using RR-COORD-1 column vectors." },
+            "reason": { "enum": ["arkit_reset", "relocalization", "submap_merge", "human_alignment"] }
+          }
+        }
+      ]
+    }
+  }
+}

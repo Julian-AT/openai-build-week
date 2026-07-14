@@ -1,0 +1,4 @@
+# Merge manually into the user's ~/.codex/config.toml only after reviewing the path.
+# Project trust is intentionally user-scoped and must not be set by repository code.
+[projects."<ABSOLUTE_REPO_PATH>"]
+trust_level = "trusted"

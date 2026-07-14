@@ -1,0 +1,261 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reroom:schema:rrcap-manifest:1",
+  "title": "ReRoom .rrcap Manifest v1",
+  "description": "Manifest for a record-first capture whose replay authority is one contiguous global journal sequence and content hashes, not wall-clock timing or bit-identical neural outputs. Hash canonicalization uses RR-JCS-SHA256-1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format_version", "capture_kind", "session_id", "source", "files", "journal", "accepted_frame_order", "keyframes", "events", "replay", "privacy", "finalization"],
+  "properties": {
+    "format_version": { "const": "1.0.0" },
+    "capture_kind": { "enum": ["native_arkit", "ordinary_video_import"] },
+    "session_id": { "type": "string", "pattern": "^session_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "source": { "$ref": "#/$defs/source" },
+    "coordinate_convention": { "$ref": "#/$defs/coordinates" },
+    "capture_settings": { "$ref": "#/$defs/captureSettings" },
+    "files": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/file" } },
+    "journal": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/journalEntry" }, "description": "Authoritative total order. journal_sequence is unique, contiguous from zero, and strictly increasing; deterministic validation enforces ordering and exact references." },
+    "accepted_frame_order": { "type": "array", "items": { "$ref": "#/$defs/acceptedFrame" }, "description": "Exact projection of frame entries from journal, in journal order; deterministic validation enforces equality and contiguous frame sequence." },
+    "keyframes": { "type": "array", "items": { "$ref": "#/$defs/keyframe" } },
+    "events": { "type": "array", "items": { "$ref": "#/$defs/event" }, "description": "Exact projection of event entries from journal, in journal order; deterministic validation enforces reference ID, durable journal sequence, record hash, and contiguous event_sequence equality." },
+    "replay": { "$ref": "#/$defs/replay" },
+    "privacy": { "$ref": "#/$defs/privacy" },
+    "finalization": { "$ref": "#/$defs/finalization" },
+    "ordinary_video": { "$ref": "#/$defs/ordinaryVideo" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "capture_kind": { "const": "native_arkit" } }, "required": ["capture_kind"] },
+      "then": { "required": ["coordinate_convention", "capture_settings"], "not": { "required": ["ordinary_video"] } }
+    },
+    {
+      "if": { "properties": { "capture_kind": { "const": "ordinary_video_import" } }, "required": ["capture_kind"] },
+      "then": {
+        "required": ["ordinary_video"],
+        "not": { "anyOf": [{ "required": ["coordinate_convention"] }, { "required": ["capture_settings"] }] },
+        "properties": {
+          "accepted_frame_order": { "maxItems": 0 },
+          "keyframes": { "maxItems": 0 }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "archiveRelativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[A-Za-z0-9_-][A-Za-z0-9._-]*(?:/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$",
+      "description": "Normalized forward-slash path relative to the capture root; no absolute, drive, UNC/backslash, dot, or dot-dot segments."
+    },
+    "timestamp": { "type": "string", "pattern": "^(0|[1-9][0-9]*)$" },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_model", "os_version", "app_version", "build_id", "recorded_at_utc"],
+      "properties": {
+        "device_model": { "type": "string", "minLength": 1 },
+        "os_version": { "type": "string", "minLength": 1 },
+        "app_version": { "type": "string", "minLength": 1 },
+        "build_id": { "type": "string", "minLength": 1 },
+        "recorded_at_utc": { "type": "string", "format": "date-time" }
+      }
+    },
+    "coordinates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["convention", "world_frame_id", "initial_world_frame_version"],
+      "properties": {
+        "convention": { "const": "RR-COORD-1" },
+        "world_frame_id": { "type": "string", "pattern": "^world_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "initial_world_frame_version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "captureSettings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["camera_format", "frame_selection_policy", "queue_capacity", "high_resolution_keyframe_policy", "arkit_configuration"],
+      "properties": {
+        "camera_format": { "type": "string", "minLength": 1 },
+        "frame_selection_policy": { "type": "string", "minLength": 1 },
+        "queue_capacity": { "type": "integer", "minimum": 1 },
+        "high_resolution_keyframe_policy": { "type": "string", "minLength": 1 },
+        "arkit_configuration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["world_tracking", "plane_detection", "lidar_required"],
+          "properties": {
+            "world_tracking": { "const": true },
+            "plane_detection": { "type": "array", "uniqueItems": true, "items": { "enum": ["horizontal", "vertical"] } },
+            "lidar_required": { "const": false },
+            "feature_flags": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "media_type", "codec", "byte_length", "sha256", "role"],
+      "properties": {
+        "relative_path": { "$ref": "#/$defs/archiveRelativePath" },
+        "media_type": { "type": "string", "minLength": 1 },
+        "codec": { "enum": ["json_jcs_1", "jsonl_utf8_1", "jpeg", "png", "hevc_intra", "hevc_video", "h264_video", "glb2", "usdz", "ply_binary_little_endian_1_0", "npy_1_0", "ktx2_2_0"] },
+        "byte_length": { "type": "integer", "minimum": 0 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "role": { "enum": ["frame_image", "frame_metadata", "keyframe", "event_log", "artifact", "thumbnail", "ordinary_video"] }
+      }
+    },
+    "acceptedFrame": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "frame_id", "packet_path", "packet_sha256", "durable_journal_sequence"],
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 0 },
+        "frame_id": { "type": "string", "pattern": "^frame_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "packet_path": { "$ref": "#/$defs/archiveRelativePath" },
+        "packet_sha256": { "$ref": "#/$defs/sha256" },
+        "durable_journal_sequence": { "type": "integer", "minimum": 0 },
+        "server_acknowledged": { "type": "boolean" }
+      }
+    },
+    "keyframe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["frame_id", "reason", "file_path", "sha256"],
+      "properties": {
+        "frame_id": { "type": "string", "pattern": "^frame_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "reason": { "enum": ["view_novelty", "user_event", "recovery", "finalization"] },
+        "file_path": { "$ref": "#/$defs/archiveRelativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "journalEntry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["journal_sequence", "monotonic_timestamp_ns", "entry_type", "reference_id", "content_sha256"],
+          "properties": {
+            "journal_sequence": { "type": "integer", "minimum": 0 },
+            "monotonic_timestamp_ns": { "$ref": "#/$defs/timestamp" },
+            "entry_type": { "const": "frame" },
+            "reference_id": { "type": "string", "pattern": "^frame_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "content_sha256": { "$ref": "#/$defs/sha256", "description": "SHA-256 of the exact referenced FramePacket JSON bytes after RFC 8785 JCS canonicalization." }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["journal_sequence", "monotonic_timestamp_ns", "entry_type", "reference_id", "content_sha256"],
+          "properties": {
+            "journal_sequence": { "type": "integer", "minimum": 0 },
+            "monotonic_timestamp_ns": { "$ref": "#/$defs/timestamp" },
+            "entry_type": { "const": "event" },
+            "reference_id": { "type": "string", "pattern": "^event_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+            "content_sha256": { "$ref": "#/$defs/sha256", "description": "Must equal the referenced event record_sha256 (RR-JCS-SHA256-1 over that event with only record_sha256 omitted)." }
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_sequence", "durable_journal_sequence", "monotonic_timestamp_ns", "type", "payload_sha256", "payload_path", "record_sha256_algorithm", "record_sha256_scope", "record_sha256"],
+      "properties": {
+        "event_id": { "type": "string", "pattern": "^event_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "event_sequence": { "type": "integer", "minimum": 0 },
+        "durable_journal_sequence": { "type": "integer", "minimum": 0 },
+        "monotonic_timestamp_ns": { "$ref": "#/$defs/timestamp" },
+        "type": { "enum": ["session_started", "ordinary_video_imported", "world_frame_changed", "frame_selected", "frame_image_and_metadata_durable", "frame_journaled", "frame_network_eligible", "frame_server_acknowledged", "tracking_changed", "transaction", "session_finalized"] },
+        "payload_sha256": { "$ref": "#/$defs/sha256" },
+        "payload_path": { "$ref": "#/$defs/archiveRelativePath" },
+        "record_sha256_algorithm": { "const": "RR-JCS-SHA256-1" },
+        "record_sha256_scope": { "const": "entire_event_record_with_record_sha256_member_omitted" },
+        "record_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ordering_authority", "input_digest_algorithm", "input_digest_scope", "input_digest", "neural_determinism", "provider_lock"],
+      "properties": {
+        "ordering_authority": { "const": "global_journal_sequence" },
+        "input_digest_algorithm": { "const": "RR-JCS-SHA256-1" },
+        "input_digest_scope": { "const": "jcs_array_of_journal_sequence_entry_type_reference_id_content_sha256", "description": "RFC 8785 JCS of [[journal_sequence,entry_type,reference_id,content_sha256], ...] in contiguous ascending journal order, then SHA-256 of UTF-8 bytes." },
+        "input_digest": { "$ref": "#/$defs/sha256" },
+        "neural_determinism": { "const": "tolerance_based_when_provider_pinned" },
+        "provider_lock": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["provider", "version", "configuration_digest", "output_tolerance_policy"],
+            "properties": {
+              "provider": { "type": "string", "minLength": 1 },
+              "version": { "type": "string", "minLength": 1 },
+              "configuration_digest": { "$ref": "#/$defs/sha256" },
+              "output_tolerance_policy": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capture_consent_recorded", "contains_room_imagery", "retention_policy", "deletion_state", "share_access_state"],
+      "properties": {
+        "capture_consent_recorded": { "const": true, "description": "A .rrcap contains room imagery and cannot be created before consent. Denied sessions produce no capture manifest." },
+        "contains_room_imagery": { "const": true },
+        "retention_policy": { "enum": ["local_only_until_share", "session_ttl", "explicit_user_retention"] },
+        "retention_expires_at": { "type": ["string", "null"], "format": "date-time" },
+        "deletion_state": { "enum": ["none", "requested", "in_progress", "completed"] },
+        "deletion_requested_at": { "type": ["string", "null"], "format": "date-time" },
+        "share_access_state": { "enum": ["not_shared", "active", "revoked"] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "retention_policy": { "const": "session_ttl" } }, "required": ["retention_policy"] },
+          "then": { "required": ["retention_expires_at"], "properties": { "retention_expires_at": { "type": "string", "format": "date-time" } } }
+        },
+        {
+          "if": { "properties": { "deletion_state": { "enum": ["requested", "in_progress", "completed"] } }, "required": ["deletion_state"] },
+          "then": {
+            "required": ["deletion_requested_at"],
+            "properties": {
+              "deletion_requested_at": { "type": "string", "format": "date-time" },
+              "share_access_state": { "enum": ["not_shared", "revoked"] }
+            }
+          }
+        }
+      ]
+    },
+    "finalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "manifest_sha256_algorithm", "manifest_sha256_scope", "manifest_sha256", "last_durable_journal_sequence"],
+      "properties": {
+        "state": { "enum": ["open", "finalized", "recovered_prefix"] },
+        "manifest_sha256_algorithm": { "const": "RR-JCS-SHA256-1" },
+        "manifest_sha256_scope": { "const": "entire_manifest_with_finalization_manifest_sha256_member_omitted" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "last_durable_journal_sequence": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "ordinaryVideo": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file_path", "sha256", "container", "video_codec", "timeline_timebase", "calibration_state", "replay_guarantee", "learned_geometry_state"],
+      "properties": {
+        "file_path": { "$ref": "#/$defs/archiveRelativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "container": { "enum": ["mp4", "mov"] },
+        "video_codec": { "enum": ["h264_video", "hevc_video"] },
+        "timeline_timebase": { "type": "string", "pattern": "^[1-9][0-9]*/[1-9][0-9]*$", "description": "Exact rational seconds per media tick, numerator/denominator." },
+        "calibration_state": { "const": "uncalibrated_no_world_authority", "description": "No ARKit pose, scale, intrinsics, planes, or RR-COORD-1 world frame may be fabricated for an ordinary video import." },
+        "replay_guarantee": { "const": "decode_and_timeline_only" },
+        "learned_geometry_state": { "enum": ["unavailable", "warming", "ready", "degraded", "failed"] }
+      }
+    }
+  }
+}

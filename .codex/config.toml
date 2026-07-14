@@ -1,0 +1,28 @@
+# Project-scoped Codex configuration. Secrets are inherited by environment name only.
+sandbox_mode = "workspace-write"
+
+[sandbox_workspace_write]
+network_access = true
+
+[agents]
+max_threads = 3
+max_depth = 1
+
+[mcp_servers.firecrawl]
+command = "npx"
+args = ["--yes", "firecrawl-mcp@3.22.3"]
+env_vars = ["FIRECRAWL_API_KEY"]
+startup_timeout_sec = 30
+tool_timeout_sec = 600
+enabled = true
+required = false
+enabled_tools = [
+  "firecrawl_search",
+  "firecrawl_scrape",
+  "firecrawl_map",
+  "firecrawl_crawl",
+  "firecrawl_check_crawl_status",
+  "firecrawl_extract",
+  "firecrawl_agent",
+  "firecrawl_agent_status"
+]
