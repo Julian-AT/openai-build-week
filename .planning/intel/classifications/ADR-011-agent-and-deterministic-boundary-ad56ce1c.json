@@ -1,0 +1,23 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-011-agent-and-deterministic-boundary.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-011: Agent Intent and Deterministic System Boundary",
+  "summary": "Defines the nonmutating agent intent boundary that keeps typed, voice, and GPT proposals subordinate to deterministic validation, scene mutation, commit, and restore authority.",
+  "scope": [
+    "typed and tap intent ingress",
+    "optional voice input",
+    "submit_user_intent boundary",
+    "Realtime WebRTC",
+    "gateway",
+    "GPT-5.6 Sol",
+    "Responses API",
+    "deterministic application authority",
+    "scene transactions",
+    "credential handling"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": 0
+}

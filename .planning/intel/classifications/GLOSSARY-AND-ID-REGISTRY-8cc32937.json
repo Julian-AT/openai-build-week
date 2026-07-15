@@ -1,0 +1,29 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/canonical/GLOSSARY_AND_ID_REGISTRY.md",
+  "type": "DOC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "Glossary and ID Registry",
+  "summary": "Defines ReRoom canonical terminology, lifecycle values, coordinate conventions, stable ID families, artifact types, and the contract registry.",
+  "scope": [
+    "product modes",
+    "capture and coordinate conventions",
+    "scene and geometry terms",
+    "lifecycle and readiness states",
+    "transactions and offline state",
+    "edit artifact variants",
+    "stable ID families",
+    "contract registry"
+  ],
+  "cross_refs": [
+    "docs/contracts/edit-artifacts.schema.json",
+    "frame-packet.schema.json",
+    "rrcap-manifest.schema.json",
+    "scene-state.schema.json",
+    "edit-artifacts.schema.json",
+    "transaction.schema.json"
+  ],
+  "locked": false,
+  "precedence": 40,
+  "notes": ""
+}

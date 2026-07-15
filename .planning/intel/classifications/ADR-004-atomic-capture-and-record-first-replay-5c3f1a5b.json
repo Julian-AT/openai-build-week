@@ -1,0 +1,21 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-004-atomic-capture-and-record-first-replay.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-004: Record-First Capture, Transport, and Replay",
+  "summary": "Defines crash-safe record-first capture durability, transport eligibility, bounded live sending, journal-authoritative replay ordering, and validation gates.",
+  "scope": [
+    "atomic frame capture",
+    "local global journal",
+    "network transport",
+    "bounded send queue",
+    "deterministic replay",
+    "sparse keyframes",
+    ".rrcap input digest"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": 0,
+  "notes": ""
+}

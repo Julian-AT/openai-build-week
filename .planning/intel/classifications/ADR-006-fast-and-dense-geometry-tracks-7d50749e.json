@@ -1,0 +1,28 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-006-fast-and-dense-geometry-tracks.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-006: Separate Fast Interaction and Dense Geometry Tracks",
+  "summary": "Accepts separate fast interaction and asynchronous dense geometry tracks so conservative ARKit-based editing can proceed without dense inference while preserving identity and transaction validity.",
+  "scope": [
+    "ARKit planes",
+    "calibrated target masks",
+    "multi-view mask volume",
+    "oriented bounding box",
+    "support relation",
+    "reveal and view-envelope evidence",
+    "dense geometry",
+    "depth-aligned surfaces",
+    "collision evidence",
+    "occluders",
+    "B0 visualization",
+    "stable object IDs",
+    "committed transactions",
+    "capture and replay"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": 0,
+  "notes": ""
+}

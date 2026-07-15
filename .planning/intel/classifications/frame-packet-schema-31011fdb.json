@@ -1,0 +1,23 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/contracts/frame-packet.schema.json",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ReRoom FramePacket v1",
+  "summary": "Defines the atomic FramePacket contract for image payloads, calibration, pose, tracking, quality, durability, ordering, idempotency, and binary wire framing.",
+  "scope": [
+    "FramePacket",
+    "image payload",
+    "camera calibration",
+    "camera pose",
+    "tracking state",
+    "capture quality",
+    "durability metadata",
+    "idempotency metadata",
+    "binary wire framing"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 20,
+  "notes": ""
+}

@@ -1,0 +1,22 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-012-transaction-and-offline-restore.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-012: Revisioned Transactions and Offline Restore",
+  "summary": "Defines revisioned single-writer transactions, idempotent commits, durable offline inverses, and compensating restore across native and gateway-authoritative branches.",
+  "scope": [
+    "revision branches",
+    "scene transactions",
+    "idempotency keys",
+    "scene revisions",
+    "offline restore",
+    "projection inverses",
+    "sync state",
+    "gateway reconciliation"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": 0,
+  "notes": ""
+}

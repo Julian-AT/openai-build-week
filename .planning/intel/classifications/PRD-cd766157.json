@@ -1,0 +1,31 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/canonical/PRD.md",
+  "type": "PRD",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ReRoom Product Requirements Document",
+  "summary": "Defines ReRoom's P0 product intent, four-operation scope, native and web modes, requirements, UX readiness, boundaries, release gates, and stretch work.",
+  "scope": [
+    "ReRoom",
+    "Mode A",
+    "Mode B0",
+    "Mode B1",
+    "native SwiftUI iPhone client",
+    "Next.js web client",
+    ".rrcap capture and replay",
+    "edit transactions",
+    "place",
+    "replace",
+    "remove",
+    "restore",
+    "security requirements",
+    "release gates"
+  ],
+  "cross_refs": [
+    "GLOSSARY_AND_ID_REGISTRY.md",
+    "docs/contracts/"
+  ],
+  "locked": false,
+  "precedence": 30,
+  "notes": ""
+}

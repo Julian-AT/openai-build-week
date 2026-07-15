@@ -1,0 +1,31 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-007-segmentation-and-depth-providers.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-007: Versioned Segmentation and Depth Providers",
+  "summary": "Defines versioned segmentation and depth provider choices, fallbacks, benchmarks, licensing gates, and degradation rules for semantic, native-depth, and ordinary-video processing.",
+  "scope": [
+    "segmentation providers",
+    "depth providers",
+    "SAM 2.1 Hiera Small",
+    "SAM 3.1",
+    "Depth Anything 3",
+    "LingBot-Map",
+    "Mode B0 replay",
+    "provider licensing",
+    "benchmark gates"
+  ],
+  "cross_refs": [
+    "https://raw.githubusercontent.com/facebookresearch/sam3/main/RELEASE_SAM3p1.md",
+    "https://raw.githubusercontent.com/facebookresearch/sam3/main/README.md",
+    "https://raw.githubusercontent.com/facebookresearch/sam3/main/LICENSE",
+    "https://raw.githubusercontent.com/facebookresearch/sam2/main/README.md",
+    "https://raw.githubusercontent.com/facebookresearch/sam2/main/LICENSE",
+    "https://raw.githubusercontent.com/ByteDance-Seed/Depth-Anything-3/main/README.md",
+    "https://raw.githubusercontent.com/Robbyant/lingbot-map/main/README.md"
+  ],
+  "locked": false,
+  "precedence": 10,
+  "notes": ""
+}

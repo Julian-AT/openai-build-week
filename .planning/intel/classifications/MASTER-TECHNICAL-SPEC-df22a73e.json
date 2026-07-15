@@ -1,0 +1,28 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/canonical/MASTER_TECHNICAL_SPEC.md",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ReRoom Master Technical Specification",
+  "summary": "Defines ReRoom's native AR, web replay, capture, scene, rendering, transaction, AI, service, security, performance, fallback architecture, and technical contracts.",
+  "scope": [
+    "Mode A native iPhone client",
+    "Mode B0 Next.js replay client",
+    "ARKit coordinate authority",
+    "FramePacket capture",
+    ".rrcap replay",
+    "canonical scene identity and readiness",
+    "derived artifacts and reveal bundles",
+    "edit transactions and restore",
+    "RealityKit compositor",
+    "gateway and CV worker topology",
+    "OpenAI proposal boundary",
+    "observability",
+    "security and privacy",
+    "benchmark gates"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 20,
+  "notes": ""
+}

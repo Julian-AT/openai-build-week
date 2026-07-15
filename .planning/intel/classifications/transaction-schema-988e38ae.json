@@ -1,0 +1,27 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/contracts/transaction.schema.json",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ReRoom Transaction v1",
+  "summary": "Defines the deterministic ReRoom transaction contract for validation, preview, commit, compensation, synchronization, reconciliation, and revision-safe scene edits.",
+  "scope": [
+    "transactions",
+    "validation",
+    "previews",
+    "commits",
+    "restore compensation",
+    "revision authority",
+    "scene revisions",
+    "idempotency",
+    "synchronization",
+    "reconciliation",
+    "operations",
+    "artifact references",
+    "edit projections"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 20,
+  "notes": ""
+}

@@ -1,0 +1,25 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-014-service-topology-and-hardware-tiers.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-014: Minimal Service Topology and Hardware Tiers",
+  "summary": "Defines the minimal P0 service topology, branch authority, persistence baseline, bounded GPU scheduling, and measured hardware capability tiers.",
+  "scope": [
+    "gateway",
+    "Next.js client/UI",
+    "native device branch authority",
+    "CV worker profiles",
+    "SQLite WAL",
+    "content-addressed filesystem storage",
+    "GPU scheduler",
+    "hardware capability tiers"
+  ],
+  "cross_refs": [
+    "ADR-001",
+    "ADR-002"
+  ],
+  "locked": true,
+  "precedence": 0,
+  "notes": ""
+}

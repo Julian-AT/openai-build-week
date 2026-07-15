@@ -1,0 +1,25 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/contracts/rrcap-manifest.schema.json",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ReRoom .rrcap Manifest v1",
+  "summary": "Defines the version 1 .rrcap capture manifest contract for sources, files, ordered journals, replay, privacy, and finalization.",
+  "scope": [
+    "ReRoom .rrcap manifests",
+    "record-first captures",
+    "capture sources",
+    "file inventory",
+    "global journals",
+    "accepted frames",
+    "keyframes",
+    "events",
+    "replay authority",
+    "privacy state",
+    "finalization"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 20,
+  "notes": ""
+}

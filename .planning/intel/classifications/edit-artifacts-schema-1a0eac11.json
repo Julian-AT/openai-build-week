@@ -1,0 +1,21 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/contracts/edit-artifacts.schema.json",
+  "type": "SPEC",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ReRoom EditArtifact v1",
+  "summary": "Defines the versioned JSON contract for ReRoom edit artifacts, payloads, spatial encodings, provenance, readiness, quality gates, and world-frame corrections.",
+  "scope": [
+    "edit artifacts",
+    "artifact payloads",
+    "spatial encodings",
+    "provenance",
+    "capability readiness",
+    "quality gates",
+    "world-frame corrections"
+  ],
+  "cross_refs": [],
+  "locked": false,
+  "precedence": 20,
+  "notes": ""
+}

@@ -1,0 +1,22 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-003-arkit-authority-and-coordinates.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-003: ARKit World Authority and RR-COORD-1",
+  "summary": "Defines ARKit as world authority and standardizes RR-COORD-1 coordinates, transforms, timestamps, reset handling, validation, and cross-language projection behavior.",
+  "scope": [
+    "ARKit",
+    "RR-COORD-1",
+    "FramePacket",
+    "coordinate transforms",
+    "camera intrinsics",
+    "world-frame versions",
+    "monotonic timestamps",
+    "projection fixtures"
+  ],
+  "cross_refs": [],
+  "locked": true,
+  "precedence": 0,
+  "notes": ""
+}

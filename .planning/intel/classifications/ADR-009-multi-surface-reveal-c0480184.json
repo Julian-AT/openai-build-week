@@ -1,0 +1,25 @@
+{
+  "source_path": "C:/Development/Private/openai-build-week/docs/adr/ADR-009-multi-surface-reveal.md",
+  "type": "ADR",
+  "confidence": "high",
+  "manifest_override": true,
+  "title": "ADR-009: Multi-Surface Reveal and Supported View Envelope",
+  "summary": "Defines a provisional, view-bounded multi-surface reveal bundle, its mapping contract, provenance rules, readiness gate, commit behavior, risks, and fallback.",
+  "scope": [
+    "multi-surface reveal bundle",
+    "surface layers",
+    "supported-view envelope",
+    "texture provenance",
+    "foreground proxies",
+    "remove readiness",
+    "scene revisions",
+    "GATE-006"
+  ],
+  "cross_refs": [
+    "ADR-005",
+    "ADR-001"
+  ],
+  "locked": false,
+  "precedence": 10,
+  "notes": ""
+}
