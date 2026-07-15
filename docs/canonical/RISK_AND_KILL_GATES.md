@@ -6,7 +6,7 @@ Date: 2026-07-13
 
 ## 1. Use of this register
 
-This file is the authoritative `GATE-NNN` mapping. Terms and requirement IDs come from [GLOSSARY_AND_ID_REGISTRY.md](GLOSSARY_AND_ID_REGISTRY.md) and [PRD.md](PRD.md). Test procedures and evidence formats live in [TEST_AND_EVALUATION_PLAN.md](TEST_AND_EVALUATION_PLAN.md). ADRs own the architectural decision; this register owns the operational trigger and final kill rule.
+This file is the authoritative `GATE-NNN` mapping. Terms and requirement IDs come from [GLOSSARY_AND_ID_REGISTRY.md](GLOSSARY_AND_ID_REGISTRY.md) and [PRD.md](PRD.md). Evidence procedures and formats are identified by the canonical `TEST-NNN` and `EVAL-NNN` registries. ADRs own the architectural decision; this register owns the operational trigger and final kill rule.
 
 Every numeric value below is a **TARGET**, not a measured result. A gate becomes green only when an evidence record identifies the fixture version, implementation revision, device/runtime tier, provider and checkpoint revisions, run count, raw output location, metric code revision, and evaluator. Missing evidence is a failed gate, not an assumed pass.
 

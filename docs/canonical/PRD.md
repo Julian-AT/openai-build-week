@@ -352,7 +352,7 @@ P0 depends on a signed base-iPhone build, ARKit world tracking/planes, local dur
 
 ## 8. Release criteria and success metrics
 
-P0 releases only when all P0 requirements above pass, all blocking gates in `RISK_AND_KILL_GATES.md` are green, the four-operation inventory is present, controlled removal passes rather than being demoted, the B0 replay works without learned providers, secrets/license checks pass, and OPS-GOLDEN-001 is 5/5. Benchmark values are TARGET until results are attached to the test evidence record.
+P0 releases only when all P0 requirements above pass, all blocking `GATE-NNN` records are green, the four-operation inventory is present, controlled removal passes rather than being demoted, the B0 replay works without learned providers, secrets/license checks pass, and OPS-GOLDEN-001 is 5/5. Benchmark values are TARGET until results are attached to the test evidence record.
 
 Primary success metrics are golden-run completion, exact replay/revision traces, removal reveal quality, target mask stability, mobile frame-time/thermal distributions, edit latency distributions, typed intent correctness, recovery with zero acknowledged edit loss, and clear user understanding of readiness/degradation. Optional voice accuracy is tracked separately and cannot compensate for a typed-path failure.
 
