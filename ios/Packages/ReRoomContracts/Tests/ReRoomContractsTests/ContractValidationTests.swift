@@ -360,7 +360,7 @@ private struct ContractFixture {
                 identifier: try #require(ContractSchemaIdentifier(rawValue: reference.schemaID)),
                 version: "1.0.0",
                 sha256: reference.sha256,
-                schemaData: readRepositoryFile(reference.relativePath)
+                schemaData: try readRepositoryFile(reference.relativePath)
             )
         }
     }
