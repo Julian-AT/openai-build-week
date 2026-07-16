@@ -1,0 +1,304 @@
+{
+  "schema_version": "1.0.0",
+  "plan_id": "01-04",
+  "retrieved_at_utc": "2026-07-16T11:29:47Z",
+  "candidate_policy": {
+    "allowlist": [
+      "ajv",
+      "ajv-formats",
+      "canonicalize",
+      "jsonschema",
+      "rfc8785",
+      "swift-json-schema"
+    ],
+    "allowed_decisions": [
+      "pending",
+      "approved",
+      "rejected",
+      "fallback_selected"
+    ],
+    "locks_or_installs_permitted": false,
+    "human_decision_required_for_every_candidate": true
+  },
+  "fallback_smoke_tests": {
+    "js-frozen-schema": {
+      "status": "passed",
+      "runtime": "Node.js 22.22.3",
+      "coverage": "required/type/closed-object fail-closed subset"
+    },
+    "js-formats": {
+      "status": "passed",
+      "runtime": "Node.js 22.22.3",
+      "coverage": "date-time and absolute URI accept/reject subset"
+    },
+    "js-jcs-subset": {
+      "status": "passed",
+      "runtime": "Node.js 22.22.3",
+      "coverage": "recursive deterministic object-key ordering subset"
+    },
+    "python-frozen-schema": {
+      "status": "passed",
+      "runtime": "Python 3.13.12 with -B",
+      "coverage": "required/type/closed-object fail-closed subset"
+    },
+    "python-jcs-subset": {
+      "status": "passed",
+      "runtime": "Python 3.13.12 with -B",
+      "coverage": "compact UTF-8 sorted-key subset with non-finite rejection enabled"
+    },
+    "swift-frozen-schema": {
+      "status": "passed",
+      "runtime": "Swift 6.3",
+      "coverage": "required/type/closed-object fail-closed subset"
+    },
+    "scope_limit": "Smoke tests establish that each named no-package route is executable. They do not establish Draft 2020-12 or RFC 8785 conformance; a fallback may be selected only with the complete frozen CON-001 through CON-005 and RR-JCS-SHA256-1 corpus."
+  },
+  "candidates": {
+    "ajv": {
+      "ecosystem": "npm",
+      "proposed_version": "8.20.0",
+      "decision": "pending",
+      "role": "Independent JavaScript validation of the five frozen Draft 2020-12 ReRoom contract schemas via the explicit 2020 entry point.",
+      "artifact": {
+        "filename": "ajv-8.20.0.tgz",
+        "url": "https://registry.npmjs.org/ajv/-/ajv-8.20.0.tgz",
+        "registry_metadata_url": "https://registry.npmjs.org/ajv/8.20.0",
+        "integrity": "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA==",
+        "sha1": "304b3636add88ba7d936760dd50ece006dea95f9"
+      },
+      "license": {
+        "spdx": "MIT",
+        "compatibility": "compatible_candidate_not_approved",
+        "evidence": "https://registry.npmjs.org/ajv/8.20.0"
+      },
+      "current_official_documentation": [
+        "https://ajv.js.org/json-schema.html",
+        "https://github.com/ajv-validator/ajv/releases/tag/v8.20.0"
+      ],
+      "legitimacy": {
+        "seam": "GSD package-legitimacy check",
+        "verdict": "OK",
+        "reasons": [],
+        "weekly_downloads_observed": 256100914,
+        "deprecated": false,
+        "postinstall": null
+      },
+      "fallback": {
+        "name": "frozen ReRoom JavaScript schema-profile validator",
+        "kind": "manual_stdlib",
+        "scope": "Only the exact keyword/reference surface used by CON-001 through CON-005; reject every unsupported keyword and never weaken a schema.",
+        "smoke_test": "js-frozen-schema",
+        "acceptance_gate": "Complete valid/invalid fixture corpus and rejection-class parity with the independent Python and Swift runners."
+      }
+    },
+    "ajv-formats": {
+      "ecosystem": "npm",
+      "proposed_version": "3.0.1",
+      "decision": "pending",
+      "role": "Adds the date-time and URI format validators used by the frozen ReRoom schemas to the JavaScript Ajv instance.",
+      "artifact": {
+        "filename": "ajv-formats-3.0.1.tgz",
+        "url": "https://registry.npmjs.org/ajv-formats/-/ajv-formats-3.0.1.tgz",
+        "registry_metadata_url": "https://registry.npmjs.org/ajv-formats/3.0.1",
+        "integrity": "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ==",
+        "sha1": "3d5dc762bca17679c3c2ea7e90ad6b7532309578"
+      },
+      "license": {
+        "spdx": "MIT",
+        "compatibility": "compatible_candidate_not_approved",
+        "evidence": "https://registry.npmjs.org/ajv-formats/3.0.1"
+      },
+      "current_official_documentation": [
+        "https://github.com/ajv-validator/ajv-formats/blob/v3.0.1/README.md",
+        "https://ajv.js.org/packages/ajv-formats.html"
+      ],
+      "legitimacy": {
+        "seam": "GSD package-legitimacy check",
+        "verdict": "OK",
+        "reasons": [],
+        "weekly_downloads_observed": 100210985,
+        "deprecated": false,
+        "postinstall": null
+      },
+      "fallback": {
+        "name": "allowlisted ReRoom format validators",
+        "kind": "manual_stdlib",
+        "scope": "Validate only date-time and absolute URI, the complete format set currently present in CON-001 through CON-005; fail closed on any newly introduced format.",
+        "smoke_test": "js-formats",
+        "acceptance_gate": "All format fixtures plus schema-hash drift detection."
+      }
+    },
+    "canonicalize": {
+      "ecosystem": "npm",
+      "proposed_version": "3.0.0",
+      "decision": "pending",
+      "role": "Independent JavaScript RFC 8785 byte generation checked against the immutable RR-JCS-SHA256-1 oracle.",
+      "artifact": {
+        "filename": "canonicalize-3.0.0.tgz",
+        "url": "https://registry.npmjs.org/canonicalize/-/canonicalize-3.0.0.tgz",
+        "registry_metadata_url": "https://registry.npmjs.org/canonicalize/3.0.0",
+        "integrity": "sha512-yYLfHyDMIXRyRqsKBRLX023riFLpXY2YOfdtqKXZRZy9qsfOJ9U+4F9YZL7MEzL5+ziN2x2nlBvY/Voi3EBljA==",
+        "sha1": "a8073c48c1835631e1829d759078d2bbf48487fc"
+      },
+      "license": {
+        "spdx": "Apache-2.0",
+        "compatibility": "compatible_candidate_not_approved",
+        "evidence": "https://registry.npmjs.org/canonicalize/3.0.0"
+      },
+      "current_official_documentation": [
+        "https://github.com/erdtman/canonicalize",
+        "https://www.rfc-editor.org/rfc/rfc8785"
+      ],
+      "legitimacy": {
+        "seam": "GSD package-legitimacy check",
+        "verdict": "OK",
+        "reasons": [],
+        "weekly_downloads_observed": 1837496,
+        "deprecated": false,
+        "postinstall": null
+      },
+      "fallback": {
+        "name": "narrow in-repo JavaScript RR-JCS-SHA256-1 serializer",
+        "kind": "manual_stdlib",
+        "scope": "I-JSON inputs only, UTF-16 property ordering, ECMAScript number serialization, UTF-8 output, and fail-closed duplicate/non-finite/invalid-Unicode handling.",
+        "smoke_test": "js-jcs-subset",
+        "acceptance_gate": "All RFC 8785 and cross-language byte/digest vectors; the smoke test alone is intentionally insufficient."
+      }
+    },
+    "jsonschema": {
+      "ecosystem": "pypi",
+      "proposed_version": "4.26.0",
+      "decision": "pending",
+      "role": "Independent Python Draft 2020-12 schema validation using Draft202012Validator.check_schema and programmatic validators.",
+      "artifacts": [
+        {
+          "filename": "jsonschema-4.26.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl",
+          "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce"
+        },
+        {
+          "filename": "jsonschema-4.26.0.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/b3/fc/e067678238fa451312d4c62bf6e6cf5ec56375422aee02f9cb5f909b3047/jsonschema-4.26.0.tar.gz",
+          "sha256": "0c26707e2efad8aa1bfc5b7ce170f3fccc2e4918ff85989ba9ffa9facb2be326"
+        }
+      ],
+      "registry_metadata_url": "https://pypi.org/pypi/jsonschema/4.26.0/json",
+      "license": {
+        "spdx": "MIT",
+        "compatibility": "compatible_candidate_not_approved",
+        "evidence": "https://github.com/python-jsonschema/jsonschema/blob/v4.26.0/COPYING"
+      },
+      "current_official_documentation": [
+        "https://python-jsonschema.readthedocs.io/en/stable/validate/",
+        "https://github.com/python-jsonschema/jsonschema/releases/tag/v4.26.0"
+      ],
+      "legitimacy": {
+        "seam": "GSD package-legitimacy check",
+        "verdict": "SUS",
+        "signal_only": true,
+        "reasons": [
+          "unknown-downloads"
+        ],
+        "meaning": "The GSD PyPI adapter has no weekly-download source; this is an incomplete audit signal, not evidence of maliciousness.",
+        "deprecated": false,
+        "postinstall": null
+      },
+      "fallback": {
+        "name": "frozen ReRoom Python schema-profile validator",
+        "kind": "manual_stdlib",
+        "scope": "Only the exact keyword/reference surface used by CON-001 through CON-005; reject every unsupported keyword and never weaken a schema.",
+        "smoke_test": "python-frozen-schema",
+        "acceptance_gate": "Complete valid/invalid fixture corpus and rejection-class parity with independent JavaScript and Swift runners."
+      }
+    },
+    "rfc8785": {
+      "ecosystem": "pypi",
+      "proposed_version": "0.1.4",
+      "decision": "pending",
+      "role": "Independent pure-Python RFC 8785 byte generation checked against the immutable RR-JCS-SHA256-1 oracle.",
+      "artifacts": [
+        {
+          "filename": "rfc8785-0.1.4-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/4d/78/119878110660b2ad709888c8a1614fce7e2fab39080ab960656dc8605bf6/rfc8785-0.1.4-py3-none-any.whl",
+          "sha256": "520d690b448ecf0703691c76e1a34a24ddcd4fc5bc41d589cb7c58ec651bcd48"
+        },
+        {
+          "filename": "rfc8785-0.1.4.tar.gz",
+          "url": "https://files.pythonhosted.org/packages/ef/2f/fa1d2e740c490191b572d33dbca5daa180cb423c24396b856f5886371d8b/rfc8785-0.1.4.tar.gz",
+          "sha256": "e545841329fe0eee4f6a3b44e7034343100c12b4ec566dc06ca9735681deb4da"
+        }
+      ],
+      "registry_metadata_url": "https://pypi.org/pypi/rfc8785/0.1.4/json",
+      "license": {
+        "spdx": "Apache-2.0",
+        "compatibility": "compatible_candidate_not_approved",
+        "evidence": "https://github.com/trailofbits/rfc8785.py/blob/v0.1.4/LICENSE"
+      },
+      "current_official_documentation": [
+        "https://trailofbits.github.io/rfc8785.py/",
+        "https://github.com/trailofbits/rfc8785.py/tree/v0.1.4"
+      ],
+      "legitimacy": {
+        "seam": "GSD package-legitimacy check",
+        "verdict": "SUS",
+        "signal_only": true,
+        "reasons": [
+          "unknown-downloads"
+        ],
+        "meaning": "The GSD PyPI adapter has no weekly-download source; this is an incomplete audit signal, not evidence of maliciousness.",
+        "deprecated": false,
+        "postinstall": null
+      },
+      "fallback": {
+        "name": "narrow in-repo Python RR-JCS-SHA256-1 serializer",
+        "kind": "manual_stdlib",
+        "scope": "I-JSON inputs only with explicit ECMAScript-number compatibility and fail-closed duplicate/non-finite/invalid-Unicode handling.",
+        "smoke_test": "python-jcs-subset",
+        "acceptance_gate": "All RFC 8785 and cross-language byte/digest vectors; Python json.dumps is not itself accepted as the implementation."
+      }
+    },
+    "swift-json-schema": {
+      "ecosystem": "swiftpm",
+      "proposed_version": "0.13.1",
+      "proposed_revision": "f299eb1cce78b2dd736d9a390ec0779d28678416",
+      "decision": "pending",
+      "role": "Wave-0 candidate for native Swift validation of the frozen CON-001 through CON-005 Draft 2020-12 schemas.",
+      "artifact": {
+        "filename": "swift-json-schema-f299eb1cce78b2dd736d9a390ec0779d28678416.tar.gz",
+        "url": "https://codeload.github.com/ajevans99/swift-json-schema/tar.gz/f299eb1cce78b2dd736d9a390ec0779d28678416",
+        "sha256": "44a08fbc16f47cf11e9ac034c6985bb9b77e6e3c678de1630f106a79b7c691ae",
+        "tag": "v0.13.1",
+        "tag_api": "https://api.github.com/repos/ajevans99/swift-json-schema/git/ref/tags/v0.13.1"
+      },
+      "license": {
+        "spdx": "MIT",
+        "compatibility": "compatible_candidate_not_approved",
+        "evidence": "https://github.com/ajevans99/swift-json-schema/blob/v0.13.1/LICENSE"
+      },
+      "toolchain": {
+        "swift_tools_version": "6.1",
+        "minimum_ios": "16.0",
+        "manifest_evidence": "https://github.com/ajevans99/swift-json-schema/blob/v0.13.1/Package.swift"
+      },
+      "current_official_documentation": [
+        "https://github.com/ajevans99/swift-json-schema/blob/v0.13.1/README.md",
+        "https://github.com/ajevans99/swift-json-schema/releases/tag/v0.13.1"
+      ],
+      "legitimacy": {
+        "seam": "not_applicable_to_swiftpm",
+        "verdict": "not_applicable",
+        "signal_only": true,
+        "reasons": [
+          "official repository, immutable tag revision, license, manifest, and artifact hash inspected directly"
+        ]
+      },
+      "fallback": {
+        "name": "frozen in-repo ReRoom Swift schema-profile validator",
+        "kind": "manual_stdlib",
+        "scope": "Only the exact CON-001 through CON-005 keyword/reference/format surface; unknown keywords or schema-hash drift fail closed and schemas are never weakened.",
+        "smoke_test": "swift-frozen-schema",
+        "acceptance_gate": "Plan 01-08 complete compatibility matrix across every mandatory keyword, local reference, format, valid fixture, and invalid rejection class."
+      }
+    }
+  }
+}
