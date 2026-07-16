@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""Run fresh JavaScript/Python reference outputs and require exact parity."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from contextlib import nullcontext
+from pathlib import Path
+from typing import Iterable
+
+
+MANIFESTS = (
+    ("contracts", "FX-CONTRACT-001", "fixtures/contracts/1.0.0/rev-001/manifest.json"),
+    ("jcs", "FX-JCS-001", "fixtures/policies/RR-JCS-SHA256-1/rev-001/manifest.json"),
+    ("coord", "FX-COORD-001", "fixtures/policies/RR-COORD-1/rev-001/manifest.json"),
+)
+EXPECTED_RUNNERS = {
+    "javascript": ("reroom-javascript-reference", "1.0.0"),
+    "python": ("reroom-python-reference", "1.0.0"),
+}
+COMMAND_TIMEOUT_SECONDS = 60
+
+
+class ParityError(RuntimeError):
+    """A sanitized fail-closed parity harness error."""
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _resolve_executable(value: str | Path, label: str) -> Path:
+    text = os.fspath(value)
+    candidate = shutil.which(text) if os.sep not in text else text
+    if candidate is None:
+        raise ParityError(f"{label} executable is unavailable")
+    path = Path(candidate).expanduser().absolute()
+    if not path.is_file() or not os.access(path, os.X_OK):
+        raise ParityError(f"{label} executable is unavailable")
+    return path
+
+
+def _git_revision(repo_root: Path) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ParityError("git implementation revision is unavailable") from error
+    revision = completed.stdout.strip()
+    if len(revision) != 40 or any(character not in "0123456789abcdef" for character in revision):
+        raise ParityError("git implementation revision is invalid")
+    return "git:" + revision
+
+
+def _oracle_hashes(repo_root: Path) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for root in (repo_root / "fixtures", repo_root / "docs/contracts"):
+        for path in sorted(root.rglob("*")):
+            if path.is_file():
+                relative = str(path.relative_to(repo_root))
+                hashes[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashes
+
+
+def _run(command: list[str], *, repo_root: Path, label: str) -> None:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise ParityError(f"{label} could not execute") from error
+    if completed.returncode != 0:
+        diagnostic = completed.stderr.strip().splitlines()
+        detail = diagnostic[-1] if diagnostic else f"exit {completed.returncode}"
+        raise ParityError(f"{label} failed: {detail}")
+
+
+def _read_result(path: Path) -> dict:
+    if not path.is_file() or path.stat().st_size == 0:
+        raise ParityError(f"fresh result is missing: {path.name}")
+    try:
+        result = json.loads(path.read_bytes())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ParityError(f"fresh result is malformed: {path.name}") from error
+    if not isinstance(result, dict):
+        raise ParityError(f"fresh result root is invalid: {path.name}")
+    return result
+
+
+def _validate_identity(result: dict, *, runtime: str, revision: str) -> None:
+    expected_name, expected_version = EXPECTED_RUNNERS[runtime]
+    runner = result.get("runner")
+    if not isinstance(runner, dict) or (
+        runner.get("runtime"), runner.get("name"), runner.get("version")
+    ) != (runtime, expected_name, expected_version):
+        raise ParityError(f"{runtime} runner identity is invalid")
+    if runner.get("implementation_revision") != revision:
+        raise ParityError(f"{runtime} implementation revision is stale or invalid")
+
+
+def _prepare_output_directory(path: Path) -> Path:
+    if path.exists():
+        raise ParityError("output directory already exists; stale outputs are forbidden")
+    try:
+        path.mkdir(mode=0o700, parents=False, exist_ok=False)
+    except OSError as error:
+        raise ParityError("output directory could not be created exclusively") from error
+    return path
+
+
+def _execute_in_directory(
+    repo_root: Path,
+    output_dir: Path,
+    *,
+    node: Path,
+    python: Path,
+    revision: str,
+) -> tuple[str, ...]:
+    javascript_runner = repo_root / "tools/javascript/src/runner.mjs"
+    comparator = repo_root / "tools/verify/compare_results.py"
+    if not javascript_runner.is_file() or not comparator.is_file():
+        raise ParityError("reference runner or comparator is missing")
+
+    fixture_ids: list[str] = []
+    for stem, fixture_id, relative_manifest in MANIFESTS:
+        manifest = repo_root / relative_manifest
+        if not manifest.is_file():
+            raise ParityError(f"fixture manifest is missing: {fixture_id}")
+        javascript_result = output_dir / f"{stem}.javascript.json"
+        python_result = output_dir / f"{stem}.python.json"
+        if javascript_result.exists() or python_result.exists():
+            raise ParityError("stale runner output is forbidden")
+
+        _run(
+            [
+                str(node),
+                str(javascript_runner),
+                "--manifest",
+                str(manifest),
+                "--output",
+                str(javascript_result),
+                "--repo-root",
+                str(repo_root),
+                "--implementation-revision",
+                revision,
+            ],
+            repo_root=repo_root,
+            label=f"{fixture_id} javascript runner",
+        )
+        _run(
+            [
+                str(python),
+                "-m",
+                "tools.python.reroom_verify.runner",
+                "--manifest",
+                str(manifest),
+                "--output",
+                str(python_result),
+                "--repo-root",
+                str(repo_root),
+                "--implementation-revision",
+                revision,
+            ],
+            repo_root=repo_root,
+            label=f"{fixture_id} python runner",
+        )
+
+        _validate_identity(_read_result(javascript_result), runtime="javascript", revision=revision)
+        _validate_identity(_read_result(python_result), runtime="python", revision=revision)
+        _run(
+            [
+                str(python),
+                str(comparator),
+                "compare",
+                "--manifest",
+                str(manifest),
+                "--result",
+                str(javascript_result),
+                "--result",
+                str(python_result),
+                "--require-runtime",
+                "javascript",
+                "--require-runtime",
+                "python",
+            ],
+            repo_root=repo_root,
+            label=f"{fixture_id} comparator",
+        )
+        fixture_ids.append(fixture_id)
+    return tuple(fixture_ids)
+
+
+def run_reference_parity(
+    repo_root: Path,
+    *,
+    node_executable: str | Path = "node",
+    python_executable: str | Path | None = None,
+    output_dir: Path | None = None,
+) -> tuple[str, ...]:
+    repo_root = repo_root.resolve(strict=True)
+    node = _resolve_executable(node_executable, "node")
+    python_value = python_executable or repo_root / ".venv/bin/python"
+    python = _resolve_executable(python_value, "python")
+    revision = _git_revision(repo_root)
+    before = _oracle_hashes(repo_root)
+
+    if output_dir is None:
+        context = tempfile.TemporaryDirectory(prefix="reroom-reference-parity-")
+    else:
+        context = nullcontext(str(_prepare_output_directory(output_dir.resolve())))
+
+    try:
+        with context as directory:
+            fixture_ids = _execute_in_directory(
+                repo_root,
+                Path(directory),
+                node=node,
+                python=python,
+                revision=revision,
+            )
+    finally:
+        if _oracle_hashes(repo_root) != before:
+            raise ParityError("immutable fixture oracle changed during parity execution")
+    return fixture_ids
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--repo-root", type=Path, default=_repo_root())
+    parser.add_argument("--node", default="node")
+    parser.add_argument("--python", dest="python_executable")
+    parser.add_argument("--output-dir", type=Path)
+    return parser
+
+
+def main(arguments: Iterable[str] | None = None) -> int:
+    options = _parser().parse_args(arguments)
+    try:
+        fixture_ids = run_reference_parity(
+            options.repo_root,
+            node_executable=options.node,
+            python_executable=options.python_executable,
+            output_dir=options.output_dir,
+        )
+    except (OSError, ParityError) as error:
+        print(f"reference-parity: FAIL ({error})", file=sys.stderr)
+        return 1
+    print(
+        "reference-parity: PASS "
+        f"({','.join(fixture_ids)}; runtimes=javascript,python; fresh_outputs=true)"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
