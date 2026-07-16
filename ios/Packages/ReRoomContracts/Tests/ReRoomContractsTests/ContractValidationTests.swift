@@ -3,7 +3,7 @@ import Testing
 
 @testable import ReRoomContracts
 
-@Suite("ContractValidationTests")
+@Suite("ContractValidationTests", .serialized)
 struct ContractValidationTests {
     @Test("FX-CONTRACT-001 agrees with the frozen reference oracle")
     func frozenReferenceAgreement() throws {
@@ -14,8 +14,14 @@ struct ContractValidationTests {
 
         for fixtureCase in fixture.manifest.cases {
             let actual = try fixture.execute(fixtureCase, validators: validators)
-            #expect(actual.verdict == fixtureCase.expected.verdict)
-            #expect(actual.rejectionClass == fixtureCase.expected.rejectionClass)
+            #expect(
+                actual.verdict == fixtureCase.expected.verdict,
+                Comment(rawValue: fixtureCase.caseID)
+            )
+            #expect(
+                actual.rejectionClass == fixtureCase.expected.rejectionClass,
+                Comment(rawValue: fixtureCase.caseID)
+            )
         }
     }
 
@@ -79,6 +85,49 @@ struct ContractValidationTests {
             default:
                 Issue.record("unexpected rejection: \(error)")
             }
+        }
+    }
+
+    @Test("the selected validator completes the frozen corpus inside its timebox")
+    func selectedValidatorBenchmark() throws {
+        let fixture = try ContractFixture.load()
+        let compilationStart = ContinuousClock.now
+        let validators = try fixture.makeValidators()
+        let compilationNanoseconds = compilationStart.duration(to: .now).nanoseconds
+
+        let repetitions = 20
+        var accepted = 0
+        var rejected = 0
+        let validationStart = ContinuousClock.now
+        for _ in 0..<repetitions {
+            for fixtureCase in fixture.manifest.cases {
+                let actual = try fixture.execute(fixtureCase, validators: validators)
+                guard actual.verdict == fixtureCase.expected.verdict,
+                      actual.rejectionClass == fixtureCase.expected.rejectionClass
+                else {
+                    throw FixtureError.benchmarkOracleMismatch(fixtureCase.caseID)
+                }
+                if actual.verdict == "accept" { accepted += 1 } else { rejected += 1 }
+            }
+        }
+        let validationNanoseconds = validationStart.duration(to: .now).nanoseconds
+        let totalNanoseconds = compilationNanoseconds + validationNanoseconds
+        #expect(totalNanoseconds < 10_000_000_000)
+
+        if let rawEvidencePath = ProcessInfo.processInfo.environment["REROOM_SCHEMA_RAW_EVIDENCE"] {
+            let rawEvidence: [String: Any] = [
+                "accepted_verdicts": accepted,
+                "benchmark_id": "BENCH-SWIFT-SCHEMA-001",
+                "compilation_nanoseconds": compilationNanoseconds,
+                "corpus_cases": fixture.manifest.cases.count,
+                "rejected_verdicts": rejected,
+                "repetitions": repetitions,
+                "timebox_nanoseconds": 10_000_000_000,
+                "total_nanoseconds": totalNanoseconds,
+                "validation_nanoseconds": validationNanoseconds,
+            ]
+            let bytes = try JSONSerialization.data(withJSONObject: rawEvidence, options: [.sortedKeys])
+            try bytes.write(to: URL(fileURLWithPath: rawEvidencePath), options: .atomic)
         }
     }
 }
@@ -294,11 +343,13 @@ private extension ContractFixture {
     }
 
     struct FixtureCase: Decodable {
+        let caseID: String
         let caseKind: String
         let input: InputReference
         let expected: Expected
 
         enum CodingKeys: String, CodingKey {
+            case caseID = "case_id"
             case caseKind = "case_kind"
             case input
             case expected
@@ -329,6 +380,7 @@ private enum FixtureError: Error {
     case contractNotIdentified(String)
     case invalidMutation
     case invalidHexadecimal
+    case benchmarkOracleMismatch(String)
 }
 
 private extension Data {
@@ -346,5 +398,12 @@ private extension Data {
             index = next
         }
         self.init(bytes)
+    }
+}
+
+private extension Duration {
+    var nanoseconds: Int64 {
+        let parts = components
+        return parts.seconds * 1_000_000_000 + parts.attoseconds / 1_000_000_000
     }
 }

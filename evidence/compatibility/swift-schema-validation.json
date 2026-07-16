@@ -1,0 +1,179 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence_swift_schema_validation_20260716_001",
+  "classification": "MEASURED",
+  "requirement_ids": [
+    "NFR-CONTRACT-001"
+  ],
+  "test_ids": [
+    "TST-CONTRACT-001",
+    "TST-CONTRACT-002"
+  ],
+  "fixture": {
+    "fixture_id": "FX-CONTRACT-001",
+    "fixture_revision": "rev-001",
+    "manifest_sha256": "54a0753df4c6a963136a59ed1361dc0c4460c59647ab202c0b7c8e565b79194c",
+    "case_count": 18,
+    "schema_count": 5
+  },
+  "implementation": {
+    "git_base_revision": "7bae7fc6a961fbd626a68adf813d1c95103ff428",
+    "revision_scope": "git base plus exact source digest",
+    "source_relative_path": "ios/Packages/ReRoomContracts/Sources/ReRoomContracts/FrozenSchemaValidator.swift",
+    "source_sha256": "0c15cf41edd556db494869ddfa168b45ff0a1347d1732234dab10763d718adf3",
+    "test_relative_path": "ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/ContractValidationTests.swift",
+    "test_sha256": "daf522dc70fdf7dfb328fa873a71b9abdd733f19fc4a9df91f9c646ee770c4be"
+  },
+  "dependency_decision": {
+    "decision": "approved",
+    "decision_source": "evidence/dependencies/phase-01-package-audit.json",
+    "decision_source_sha256": "7f1a47e6b52168e4ac6c024658b31b1158592d54abbe6d824ab36e974441ee91",
+    "package": "swift-json-schema",
+    "version": "0.13.1",
+    "revision": "f299eb1cce78b2dd736d9a390ec0779d28678416",
+    "source_repository": "https://github.com/ajevans99/swift-json-schema",
+    "artifact_url": "https://codeload.github.com/ajevans99/swift-json-schema/tar.gz/f299eb1cce78b2dd736d9a390ec0779d28678416",
+    "artifact_sha256": "44a08fbc16f47cf11e9ac034c6985bb9b77e6e3c678de1630f106a79b7c691ae",
+    "license": "MIT",
+    "package_manifest_sha256": "479e48a13c88971ce7937d3b5de864ab43fac0f5e82871a37a00e2773d2729ce",
+    "package_resolved_sha256": "d6a939867cb3f1eb438da2b7806d9d128ba715312ea10449092a98d532309501",
+    "resolution_verdict": "exact approved version and revision matched"
+  },
+  "selected_profile": {
+    "dialect": "https://json-schema.org/draft/2020-12/schema",
+    "keyword_count": 35,
+    "keywords": [
+      "$defs",
+      "$id",
+      "$ref",
+      "$schema",
+      "additionalProperties",
+      "allOf",
+      "anyOf",
+      "const",
+      "contains",
+      "description",
+      "else",
+      "enum",
+      "exclusiveMinimum",
+      "format",
+      "if",
+      "items",
+      "maxItems",
+      "maxLength",
+      "maxProperties",
+      "maximum",
+      "minContains",
+      "minItems",
+      "minLength",
+      "minProperties",
+      "minimum",
+      "not",
+      "oneOf",
+      "pattern",
+      "prefixItems",
+      "properties",
+      "required",
+      "then",
+      "title",
+      "type",
+      "uniqueItems"
+    ],
+    "reference_resolution": "local JSON Pointer fragments only",
+    "remote_schema_resolution": "forbidden",
+    "dynamic_schema_resolution": "forbidden",
+    "unknown_keyword_behavior": "reject before compilation",
+    "format_assertions": [
+      "date-time",
+      "uri"
+    ],
+    "format_note": "The package's date-time helper accepts only fractional-second input. The bounded wrapper supplies an RFC 3339-compatible date-time assertion that accepts canonical whole-second and fractional-second fixtures; schema semantics remain delegated to the pinned package."
+  },
+  "schema_hashes": [
+    {
+      "contract_id": "CON-001",
+      "schema_id": "urn:reroom:schema:frame-packet:1",
+      "sha256": "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"
+    },
+    {
+      "contract_id": "CON-002",
+      "schema_id": "urn:reroom:schema:rrcap-manifest:1",
+      "sha256": "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"
+    },
+    {
+      "contract_id": "CON-003",
+      "schema_id": "urn:reroom:schema:scene-state:1",
+      "sha256": "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"
+    },
+    {
+      "contract_id": "CON-004",
+      "schema_id": "urn:reroom:schema:edit-artifacts:1",
+      "sha256": "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"
+    },
+    {
+      "contract_id": "CON-005",
+      "schema_id": "urn:reroom:schema:transaction:1",
+      "sha256": "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"
+    }
+  ],
+  "agreement": {
+    "reference_runners": [
+      "reroom-reference-javascript",
+      "reroom-reference-python"
+    ],
+    "swift_schema_acceptance": "5 of 5 canonical valid instances accepted",
+    "fixture_verdict_agreement": "18 of 18 cases",
+    "rejection_class_agreement": "12 of 12 rejected cases",
+    "unknown_keyword_probe": "rejected",
+    "dynamic_reference_probe": "rejected",
+    "remote_reference_probe": "rejected",
+    "verdict": "pass"
+  },
+  "benchmark": {
+    "benchmark_id": "BENCH-SWIFT-SCHEMA-001",
+    "timebox_seconds": 10.0,
+    "schema_compilation_seconds": 0.900198958,
+    "validation_seconds": 1.607464875,
+    "total_seconds": 2.507663833,
+    "repetitions": 20,
+    "validation_count": 360,
+    "mean_validation_nanoseconds": 4465180.208333333,
+    "metric_calculation": "total = compilation_nanoseconds + validation_nanoseconds; mean validation = validation_nanoseconds / (18 cases * 20 repetitions)",
+    "verdict": "pass"
+  },
+  "raw_evidence": {
+    "accepted_verdicts": 120,
+    "benchmark_id": "BENCH-SWIFT-SCHEMA-001",
+    "compilation_nanoseconds": 900198958,
+    "corpus_cases": 18,
+    "rejected_verdicts": 240,
+    "repetitions": 20,
+    "timebox_nanoseconds": 10000000000,
+    "total_nanoseconds": 2507663833,
+    "validation_nanoseconds": 1607464875
+  },
+  "raw_evidence_digest": {
+    "algorithm": "SHA-256",
+    "scope": "exact compact sorted-key UTF-8 JSON emitted by the benchmark test",
+    "sha256": "a7220bfa2ce37a25b76554acd2559f57c73eadf52033fe8d31d3ca68c4da05a4"
+  },
+  "environment": {
+    "started_at_utc": "2026-07-16T22:24:51Z",
+    "measured_at_utc": "2026-07-16T22:39:15Z",
+    "operating_system": "macOS 26.5.1 build 25F80",
+    "architecture": "arm64",
+    "swift": "Apple Swift 6.3 (swiftlang-6.3.0.123.5 clang-2100.0.123.102)",
+    "target": "arm64-apple-macosx26.0",
+    "command": "REROOM_SCHEMA_RAW_EVIDENCE=/tmp/reroom-swift-schema-validation-raw.json swift test --package-path ios/Packages/ReRoomContracts --filter ContractValidationTests",
+    "evaluator": "Swift Testing plus immutable FX-CONTRACT-001 reference oracle"
+  },
+  "fallback": {
+    "state": "not_activated",
+    "activation": "Any exact-pin drift, canonical keyword outside the frozen profile, reference verdict mismatch, or timebox failure removes the dependency path from eligibility.",
+    "action": "Use a bounded local validator for the same frozen 35-keyword profile; do not widen or infer compatibility."
+  },
+  "limitations": [
+    "This is macOS contract-validation evidence, not physical-iPhone, signing, ARKit, compositor, or thermal evidence.",
+    "The measured profile is limited to the immutable FX-CONTRACT-001 corpus and the exact five 1.0 schemas."
+  ]
+}

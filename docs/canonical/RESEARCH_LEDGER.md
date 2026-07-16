@@ -609,7 +609,24 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Confidence:** High.
 - **Known limitations or ambiguity:** User-global instructions and direct prompts remain outside repository control and can take precedence. A future nested file must be reviewed for scope and conflicts.
 
-## 9. Decision summary and unresolved empirical claims
+## 9. Swift contract validator evidence
+
+### CLM-040 — The pinned Swift validator passes the frozen ReRoom schema profile
+
+- **Claim:** `swift-json-schema` `0.13.1` at revision `f299eb1cce78b2dd736d9a390ec0779d28678416`, behind ReRoom's fail-closed frozen-profile wrapper, supports all 35 schema keywords used by CON-001 through CON-005 and agrees with the JavaScript/Python oracle on all 18 `FX-CONTRACT-001` verdicts and all 12 rejection classes.
+- **Status:** `MEASURED`
+- **Decision or requirement affected:** `NFR-CONTRACT-001`; CON-001 through CON-005; `TST-CONTRACT-001`, `TST-CONTRACT-002`.
+- **Source title:** swift-json-schema v0.13.1 source/README/release; ReRoom Swift schema-validation evidence
+- **Source URL:** https://github.com/ajevans99/swift-json-schema/tree/v0.13.1 ; https://github.com/ajevans99/swift-json-schema/releases/tag/v0.13.1 ; ../../evidence/compatibility/swift-schema-validation.json
+- **Source type:** Official package source and documentation at the audited immutable revision, plus reproducible local fixture/benchmark evidence.
+- **Publication/release date:** Package tag `v0.13.1`; ReRoom measurement 2026-07-16 UTC.
+- **Retrieval date:** 2026-07-16.
+- **Exact version/tag/revision:** `swift-json-schema==0.13.1`; git `f299eb1cce78b2dd736d9a390ec0779d28678416`; source archive SHA-256 `44a08fbc16f47cf11e9ac034c6985bb9b77e6e3c678de1630f106a79b7c691ae`; MIT.
+- **Evidence summary:** Context7 had no entry for this exact package, so the implementation was verified against the official pinned checkout. The package provides Draft 2020-12 runtime compilation and validation, but unknown keywords are nonasserting and its built-in date-time helper requires fractional seconds. ReRoom therefore scans the exact 35-keyword profile before compilation, forbids remote/dynamic resolution, and supplies a bounded RFC 3339-compatible `date-time` assertion. Five valid schemas and all 18 frozen cases agree exactly. Twenty corpus repetitions plus schema compilation completed in a MEASURED 2.507663833 seconds against a 10-second plan-local timebox; raw evidence SHA-256 is `a7220bfa2ce37a25b76554acd2559f57c73eadf52033fe8d31d3ca68c4da05a4`.
+- **Confidence:** High for the exact pinned macOS contract profile.
+- **Known limitations or ambiguity:** This does not approve another package version, another schema keyword, a remote/dynamic schema, or any physical-device claim. Pin/profile/oracle/timebox drift activates the bounded local fallback rather than widening compatibility.
+
+## 10. Decision summary and unresolved empirical claims
 
 The evidence establishes safe APIs, versions, provenance, and license boundaries. It does **not** establish the following as facts: sustained base-device FPS/thermal behavior, semantic target quality, learned metric-depth accuracy, reveal credibility, provider latency/VRAM, reconnect recovery, or end-to-end voice reliability. Those are intentionally `REQUIRES_BENCHMARK` and are controlled by `GATE-003`, `GATE-004`, `GATE-006`, `GATE-007`, `GATE-010`, and `GATE-012` in [RISK_AND_KILL_GATES.md](RISK_AND_KILL_GATES.md).
 
