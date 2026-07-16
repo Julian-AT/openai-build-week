@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-07-16T12:29:09.592Z"
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-07-16T22:06:11.170Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 5 of 14
+Plan: 6 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [████░░░░░░] 36%
+Progress: [████░░░░░░] 43%
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Progress: [████░░░░░░] 36%
 | Phase 01 P04 | 22min | 2 tasks | 8 files |
 | Phase 01 P03 | 10min | 2 tasks | 3 files |
 | Phase 01 P05 | 16min | 2 tasks | 7 files |
+| Phase 01 P06 | 16min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,8 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Full automated preflight never consumes physical reports; gate alone requires bound signed GREEN GATE-013 and GATE-002 evidence. — Preserve the automation/human authority boundary and retain RED as non-success evidence.
 - [Phase 01]: Plan 01-05: JavaScript parses untrusted fixture JSON with bounded duplicate-aware and Unicode-strict handling before validation or canonicalization.
 - [Phase 01]: Plan 01-05: RRFP output remains the exact trailer-less 24-byte-header format, and RunnerResultV1 metadata is derived only from independently computed bytes.
+- [Phase 01]: Plan 01-06: Python rejects duplicate JSON names and invalid Unicode before schema validation or RFC 8785 canonicalization.
+- [Phase 01]: Plan 01-06: Python RRFP and coordinate results derive metadata only from computed bytes while expected artifacts remain read-only integrity oracles.
 
 ### Pending Todos
 
@@ -108,8 +111,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-16T12:29:09.588Z
+Last session: 2026-07-16T22:06:11.165Z
 
-Stopped at: Completed 01-05-PLAN.md
+Stopped at: Completed 01-06-PLAN.md
 
 Resume file: None

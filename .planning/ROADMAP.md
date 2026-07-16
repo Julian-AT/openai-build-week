@@ -34,7 +34,7 @@ This approved high-level roadmap initializes planning only. It does not authoriz
   3. Golden CON-001 through CON-005 schema, digest, and wire vectors agree across languages, while unknown fields/versions and malformed framing, paths, digests, branches, or identities reject before mutation.
   4. Device crop/orientation checks expose no swapped or silently reinterpreted camera geometry; unknown alignment is quarantined.
 
-**Plans**: 5/14 plans executed
+**Plans**: 6/14 plans executed
 
 Plans:
 
@@ -43,7 +43,7 @@ Plans:
 - [x] 01-03-PLAN.md
 - [x] 01-04-PLAN.md
 - [x] 01-05-PLAN.md
-- [ ] 01-06-PLAN.md
+- [x] 01-06-PLAN.md
 - [ ] 01-07-PLAN.md
 - [ ] 01-08-PLAN.md
 - [ ] 01-09-PLAN.md
@@ -65,8 +65,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 01-05 — Implement the independent JavaScript contract and coordinate runner.
-- [ ] 01-06 — Implement the independent Python contract and coordinate runner.
+- [x] 01-05 — Implement the independent JavaScript contract and coordinate runner.
+- [x] 01-06 — Implement the independent Python contract and coordinate runner.
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -228,7 +228,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Contract and Device Proof | 5/14 | In Progress|  |
+| 1. Contract and Device Proof | 6/14 | In Progress|  |
 | 2. Atomic Capture and Exact Replay | 0/TBD | Not started | - |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
