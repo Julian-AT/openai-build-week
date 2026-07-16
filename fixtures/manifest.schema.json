@@ -124,27 +124,22 @@
       }
     },
     "expectedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "relative_path", "media_type", "byte_length", "sha256"],
+      "properties": {
+        "kind": { "enum": ["canonical_bytes", "digest", "wire_bytes", "projected_pixels", "matrix", "runner_consensus"] },
+        "relative_path": { "$ref": "#/$defs/relativePath" },
+        "media_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "byte_length": { "type": "integer", "minimum": 0, "maximum": 33554432 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "value_sha256": { "$ref": "#/$defs/sha256", "description": "Exact lowercase digest value when kind is digest; sha256 still protects the checked-in file bytes." }
+      },
       "allOf": [
-        { "$ref": "#/$defs/fileRef" },
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["kind", "relative_path", "media_type", "byte_length", "sha256"],
-          "properties": {
-            "kind": { "enum": ["canonical_bytes", "digest", "wire_bytes", "projected_pixels", "matrix", "runner_consensus"] },
-            "relative_path": {},
-            "media_type": {},
-            "byte_length": {},
-            "sha256": {},
-            "value_sha256": { "$ref": "#/$defs/sha256", "description": "Exact lowercase digest value when kind is digest; sha256 still protects the checked-in file bytes." }
-          },
-          "allOf": [
-            {
-              "if": { "properties": { "kind": { "const": "digest" } }, "required": ["kind"] },
-              "then": { "required": ["value_sha256"] },
-              "else": { "not": { "required": ["value_sha256"] } }
-            }
-          ]
+          "if": { "properties": { "kind": { "const": "digest" } }, "required": ["kind"] },
+          "then": { "required": ["value_sha256"] },
+          "else": { "not": { "required": ["value_sha256"] } }
         }
       ]
     },
@@ -201,7 +196,7 @@
       "required": ["case_id", "case_kind", "input", "expected", "immutable"],
       "properties": {
         "case_id": { "type": "string", "minLength": 3, "maxLength": 96, "pattern": "^[a-z0-9][a-z0-9._-]*$" },
-        "case_kind": { "enum": ["json_instance", "raw_json", "wire_bytes", "coordinate_vector", "digest_scope"] },
+        "case_kind": { "enum": ["json_instance", "json_mutation", "raw_json", "wire_bytes", "wire_mutation", "coordinate_vector", "digest_scope"] },
         "input": { "$ref": "#/$defs/fileRef" },
         "expected": { "$ref": "#/$defs/expected" },
         "immutable": { "const": true }

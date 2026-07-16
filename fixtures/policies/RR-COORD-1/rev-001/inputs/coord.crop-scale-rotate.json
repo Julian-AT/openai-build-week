@@ -1,0 +1,1 @@
+{"operation":"transform_intrinsics","sensor_intrinsics":{"fx":1000,"fy":800,"cx":640,"cy":360},"encoded_from_sensor":[0,0.5,0,-0.5,0,640,0,0,1],"encoded_size":[360,640],"orientation":"up"}

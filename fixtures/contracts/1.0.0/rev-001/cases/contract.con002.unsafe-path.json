@@ -1,0 +1,1 @@
+{"base":"instances/con002.rrcap.valid.json","mutations":[{"op":"replace","pointer":"/files/0/relative_path","value":"../escape.mp4"}]}

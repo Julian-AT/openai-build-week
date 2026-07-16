@@ -1,0 +1,341 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "FX-CONTRACT-001",
+  "fixture_revision": "rev-001",
+  "subject": "CON-001-CON-005",
+  "oracle": {
+    "status": "immutable",
+    "source": "checked_in",
+    "expected_generation": "forbidden_during_verification",
+    "case_order": "lexicographic_case_id",
+    "generator_role": "proposal_only"
+  },
+  "limits": {
+    "max_document_depth": 64,
+    "max_cases": 2048,
+    "max_file_bytes": 33554432,
+    "max_path_bytes": 240
+  },
+  "schema_hashes": [
+    {
+      "contract_id": "CON-001",
+      "schema_id": "urn:reroom:schema:frame-packet:1",
+      "relative_path": "docs/contracts/frame-packet.schema.json",
+      "sha256": "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"
+    },
+    {
+      "contract_id": "CON-002",
+      "schema_id": "urn:reroom:schema:rrcap-manifest:1",
+      "relative_path": "docs/contracts/rrcap-manifest.schema.json",
+      "sha256": "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"
+    },
+    {
+      "contract_id": "CON-003",
+      "schema_id": "urn:reroom:schema:scene-state:1",
+      "relative_path": "docs/contracts/scene-state.schema.json",
+      "sha256": "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"
+    },
+    {
+      "contract_id": "CON-004",
+      "schema_id": "urn:reroom:schema:edit-artifacts:1",
+      "relative_path": "docs/contracts/edit-artifacts.schema.json",
+      "sha256": "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"
+    },
+    {
+      "contract_id": "CON-005",
+      "schema_id": "urn:reroom:schema:transaction:1",
+      "relative_path": "docs/contracts/transaction.schema.json",
+      "sha256": "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "contract.branch-authority-mismatch",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.branch-authority-mismatch.json",
+        "media_type": "application/json",
+        "byte_length": 182,
+        "sha256": "efb79fc449584a99511bf27c054e936276de867b9cc80ba1bb4323281ee996fd"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "semantic_invariant",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.compatibility.named-up-migration",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.compatibility.named-up-migration.json",
+        "media_type": "application/json",
+        "byte_length": 156,
+        "sha256": "30970028074c7ea1455c69a068362868a86118a0454101f6239ebc051b1e1161"
+      },
+      "expected": {
+        "verdict": "accept",
+        "rejection_class": null,
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.compatibility.unrepresentable-down-conversion",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.compatibility.unrepresentable-down-conversion.json",
+        "media_type": "application/json",
+        "byte_length": 134,
+        "sha256": "c93508c6d83445043a21302b37f9ba57c50a4b3a44d500cecbd13715a23c0aec"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "unsupported_contract_version",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con001.unknown-major",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.con001.unknown-major.json",
+        "media_type": "application/json",
+        "byte_length": 129,
+        "sha256": "a6ff48b32cc9f8021b16d2f1481515fa31c303ccaec1c98558bad27c8ef3defe"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "unsupported_contract_version",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con001.unknown-version",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.con001.unknown-version.json",
+        "media_type": "application/json",
+        "byte_length": 129,
+        "sha256": "6a7651944da192994dddf9d5a6154405dc5eef04def45309ed5c3f7d9fecbca5"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "unsupported_contract_version",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con001.valid",
+      "case_kind": "json_instance",
+      "input": {
+        "relative_path": "instances/con001.frame-packet.valid.json",
+        "media_type": "application/json",
+        "byte_length": 1824,
+        "sha256": "91485b0a1dc8dfa1e56ca1c04ac5a53961cb090bc5f7c9662b12b2d55bafe20d"
+      },
+      "expected": {
+        "verdict": "accept",
+        "rejection_class": null,
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con002.unsafe-path",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.con002.unsafe-path.json",
+        "media_type": "application/json",
+        "byte_length": 135,
+        "sha256": "eb43baf495fef2d069efa96d8992ba2813ae60b5efe57c1ba8c625515ab87199"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "invalid_path",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con002.valid",
+      "case_kind": "json_instance",
+      "input": {
+        "relative_path": "instances/con002.rrcap.valid.json",
+        "media_type": "application/json",
+        "byte_length": 2401,
+        "sha256": "f6d42793177094a3d6e81af1089a23fd25cb135ec3db39c4f8d2c60e6f20e30c"
+      },
+      "expected": {
+        "verdict": "accept",
+        "rejection_class": null,
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con003.renderer-identity",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.con003.renderer-identity.json",
+        "media_type": "application/json",
+        "byte_length": 116,
+        "sha256": "9f76714945e53ac2b1d0333bf572077cec7306c1c46be65b7a481eee85b8b2ec"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "invalid_identity",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con003.valid",
+      "case_kind": "json_instance",
+      "input": {
+        "relative_path": "instances/con003.scene-state.valid.json",
+        "media_type": "application/json",
+        "byte_length": 689,
+        "sha256": "a3f969cfe96d305875318c3890ed1eaad4f4e64d5c38141af1cbe1e9ae92c6dd"
+      },
+      "expected": {
+        "verdict": "accept",
+        "rejection_class": null,
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con004.valid",
+      "case_kind": "json_instance",
+      "input": {
+        "relative_path": "instances/con004.edit-artifact.valid.json",
+        "media_type": "application/json",
+        "byte_length": 1164,
+        "sha256": "f68ec9f2444242aa9b3a1a4fb00e4502f339a0381639e8b2ac1765867b57e495"
+      },
+      "expected": {
+        "verdict": "accept",
+        "rejection_class": null,
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con004.wrong-spatial-encoding",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.con004.wrong-spatial-encoding.json",
+        "media_type": "application/json",
+        "byte_length": 134,
+        "sha256": "6ba76254a68f3746a8cc4b3d5d4dafaba29e881358069a66fd37b039198e2d88"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "schema_validation",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con005.illegal-lifecycle",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.con005.illegal-lifecycle.json",
+        "media_type": "application/json",
+        "byte_length": 131,
+        "sha256": "7be526c6b482c91b6624e478f30fef94fc55a83e5021c5367ac99a12093338b0"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "schema_validation",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.con005.valid",
+      "case_kind": "json_instance",
+      "input": {
+        "relative_path": "instances/con005.transaction.valid.json",
+        "media_type": "application/json",
+        "byte_length": 2408,
+        "sha256": "a34009c2049e7ce204e39f7037796067df9b99aba9bb5937c2a92f13dbfb5f59"
+      },
+      "expected": {
+        "verdict": "accept",
+        "rejection_class": null,
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.extra-property",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.extra-property.json",
+        "media_type": "application/json",
+        "byte_length": 113,
+        "sha256": "87f7c500e119f1508e1892e2b12d5a6cc800a5abfa8be1ec57e29d44b006d715"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "unknown_property",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.float-overflow",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.float-overflow.json",
+        "media_type": "application/json",
+        "byte_length": 131,
+        "sha256": "537b4e9c7bd203ce122aa1c1e25140b7598ffba5549ee7b232b5d26416d2bb04"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "numeric_out_of_range",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.hash-mismatch",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.hash-mismatch.json",
+        "media_type": "application/json",
+        "byte_length": 207,
+        "sha256": "3ec26cdb167a21d3d5508b3627ed8d7abf677aa65e19c33aac8ef92f2dfebd18"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "digest_mismatch",
+        "artifacts": []
+      },
+      "immutable": true
+    },
+    {
+      "case_id": "contract.null-required",
+      "case_kind": "json_mutation",
+      "input": {
+        "relative_path": "cases/contract.null-required.json",
+        "media_type": "application/json",
+        "byte_length": 123,
+        "sha256": "6c3d66dbc672de45474ba5fa67e93a1948ed66c6125579a275c96c4f9a934cae"
+      },
+      "expected": {
+        "verdict": "reject",
+        "rejection_class": "schema_validation",
+        "artifacts": []
+      },
+      "immutable": true
+    }
+  ]
+}
