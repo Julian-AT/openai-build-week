@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reroom:test-schema:runner-result:1",
+  "title": "RunnerResultV1",
+  "description": "Closed normalized result envelope emitted independently by Swift, JavaScript, or Python. case_results must contain each manifest case exactly once in strict lexicographic case_id order; semantic validation rejects duplicates, omissions, extras, and summary-count disagreement.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "runner",
+    "fixture",
+    "case_order",
+    "case_results",
+    "summary",
+    "oracle_unchanged",
+    "result_digest_algorithm",
+    "result_digest_scope",
+    "result_digest_sha256"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "runner": { "$ref": "#/$defs/runner" },
+    "fixture": { "$ref": "#/$defs/fixture" },
+    "case_order": { "const": "lexicographic_case_id" },
+    "case_results": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2048,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/caseResult" }
+    },
+    "summary": { "$ref": "#/$defs/summary" },
+    "oracle_unchanged": { "const": true },
+    "result_digest_algorithm": { "const": "RR-JCS-SHA256-1" },
+    "result_digest_scope": { "const": "entire_runner_result_with_result_digest_sha256_omitted" },
+    "result_digest_sha256": { "$ref": "#/$defs/sha256" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "rejectionClass": {
+      "enum": [
+        "json_parse",
+        "duplicate_name",
+        "invalid_unicode",
+        "schema_validation",
+        "unsupported_contract_version",
+        "unknown_property",
+        "invalid_identity",
+        "invalid_path",
+        "numeric_out_of_range",
+        "semantic_invariant",
+        "digest_mismatch",
+        "unsupported_algorithm",
+        "unsupported_scope",
+        "wire_magic",
+        "wire_version",
+        "wire_flags",
+        "wire_length",
+        "wire_sequence",
+        "wire_truncated",
+        "wire_trailing_bytes",
+        "coordinate_invalid"
+      ]
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runtime", "name", "version", "implementation_revision"],
+      "properties": {
+        "runtime": { "enum": ["swift", "javascript", "python"] },
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "implementation_revision": { "type": "string", "pattern": "^git:[0-9a-f]{40}$" }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_id", "fixture_revision", "manifest_sha256"],
+      "properties": {
+        "fixture_id": { "enum": ["FX-CONTRACT-001", "FX-JCS-001", "FX-COORD-001"] },
+        "fixture_revision": { "type": "string", "pattern": "^rev-[0-9]{3}$" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "byte_length", "sha256"],
+      "properties": {
+        "kind": { "enum": ["canonical_bytes", "digest", "wire_bytes", "projected_pixels", "matrix", "runner_consensus"] },
+        "byte_length": { "type": "integer", "minimum": 0, "maximum": 33554432 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "value_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "digest" } }, "required": ["kind"] },
+          "then": { "required": ["value_sha256"] },
+          "else": { "not": { "required": ["value_sha256"] } }
+        }
+      ]
+    },
+    "caseResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["case_id", "verdict", "rejection_class", "output_artifacts"],
+      "properties": {
+        "case_id": { "type": "string", "minLength": 3, "maxLength": 96, "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+        "verdict": { "enum": ["accept", "reject"] },
+        "rejection_class": { "oneOf": [{ "$ref": "#/$defs/rejectionClass" }, { "type": "null" }] },
+        "output_artifacts": { "type": "array", "maxItems": 8, "uniqueItems": true, "items": { "$ref": "#/$defs/artifact" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "verdict": { "const": "accept" } }, "required": ["verdict"] },
+          "then": { "properties": { "rejection_class": { "type": "null" } } },
+          "else": {
+            "properties": {
+              "rejection_class": { "$ref": "#/$defs/rejectionClass" },
+              "output_artifacts": { "maxItems": 0 }
+            }
+          }
+        }
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["total", "accepted", "rejected"],
+      "properties": {
+        "total": { "type": "integer", "minimum": 1, "maximum": 2048 },
+        "accepted": { "type": "integer", "minimum": 0, "maximum": 2048 },
+        "rejected": { "type": "integer", "minimum": 0, "maximum": 2048 }
+      },
+      "description": "Semantic validation requires total to equal case_results length and accepted plus rejected to equal total."
+    }
+  }
+}
