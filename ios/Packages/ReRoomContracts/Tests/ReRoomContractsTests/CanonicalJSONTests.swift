@@ -49,6 +49,18 @@ struct CanonicalJSONTests {
         }
     }
 
+    @Test("RFC 8785 number serialization uses ECMAScript shortest forms")
+    func rfc8785NumberSerialization() throws {
+        let input = Data("[333333333.33333329,1E30,4.50,2e-3,1e-27,1e-6,1e-7]".utf8)
+        let expected = "[333333333.3333333,1e+30,4.5,0.002,1e-27,0.000001,1e-7]"
+        let actual = String(
+            decoding: try CanonicalJSON.canonicalize(jsonData: input),
+            as: UTF8.self
+        )
+
+        #expect(actual == expected)
+    }
+
     @Test("JCS manifest case order remains lexicographic and authoritative")
     func manifestOrderIsStable() throws {
         let manifest = try PolicyFixture.jcs().jsonObject("manifest.json")
@@ -100,6 +112,18 @@ struct CanonicalJSONTests {
         }
     }
 
+    @Test("FX-CONTRACT-001 unsafe archive path rejects with invalid_path")
+    func contractUnsafePathFixture() throws {
+        let descriptor = try PolicyFixture.contractUnsafePath()
+        let mutations = try #require(descriptor["mutations"] as? [[String: Any]])
+        let mutation = try #require(mutations.first)
+        let path = try #require(mutation["value"] as? String)
+
+        #expect(throws: ArchivePathRejection.invalidPath) {
+            try ArchivePath.validate(path)
+        }
+    }
+
     @Test("archive resolution rejects a symlink that escapes its root")
     func archiveSymlinkEscape() throws {
         let fileManager = FileManager.default
@@ -129,6 +153,15 @@ private struct PolicyFixture {
             root: try repositoryRoot()
                 .appendingPathComponent("fixtures/policies/RR-JCS-SHA256-1/rev-001")
         )
+    }
+
+    static func contractUnsafePath() throws -> [String: Any] {
+        let data = try Data(
+            contentsOf: repositoryRoot().appendingPathComponent(
+                "fixtures/contracts/1.0.0/rev-001/cases/contract.con002.unsafe-path.json"
+            )
+        )
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
     func read(_ relativePath: String) throws -> Data {
