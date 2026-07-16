@@ -1,7 +1,9 @@
 import copy
 import hashlib
 import json
+import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -158,6 +160,78 @@ class CompareResultsTests(unittest.TestCase):
             swift_path = self.write_result(temporary, "swift.json", swift)
             with self.assertRaisesRegex(ComparisonError, "artifact_sha256"):
                 compare_runner_results(MANIFESTS[1], [python_a, swift_path], repo_root=ROOT)
+
+
+class VerificationModeTests(unittest.TestCase):
+    SCRIPT = ROOT / "scripts/verify-phase-01-contracts"
+
+    def run_mode(self, mode, **environment):
+        return subprocess.run(
+            [self.SCRIPT, mode],
+            cwd=ROOT,
+            env=dict(os.environ, **environment),
+            capture_output=True,
+            text=True,
+        )
+
+    def make_gate_evidence(self, directory, states=("GREEN", "GREEN")):
+        directory = Path(directory)
+        evidence_dir = directory / "physical"
+        evidence_dir.mkdir()
+        preflight = json.loads((ROOT / "evidence/fixtures/valid/gate-report.running.json").read_text())
+        preflight.update(gate_id="GATE-013")
+        preflight["environment"]["signing_result"] = "pass"
+        preflight["evidence_artifacts"][0]["opaque_artifact_id"] = "opaque-phase-01-candidate-build"
+        preflight_path = directory / "automated-preflight.json"
+        preflight_path.write_text(json.dumps(preflight, indent=2, sort_keys=True) + "\n")
+        preflight_sha = hashlib.sha256(preflight_path.read_bytes()).hexdigest()
+
+        for gate_id, state in zip(("GATE-013", "GATE-002"), states, strict=True):
+            report = json.loads((ROOT / f"evidence/fixtures/valid/gate-report.{state.lower()}.json").read_text())
+            report["gate_id"] = gate_id
+            if state == "GREEN":
+                checklist = json.loads((ROOT / "evidence/fixtures/valid/operator-checklist.green.json").read_text())
+                checklist["gate_id"] = gate_id
+                checklist["report_sha256"] = preflight_sha
+                checklist_path = evidence_dir / f"{gate_id.lower()}-operator-checklist.json"
+                checklist_path.write_text(json.dumps(checklist, indent=2, sort_keys=True) + "\n")
+                report["automated_report_sha256"] = preflight_sha
+                report["operator_checklist_sha256"] = hashlib.sha256(checklist_path.read_bytes()).hexdigest()
+            report_path = evidence_dir / f"{gate_id.lower()}-report.json"
+            report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+        return preflight_path, evidence_dir
+
+    def test_unknown_mode_fails_and_fixture_integrity_passes(self):
+        self.assertNotEqual(self.run_mode("unknown").returncode, 0)
+        self.assertEqual(self.run_mode("fixture-integrity").returncode, 0)
+
+    def test_gate_passes_only_for_two_bound_signed_green_reports(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            preflight, evidence = self.make_gate_evidence(temporary)
+            result = self.run_mode(
+                "gate",
+                REROOM_PHASE01_AUTOMATED_PREFLIGHT=str(preflight),
+                REROOM_PHASE01_EVIDENCE_DIR=str(evidence),
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_schema_valid_red_is_retained_but_never_gate_success(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            preflight, evidence = self.make_gate_evidence(temporary, ("GREEN", "RED"))
+            result = self.run_mode(
+                "gate",
+                REROOM_PHASE01_AUTOMATED_PREFLIGHT=str(preflight),
+                REROOM_PHASE01_EVIDENCE_DIR=str(evidence),
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("GREEN,RED", result.stderr)
+
+    def test_full_boundary_contains_no_physical_gate_inputs(self):
+        source = self.SCRIPT.read_text()
+        body = source.split("full_checks() {", 1)[1].split("gate_checks() {", 1)[0]
+        self.assertNotIn("PHYSICAL_DIR", body)
+        self.assertNotIn("gate-013-report", body)
+        self.assertNotIn("gate-002-report", body)
 
 
 if __name__ == "__main__":
