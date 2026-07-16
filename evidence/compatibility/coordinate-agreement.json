@@ -1,0 +1,149 @@
+{
+  "agreement": {
+    "accepted": 7,
+    "artifact_disagreements": 0,
+    "case_count": 21,
+    "extra_cases": 0,
+    "metric_calculation": "compare each runtime's exact ordered case_results against the immutable oracle and each other; count missing, extra, verdict, rejection-class, artifact, and oracle mismatches",
+    "missing_cases": 0,
+    "oracle_mismatches": 0,
+    "rejected": 14,
+    "rejection_class_disagreements": 0,
+    "runtime_count": 3,
+    "verdict": "pass",
+    "verdict_disagreements": 0
+  },
+  "classification": "MEASURED",
+  "commands": {
+    "comparator": "python3 tools/verify/compare_results.py compare --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --result {swift_output} --result {javascript_output} --result {python_output} --require-runtime swift --require-runtime javascript --require-runtime python",
+    "isolation": "exclusive temporary directory; output files must not pre-exist",
+    "javascript": "node tools/javascript/src/runner.mjs --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+    "python": ".venv/bin/python -m tools.python.reroom_verify.runner --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+    "swift": "ReRoomContractRunner --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5"
+  },
+  "environment": {
+    "architecture": "arm64",
+    "command": "scripts/run-three-runtime-agreement",
+    "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
+    "node": "v22.22.3",
+    "operating_system": "macOS 26.5.1 build 25F80",
+    "python": "Python 3.13.12",
+    "swift": "Apple Swift version 6.3 (swiftlang-6.3.0.123.5 clang-2100.0.123.102)"
+  },
+  "evaluator": {
+    "relative_path": "tools/verify/compare_results.py",
+    "required_runtimes": [
+      "swift",
+      "javascript",
+      "python"
+    ],
+    "sha256": "c69b17cc10a58b36e5d6a663a5be2779f72790a0ce9f1929bf35b09b845d53d9"
+  },
+  "evidence_id": "evidence_three_runtime_coordinate_20260717_001",
+  "fixture": {
+    "case_count": 21,
+    "fixture_id": "FX-COORD-001",
+    "fixture_revision": "rev-001",
+    "manifest_relative_path": "fixtures/policies/RR-COORD-1/rev-001/manifest.json",
+    "manifest_schema_sha256": "0f363fa36bb30d2146f62a647b513870b1917cee6ab009463abdb982b9422373",
+    "manifest_sha256": "e707c4ddf3b1856df30420c6125532d95161a5f36f95671ea1336baef7e6c2df",
+    "runner_result_schema_sha256": "192562fc0926fba909f1d5ee0661386499f092cadb3b56b37662e61e6f390ec4",
+    "schema_hashes": [
+      {
+        "contract_id": "CON-001",
+        "relative_path": "docs/contracts/frame-packet.schema.json",
+        "schema_id": "urn:reroom:schema:frame-packet:1",
+        "sha256": "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"
+      },
+      {
+        "contract_id": "CON-002",
+        "relative_path": "docs/contracts/rrcap-manifest.schema.json",
+        "schema_id": "urn:reroom:schema:rrcap-manifest:1",
+        "sha256": "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"
+      },
+      {
+        "contract_id": "CON-003",
+        "relative_path": "docs/contracts/scene-state.schema.json",
+        "schema_id": "urn:reroom:schema:scene-state:1",
+        "sha256": "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"
+      },
+      {
+        "contract_id": "CON-004",
+        "relative_path": "docs/contracts/edit-artifacts.schema.json",
+        "schema_id": "urn:reroom:schema:edit-artifacts:1",
+        "sha256": "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"
+      },
+      {
+        "contract_id": "CON-005",
+        "relative_path": "docs/contracts/transaction.schema.json",
+        "schema_id": "urn:reroom:schema:transaction:1",
+        "sha256": "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"
+      }
+    ]
+  },
+  "implementation": {
+    "revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+    "revision_scope": "exact bound git revision plus the recorded source-tree digest",
+    "source_file_count": 116,
+    "source_scopes": [
+      "fixtures",
+      "docs/contracts",
+      "ios/Packages/ReRoomContracts/Package.swift",
+      "ios/Packages/ReRoomContracts/Package.resolved",
+      "ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
+      "ios/Packages/ReRoomContracts/Sources/ReRoomContractRunner",
+      "tools/javascript/package.json",
+      "tools/javascript/package-lock.json",
+      "tools/javascript/src",
+      "tools/python/requirements.in",
+      "tools/python/requirements.lock",
+      "tools/python/reroom_verify",
+      "tools/verify/compare_results.py"
+    ],
+    "source_tree_digest_algorithm": "SHA-256 over sorted relative_path NUL sha256 LF records",
+    "source_tree_sha256": "61b736296829ffd00b0981b87a4a1871f2153fcced490abcbc9647f58780bc7c"
+  },
+  "limitations": [
+    "This evidence covers the immutable host-runtime corpus only; it is not physical-device, signing, ARKit, compositor, or thermal evidence.",
+    "Any bound source or oracle change requires a new implementation revision and new evidence revision."
+  ],
+  "raw_results": {
+    "javascript": {
+      "byte_length": 3739,
+      "implementation_revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+      "result_digest_sha256": "3af3767d257ffb28f41e71327542af279e144dbd354accbcbc00f356ebe88164",
+      "runner_name": "reroom-javascript-reference",
+      "runner_version": "1.0.0",
+      "sha256": "35fc0d471c24ffc457b6dbe8253fb7d8d28e742c48f010ef0ab2ba50298e0ed5"
+    },
+    "python": {
+      "byte_length": 3731,
+      "implementation_revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+      "result_digest_sha256": "459ee31901bf21f5721eff65f10130304782885d8298500ba4ce958e5e1023e6",
+      "runner_name": "reroom-python-reference",
+      "runner_version": "1.0.0",
+      "sha256": "25f04ace62c65698e9e4c079deabe5cb8cba3c182d0574dc26927eb9bcc2753c"
+    },
+    "swift": {
+      "byte_length": 3729,
+      "implementation_revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+      "result_digest_sha256": "ab2ab33432e3aa60bfa6b98b2b46dc3bb975ad0ad5806353fcc594bc7eb3e00e",
+      "runner_name": "reroom-swift-reference",
+      "runner_version": "1.0.0",
+      "sha256": "b0e581e20c293d0bd56866509069337db99a1d72e3d48277ae8a2ce72115fc79"
+    }
+  },
+  "reproduction": {
+    "command": "scripts/run-three-runtime-agreement",
+    "report_write_policy": "all three comparisons pass before any report is atomically replaced",
+    "success_condition": "fresh raw-result SHA-256 digests and the complete report bytes reproduce exactly"
+  },
+  "requirement_ids": [
+    "NFR-COORD-001"
+  ],
+  "schema_version": "1.0.0",
+  "test_ids": [
+    "TST-COORD-001",
+    "TST-COORD-002"
+  ]
+}

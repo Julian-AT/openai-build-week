@@ -1,0 +1,488 @@
+#!/usr/bin/env python3
+"""Produce fresh, revision-bound Swift/JavaScript/Python agreement evidence."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+
+BOUND_REVISION = "3e3adda8d11a871fe721d03ec78e2706bcbf44c5"
+IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
+COMMAND_TIMEOUT_SECONDS = 120
+MANIFESTS = (
+    (
+        "contract",
+        "FX-CONTRACT-001",
+        "fixtures/contracts/1.0.0/rev-001/manifest.json",
+        "contract-agreement.json",
+        ("NFR-CONTRACT-001",),
+        ("TST-CONTRACT-001", "TST-CONTRACT-002"),
+    ),
+    (
+        "jcs",
+        "FX-JCS-001",
+        "fixtures/policies/RR-JCS-SHA256-1/rev-001/manifest.json",
+        "jcs-agreement.json",
+        ("NFR-CONTRACT-001",),
+        ("TST-CONTRACT-001",),
+    ),
+    (
+        "coordinate",
+        "FX-COORD-001",
+        "fixtures/policies/RR-COORD-1/rev-001/manifest.json",
+        "coordinate-agreement.json",
+        ("NFR-COORD-001",),
+        ("TST-COORD-001", "TST-COORD-002"),
+    ),
+)
+RUNNERS = {
+    "swift": ("reroom-swift-reference", "1.0.0"),
+    "javascript": ("reroom-javascript-reference", "1.0.0"),
+    "python": ("reroom-python-reference", "1.0.0"),
+}
+BOUND_SOURCE_SCOPES = (
+    "fixtures",
+    "docs/contracts",
+    "ios/Packages/ReRoomContracts/Package.swift",
+    "ios/Packages/ReRoomContracts/Package.resolved",
+    "ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
+    "ios/Packages/ReRoomContracts/Sources/ReRoomContractRunner",
+    "tools/javascript/package.json",
+    "tools/javascript/package-lock.json",
+    "tools/javascript/src",
+    "tools/python/requirements.in",
+    "tools/python/requirements.lock",
+    "tools/python/reroom_verify",
+    "tools/verify/compare_results.py",
+)
+
+
+class AgreementError(RuntimeError):
+    """A sanitized fail-closed agreement harness error."""
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _run(
+    command: list[str],
+    *,
+    root: Path,
+    label: str,
+    timeout: int = COMMAND_TIMEOUT_SECONDS,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise AgreementError(f"{label} could not execute") from error
+    if completed.returncode != 0:
+        diagnostic = completed.stderr.strip().splitlines()
+        detail = diagnostic[-1] if diagnostic else f"exit {completed.returncode}"
+        raise AgreementError(f"{label} failed: {detail}")
+    return completed
+
+
+def _resolve_executable(value: str | Path, label: str) -> Path:
+    text = os.fspath(value)
+    candidate = shutil.which(text) if os.sep not in text else text
+    if candidate is None:
+        raise AgreementError(f"{label} executable is unavailable")
+    path = Path(candidate).expanduser().absolute()
+    if not path.is_file() or not os.access(path, os.X_OK):
+        raise AgreementError(f"{label} executable is unavailable")
+    return path
+
+
+def _require_bound_sources(root: Path) -> list[dict[str, str]]:
+    _run(
+        ["git", "cat-file", "-e", f"{BOUND_REVISION}^{{commit}}"],
+        root=root,
+        label="bound implementation revision",
+        timeout=10,
+    )
+    comparison = subprocess.run(
+        ["git", "diff", "--quiet", BOUND_REVISION, "--", *BOUND_SOURCE_SCOPES],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    if comparison.returncode != 0:
+        raise AgreementError("bound implementation sources differ from their recorded revision")
+
+    listing = _run(
+        ["git", "ls-tree", "-r", "--name-only", BOUND_REVISION, "--", *BOUND_SOURCE_SCOPES],
+        root=root,
+        label="bound implementation source listing",
+        timeout=20,
+    )
+    records: list[dict[str, str]] = []
+    for relative in listing.stdout.splitlines():
+        path = root / relative
+        if not path.is_file():
+            raise AgreementError("a bound implementation source is unavailable")
+        records.append({"relative_path": relative, "sha256": _sha256(path.read_bytes())})
+    if not records:
+        raise AgreementError("bound implementation source set is empty")
+    return records
+
+
+def _source_tree_digest(records: list[dict[str, str]]) -> str:
+    scope = "".join(
+        f"{record['relative_path']}\0{record['sha256']}\n" for record in records
+    ).encode("utf-8")
+    return _sha256(scope)
+
+
+def _oracle_hashes(root: Path) -> dict[str, str]:
+    hashes: dict[str, str] = {}
+    for directory in (root / "fixtures", root / "docs/contracts"):
+        for path in sorted(directory.rglob("*")):
+            if path.is_file():
+                hashes[str(path.relative_to(root))] = _sha256(path.read_bytes())
+    return hashes
+
+
+def _read_json(path: Path, label: str) -> dict:
+    if not path.is_file() or not (0 < path.stat().st_size <= 33_554_432):
+        raise AgreementError(f"{label} is missing or outside its bound")
+    try:
+        value = json.loads(path.read_bytes())
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise AgreementError(f"{label} is malformed") from error
+    if not isinstance(value, dict):
+        raise AgreementError(f"{label} root is invalid")
+    return value
+
+
+def _validate_runner_identity(result: dict, runtime: str) -> None:
+    expected_name, expected_version = RUNNERS[runtime]
+    runner = result.get("runner")
+    if not isinstance(runner, dict) or (
+        runner.get("runtime"), runner.get("name"), runner.get("version")
+    ) != (runtime, expected_name, expected_version):
+        raise AgreementError(f"{runtime} runner identity is invalid")
+    if runner.get("implementation_revision") != IMPLEMENTATION_REVISION:
+        raise AgreementError(f"{runtime} runner revision is not bound")
+
+
+def _version(command: list[str], root: Path, label: str) -> str:
+    completed = _run(command, root=root, label=label, timeout=20)
+    lines = (completed.stdout or completed.stderr).strip().splitlines()
+    if not lines:
+        raise AgreementError(f"{label} version is unavailable")
+    return lines[0]
+
+
+def _environment(root: Path, node: Path, python: Path) -> dict[str, str]:
+    product = _version(["sw_vers", "-productVersion"], root, "operating system version")
+    build = _version(["sw_vers", "-buildVersion"], root, "operating system build")
+    return {
+        "operating_system": f"macOS {product} build {build}",
+        "architecture": platform.machine(),
+        "swift": _version(["swift", "--version"], root, "Swift"),
+        "node": _version([str(node), "--version"], root, "Node.js"),
+        "python": _version([str(python), "--version"], root, "Python"),
+        "command": "scripts/run-three-runtime-agreement",
+        "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
+    }
+
+
+def _raw_result_record(path: Path, result: dict) -> dict[str, object]:
+    data = path.read_bytes()
+    runner = result["runner"]
+    return {
+        "runner_name": runner["name"],
+        "runner_version": runner["version"],
+        "implementation_revision": runner["implementation_revision"],
+        "byte_length": len(data),
+        "sha256": _sha256(data),
+        "result_digest_sha256": result["result_digest_sha256"],
+    }
+
+
+def _commands(relative_manifest: str) -> dict[str, object]:
+    common = (
+        f"--manifest {relative_manifest} --output {{isolated_output}} "
+        f"--repo-root {{repository_root}} --implementation-revision {IMPLEMENTATION_REVISION}"
+    )
+    return {
+        "swift": f"ReRoomContractRunner {common}",
+        "javascript": f"node tools/javascript/src/runner.mjs {common}",
+        "python": f".venv/bin/python -m tools.python.reroom_verify.runner {common}",
+        "comparator": (
+            f"python3 tools/verify/compare_results.py compare --manifest {relative_manifest} "
+            "--result {swift_output} --result {javascript_output} --result {python_output} "
+            "--require-runtime swift --require-runtime javascript --require-runtime python"
+        ),
+        "isolation": "exclusive temporary directory; output files must not pre-exist",
+    }
+
+
+def _build_report(
+    *,
+    stem: str,
+    fixture_id: str,
+    relative_manifest: str,
+    manifest: dict,
+    raw_paths: dict[str, Path],
+    results: dict[str, dict],
+    requirements: tuple[str, ...],
+    tests: tuple[str, ...],
+    environment: dict[str, str],
+    source_records: list[dict[str, str]],
+    source_digest: str,
+    evaluator_sha256: str,
+    manifest_schema_sha256: str,
+    result_schema_sha256: str,
+) -> dict[str, object]:
+    swift_cases = results["swift"]["case_results"]
+    case_count = len(swift_cases)
+    accepted = sum(item["verdict"] == "accept" for item in swift_cases)
+    rejected = case_count - accepted
+    manifest_bytes = (Path(relative_manifest)).read_bytes()
+    schema_hashes = [
+        {
+            "contract_id": item["contract_id"],
+            "schema_id": item["schema_id"],
+            "relative_path": item["relative_path"],
+            "sha256": item["sha256"],
+        }
+        for item in manifest["schema_hashes"]
+    ]
+    return {
+        "schema_version": "1.0.0",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_001",
+        "classification": "MEASURED",
+        "requirement_ids": list(requirements),
+        "test_ids": list(tests),
+        "fixture": {
+            "fixture_id": fixture_id,
+            "fixture_revision": manifest["fixture_revision"],
+            "manifest_relative_path": relative_manifest,
+            "manifest_sha256": _sha256(manifest_bytes),
+            "case_count": len(manifest["cases"]),
+            "schema_hashes": schema_hashes,
+            "manifest_schema_sha256": manifest_schema_sha256,
+            "runner_result_schema_sha256": result_schema_sha256,
+        },
+        "implementation": {
+            "revision": IMPLEMENTATION_REVISION,
+            "revision_scope": "exact bound git revision plus the recorded source-tree digest",
+            "source_tree_digest_algorithm": "SHA-256 over sorted relative_path NUL sha256 LF records",
+            "source_tree_sha256": source_digest,
+            "source_file_count": len(source_records),
+            "source_scopes": list(BOUND_SOURCE_SCOPES),
+        },
+        "raw_results": {
+            runtime: _raw_result_record(raw_paths[runtime], results[runtime])
+            for runtime in ("swift", "javascript", "python")
+        },
+        "agreement": {
+            "runtime_count": 3,
+            "case_count": case_count,
+            "accepted": accepted,
+            "rejected": rejected,
+            "missing_cases": 0,
+            "extra_cases": 0,
+            "verdict_disagreements": 0,
+            "rejection_class_disagreements": 0,
+            "artifact_disagreements": 0,
+            "oracle_mismatches": 0,
+            "metric_calculation": (
+                "compare each runtime's exact ordered case_results against the immutable oracle "
+                "and each other; count missing, extra, verdict, rejection-class, artifact, and oracle mismatches"
+            ),
+            "verdict": "pass",
+        },
+        "evaluator": {
+            "relative_path": "tools/verify/compare_results.py",
+            "sha256": evaluator_sha256,
+            "required_runtimes": ["swift", "javascript", "python"],
+        },
+        "commands": _commands(relative_manifest),
+        "environment": environment,
+        "reproduction": {
+            "command": "scripts/run-three-runtime-agreement",
+            "success_condition": "fresh raw-result SHA-256 digests and the complete report bytes reproduce exactly",
+            "report_write_policy": "all three comparisons pass before any report is atomically replaced",
+        },
+        "limitations": [
+            "This evidence covers the immutable host-runtime corpus only; it is not physical-device, signing, ARKit, compositor, or thermal evidence.",
+            "Any bound source or oracle change requires a new implementation revision and new evidence revision.",
+        ],
+    }
+
+
+def _atomic_write_reports(targets: dict[Path, bytes]) -> None:
+    temporary_paths: list[tuple[Path, Path]] = []
+    try:
+        for target, data in targets.items():
+            descriptor, temporary_name = tempfile.mkstemp(
+                prefix=f".{target.name}.", dir=target.parent
+            )
+            temporary = Path(temporary_name)
+            temporary_paths.append((target, temporary))
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
+        for target, temporary in temporary_paths:
+            os.replace(temporary, target)
+        directory_descriptor = os.open(next(iter(targets)).parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_descriptor)
+        finally:
+            os.close(directory_descriptor)
+    finally:
+        for _, temporary in temporary_paths:
+            if temporary.exists():
+                temporary.unlink()
+
+
+def run() -> tuple[str, ...]:
+    root = _repo_root()
+    os.chdir(root)
+    node = _resolve_executable("node", "node")
+    python = _resolve_executable(root / ".venv/bin/python", "locked Python")
+    source_records = _require_bound_sources(root)
+    source_digest = _source_tree_digest(source_records)
+    oracle_before = _oracle_hashes(root)
+    environment = _environment(root, node, python)
+
+    _run(
+        ["swift", "build", "--package-path", "ios/Packages/ReRoomContracts", "--product", "ReRoomContractRunner"],
+        root=root,
+        label="Swift contract runner build",
+    )
+    binary_directory = _run(
+        ["swift", "build", "--package-path", "ios/Packages/ReRoomContracts", "--show-bin-path"],
+        root=root,
+        label="Swift binary path",
+    ).stdout.strip()
+    swift_runner = _resolve_executable(
+        Path(binary_directory) / "ReRoomContractRunner", "Swift contract runner"
+    )
+    comparator = root / "tools/verify/compare_results.py"
+    evaluator_sha256 = _sha256(comparator.read_bytes())
+    manifest_schema_sha256 = _sha256((root / "fixtures/manifest.schema.json").read_bytes())
+    result_schema_sha256 = _sha256((root / "fixtures/runner-result.schema.json").read_bytes())
+
+    reports: dict[Path, bytes] = {}
+    fixture_ids: list[str] = []
+    with tempfile.TemporaryDirectory(prefix="reroom-three-runtime-") as temporary_name:
+        temporary = Path(temporary_name)
+        for stem, fixture_id, relative_manifest, report_name, requirements, tests in MANIFESTS:
+            manifest_path = root / relative_manifest
+            manifest = _read_json(manifest_path, f"{fixture_id} manifest")
+            if manifest.get("fixture_id") != fixture_id:
+                raise AgreementError(f"{fixture_id} manifest identity is invalid")
+            raw_paths = {
+                runtime: temporary / f"{stem}.{runtime}.json" for runtime in RUNNERS
+            }
+            common = [
+                "--manifest", str(manifest_path),
+                "--repo-root", str(root),
+                "--implementation-revision", IMPLEMENTATION_REVISION,
+            ]
+            _run(
+                [str(swift_runner), *common, "--output", str(raw_paths["swift"])],
+                root=root,
+                label=f"{fixture_id} Swift runner",
+            )
+            _run(
+                [
+                    str(node), str(root / "tools/javascript/src/runner.mjs"),
+                    *common, "--output", str(raw_paths["javascript"]),
+                ],
+                root=root,
+                label=f"{fixture_id} JavaScript runner",
+            )
+            _run(
+                [
+                    str(python), "-m", "tools.python.reroom_verify.runner",
+                    *common, "--output", str(raw_paths["python"]),
+                ],
+                root=root,
+                label=f"{fixture_id} Python runner",
+            )
+            results = {
+                runtime: _read_json(path, f"{fixture_id} {runtime} result")
+                for runtime, path in raw_paths.items()
+            }
+            for runtime, result in results.items():
+                _validate_runner_identity(result, runtime)
+            _run(
+                [
+                    str(python), str(comparator), "compare",
+                    "--manifest", str(manifest_path),
+                    "--result", str(raw_paths["swift"]),
+                    "--result", str(raw_paths["javascript"]),
+                    "--result", str(raw_paths["python"]),
+                    "--require-runtime", "swift",
+                    "--require-runtime", "javascript",
+                    "--require-runtime", "python",
+                ],
+                root=root,
+                label=f"{fixture_id} three-runtime comparator",
+            )
+            report = _build_report(
+                stem=stem,
+                fixture_id=fixture_id,
+                relative_manifest=relative_manifest,
+                manifest=manifest,
+                raw_paths=raw_paths,
+                results=results,
+                requirements=requirements,
+                tests=tests,
+                environment=environment,
+                source_records=source_records,
+                source_digest=source_digest,
+                evaluator_sha256=evaluator_sha256,
+                manifest_schema_sha256=manifest_schema_sha256,
+                result_schema_sha256=result_schema_sha256,
+            )
+            reports[root / "evidence/compatibility" / report_name] = (
+                json.dumps(report, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+            )
+            fixture_ids.append(fixture_id)
+
+    if _oracle_hashes(root) != oracle_before:
+        raise AgreementError("oracle files changed during agreement execution")
+    _atomic_write_reports(reports)
+    return tuple(fixture_ids)
+
+
+def main() -> int:
+    try:
+        fixture_ids = run()
+    except AgreementError as error:
+        print(f"three-runtime agreement: FAIL ({error})", file=sys.stderr)
+        return 1
+    print(f"three-runtime agreement: PASS ({','.join(fixture_ids)})")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
