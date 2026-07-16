@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-09-PLAN.md
-last_updated: "2026-07-16T23:11:27.286Z"
+stopped_at: Completed 01-10-PLAN.md
+last_updated: "2026-07-16T23:34:48.857Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 9
+  completed_plans: 10
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 9 of 14
+Plan: 10 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [██████░░░░] 64%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [██████░░░░] 64%
 | Phase 01 P07 | 12min | 2 tasks | 4 files |
 | Phase 01 P08 | 21min | 2 tasks | 6 files |
 | Phase 01 P09 | 15min | 2 tasks | 7 files |
+| Phase 01 P10 | 18min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-09: RRFP remains exactly the 24-byte big-endian prefix, canonical header, and payload with no trailer. — Preserve CON-001 byte identity and reject any undeclared extension byte.
 - [Phase 01]: Plan 01-09: RR-COORD-1 quantizes inputs through binary32 and preserves row-major serialization with column-vector math. — Match the immutable coordinate oracle and inclusive tolerance semantics.
 - [Phase 01]: Plan 01-09: Archive paths require normalized ASCII relative segments plus symlink-aware root containment. — Prevent traversal, separator-confusable, absolute, and symlink escape attacks.
+- [Phase 01]: Plan 01-10: Swift accepts only the exact immutable manifest digests for the three frozen fixture families. — Prevent an omitted or altered corpus from redefining its own oracle.
+- [Phase 01]: Plan 01-10: Three-runtime evidence binds Swift, JavaScript, and Python to one exact implementation revision and source-tree digest. — Make agreement evidence attributable and reproducible while failing closed on source drift.
+- [Phase 01]: Plan 01-10: Agreement reports publish atomically only after all fresh runtime results pass the closed comparator. — Prevent partial or mismatched evidence from being recorded as success.
+- [Phase 01]: Plan 01-10: Durable reports retain raw-result digests rather than temporary raw output files. — Preserve exact reproducibility without retaining path-bearing ephemeral artifacts.
 
 ### Pending Todos
 
@@ -124,8 +129,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-16T23:11:27.281Z
+Last session: 2026-07-16T23:34:48.852Z
 
-Stopped at: Completed 01-09-PLAN.md
+Stopped at: Completed 01-10-PLAN.md
 
 Resume file: None
