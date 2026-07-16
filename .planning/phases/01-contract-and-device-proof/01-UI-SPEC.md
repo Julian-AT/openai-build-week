@@ -50,7 +50,6 @@ Declared values are base points and multiples of four:
 |-------|-------|-------|
 | xs | 4pt | Icon-to-label micro-gap; status dot-to-text gap |
 | sm | 8pt | Compact status-row spacing; related inline controls |
-| sm-plus | 12pt | Card-internal row gap and compact vertical rhythm |
 | md | 16pt | Default horizontal inset, card padding, control gap |
 | lg | 24pt | Bottom action-tray padding and major section separation |
 | xl | 32pt | Permission/blocked-state illustration-to-heading separation |
@@ -67,7 +66,7 @@ Exceptions:
 Layout rules:
 
 - Use one full-screen portrait root. The AR camera is the background only after camera authorization; otherwise render the dominant fallback surface.
-- Apply a 16pt horizontal safe-area inset to all status, coaching, and action content. Use 12pt between stacked status rows and 24pt between the coaching panel and action tray.
+- Apply a 16pt horizontal safe-area inset to all status, coaching, and action content. Use 8pt between stacked status rows and 24pt between the coaching panel and action tray.
 - Release uses a top status capsule/panel and bottom action tray. Neither may cover the central checkerboard/plane-observation region more than necessary.
 - Debug uses a vertically scrolling checklist. It must fit the same portrait viewport without horizontal scrolling, clipped controls, or a fixed-height text container.
 - At large accessibility sizes, change horizontal action groups to vertical full-width controls with 8pt separation. Never shrink type or truncate the primary action to preserve a row.
@@ -196,7 +195,7 @@ Restart confirmation while an attempt is active:
 
 - Title: `Restart device check?`
 - Message: `Restarting stops the current test frame. Saved evidence stays on this iPhone.`
-- Confirm: `Restart`
+- Confirm: `Restart Device Check`
 - Cancel: `Keep Checking`
 
 No Phase 1 control deletes durable evidence or canonical history. There is no destructive action in this surface.
@@ -303,7 +302,7 @@ The existing `ReRoomContracts` Swift package is a contract dependency, not a UI 
 | Plans 01-11 through 01-14 | Exact candidate, permission, capture, diagnostics/export, Release/Debug, and gate-evidence boundaries |
 | Canonical README/ADRs/Master Spec/PRD/contracts | Native Mode A, ARKit authority, no rear-LiDAR dependency, state vocabulary, FramePacket/capture meaning, evidence honesty |
 | SwiftUI expert guidance | Native controls, system/Dynamic Type typography, 44pt targets, VoiceOver grouping/labels, adaptive layout, localization, narrowly scoped motion |
-| Auto-mode defaults | 4/8/12/16/24/32/48/64 spacing; four system type roles/two weights; dark camera-legible palette; no third-party UI registry |
+| Auto-mode defaults | 4/8/16/24/32/48/64 spacing; four system type roles/two weights; dark camera-legible palette; no third-party UI registry |
 
 ## Checker Sign-Off
 
