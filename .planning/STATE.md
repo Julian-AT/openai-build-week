@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-07-16T11:26:50.341Z"
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-07-16T11:50:41.794Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Project State
@@ -36,7 +36,7 @@ Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [██░░░░░░░░] 21%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█░░░░░░░░░] 14%
 |------|----------|-------|-------|
 | Phase 01 P01 | 10min | 2 tasks | 84 files |
 | Phase 01 P02 | 10min | 2 tasks | 24 files |
+| Phase 01 P04 | 22min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,8 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Gate automation is limited to UNRUN, RUNNING, and RED; GREEN and WAIVED_BY_HUMAN require a human actor and signed checklist digest.
 - [Phase 01]: Checked-in gate evidence contains sanitized facts and opaque external artifact digests only; raw/private evidence remains outside Git.
 - [Phase 01]: A waiver requires an explicit lock-change ID plus updated PRD and affected ADR digests before validation.
+- [Phase 01]: Plan 01-04: All six dependency roots are approved only at their audited exact versions, artifact integrity or revision, licenses, and sources.
+- [Phase 01]: Plan 01-04: Resolved transitives are allowed only as the exact compatible-license, integrity or pin-bound closure proven reachable from an approved root.
 
 ### Pending Todos
 
@@ -99,8 +102,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-16T11:26:50.337Z
+Last session: 2026-07-16T11:50:41.788Z
 
-Stopped at: Completed 01-02-PLAN.md
+Stopped at: Completed 01-04-PLAN.md
 
 Resume file: None
