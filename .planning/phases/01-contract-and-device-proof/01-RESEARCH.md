@@ -48,7 +48,7 @@ The highest-risk planning item is not ARKit session startup. It is proving that 
 
 The device proof must preserve a live AR session when orientation becomes unsupported. Capture is an attempt state machine: snapshot one `ARFrame`, interface orientation, viewport, epoch, and capture ID; any portrait-to-landscape transition invalidates that attempt before evidence publication. Do not derive orientation from image pixels or a later UI callback. [VERIFIED: ADR-003, RR-COORD-1, D-01–D-04]
 
-A Phase 1 “hash-valid FramePacket” is not a loose JSON sample. CON-001 requires exact image SHA and RRFP-WIRE-1 metadata; its network-eligible durability fields imply a minimal local evidence/journal path for the proof. Plan only the smallest diagnostic implementation needed for GATE-013, and explicitly avoid claiming Phase 2’s complete crash-safe capture lifecycle. [VERIFIED: `docs/contracts/frame-packet.schema.json`, `docs/canonical/DEVELOPMENT_STRATEGY.md`]
+A Phase 1 “hash-valid FramePacket” is not a loose JSON sample. CON-001 requires exact image SHA and trailer-less RRFP-WIRE-1 metadata: a 24-byte big-endian header with magic/version/zero flags, duplicated payload-length/capture-sequence agreement, exact payload SHA-256, and no trailing bytes. Its network-eligible durability fields require atomic image/metadata durability followed by authoritative journal append/sync before exposure. Plan only the smallest diagnostic implementation needed for GATE-013, and explicitly avoid claiming Phase 2’s complete crash-safe capture lifecycle. [VERIFIED: `docs/contracts/frame-packet.schema.json`, `docs/canonical/DEVELOPMENT_STRATEGY.md`]
 
 ## Architectural Responsibility Map
 
@@ -71,7 +71,7 @@ A Phase 1 “hash-valid FramePacket” is not a loose JSON sample. CON-001 requi
 |---|---|---|
 | NFR-COORD-001 | Every producer and consumer implements RR-COORD-1 and explicit world-frame versioning exactly. | Use pure projection/transform functions, one immutable corpus, RR-FLOAT-1 comparisons, synthetic rotation/crop coverage, and a physical checkerboard/reset checklist. |
 | NFR-CONTRACT-001 | All capture, scene, artifact, and transaction boundaries use exact versioned schemas and named compatibility migrations. | Validate the five closed Draft 2020-12 schemas in all three runtimes; test unknown fields/versions, paths, framing, identity, digests, and deterministic rejection classes before mutation. |
-| OPS-DEVICE-001 | Validate the physical device and toolchain before architecture-sensitive mobile work. | Produce a signed portrait-only app seed, install/launch on the base iPhone, verify permission/tracking/planes without LiDAR semantics, and retain sanitized automated plus human evidence. |
+| OPS-DEVICE-001 | Validate the physical device and toolchain before architecture-sensitive mobile work. | Produce a signed portrait-only candidate device-proof seed, install/launch on the base iPhone, verify camera and microphone grant/deny authorization (without audio recording), tracking/planes without LiDAR semantics, and retain sanitized automated plus human evidence. Promote it only after GATE-013 GREEN. |
 
 </phase_requirements>
 
@@ -159,7 +159,7 @@ An attempt snapshots exactly one `ARFrame` and its metadata. Later orientation, 
 
 ### Pattern 4: Evidence is a gated state machine
 
-Use `UNRUN`, `RUNNING`, `GREEN`, and `RED`. Automation may produce a passing report but may not set a physical gate GREEN without the signed human checklist. A failure records exact sanitized evidence and routing per D-16. [VERIFIED: D-13–D-16]
+Use exactly `UNRUN`, `RUNNING`, `GREEN`, `RED`, and `WAIVED_BY_HUMAN`. Ordinary automation may emit only UNRUN, RUNNING, or RED; it can never emit GREEN or WAIVED_BY_HUMAN. GREEN requires passing automation plus a signed human checklist. WAIVED_BY_HUMAN requires an explicit accountable human lock change naming the changed locked promise plus synchronized PRD and affected-ADR updates/digests; a timebox or ordinary automation cannot create a waiver. RED remains exact sanitized D-16 failure evidence and blocks dependent mobile work. [VERIFIED: D-13–D-16; `docs/canonical/RISK_AND_KILL_GATES.md`]
 
 ## Recommended Project Structure
 
@@ -269,17 +269,18 @@ canonical_bytes = rfc8785.dumps(instance)
 |---|---|---|
 | The five checked-in schemas remain unchanged throughout Phase 1 | HYPOTHESIS | Hash them into the fixture manifest; schema changes create a reviewed new fixture revision. |
 | `swift-json-schema` 0.13.1 supports every keyword/reference/format used by CON-001–CON-005 | HYPOTHESIS | Resolve in Wave 0 with a timeboxed compatibility matrix and named fallback. |
-| A base iPhone 17 can sign/install/launch the seed and run required ARKit plane tracking without LiDAR semantics | HYPOTHESIS | Physical GATE-013; simulator evidence cannot resolve it. |
+| iOS 26.0 is suitable as the Xcode 26.4/base-iPhone-17 Phase 1 proof baseline | ASSUMED planning choice, not canon | Declare it only in Plan 01-11 `must_haves.assumptions`; verify on the real device in Plan 01-14 and make no broader minimum-OS claim. |
+| A base iPhone 17 can sign/install/launch the candidate, exercise camera and microphone grant/deny authorization, and run required ARKit plane tracking without LiDAR semantics | HYPOTHESIS | Physical GATE-013; simulator evidence cannot resolve it; microphone evidence records authorization state only and never audio. |
 | Local toolchain versions are Xcode 26.4, Swift 6.3, Node 22.22.3, npm 10.9.8, and Python 3.13.12 | MEASURED | Record exact command output in sanitized build evidence; do not treat this workstation as the required CI baseline. |
 | A paired base iPhone 17 is discoverable from the workstation | MEASURED | Device identifier is sensitive and must never enter Git; signing/install/launch remain unmeasured. |
 | Minimal GATE-013 capture can be built without completing all Phase 2 durability behavior | HYPOTHESIS | Define the explicit minimal journal/export boundary in the plan and prohibit broader durability claims. |
 
-## Open Questions for Planning
+## Resolved Planning Decisions
 
-1. What minimum iOS deployment target should the app seed declare? Canonical authority specifies the base device, not a minimum OS. The plan must make this explicit before selecting package/platform settings. [UNRESOLVED]
-2. Does `swift-json-schema` 0.13.1 pass all schema features, local `$ref` resolution, format behavior, and deterministic error normalization required by the corpus? [UNRESOLVED — Wave 0]
-3. Which precise subset of the FramePacket durability/journal fields constitutes the minimal GATE-013 diagnostic capture without claiming Phase 2 completion? Resolve against CON-001 and the gate wording before implementation. [UNRESOLVED — planning decision within canonical constraints]
-4. Who is the named human operator/approver for GATE-002 and GATE-013, and where are raw artifacts retained outside Git? [UNRESOLVED — human input needed before gate execution]
+1. **Deployment baseline — [ASSUMED], not canonical:** Phase 1 declares iOS 26.0 only as the Xcode 26.4/base-iPhone-17 proof baseline in Plan 01-11. The assumption is visible in that plan's `must_haves.assumptions`, is verified against the real device in Plan 01-14, and makes no broader minimum-OS support claim. A mismatch records RED/pending evidence instead of silently changing product compatibility.
+2. **Swift schema seam — measured accept/fallback:** Plan 01-08 runs `swift-json-schema` 0.13.1 against every mandatory CON-001–CON-005 keyword, local reference, format, valid fixture, and invalid rejection class. Any miss removes it from the runtime path and activates the frozen ReRoom-profile validator; schemas are never weakened. The adopted result and license/revision evidence are recorded in the research ledger.
+3. **GATE-013 diagnostic durability boundary:** Plan 01-12 implements one local diagnostic capture through CON-001's exposed `network_eligible` state. Atomic rename yields only internal `image_and_metadata_durable`; the schema-owned CON-002 frame/event journal entries and exact projections must then be appended and synced before the hash-valid packet is visible or network-eligible. A rename-before-journal crash leaves the packet unexposed, and recovery accepts only the hash-valid contiguous prefix. Upload, server acknowledgement, finalized `.rrcap`, queueing, and broader Phase 2 crash-matrix claims remain outside Phase 1.
+4. **Operator and raw-artifact ownership — blocking human checkpoint:** Plan 01-14 cannot set GATE-002 or GATE-013 GREEN until a human supplies a pseudonymous operator/approver plus an approved external raw-artifact store, verifies opaque IDs/digests, and signs both checklists. Missing information leaves the gate RUNNING/RED and activates D-16 routing; it is never auto-filled.
 
 ## Environment Availability
 
@@ -310,8 +311,8 @@ canonical_bytes = rfc8785.dumps(instance)
 |---|---|---|
 | NFR-CONTRACT-001 | Runtime schema/JCS/wire unit tests for touched cases | All five schemas plus valid/invalid corpus agree across Swift/JS/Python; recorded result digest and immutable revision report |
 | NFR-COORD-001 | Pure Swift/JS/Python projection and RR-FLOAT-1 cases | Synthetic transforms within one encoded pixel, duplicated fields agree, physical portrait checkerboard passes, landscape negative coaches, reset emits new epoch/correction |
-| OPS-DEVICE-001 / GATE-013 | Generic iOS build and release-surface inspection | Signed base-device install/launch; camera permission, ARKit tracking, plane callbacks, minimal hash-valid packet; sanitized build record; human checklist signature |
-| GATE-002 | Synthetic rotation/crop/reset fixtures | Physical portrait pass plus landscape negative and explicit reset evidence; human checklist signature |
+| OPS-DEVICE-001 / GATE-013 | Generic iOS build, deterministic camera/microphone authorization tests, and release-surface inspection | Signed base-device install/launch; separate camera and microphone grant/deny evidence without audio recording; ARKit tracking, plane callbacks, minimal hash-valid journaled packet; declared proof-baseline evidence; sanitized build record; human checklist signature; D-05 promotion only on GREEN |
+| GATE-002 | Synthetic rotation/crop/reset fixtures | Physical portrait pass plus landscape negative and one explicit physical reset proving world_frame_version advance with valid directed correction or explicit quarantine; human checklist signature |
 
 Suggested commands are planning targets, not current evidence:
 

@@ -121,7 +121,7 @@ Paths below are proposed surfaces inferred from the recommended Phase 1 structur
 - Model capture as `idle -> staged -> rejected|exported`, snapshotting one frame/orientation/viewport/epoch/capture ID at attempt start (`01-RESEARCH.md:147-158`).
 - Gate capture in landscape while keeping ARKit tracking alive.
 - Keep diagnostics in the same target but exclude them from release builds, with an archive/release-surface test.
-- Build only portrait gating, permissions, ARKit tracking/planes, minimal hash-valid FramePacket capture, checklist state, and sanitized export. Editing, providers, compositing, and Mode B0 remain absent.
+- Build only portrait gating, deterministic camera/microphone authorization (without audio capture), ARKit tracking/planes, minimal hash-valid FramePacket capture, checklist state, and sanitized export. Editing, providers, compositing, audio recording, and Mode B0 remain absent.
 
 **Authority anchors, not copy sources:**
 
@@ -138,11 +138,11 @@ Paths below are proposed surfaces inferred from the recommended Phase 1 structur
 
 **Executable analog:** None.
 
-**Use this researched pattern:** Evidence state is `UNRUN`, `RUNNING`, `GREEN`, or `RED`; automation can produce a passing report but cannot set GATE-002 or GATE-013 GREEN without explicit human sign-off (`01-RESEARCH.md:160-162`). Sanitize first, serialize second. Raw video, screenshots, logs, signing details, device identifiers, user paths, and room data remain outside Git behind opaque IDs and SHA-256 digests.
+**Use this researched pattern:** Evidence state is exactly `UNRUN`, `RUNNING`, `GREEN`, `RED`, or `WAIVED_BY_HUMAN`. Automation may emit only `UNRUN`, `RUNNING`, or `RED`; it cannot emit `GREEN` or `WAIVED_BY_HUMAN`. `GREEN` requires passing automated evidence plus an explicit signed human checklist. `WAIVED_BY_HUMAN` requires an accountable human, the changed human-locked promise, a locked-decision change ID, and synchronized PRD plus affected-ADR digests; a timebox overrun is insufficient. Sanitize first, serialize second. Raw video, screenshots, logs, signing details, device identifiers, user paths, and room data remain outside Git behind opaque IDs and SHA-256 digests.
 
 **Authority anchors, not copy sources:** `01-RESEARCH.md:309-326` maps requirements to automated and physical evidence and states that device/human evidence cannot be delegated or fabricated. `01-RESEARCH.md:330-338` defines path/input limits, identifier redaction, and release exclusion.
 
-**Planner constraint:** Add schema tests proving forbidden fields cannot be serialized. A failed physical gate records RED evidence and stops dependent mobile work while leaving independent contract work runnable.
+**Planner constraint:** Add schema tests proving forbidden fields cannot be serialized and automation cannot emit GREEN or WAIVED_BY_HUMAN. A failed physical gate records RED evidence and stops dependent mobile work while leaving independent contract work runnable; waiver is a human lock-change workflow, never an automated escape hatch.
 
 ## Shared Patterns
 
