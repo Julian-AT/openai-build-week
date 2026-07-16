@@ -1,6 +1,6 @@
 # ReRoom Risk and Kill Gates
 
-Status: canonical PRE-GSD gate authority  
+Status: canonical gate authority
 Version: 1.0.0  
 Date: 2026-07-13
 
@@ -161,7 +161,7 @@ Gate states are `UNRUN`, `RUNNING`, `GREEN`, `RED`, or `WAIVED_BY_HUMAN`. A huma
 - **Deadline:** S8 hardening before the tier is named in a demo claim.
 - **Maximum recovery budget:** `TARGET: 1 implementation slice`; no new cloud/database/orchestration platform may be added within this recovery.
 - **Pass threshold:** `TARGET: zero` OOM/crash; `TARGET: zero` unbounded queue growth; `TARGET: zero` lost acknowledged edits or cross-session state; `TARGET: reconnect snapshot recovery at most 2 seconds`; `TARGET: p95 mask age at most 250 ms` for a capability advertised live; every named stage reports p50/p95/max and drop counts.
-- **Fallback:** Unload mutually exclusive providers, serialize GPU lanes, reduce cadence/resolution, use cached artifacts, select no-dense, and preserve capture/B0. A later deployment may use one warm Pod plus external commit persistence, but cloud deployment is outside PRE-GSD preparation.
+- **Fallback:** Unload mutually exclusive providers, serialize GPU lanes, reduce cadence/resolution, use cached artifacts, select no-dense, and preserve capture/B0. A later deployment may use one warm Pod plus external commit persistence, but cloud deployment is outside the current project scope.
 - **Effect on P0:** Blocks only the declared live tier/capability; provider-independent local capture/transactions/B0 remain the safety ladder.
 - **Final decision rule:** Drop any optional provider or tier that misses stability/bounds. Do not hide a mandatory GPU SKU or add infrastructure to rescue a failed optional path.
 

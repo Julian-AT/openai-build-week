@@ -17,7 +17,7 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Review and approve the initial roadmap draft; no product implementation is authorized by this state.
+**Current focus:** Use GSD 1.7 smart entry to begin Phase 1 discussion against the approved canonical sources; no product implementation is authorized by this state.
 
 ## Current Position
 
@@ -25,9 +25,9 @@ Phase: 1 of 8 (Contract and Device Proof)
 
 Plan: 0 of TBD in current phase
 
-Status: Planning - roadmap draft awaiting human approval
+Status: Planning - ready for `$gsd-next` (expected route: `$gsd-discuss-phase 1`)
 
-Last activity: 2026-07-15 - Created PROJECT, REQUIREMENTS, ROADMAP, and STATE drafts from the staged canonical ingest.
+Last activity: 2026-07-15 - Finalized the portable GSD 1.7 repository handoff and Phase 1 entry state.
 
 Progress: [----------] 0%
 
@@ -64,11 +64,11 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-None yet. Detailed phase plans remain intentionally TBD until roadmap approval.
+None. Detailed phase plans remain intentionally TBD until Phase 1 is discussed and approved.
 
 ### Blockers/Concerns
 
-- Planning safeguard: roadmap approval and a separately reviewed phase plan are required before implementation.
+- Planning safeguard: Phase 1 discussion and a separately reviewed phase plan are required before implementation.
 - Provisional ADR variants cannot be treated as selected or measured until their physical/fixture evidence and deadlines are satisfied.
 - Physical iPhone/Xcode/signing, compositor/thermal, visual-vote, license, and final rules gates require human/device evidence and cannot be fabricated.
 
@@ -83,6 +83,6 @@ None yet. Detailed phase plans remain intentionally TBD until roadmap approval.
 
 Last session: 2026-07-15
 
-Stopped at: Initial roadmap artifacts drafted; validation and human review remain.
+Stopped at: Portable GSD 1.7 entry state ready; run `$gsd-next` on the development machine.
 
 Resume file: None

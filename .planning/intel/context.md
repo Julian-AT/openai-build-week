@@ -50,7 +50,7 @@ DATA_C3E96A52_END
 - precedence: 40
 
 DATA_D71B4F09_START
-This file is the authoritative `GATE-NNN` mapping. Terms and requirement IDs come from [GLOSSARY_AND_ID_REGISTRY.md](GLOSSARY_AND_ID_REGISTRY.md) and [PRD.md](PRD.md). Evidence procedures and formats are identified by the canonical `TEST-NNN` and `EVAL-NNN` registries. ADRs own the architectural decision; this register owns the operational trigger and final kill rule.
+This file is the authoritative `GATE-NNN` mapping. Terms and requirement IDs come from [GLOSSARY_AND_ID_REGISTRY.md](../../docs/canonical/GLOSSARY_AND_ID_REGISTRY.md) and [PRD.md](../../docs/canonical/PRD.md). Evidence procedures and formats are identified by the canonical `TEST-NNN` and `EVAL-NNN` registries. ADRs own the architectural decision; this register owns the operational trigger and final kill rule.
 
 Every numeric value below is a **TARGET**, not a measured result. A gate becomes green only when an evidence record identifies the fixture version, implementation revision, device/runtime tier, provider and checkpoint revisions, run count, raw output location, metric code revision, and evaluator. Missing evidence is a failed gate, not an assumed pass.
 DATA_D71B4F09_END
@@ -61,7 +61,7 @@ DATA_D71B4F09_END
 - precedence: 40
 
 DATA_E05C8A73_START
-This plan defines the evidence needed to decide whether ReRoom's controlled P0 is ready. Requirement behavior is owned by [PRD.md](PRD.md), terminology by [GLOSSARY_AND_ID_REGISTRY.md](GLOSSARY_AND_ID_REGISTRY.md), contract fields by `docs/contracts/`, and final kill decisions by [RISK_AND_KILL_GATES.md](RISK_AND_KILL_GATES.md).
+This plan defines the evidence needed to decide whether ReRoom's controlled P0 is ready. Requirement behavior is owned by [PRD.md](../../docs/canonical/PRD.md), terminology by [GLOSSARY_AND_ID_REGISTRY.md](../../docs/canonical/GLOSSARY_AND_ID_REGISTRY.md), contract fields by `docs/contracts/`, and final kill decisions by [RISK_AND_KILL_GATES.md](../../docs/canonical/RISK_AND_KILL_GATES.md).
 
 All numeric acceptance values in this plan are explicitly labeled **TARGET**. They are not measured performance. A result may be called `MEASURED` only when it links the immutable fixture, implementation revision, environment, raw evidence, and metric calculation. Product copy may not convert a TARGET or HYPOTHESIS into a claim.
 DATA_E05C8A73_END
@@ -72,7 +72,7 @@ DATA_E05C8A73_END
 - precedence: 40
 
 DATA_F2D64B18_START
-The evidence establishes safe APIs, versions, provenance, and license boundaries. It does **not** establish the following as facts: sustained base-device FPS/thermal behavior, semantic target quality, learned metric-depth accuracy, reveal credibility, provider latency/VRAM, reconnect recovery, or end-to-end voice reliability. Those are intentionally `REQUIRES_BENCHMARK` and are controlled by `GATE-003`, `GATE-004`, `GATE-006`, `GATE-007`, `GATE-010`, and `GATE-012` in [RISK_AND_KILL_GATES.md](RISK_AND_KILL_GATES.md).
+The evidence establishes safe APIs, versions, provenance, and license boundaries. It does **not** establish the following as facts: sustained base-device FPS/thermal behavior, semantic target quality, learned metric-depth accuracy, reveal credibility, provider latency/VRAM, reconnect recovery, or end-to-end voice reliability. Those are intentionally `REQUIRES_BENCHMARK` and are controlled by `GATE-003`, `GATE-004`, `GATE-006`, `GATE-007`, `GATE-010`, and `GATE-012` in [RISK_AND_KILL_GATES.md](../../docs/canonical/RISK_AND_KILL_GATES.md).
 
 The shipping bill of materials must reference the exact artifact records above or add new `CLM-NNN` records before adopting another version. Moving `main`, an unpinned model alias, a repository code license standing in for checkpoint terms, or an author-reported benchmark is never sufficient shipping evidence.
 DATA_F2D64B18_END

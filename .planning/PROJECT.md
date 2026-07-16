@@ -4,7 +4,7 @@
 
 ReRoom is a camera-grounded room-editing product for placing, replacing, removing, and restoring one controlled freestanding chair or small table. Mode A is a native SwiftUI iPhone experience with ARKit world authority; a separate Next.js Mode B0 client provides guaranteed capture replay, inspection, fallback, sessions, sharing, and typed proposals without claiming native Mode A parity.
 
-This is a planning draft. It records product authority and delivery boundaries but does not authorize product implementation, package installation, deployment, or publication.
+This is the initialized GSD 1.7 planning entry state. It records product authority and delivery boundaries but does not authorize product implementation, package installation, deployment, or publication.
 
 ## Core Value
 
@@ -15,6 +15,13 @@ Trustworthy camera-grounded room editing where users can place, replace, remove,
 OPS-GOLDEN-001 reaches 5/5 on the signed base-iPhone path, all blocking GATE-NNN records are green, exact replay/revision traces pass, controlled removal is not demoted, B0 replay works without learned providers, and secrets/license checks pass.
 
 All numeric thresholds are TARGET values until an evidence record identifies the immutable fixture, implementation revision, environment, raw evidence, metric calculation, and evaluator.
+
+## Source Basis and Authority
+
+- The historical starting point is the byte-preserved `docs/archive/source/ReRoom_Master_Technical_Plan_v3.2.md` and `docs/archive/source/ReRoom_PRD_v1.0.md`.
+- The archived documents were adversarially audited and canonicalized. Material corrections are recorded in `docs/audit/DECISION_CHANGELOG.md` and the Accepted/Provisional ADRs.
+- Current product authority starts at `docs/canonical/README.md`, then follows its precedence chain through ADRs, contracts, the Master Technical Specification, PRD, and supporting evidence documents.
+- This `.planning/` projection is the GSD working entry point, not a replacement for canonical product authority. Phase discussion and research must re-read the live canonical sources.
 
 ## Requirements
 
@@ -65,6 +72,7 @@ The 24 canonical P0 requirement IDs are preserved in `.planning/REQUIREMENTS.md`
 - **Security and privacy**: Imagery, geometry, metadata, prompts, and model output are sensitive and untrusted. Credentials remain server-controlled; capture/upload/share require consent and visible state; retention/deletion/share access are explicit.
 - **Evidence**: Physical device, Xcode/signing, compositor, thermal, visual-vote, license, and human confirmation gates require real evidence and cannot be replaced by simulator or model assertions.
 - **Planning boundary**: These drafts initialize planning only. Every phase still requires an approved detailed plan before any implementation action.
+- **Solution evolution**: Generated planning intel, named libraries/providers, implementation sketches, and initial framework defaults are evidence and hypotheses, not additional product locks. Phase research may propose a better solution when it preserves the human locks, requirement IDs, contract semantics, acceptance evidence, security/privacy boundaries, license policy, and documented fallbacks/kill gates. A load-bearing architectural change requires an ADR; a human lock change requires explicit recorded human escalation.
 
 ## Key Decisions
 
@@ -189,9 +197,11 @@ These ADRs are usable only behind their named boundaries. Their thresholds remai
 ## Evolution
 
 - Requirement IDs, locked decisions, contract terms, and gate thresholds are not redefined inside planning artifacts.
+- Generated intel must be rechecked against live canonical sources during phase discussion and planning. It may narrow a search for efficiency, but it may not reject a superior compliant option merely because that option was absent from the ingest synthesis.
+- Provisional technologies remain candidates behind their named fixtures and kill gates. The benchmark selects among eligible variants; planning text does not turn an initial default into an accepted architecture.
 - After a phase completes, update requirement status only when implementation and required evidence both pass.
 - Provisional benchmark results must synchronize the ADR, research ledger, risk gate, and any affected requirement/schema before a decision becomes measured.
 - Future/stretch work may enter a later roadmap only through explicit human approval and may never weaken P0 acceptance.
 
 ---
-*Last updated: 2026-07-15 after staged documentation ingest and initial roadmap drafting.*
+*Last updated: 2026-07-15 for the portable GSD 1.7 handoff.*

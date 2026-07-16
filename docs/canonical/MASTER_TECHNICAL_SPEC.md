@@ -1,6 +1,6 @@
 # ReRoom Master Technical Specification
 
-Status: canonical PRE-GSD engineering authority  
+Status: canonical engineering authority
 Version: 1.0.0  
 Date: 2026-07-13
 

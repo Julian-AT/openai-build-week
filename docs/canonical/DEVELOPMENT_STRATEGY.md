@@ -1,6 +1,6 @@
 # ReRoom Development Strategy
 
-Status: canonical PRE-GSD implementation-sequencing authority  
+Status: canonical implementation-sequencing authority
 Version: 1.0.0  
 Date: 2026-07-13
 

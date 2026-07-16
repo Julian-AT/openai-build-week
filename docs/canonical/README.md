@@ -1,7 +1,7 @@
 # ReRoom Canonical Authority
 
-Status: **PRE-GSD documentation authority**  
-Effective date: 2026-07-13
+Status: **canonical authority; GSD planning initialized**
+Effective date: 2026-07-15
 
 ## Authority and precedence
 
@@ -31,7 +31,7 @@ The glossary is the naming authority; JSON Schemas are the field and lifecycle a
 11. Delivery assumes two developers using Codex and Sol.
 12. Work is dependency-driven and must not be assigned through a person-based plan.
 13. Compute is specified as measured capability/hardware tiers, never a hidden mandatory GPU SKU.
-14. No GSD command or `.planning/` creation occurs during preparation; onboarding is a later explicit manual action.
+14. GSD commands and `.planning/` creation were prohibited during preparation; onboarding could occur only as a later explicit human action. That authorization was given and repository planning initialization completed on 2026-07-15. GSD runtime installation remains user-global on each machine. This does not authorize product implementation.
 15. The two original project Markdown documents are byte-preserved historical evidence, not current authority.
 16. Canonical project documentation is English.
 
@@ -53,12 +53,21 @@ A `Provisional` ADR is usable only behind its provider/contract boundary. It mus
 
 `docs/archive/source/ReRoom_Master_Technical_Plan_v3.2.md` and `docs/archive/source/ReRoom_PRD_v1.0.md` are byte-preserved evidence, not current authority. They are excluded from GSD ingestion.
 
-## Intended GSD ingest set
+## GSD planning handoff
 
-The exact ordered 28-entry set is `docs/gsd/ingest-manifest.yml`. This index is ingested as the sole highest-authority `DOC` at precedence `-10`, so all 16 human locks outrank accepted ADRs at `0`; provisional ADRs use `10`, specifications/contracts `20`, PRD `30`, and supporting canonical documents `40`. The compact set includes development, test, risk, research, glossary, and contract documents and excludes archives, audits, prompts, Codex/GSD setup material, and raw research.
+`.planning/` is the initialized GSD 1.7 project entry point. It contains the
+project, 26 requirements (24 P0 and 2 stretch), eight-phase roadmap, state,
+minimal Codex config, and compact source synthesis. The initialization consumed
+the 14 ADRs, seven specifications/contracts, PRD, and six supporting canonical
+documents under the precedence above. It completed with zero blockers and zero
+warnings.
 
-GSD has not been installed project-locally or run for this repository, and
-`.planning/` must not exist until the human follows
-`docs/gsd/ONBOARDING_AND_CONTINUATION.md`. An older user-global GSD `1.5.0`
-surface is workstation context, not project authority, and must be reconciled
-through that guide before onboarding.
+The archived v3.2 plan and v1.0 PRD remain the historical basis, but were not
+ingested directly because the canonical audit and ADR set deliberately repair
+their stale staffing, provider, durability, restore, B0, and removal positions.
+Material changes remain traceable in `docs/audit/DECISION_CHANGELOG.md`.
+
+GSD Core 1.7.0 is installed globally in each developer's Codex home; generated
+runtime files do not belong in this repository. On a new machine, follow the
+root README, restart Codex, and run `$gsd-next`. Do not run
+`$gsd-new-project` or repeat new-mode ingestion.

@@ -2,6 +2,8 @@
 
 Mode: `new`. Precedence uses each classification's manifest override; lower integers are stronger. Human-locked authority from `docs/canonical/README.md` at precedence `-10` remains above Accepted ADRs at `0`. Every decision below is preserved independently.
 
+This file is an ingest index, not a new source of authority. `locked` entries summarize Accepted ADRs and must be verified against their live source before a material change. `proposed` entries are benchmark-bounded candidates, not mandatory technology selections. Research may introduce a better eligible variant when it preserves the governing contracts and acceptance gates; adopting a load-bearing change requires the appropriate ADR update and any required human escalation.
+
 ## ADR-001 — Product modes, exact P0 scope, and B1 isolation
 
 - source: docs/adr/ADR-001-product-modes-and-p0-scope.md

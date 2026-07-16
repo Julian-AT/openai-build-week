@@ -18,17 +18,15 @@ firecrawl-cache/
 research-crawls/
 *.crawl.json
 
-# Python and validation caches
+# Python caches
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 
-# Codex/GSD transient state (project config and later planning docs are retained)
-.codex/log/
-.codex/tmp/
-.codex/sessions/
+# Codex/GSD runtime is user-global and must never be vendored here
+.codex/
 .planning/.gsd-trace.jsonl
 
 # Editors and operating systems
@@ -39,7 +37,7 @@ Thumbs.db
 *.swp
 *~
 
-# Build/output noise if created after onboarding
+# Build/output noise
 dist/
 build/
 coverage/
@@ -47,4 +45,4 @@ coverage/
 *.trace
 *.trace/
 
-# Deliberately do not ignore .planning/: pinned GSD recommends committing planning docs.
+# Deliberately do not ignore .planning/: GSD planning docs and project config are shared.

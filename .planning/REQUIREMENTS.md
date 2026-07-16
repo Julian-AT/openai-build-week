@@ -130,4 +130,4 @@ Each P0 requirement maps to exactly one phase. Future/stretch requirements inten
 ---
 *Requirements defined: 2026-07-15*
 
-*Last updated: 2026-07-15 after staged documentation ingest and initial roadmap drafting.*
+*Last updated: 2026-07-15 for the portable GSD 1.7 handoff.*

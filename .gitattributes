@@ -1,11 +1,7 @@
 .gitattributes text eol=lf
 .agents/skills/** text eol=lf
-# Preserve pinned GSD package whitespace while keeping installer bytes portable.
-.codex/** text eol=lf -whitespace
-AGENTS.md text eol=lf
-README.md text eol=lf
-docs/gsd/profiles/*.config.json text eol=lf
-docs/gsd/ONBOARDING_AND_CONTINUATION.md text eol=lf
-docs/gsd/ingest-manifest.yml text eol=lf
-scripts/*.py text eol=lf
-scripts/*.sh text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+docs/archive/source/** -text

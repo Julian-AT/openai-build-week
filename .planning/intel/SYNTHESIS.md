@@ -4,6 +4,16 @@ Mode: `new`
 
 All 28 manifest-classified documents were consumed using their per-document precedence overrides. Lower integers are stronger: canonical human-lock index `-10`, Accepted ADRs `0`, Provisional ADRs `10`, specifications/contracts `20`, PRD `30`, and supporting canonical documents `40`. No default type tiebreak was needed.
 
+## Use and limits
+
+This synthesis is a routed snapshot of the ingested sources, not an independent implementation authority or a closed solution set. Human locks, Accepted ADRs, frozen contracts, requirement IDs, acceptance gates, and security/license boundaries remain binding. Named providers, frameworks, and implementation approaches that are provisional or supporting context remain hypotheses.
+
+During discussion, research, and planning, compare this snapshot with the live canonical files and current primary-source evidence. A better compliant solution may replace an initial default when it preserves required behavior and evidence, passes the applicable benchmark/kill gate, and records any load-bearing architecture change in an ADR. Absence from this synthesis is not grounds to reject an otherwise superior compliant option.
+
+## Historical basis
+
+The byte-preserved `ReRoom_Master_Technical_Plan_v3.2.md` and `ReRoom_PRD_v1.0.md` were the original source inputs to canonicalization. They were intentionally not ingested directly because their dated staffing, provider, durability, restore, B0, and removal positions contain conflicts repaired by the canonical ADR and audit set. The current canonical descendants preserve the useful product and technical content while recording every material change.
+
 ## Document counts
 
 - Total: 28
@@ -70,6 +80,6 @@ All 28 manifest-classified documents were consumed using their per-document prec
 - UNKNOWN/low-confidence blockers: 0
 - Cycle blockers: 0
 - Totals: 0 blockers, 0 competing variants, 0 auto-resolved conflicts
-- Report: [../INGEST-CONFLICTS.md](../INGEST-CONFLICTS.md)
+- Final result: zero blockers and zero warnings. Per-document classifier staging and the empty conflict report were removed after finalization because they are not required for continuation.
 
-STATUS: READY — safe to route
+STATUS: READY — safe to route through `$gsd-next`

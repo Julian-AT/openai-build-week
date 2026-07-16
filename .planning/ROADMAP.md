@@ -4,11 +4,11 @@
 
 ReRoom advances through replayable dependency and risk slices: prove closed contracts and the physical base-device path; establish atomic capture and exact replay; complete typed place/commit/offline restore; retire target/compositor risk; deliver replacement; pass controlled multi-surface removal; complete provider-independent B0 web fallback; and consolidate resilience, security, license, golden-run, and submission evidence. Eight phases are retained despite the standard granularity default because the canonical delivery strategy makes replacement and removal separate locked gates and forbids horizontal layer phases.
 
-This roadmap is a draft for approval and initializes planning only. It does not authorize product implementation. `STR-VOICE-001` and `STR-B1-001` remain future/stretch scope and have no P0 phase.
+This approved high-level roadmap initializes planning only. It does not authorize product implementation; every phase still requires discussion, a reviewed detailed plan, and its own verification. `STR-VOICE-001` and `STR-B1-001` remain future/stretch scope and have no P0 phase.
 
 ## Phases
 
-**Phase numbering:** Sequential integer IDs are used because no `config.json` exists. Decimal IDs are reserved for later urgent insertions.
+**Phase numbering:** Sequential integer IDs established during ingest remain the durable phase identifiers. Decimal IDs are reserved for later urgent insertions.
 
 - [ ] **Phase 1: Contract and Device Proof** - Prove shared closed contracts, coordinate fixtures, and the signed no-LiDAR base-device path before architecture-sensitive work.
 - [ ] **Phase 2: Atomic Capture and Exact Replay** - Make consented selected frames durable, recoverable, bounded, and exactly replayable before live inference.
@@ -25,6 +25,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: The project has one verified contract/coordinate vocabulary and a signed physical base-iPhone path that works without rear LiDAR.
 **Depends on**: Nothing (first phase)
 **Requirements**: NFR-COORD-001, NFR-CONTRACT-001, OPS-DEVICE-001
+**Gates**: GATE-002, GATE-013
 **Success Criteria** (what must be TRUE):
   1. A signed minimal app installs and launches on the declared base iPhone; camera permission, ARKit tracking, and planes work without LiDAR semantics, with a repeatable build record.
   2. Swift, JavaScript, and Python consumers agree on the canonical coordinate/projection fixtures within one encoded pixel, including orientation, transformed intrinsics, RR-FLOAT-1 comparisons, and explicit world-epoch correction.
@@ -36,6 +37,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: Consented selected frames become crash-safe, journal-authoritative replay inputs before they can be uploaded or coupled to live providers.
 **Depends on**: Phase 1
 **Requirements**: FR-CAPTURE-001, FR-B0-001, NFR-REPLAY-001, SEC-CONSENT-001
+**Gates**: GATE-001
 **Success Criteria** (what must be TRUE):
   1. No room image is selected before explicit consent; recording and upload state is visible, and denial leaves only a non-capture explanation.
   2. Each accepted frame follows the exact five-state lifecycle, validates RRFP-WIRE-1 and the image SHA, and crash injection at every durability edge leaves no frame or one hash-valid journaled frame; no upload references an unjournaled frame.
@@ -48,6 +50,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: Users can complete a deterministic place/restore journey through typed/tap input while canonical revisions, inverses, and reconciliation remain exact offline and on replay.
 **Depends on**: Phase 2
 **Requirements**: FR-PLACE-001, FR-RESTORE-001, FR-TRANSACTION-001, FR-AGENT-001
+**Gates**: GATE-009, GATE-010 (typed/agent safety; optional voice remains stretch)
 **Success Criteria** (what must be TRUE):
   1. A user can place a validated curated asset on supported geometry, see a stable preview at the unchanged base revision, explicitly confirm one revision increment, survive interruption, and replay the committed result; missing support rejects commit.
   2. A user can restore the latest eligible edit offline through a new compensating transaction that verifies the captured-exact inverse, increments once, preserves new/unaffected state, and leaves original history immutable.
@@ -60,6 +63,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: A user can ground and recover one explicit target while the base-device renderer and target-first provider path meet their measured gates or activate bounded canonical fallbacks.
 **Depends on**: Phase 3
 **Requirements**: FR-TARGET-001, NFR-RENDER-001
+**Gates**: GATE-003, GATE-004, GATE-005, GATE-007, GATE-012
 **Success Criteria** (what must be TRUE):
   1. A user can explicitly select one chair/table target; ambiguity never silently commits, tracking loss changes per-capability readiness within one UI update, and reseeding restores the target or reports a clear failure.
   2. Renderer ordering is correct at the prescribed poses and the four-minute signed base-device run has no render-thread network/model wait, crash, jetsam, or sustained serious/critical thermal state while meeting the current TARGET frame gate.
@@ -72,6 +76,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: Users can replace the controlled target with a validated curated asset reliably inside supported observations.
 **Depends on**: Phase 4
 **Requirements**: FR-REPLACE-001
+**Gates**: GATE-011
 **Success Criteria** (what must be TRUE):
   1. A ready target can be replaced with stable identity, conservative original masking/occlusion, deterministic support alignment, and exactly one committed revision even after retry.
   2. Five consecutive development runs complete without wrong target, duplicate revision, severe seam, or lost edit, and the result persists locally and through exact replay.
@@ -84,6 +89,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: Users can remove and restore the controlled target only inside a measured supported-view envelope, satisfying the locked P0 removal gate.
 **Depends on**: Phase 5
 **Requirements**: FR-REMOVE-001
+**Gates**: GATE-006
 **Success Criteria** (what must be TRUE):
   1. The controlled hero capture passes `GATE-006`: coverage p10 at least 0.95, median at least 0.98, no uncovered component over 1%, correct multi-surface order, no severe foreground overwrite, and at least 4/5 of exactly five blinded votes.
   2. A removal commit pins the validated reveal revision, persists through replay, and restores through the exact compensating transaction without rewriting the original commit.
@@ -96,6 +102,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: Users can replay, inspect, share, and safely operate on captured sessions in a separate provider-independent web experience with honest degradation.
 **Depends on**: Phase 2 and Phase 3 (independent of Phases 4-6 once those prerequisites pass)
 **Requirements**: FR-WEB-001, SEC-RETENTION-001
+**Gates**: GATE-008
 **Success Criteria** (what must be TRUE):
   1. Supported browsers can open and verify the golden capture, replay the exact journal, scrub events, inspect canonical scene/transaction state, and render available sparse/artifact data without a learned provider or live phone connection.
   2. Users can manage sessions, sharing, and typed proposals on an explicit B0 fork; camera denial, unsupported codec, quota, and network failures degrade without losing an acknowledged commit or claiming Mode A parity.
@@ -108,6 +115,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 **Goal**: The complete four-operation native journey and B0 replay are repeatable, secure, licensed, resilient, measured, and honestly documented for submission.
 **Depends on**: Phase 6 and Phase 7
 **Requirements**: NFR-LATENCY-001, NFR-RESILIENCE-001, SEC-CREDENTIAL-001, SEC-AGENT-001, OPS-LICENSE-001, OPS-GOLDEN-001, OPS-SUBMISSION-001
+**Gates**: Revalidate every P0 gate; GATE-014 remains the global B1-isolation guard
 **Success Criteria** (what must be TRUE):
   1. Tracking, network, reconnect, worker, and storage fault runs lose no acknowledged commit, leak no cross-session state, create no duplicate mutation, recover a valid capture prefix, and show explicit degraded/recovery UI.
   2. Evidence reports p50/p95/max for every required stage and mask age on the declared device/provider/tier; missed TARGET values activate the named degraded capability rather than becoming unsupported real-time claims.
@@ -124,6 +132,7 @@ This roadmap is a draft for approval and initializes planning only. It does not 
 - No phase is assigned to a person. If later execution permits concurrency, at most two implementation-critical streams join through the frozen contracts and replay fixtures.
 - `STR-VOICE-001` is not scheduled in P0. It may be considered only after typed proposals and transaction security pass, and failure must leave typed/tap complete.
 - `STR-B1-001` has no P0 task. It remains frozen while any P0 gate is red and requires explicit human approval after P0.
+- `GATE-014` applies throughout the roadmap: no B1 package, provider, worker, task, schema dependency, or resource may enter a P0 phase.
 
 ## Progress
 

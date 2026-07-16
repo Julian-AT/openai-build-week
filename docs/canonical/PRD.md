@@ -1,6 +1,6 @@
 # ReRoom Product Requirements Document
 
-Status: canonical PRE-GSD product authority  
+Status: canonical product authority
 Version: 1.0.0  
 Date: 2026-07-13
 
@@ -348,7 +348,7 @@ P0 depends on a signed base-iPhone build, ARKit world tracking/planes, local dur
 - LiDAR-only scene depth/mesh semantics.
 - Large catalogs, commerce, multi-user live editing, production billing, or cloud autoscaling.
 - A guarantee that arbitrary ordinary video produces metric learned geometry.
-- Product implementation during this PRE-GSD preparation.
+- Product implementation before an approved phase plan and explicit human authorization.
 
 ## 8. Release criteria and success metrics
 
@@ -382,4 +382,4 @@ Primary success metrics are golden-run completion, exact replay/revision traces,
 
 ## 10. Changelog
 
-- **1.0.0 (2026-07-13):** Canonical PRE-GSD rewrite. Locked four-operation scope; made removal a real release gate; narrowed guaranteed B0 to deterministic replay/web behavior; separated semantic intent from deterministic mutation; added stable testable IDs and explicit fallbacks; isolated B1.
+- **1.0.0 (2026-07-13):** Canonical preparation rewrite. Locked four-operation scope; made removal a real release gate; narrowed guaranteed B0 to deterministic replay/web behavior; separated semantic intent from deterministic mutation; added stable testable IDs and explicit fallbacks; isolated B1.

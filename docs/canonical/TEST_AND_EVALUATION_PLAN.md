@@ -1,6 +1,6 @@
 # ReRoom Test and Evaluation Plan
 
-Status: canonical PRE-GSD quality authority  
+Status: canonical quality authority
 Version: 1.0.0  
 Date: 2026-07-13
 

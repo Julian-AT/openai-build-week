@@ -1,6 +1,6 @@
 # ReRoom Research Ledger
 
-Status: canonical PRE-GSD evidence index  
+Status: canonical evidence index
 Version: 1.0.0  
 Research snapshot/retrieval date: 2026-07-13
 
@@ -256,33 +256,33 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Confidence:** High.
 - **Known limitations or ambiguity:** Exactly-once commit and offline restore are ReRoom requirements, not guarantees supplied by the API.
 
-### CLM-017 — Installed Codex is healthy and the available patch does not change behavior
+### CLM-017 — Installed Codex is healthy and supports the portable setup
 
-- **Claim:** This workstation's standalone Codex `0.144.3` is healthy and satisfies GSD `1.6.1`; Codex `0.144.4` is available but its official release says it has no user-facing changes. Official configuration supports project trust, workspace-write sandbox/network controls, default secret-name filtering for shell environments, MCP environment-name forwarding, and bounded subagents.
+- **Claim:** This workstation's standalone Codex `0.144.4` is healthy and supports GSD 1.7.0, project trust, workspace-write sandbox/network controls, environment-name forwarding for MCP secrets, and bounded subagents.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** PRE-GSD Codex/Firecrawl preparation, `SEC-CREDENTIAL-001`; development trace for `OPS-SUBMISSION-001`.
+- **Decision or requirement affected:** Portable Codex/Firecrawl setup, `SEC-CREDENTIAL-001`; development trace for `OPS-SUBMISSION-001`.
 - **Source title:** Codex 0.144.3 and 0.144.4 releases; Codex Configuration Reference; MCP; Subagents
 - **Source URL:** https://github.com/openai/codex/releases/tag/rust-v0.144.3 ; https://github.com/openai/codex/releases/tag/rust-v0.144.4 ; https://developers.openai.com/codex/config-reference ; https://developers.openai.com/codex/mcp ; https://developers.openai.com/codex/subagents
 - **Source type:** Official OpenAI release and documentation.
 - **Publication/release date:** `rust-v0.144.3` published 2026-07-13; `rust-v0.144.4` available at the 2026-07-14 final audit.
 - **Retrieval date:** 2026-07-14.
-- **Exact version/tag/revision:** Installed `0.144.3` / `rust-v0.144.3` / `78ad6e6bfd1d3b6a209acd3ef82172a96b25179c`; available `0.144.4` / `rust-v0.144.4` / `8c68d4c87dc54d38861f5114e920c3de2efa5876`.
-- **Evidence summary:** `codex doctor --summary` passed 17 checks with zero warnings/failures when launched with the persisted Firecrawl environment. Project config keeps workspace-write plus explicit network, bounded agents, optional pinned Firecrawl, and `shell_environment_policy.ignore_default_excludes=false`. A `codex update` attempt was blocked by GitHub API 403, but the one-patch difference has no user-facing release change.
+- **Exact version/tag/revision:** Installed `0.144.4` / `rust-v0.144.4`.
+- **Evidence summary:** Repository-local Codex/GSD runtime configuration was removed. Codex, GSD, and Firecrawl are user-global machine setup; the repository tracks only portable `.planning/` project state and environment-variable names.
 - **Confidence:** High.
-- **Known limitations or ambiguity:** A full Codex process restart is still required to unload the hook registry captured at startup. The repository inherits the user's selected model and must not hard-code a speculative model ID.
+- **Known limitations or ambiguity:** A full Codex process restart is required after user-global GSD installation or upgrade.
 
-### CLM-018 — Firecrawl MCP package and secretless project wiring are versionable
+### CLM-018 — Firecrawl MCP package and environment-based user setup are versionable
 
 - **Claim:** The official Firecrawl MCP server package at the research snapshot was `firecrawl-mcp@3.22.3`, MIT-licensed, requiring Node `>=22.0.0`; it supports search/scrape/map/crawl/agent/extract capabilities and accepts `FIRECRAWL_API_KEY` by environment.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** PRE-GSD Firecrawl setup, research reproducibility, `SEC-CREDENTIAL-001`.
+- **Decision or requirement affected:** Firecrawl research setup, research reproducibility, `SEC-CREDENTIAL-001`.
 - **Source title:** Firecrawl MCP Server; npm package metadata; official MCP documentation
 - **Source URL:** https://github.com/firecrawl/firecrawl-mcp-server ; https://registry.npmjs.org/firecrawl-mcp/3.22.3 ; https://docs.firecrawl.dev/mcp-server
 - **Source type:** Official repository, npm registry metadata, and vendor documentation.
 - **Publication/release date:** Repository version bump commit dated 2026-07-08.
 - **Retrieval date:** 2026-07-14.
 - **Exact version/tag/revision:** `firecrawl-mcp@3.22.3`; repository main commit `3eb1115b1f2883ff2fb74e61b5c4acf5a9ac0fb0`; MIT; Node `>=22.0.0`.
-- **Evidence summary:** A pinned stdio launch can use `npx --yes firecrawl-mcp@3.22.3` while Codex passes only the environment variable name `FIRECRAWL_API_KEY`; optional startup and a read/research tool allowlist avoid making research availability fatal. The final direct official-registry scrape reconfirmed version, MIT license, Node `>=22.0.0`, and the expected executable mapping.
+- **Evidence summary:** A user-global pinned stdio launch can use `npx --yes firecrawl-mcp@3.22.3` while Codex passes only the environment variable name `FIRECRAWL_API_KEY`. The final direct official-registry scrape reconfirmed version, MIT license, Node `>=22.0.0`, and the expected executable mapping.
 - **Confidence:** High.
 - **Known limitations or ambiguity:** Tool inventory and hosted/free-tier limits may change. Firecrawl failure degrades research capability but must not redefine permissions or block Codex startup.
 
@@ -487,65 +487,65 @@ Exact artifact revision and license are separate questions: a repository code li
 
 ## 7. GSD Core version and configuration
 
-### CLM-032 — GSD Core stable is pinned to 1.6.1 rather than the release candidate
+### CLM-032 — GSD Core 1.7.0 is the project setup version
 
-- **Claim:** The verified stable `@opengsd/gsd-core` release is `1.6.1`, tag `v1.6.1`, commit/npm `gitHead` `1c352d1ea37b010e99b8353905eb5def4f784100`, MIT; `1.7.0-rc.6` is prerelease and not the onboarding pin.
+- **Claim:** GSD Core 1.7.0 is the stable version selected for ReRoom machine setup.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** Post-preparation GSD onboarding, the single operator guide, profile templates, and ingest syntax.
-- **Source title:** GSD Core v1.6.1 release, package manifest, npm metadata
-- **Source URL:** https://github.com/open-gsd/gsd-core/releases/tag/v1.6.1 ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/package.json ; https://registry.npmjs.org/@opengsd%2Fgsd-core/1.6.1
-- **Source type:** Official release, source manifest, and npm registry metadata.
-- **Publication/release date:** Release date not used as an invariant; retrieved stable state 2026-07-13.
-- **Retrieval date:** 2026-07-14.
-- **Exact version/tag/revision:** `@opengsd/gsd-core@1.6.1`; `v1.6.1`; `1c352d1ea37b010e99b8353905eb5def4f784100`; MIT.
-- **Evidence summary:** Pinning stable prevents command/config drift during the week. The final Firecrawl recheck of the official release and tagged package manifest again returned `v1.6.1`, install target `@opengsd/gsd-core@1.6.1`, visible commit prefix `1c352d1`, and package version `1.6.1`.
+- **Decision or requirement affected:** GSD setup and continuation.
+- **Source title:** GSD Core v1.7.0 release and What's New in 1.7.0
+- **Source URL:** https://github.com/open-gsd/gsd-core/releases/tag/v1.7.0 ; https://github.com/open-gsd/gsd-core/blob/next/docs/whats-new-1.7.0.md
+- **Source type:** Official release and official release documentation.
+- **Publication/release date:** GSD 1.7.0 release.
+- **Retrieval date:** 2026-07-15.
+- **Exact version/tag/revision:** `@opengsd/gsd-core@1.7.0`; `v1.7.0`; git `b1c9381b7abbf443f16c197118236b45cdd0486a`; npm integrity `sha512-pWQTelxXYMBtsWNCHO9zNxUB+uWVmljjQvWB6Nyb9mk38GKfRxa+IZt5woS1gJwWQjEsiNjlgDyh6qXEaxxxhw==`.
+- **Evidence summary:** Each developer installs 1.7.0 globally; generated runtime files are not repository content.
 - **Confidence:** High.
-- **Known limitations or ambiguity:** No GSD command was executed during PRE-GSD preparation. A deliberate upgrade requires revalidating commands, schema keys, profiles, and ingest behavior.
+- **Known limitations or ambiguity:** Installation is machine-local and must be repeated on each workstation.
 
-### CLM-033 — GSD 1.6.1 package engines supersede a stale Node 18+ install statement
+### CLM-033 — GSD 1.7.0 requires current Node and npm
 
-- **Claim:** GSD Core `1.6.1` package engines require Node `>=22.0.0` and npm `>=10.0.0`, with `.nvmrc` 22. A generic install-guide statement of Node 18+ is contradicted by the released package metadata and must not drive onboarding.
-- **Status:** `CONTRADICTED`
-- **Decision or requirement affected:** GSD onboarding and continuation guide.
-- **Source title:** GSD Core package.json; `.nvmrc`; Install on Your Runtime
-- **Source URL:** https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/package.json ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/.nvmrc ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/docs/how-to/install-on-your-runtime.md
-- **Source type:** Official released source manifests and documentation.
-- **Publication/release date:** GSD `1.6.1` release snapshot.
-- **Retrieval date:** 2026-07-14.
-- **Exact version/tag/revision:** Commit `1c352d1ea37b010e99b8353905eb5def4f784100`; Node `>=22.0.0`; npm `>=10.0.0`.
-- **Evidence summary:** The executable package metadata is the higher-confidence compatibility source for the exact pin. A final direct official-registry Firecrawl scrape reconfirmed Node `>=22.0.0`, npm `>=10.0.0`, MIT, and the exact `gitHead`.
-- **Confidence:** High.
-- **Known limitations or ambiguity:** Future documentation/package releases may reconcile the discrepancy. Recheck only when intentionally changing the pin.
-
-### CLM-034 — GSD 1.6.1 requires current Codex and uses skill syntax
-
-- **Claim:** GSD documents Codex minimum `0.130.0` and recommends `>=0.137.0` for the stable hook schema; Codex skills are invoked as `$gsd-*`. The stable local installation command is version-pinned, and Codex should be restarted rather than using an unverified `codex --reload` command.
+- **Claim:** GSD Core 1.7.0 package metadata requires Node `>=22.0.0` and npm `>=10.0.0`.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** GSD onboarding and continuation guide and verification.
-- **Source title:** GSD runtime installation guide; OpenAI Codex Skills
-- **Source URL:** https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/docs/how-to/install-on-your-runtime.md ; https://developers.openai.com/codex/build-skills
-- **Source type:** Official GSD released documentation and official OpenAI Codex documentation.
-- **Publication/release date:** GSD `1.6.1`/Codex documentation snapshot.
-- **Retrieval date:** 2026-07-14.
-- **Exact version/tag/revision:** GSD `1.6.1`; Codex minimum `0.130.0`, recommended `>=0.137.0`; researched Codex stable `0.144.3` satisfies both.
-- **Evidence summary:** The version relationship and `$<skill-name>` convention support a reproducible manual onboarding sequence after this run.
+- **Decision or requirement affected:** GSD setup prerequisites; this supersedes older Node 18 guidance.
+- **Source title:** GSD Core 1.7.0 package metadata
+- **Source URL:** https://registry.npmjs.org/@opengsd%2Fgsd-core/1.7.0
+- **Source type:** Official npm registry metadata.
+- **Publication/release date:** GSD 1.7.0 release.
+- **Retrieval date:** 2026-07-15.
+- **Exact version/tag/revision:** Node `>=22.0.0`; npm `>=10.0.0`.
+- **Evidence summary:** The setup guide uses the released engine requirements.
 - **Confidence:** High.
-- **Known limitations or ambiguity:** The guide's commands remain manual and unexecuted. Skill discovery must be verified after installation.
+- **Known limitations or ambiguity:** Recheck when intentionally changing GSD versions.
 
-### CLM-035 — GSD profile keys must come from the released schema/capability registry
+### CLM-034 — GSD is installed globally per machine for portability
 
-- **Claim:** For GSD `1.6.1`, supported configuration is the union of the released central schema manifest and capability registry/defaults. Proposed `gates.*`, `safety.*`, and numeric/plan/task parallelization controls are unsupported; the reliable top-level parallelization control is boolean. Stable Codex agent materialization consumes the catalog-backed `model_profile` and effort ladder rather than phase `models.*`. Both legacy top-level and nested `planning.commit_docs` are set true because the loader gives an existing top-level value precedence.
+- **Claim:** GSD supports user-global Codex installation, and keeping generated installations out of Git avoids machine-specific paths.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** `quality-fast.config.json`, `quality.config.json`, validation script, and GSD onboarding and continuation guide.
-- **Source title:** GSD config schema/default manifests, model catalog/resolver, Codex capability, released capability registry, and loader
-- **Source URL:** https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/gsd-core/bin/shared/config-schema.manifest.json ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/gsd-core/bin/shared/config-defaults.manifest.json ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/gsd-core/bin/shared/model-catalog.json ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/src/model-resolver.cts ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/capabilities/codex/capability.json ; https://github.com/open-gsd/gsd-core/blob/1c352d1ea37b010e99b8353905eb5def4f784100/src/config-loader.cts
-- **Source type:** Official released machine-readable configuration manifests/source.
-- **Publication/release date:** GSD `1.6.1` release snapshot.
-- **Retrieval date:** 2026-07-14.
-- **Exact version/tag/revision:** Commit `1c352d1ea37b010e99b8353905eb5def4f784100`.
-- **Evidence summary:** Templates omit attractive but unsupported controls, use immutable catalog-backed Codex routing, explicitly preserve durable planning, clear stale project routing controls during application, and validate only known keys/types.
+- **Decision or requirement affected:** Portable repository setup and GSD continuation.
+- **Source title:** GSD runtime installation guidance; OpenAI Codex Skills
+- **Source URL:** https://github.com/open-gsd/gsd-core ; https://developers.openai.com/codex/build-skills
+- **Source type:** Official GSD repository and official OpenAI Codex documentation.
+- **Publication/release date:** Current 1.7.0/Codex documentation snapshot.
+- **Retrieval date:** 2026-07-15.
+- **Exact version/tag/revision:** GSD 1.7.0.
+- **Evidence summary:** ReRoom tracks project settings and planning artifacts only; every machine creates its own generated user runtime.
 - **Confidence:** High.
-- **Known limitations or ambiguity:** Capability-scoped keys can be easy to miss when inspecting only one manifest. Any template change must rerun the version-locked key validation.
+- **Known limitations or ambiguity:** Codex must be restarted after installation or upgrade.
+
+### CLM-035 — Project config uses GSD 1.7 balanced routing with Sol
+
+- **Claim:** `.planning/config.json` is the standard project configuration location. GSD 1.7 can keep the `balanced` per-agent tier allocation while `model_profile_overrides.codex` resolves every tier to GPT-5.6 Sol; effort routing can then run heavy, standard, and light roles at xhigh, high, and low effort respectively.
+- **Status:** `VERIFIED`
+- **Decision or requirement affected:** Project GSD configuration and model selection.
+- **Source title:** GSD 1.7 settings workflow, planning configuration, and model catalog
+- **Source URL:** https://github.com/open-gsd/gsd-core/tree/v1.7.0
+- **Source type:** Official released configuration workflow and machine-readable catalog.
+- **Publication/release date:** GSD 1.7.0 release.
+- **Retrieval date:** 2026-07-15.
+- **Exact version/tag/revision:** GSD 1.7.0; Codex model `gpt-5.6-sol`.
+- **Evidence summary:** The project retains balanced role classification but maps all three Codex tiers to Sol. Heavy architecture/security agents resolve to xhigh effort, normal execution/research/verification agents to high, and mechanical mapping/checking agents to low. Interactive checkpoints remain active; the project also explicitly enables its research, UI, AI, API coverage, review, security, and TDD gates. Firecrawl credentials remain in the user environment and are forwarded by global Codex MCP configuration.
+- **Confidence:** High.
+- **Known limitations or ambiguity:** The catalog may change in a later GSD release; consume that release's defaults rather than copying its catalog.
 
 ### CLM-036 — RFC 8785 provides the structured JSON canonicalization basis
 
@@ -568,7 +568,7 @@ Exact artifact revision and license are separate questions: a repository code li
 
 - **Claim:** `PostToolUse` is a supported Codex hook event. Codex `0.144.3` handlers support explicit command, Windows command, timeout, and status fields, but not the Claude-specific `if` or `asyncRewake` fields found in the installed hook manifests. On this Windows workstation those omissions made selective Bash handlers non-portable, while the installed mgrep plugin also lacked its executable and used a POSIX watcher path that could log inherited environment data.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** PRE-GSD Codex workstation repair, `SEC-CREDENTIAL-001`, `SEC-AGENT-001`, `AGENTS.md`, and the onboarding guide.
+- **Decision or requirement affected:** Codex workstation repair, `SEC-CREDENTIAL-001`, `SEC-AGENT-001`, and `AGENTS.md`.
 - **Source title:** Codex Hooks; Codex 0.144.3 hook schema/discovery/Windows runner; official mgrep repository; local installed-plugin audit
 - **Source URL:** https://developers.openai.com/codex/hooks ; https://github.com/openai/codex/blob/78ad6e6bfd1d3b6a209acd3ef82172a96b25179c/codex-rs/config/src/hook_config.rs ; https://github.com/openai/codex/blob/78ad6e6bfd1d3b6a209acd3ef82172a96b25179c/codex-rs/hooks/src/engine/discovery.rs ; https://github.com/openai/codex/blob/78ad6e6bfd1d3b6a209acd3ef82172a96b25179c/codex-rs/hooks/src/engine/command_runner.rs ; https://github.com/mixedbread-ai/mgrep
 - **Source type:** Official OpenAI documentation and release source, official upstream plugin repository, and reproducible local manifest/source inspection.
@@ -579,20 +579,20 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Confidence:** High for installed state, Codex schema, and inspected code paths.
 - **Known limitations or ambiguity:** The removed plugin snapshot had no retained immutable marketplace commit, and upstream mgrep may change. A full Codex restart is required before declaring the old in-memory hooks unloaded.
 
-### CLM-038 — Three Apple skills are copied with independent local integrity records
+### CLM-038 — Project skills are reviewed development tools
 
-- **Claim:** ReRoom's project-local skill set is exactly three MIT-licensed Apple skills copied through `skills@1.5.17`: SwiftUI `4.0.0`, Swift Concurrency `2.1.1`, and Swift Testing `1.2.0`. Their tags resolve to recorded full commits, retained license notices and local file/SKILL/tree hashes verify the installed bytes, and no extra project skill root is allowed.
+- **Claim:** ReRoom keeps useful project-local skills, including the three MIT-licensed Apple skills, as reviewed development tools rather than product authority or shipping dependencies.
 - **Status:** `VERIFIED`
-- **Decision or requirement affected:** Native implementation readiness, `OPS-LICENSE-001`, `SEC-AGENT-001`, `AGENTS.md`, and the readiness validator.
+- **Decision or requirement affected:** Native implementation readiness, `OPS-LICENSE-001`, `SEC-AGENT-001`, and `AGENTS.md`.
 - **Source title:** Skills CLI source/docs/npm metadata; SwiftUI, Swift Concurrency, and Swift Testing source and MIT licenses; GitHub release/commit metadata
 - **Source URL:** https://github.com/vercel-labs/skills ; https://skills.sh/docs/cli ; https://registry.npmjs.org/skills/1.5.17 ; https://github.com/AvdLee/SwiftUI-Agent-Skill/tree/65118ba010cbfcd4b985a4c83e29c74f37d1c1f1 ; https://github.com/AvdLee/Swift-Concurrency-Agent-Skill/tree/faa595ee186dbd23a390dc1e7b06df40948941ab ; https://github.com/AvdLee/Swift-Testing-Agent-Skill/tree/798e9b1a2bcac164d4f0c781908199e754f0bab6
 - **Source type:** Official tool repository/documentation/npm registry, official skill repositories/licenses, GitHub API metadata, and local byte/script audit.
 - **Publication/release date:** Release dates are not used as integrity anchors; final provenance and byte audit completed 2026-07-14.
 - **Retrieval date:** 2026-07-14.
 - **Exact version/tag/revision:** `skills@1.5.17`; SwiftUI `4.0.0` -> `65118ba010cbfcd4b985a4c83e29c74f37d1c1f1`; Concurrency `2.1.1` -> `faa595ee186dbd23a390dc1e7b06df40948941ab`; Testing `1.2.0` -> `798e9b1a2bcac164d4f0c781908199e754f0bab6`.
-- **Evidence summary:** Installation used Codex-only project scope, copy semantics, and disabled telemetry. `skills-lock.json` preserves requested-source metadata, while independent installed-byte tree digests capture the CRLF-normalized copies and retained MIT notices. The only executable content is optional SwiftUI `xctrace` analysis tooling; audit found no network calls, shell execution, destructive deletion, or credential-file access, but identified secret-bearing argv/log, all-process tracing, output-path, untrusted Markdown, and large-trace risks now constrained by the guide and `AGENTS.md`. A final probe found that `skills@1.5.17 check --help` mutates/refetches copied trees and removed the locally retained notices; the notices were restored and the strict tree validator, not that command, is the integrity check.
+- **Evidence summary:** The Apple skill sources and retained license notices were reviewed. Optional SwiftUI `xctrace` helpers remain explicit-use tools with the secret, process-scope, output-path, and untrusted-output constraints recorded in `AGENTS.md`. Repository operation does not depend on a package-manager lock or tree-hash gate for these tools.
 - **Confidence:** High for current local bytes, provenance, and license notices.
-- **Known limitations or ambiguity:** The three GitHub releases are mutable and the resolved commits are unsigned; tag names and CLI `computedHash` values are not local integrity proofs. Reinstall only from the full commit and require exact audited tree reproduction. Third-party audit labels remain supporting evidence, not a trust grant.
+- **Known limitations or ambiguity:** Skill content is executable guidance and must still be reviewed before use. Third-party labels are supporting evidence, not a trust grant.
 
 ### CLM-039 — Codex project instructions are layered, scoped, and byte-capped
 
