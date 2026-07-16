@@ -14,6 +14,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PARITY_COMMAND = REPO_ROOT / "scripts/run-reference-parity"
+JAVASCRIPT_MUTATIONS = REPO_ROOT / "tools/javascript/test/parity-mutations.test.mjs"
+PYTHON_MUTATIONS = REPO_ROOT / "tools/python/tests/test_parity_mutations.py"
 
 
 def _oracle_hashes() -> dict[str, str]:
@@ -28,6 +30,12 @@ def _oracle_hashes() -> dict[str, str]:
 
 class ReferenceParityTests(unittest.TestCase):
     maxDiff = None
+
+    def test_cross_runtime_mutation_gates_are_present(self) -> None:
+        self.assertTrue(
+            JAVASCRIPT_MUTATIONS.is_file(), "JavaScript mutation gates are absent"
+        )
+        self.assertTrue(PYTHON_MUTATIONS.is_file(), "Python mutation gates are absent")
 
     def test_fresh_actual_runtimes_and_fail_closed_harness(self) -> None:
         self.assertTrue(PARITY_COMMAND.is_file(), "reference parity command is absent")
