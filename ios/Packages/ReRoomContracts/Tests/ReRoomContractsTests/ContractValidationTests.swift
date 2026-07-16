@@ -130,12 +130,170 @@ struct ContractValidationTests {
             try bytes.write(to: URL(fileURLWithPath: rawEvidencePath), options: .atomic)
         }
     }
+
+    @Test("the typed boundary accepts an exact registered contract")
+    func typedBoundaryAcceptsExactContract() throws {
+        let fixture = try ContractFixture.load()
+        let validator = try fixture.makeContractValidator()
+        let reference = try #require(
+            fixture.manifest.schemaHashes.first { $0.contractID == "CON-001" }
+        )
+        let document = try fixture.readFixtureFile("instances/con001.frame-packet.valid.json")
+
+        let verdict = validator.validate(
+            ContractValidationRequest(
+                schemaID: reference.schemaID,
+                schemaVersion: "1.0.0",
+                schemaSHA256: reference.sha256,
+                documentData: document
+            )
+        )
+        #expect(verdict == .accepted)
+    }
+
+    @Test("schema-selection spoofing fails closed", arguments: SchemaSelectionMutation.allCases)
+    func schemaSelectionSpoofingFailsClosed(mutation: SchemaSelectionMutation) throws {
+        let fixture = try ContractFixture.load()
+        let validator = try fixture.makeContractValidator()
+        let reference = try #require(
+            fixture.manifest.schemaHashes.first { $0.contractID == "CON-001" }
+        )
+        let document = try fixture.readFixtureFile("instances/con001.frame-packet.valid.json")
+
+        var schemaID = reference.schemaID
+        var schemaVersion = "1.0.0"
+        var schemaSHA256 = reference.sha256
+        let expected: ContractValidationRejection
+        switch mutation {
+        case .unknownSchemaID:
+            schemaID = "urn:reroom:schema:unknown:1"
+            expected = .unsupportedContractVersion
+        case .unknownSchemaVersion:
+            schemaVersion = "1.1.0"
+            expected = .unsupportedContractVersion
+        case .schemaHashMismatch:
+            schemaSHA256 = String(repeating: "0", count: 64)
+            expected = .digestMismatch
+        }
+
+        let verdict = validator.validate(
+            ContractValidationRequest(
+                schemaID: schemaID,
+                schemaVersion: schemaVersion,
+                schemaSHA256: schemaSHA256,
+                documentData: document
+            )
+        )
+        #expect(verdict == .rejected(expected))
+    }
+
+    @Test("document byte and nesting limits reject before schema evaluation")
+    func documentLimitsRejectEarly() throws {
+        let fixture = try ContractFixture.load()
+        let reference = try #require(
+            fixture.manifest.schemaHashes.first { $0.contractID == "CON-001" }
+        )
+        let tightByteValidator = try fixture.makeContractValidator(maxDocumentBytes: 32)
+        let oversized = Data(repeating: 0x20, count: 33)
+        #expect(
+            tightByteValidator.validate(
+                ContractValidationRequest(
+                    schemaID: reference.schemaID,
+                    schemaVersion: "1.0.0",
+                    schemaSHA256: reference.sha256,
+                    documentData: oversized
+                )
+            ) == .rejected(.jsonParse)
+        )
+
+        let tightDepthValidator = try fixture.makeContractValidator(maxDocumentDepth: 4)
+        let deepDocument = Data("[[[[[null]]]]]".utf8)
+        #expect(
+            tightDepthValidator.validate(
+                ContractValidationRequest(
+                    schemaID: reference.schemaID,
+                    schemaVersion: "1.0.0",
+                    schemaSHA256: reference.sha256,
+                    documentData: deepDocument
+                )
+            ) == .rejected(.jsonParse)
+        )
+    }
+
+    @Test("the typed boundary never coerces and preserves closed-object rejection")
+    func coercionAndExtraPropertiesReject() throws {
+        let fixture = try ContractFixture.load()
+        let validator = try fixture.makeContractValidator()
+        let reference = try #require(
+            fixture.manifest.schemaHashes.first { $0.contractID == "CON-001" }
+        )
+        let validData = try fixture.readFixtureFile("instances/con001.frame-packet.valid.json")
+        let validObject = try #require(
+            JSONSerialization.jsonObject(with: validData) as? [String: Any]
+        )
+
+        var coercionCandidate = validObject
+        var image = try #require(coercionCandidate["image"] as? [String: Any])
+        image["width"] = "640"
+        coercionCandidate["image"] = image
+        let coercionData = try JSONSerialization.data(withJSONObject: coercionCandidate)
+        #expect(
+            validator.validate(
+                ContractValidationRequest(
+                    schemaID: reference.schemaID,
+                    schemaVersion: "1.0.0",
+                    schemaSHA256: reference.sha256,
+                    documentData: coercionData
+                )
+            ) == .rejected(.schemaValidation)
+        )
+
+        var extraProperty = validObject
+        extraProperty["unknown"] = true
+        let extraData = try JSONSerialization.data(withJSONObject: extraProperty)
+        #expect(
+            validator.validate(
+                ContractValidationRequest(
+                    schemaID: reference.schemaID,
+                    schemaVersion: "1.0.0",
+                    schemaSHA256: reference.sha256,
+                    documentData: extraData
+                )
+            ) == .rejected(.unknownProperty)
+        )
+    }
+
+    @Test("validator construction rejects schema-byte tampering")
+    func schemaRegistrationRejectsTampering() throws {
+        let fixture = try ContractFixture.load()
+        var registrations = try fixture.makeRegistrations()
+        let first = try #require(registrations.first)
+        registrations[0] = ContractSchemaRegistration(
+            identifier: first.identifier,
+            version: first.version,
+            sha256: first.sha256,
+            schemaData: first.schemaData + Data([0x20])
+        )
+
+        do {
+            _ = try ContractValidator(registrations: registrations)
+            Issue.record("tampered schema bytes were registered")
+        } catch let error as ContractValidatorConfigurationError {
+            #expect(error == .schemaDigestMismatch)
+        }
+    }
 }
 
 enum SchemaMutation: String, CaseIterable, Sendable {
     case unknownKeyword
     case dynamicReference
     case remoteReference
+}
+
+enum SchemaSelectionMutation: String, CaseIterable, Sendable {
+    case unknownSchemaID
+    case unknownSchemaVersion
+    case schemaHashMismatch
 }
 
 private struct FixtureOutcome: Equatable {
@@ -194,6 +352,28 @@ private struct ContractFixture {
                 )
             )
         })
+    }
+
+    func makeRegistrations() throws -> [ContractSchemaRegistration] {
+        try manifest.schemaHashes.map { reference in
+            ContractSchemaRegistration(
+                identifier: try #require(ContractSchemaIdentifier(rawValue: reference.schemaID)),
+                version: "1.0.0",
+                sha256: reference.sha256,
+                schemaData: readRepositoryFile(reference.relativePath)
+            )
+        }
+    }
+
+    func makeContractValidator(
+        maxDocumentBytes: Int = 33_554_432,
+        maxDocumentDepth: Int = 64
+    ) throws -> ContractValidator {
+        try ContractValidator(
+            registrations: makeRegistrations(),
+            maxDocumentBytes: maxDocumentBytes,
+            maxDocumentDepth: maxDocumentDepth
+        )
     }
 
     func execute(
@@ -334,11 +514,13 @@ private extension ContractFixture {
         let contractID: String
         let schemaID: String
         let relativePath: String
+        let sha256: String
 
         enum CodingKeys: String, CodingKey {
             case contractID = "contract_id"
             case schemaID = "schema_id"
             case relativePath = "relative_path"
+            case sha256
         }
     }
 
