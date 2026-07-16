@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .library(name: "ReRoomContracts", targets: ["ReRoomContracts"]),
+        .executable(name: "ReRoomContractRunner", targets: ["ReRoomContractRunner"]),
     ],
     dependencies: [
         .package(
@@ -23,6 +24,10 @@ let package = Package(
             dependencies: [
                 .product(name: "JSONSchema", package: "swift-json-schema"),
             ]
+        ),
+        .executableTarget(
+            name: "ReRoomContractRunner",
+            dependencies: ["ReRoomContracts"]
         ),
         .testTarget(
             name: "ReRoomContractsTests",
