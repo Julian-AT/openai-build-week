@@ -17,8 +17,11 @@
       "rejected",
       "fallback_selected"
     ],
-    "locks_or_installs_permitted": false,
-    "human_decision_required_for_every_candidate": true
+    "locks_or_installs_permitted": true,
+    "human_decision_required_for_every_candidate": true,
+    "approval_recorded_at_utc": "2026-07-16T11:41:22Z",
+    "approval_provenance": "Explicit user response to the Plan 01-04 blocking checkpoint: option 1, approved for every audited candidate.",
+    "approval_scope": "Approval is limited to each candidate's recorded exact version/revision, artifact integrity or hash, license, and source. It is not blanket approval for other versions, packages, or unaudited transitives."
   },
   "fallback_smoke_tests": {
     "js-frozen-schema": {
@@ -53,11 +56,122 @@
     },
     "scope_limit": "Smoke tests establish that each named no-package route is executable. They do not establish Draft 2020-12 or RFC 8785 conformance; a fallback may be selected only with the complete frozen CON-001 through CON-005 and RR-JCS-SHA256-1 corpus."
   },
+  "resolved_transitive_audit": {
+    "recorded_at_utc": "2026-07-16T11:41:22Z",
+    "policy": "These are not additional direct approvals. Each entry is an exact, license-compatible artifact reached from an approved root during lock generation. The offline verifier rejects closure, version, source, integrity/hash, license, parent-chain, or pin drift.",
+    "npm": {
+      "fast-deep-equal": {
+        "version": "3.1.3",
+        "resolved": "https://registry.npmjs.org/fast-deep-equal/-/fast-deep-equal-3.1.3.tgz",
+        "integrity": "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q==",
+        "license": "MIT",
+        "parents": [
+          "ajv"
+        ]
+      },
+      "fast-uri": {
+        "version": "3.1.3",
+        "resolved": "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.3.tgz",
+        "integrity": "sha512-i70LwGWUduXqzicKXWshooq+sWL1K3WUU5rKZNG/0i3a1OSoX3HqhH5WbWwTmqWfor4urUakGPiRQcleRZTwOg==",
+        "license": "BSD-3-Clause",
+        "parents": [
+          "ajv"
+        ]
+      },
+      "json-schema-traverse": {
+        "version": "1.0.0",
+        "resolved": "https://registry.npmjs.org/json-schema-traverse/-/json-schema-traverse-1.0.0.tgz",
+        "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug==",
+        "license": "MIT",
+        "parents": [
+          "ajv"
+        ]
+      },
+      "require-from-string": {
+        "version": "2.0.2",
+        "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+        "integrity": "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==",
+        "license": "MIT",
+        "parents": [
+          "ajv"
+        ]
+      }
+    },
+    "pypi": {
+      "attrs": {
+        "version": "26.1.0",
+        "registry_metadata_url": "https://pypi.org/pypi/attrs/26.1.0/json",
+        "license": "MIT",
+        "parents": [
+          "jsonschema",
+          "referencing"
+        ],
+        "lock_entry_digest_sha256": "fb9c9612ec3901ea4e90a89e55d85c0d0a39fc97920f9f6826eead5f6cebd612"
+      },
+      "jsonschema-specifications": {
+        "version": "2025.9.1",
+        "registry_metadata_url": "https://pypi.org/pypi/jsonschema-specifications/2025.9.1/json",
+        "license": "MIT",
+        "parents": [
+          "jsonschema"
+        ],
+        "lock_entry_digest_sha256": "7a30ff73555cfcc37ced6c3d16cb63d1a6e2fa6f7c0f2c360150c488885d5e22"
+      },
+      "referencing": {
+        "version": "0.37.0",
+        "registry_metadata_url": "https://pypi.org/pypi/referencing/0.37.0/json",
+        "license": "MIT",
+        "parents": [
+          "jsonschema",
+          "jsonschema-specifications"
+        ],
+        "lock_entry_digest_sha256": "821a7335133773219e4d41a3d997282d64b6e833267f79891b665edca3543ebc"
+      },
+      "rpds-py": {
+        "version": "2026.6.3",
+        "registry_metadata_url": "https://pypi.org/pypi/rpds-py/2026.6.3/json",
+        "license": "MIT",
+        "parents": [
+          "jsonschema",
+          "referencing"
+        ],
+        "lock_entry_digest_sha256": "6e867c6e1b7b31758bcee050ee9fe0d256b96d9975ca6d98624f3a53df78dcf2"
+      }
+    },
+    "swiftpm": {
+      "swift-collections": {
+        "version": "1.6.0",
+        "revision": "a0cb0954ecb21e4e31b0070e6ed5674e8556685a",
+        "location": "https://github.com/apple/swift-collections.git",
+        "license": "Apache-2.0",
+        "license_evidence": "https://github.com/apple/swift-collections/blob/a0cb0954ecb21e4e31b0070e6ed5674e8556685a/LICENSE.txt",
+        "parents": [
+          "swift-json-schema"
+        ]
+      },
+      "swift-syntax": {
+        "version": "603.0.2",
+        "revision": "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "location": "https://github.com/swiftlang/swift-syntax.git",
+        "license": "Apache-2.0",
+        "license_evidence": "https://github.com/swiftlang/swift-syntax/blob/79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1/LICENSE.txt",
+        "parents": [
+          "swift-json-schema"
+        ]
+      }
+    }
+  },
   "candidates": {
     "ajv": {
       "ecosystem": "npm",
       "proposed_version": "8.20.0",
-      "decision": "pending",
+      "decision": "approved",
+      "decision_provenance": {
+        "actor": "human",
+        "recorded_at_utc": "2026-07-16T11:41:22Z",
+        "source": "Plan 01-04 checkpoint option 1",
+        "scope": "Exact audited version, artifact integrity, license, and source only."
+      },
       "role": "Independent JavaScript validation of the five frozen Draft 2020-12 ReRoom contract schemas via the explicit 2020 entry point.",
       "artifact": {
         "filename": "ajv-8.20.0.tgz",
@@ -68,7 +182,7 @@
       },
       "license": {
         "spdx": "MIT",
-        "compatibility": "compatible_candidate_not_approved",
+        "compatibility": "compatible_approved",
         "evidence": "https://registry.npmjs.org/ajv/8.20.0"
       },
       "current_official_documentation": [
@@ -94,7 +208,13 @@
     "ajv-formats": {
       "ecosystem": "npm",
       "proposed_version": "3.0.1",
-      "decision": "pending",
+      "decision": "approved",
+      "decision_provenance": {
+        "actor": "human",
+        "recorded_at_utc": "2026-07-16T11:41:22Z",
+        "source": "Plan 01-04 checkpoint option 1",
+        "scope": "Exact audited version, artifact integrity, license, and source only."
+      },
       "role": "Adds the date-time and URI format validators used by the frozen ReRoom schemas to the JavaScript Ajv instance.",
       "artifact": {
         "filename": "ajv-formats-3.0.1.tgz",
@@ -105,7 +225,7 @@
       },
       "license": {
         "spdx": "MIT",
-        "compatibility": "compatible_candidate_not_approved",
+        "compatibility": "compatible_approved",
         "evidence": "https://registry.npmjs.org/ajv-formats/3.0.1"
       },
       "current_official_documentation": [
@@ -131,7 +251,13 @@
     "canonicalize": {
       "ecosystem": "npm",
       "proposed_version": "3.0.0",
-      "decision": "pending",
+      "decision": "approved",
+      "decision_provenance": {
+        "actor": "human",
+        "recorded_at_utc": "2026-07-16T11:41:22Z",
+        "source": "Plan 01-04 checkpoint option 1",
+        "scope": "Exact audited version, artifact integrity, license, and source only."
+      },
       "role": "Independent JavaScript RFC 8785 byte generation checked against the immutable RR-JCS-SHA256-1 oracle.",
       "artifact": {
         "filename": "canonicalize-3.0.0.tgz",
@@ -142,7 +268,7 @@
       },
       "license": {
         "spdx": "Apache-2.0",
-        "compatibility": "compatible_candidate_not_approved",
+        "compatibility": "compatible_approved",
         "evidence": "https://registry.npmjs.org/canonicalize/3.0.0"
       },
       "current_official_documentation": [
@@ -168,7 +294,13 @@
     "jsonschema": {
       "ecosystem": "pypi",
       "proposed_version": "4.26.0",
-      "decision": "pending",
+      "decision": "approved",
+      "decision_provenance": {
+        "actor": "human",
+        "recorded_at_utc": "2026-07-16T11:41:22Z",
+        "source": "Plan 01-04 checkpoint option 1",
+        "scope": "Exact audited version, artifact integrity, license, and source only."
+      },
       "role": "Independent Python Draft 2020-12 schema validation using Draft202012Validator.check_schema and programmatic validators.",
       "artifacts": [
         {
@@ -185,7 +317,7 @@
       "registry_metadata_url": "https://pypi.org/pypi/jsonschema/4.26.0/json",
       "license": {
         "spdx": "MIT",
-        "compatibility": "compatible_candidate_not_approved",
+        "compatibility": "compatible_approved",
         "evidence": "https://github.com/python-jsonschema/jsonschema/blob/v4.26.0/COPYING"
       },
       "current_official_documentation": [
@@ -214,7 +346,13 @@
     "rfc8785": {
       "ecosystem": "pypi",
       "proposed_version": "0.1.4",
-      "decision": "pending",
+      "decision": "approved",
+      "decision_provenance": {
+        "actor": "human",
+        "recorded_at_utc": "2026-07-16T11:41:22Z",
+        "source": "Plan 01-04 checkpoint option 1",
+        "scope": "Exact audited version, artifact integrity, license, and source only."
+      },
       "role": "Independent pure-Python RFC 8785 byte generation checked against the immutable RR-JCS-SHA256-1 oracle.",
       "artifacts": [
         {
@@ -231,7 +369,7 @@
       "registry_metadata_url": "https://pypi.org/pypi/rfc8785/0.1.4/json",
       "license": {
         "spdx": "Apache-2.0",
-        "compatibility": "compatible_candidate_not_approved",
+        "compatibility": "compatible_approved",
         "evidence": "https://github.com/trailofbits/rfc8785.py/blob/v0.1.4/LICENSE"
       },
       "current_official_documentation": [
@@ -261,18 +399,25 @@
       "ecosystem": "swiftpm",
       "proposed_version": "0.13.1",
       "proposed_revision": "f299eb1cce78b2dd736d9a390ec0779d28678416",
-      "decision": "pending",
+      "decision": "approved",
+      "decision_provenance": {
+        "actor": "human",
+        "recorded_at_utc": "2026-07-16T11:41:22Z",
+        "source": "Plan 01-04 checkpoint option 1",
+        "scope": "Exact audited version, artifact integrity, license, and source only."
+      },
       "role": "Wave-0 candidate for native Swift validation of the frozen CON-001 through CON-005 Draft 2020-12 schemas.",
       "artifact": {
         "filename": "swift-json-schema-f299eb1cce78b2dd736d9a390ec0779d28678416.tar.gz",
         "url": "https://codeload.github.com/ajevans99/swift-json-schema/tar.gz/f299eb1cce78b2dd736d9a390ec0779d28678416",
+        "source_repository_url": "https://github.com/ajevans99/swift-json-schema",
         "sha256": "44a08fbc16f47cf11e9ac034c6985bb9b77e6e3c678de1630f106a79b7c691ae",
         "tag": "v0.13.1",
         "tag_api": "https://api.github.com/repos/ajevans99/swift-json-schema/git/ref/tags/v0.13.1"
       },
       "license": {
         "spdx": "MIT",
-        "compatibility": "compatible_candidate_not_approved",
+        "compatibility": "compatible_approved",
         "evidence": "https://github.com/ajevans99/swift-json-schema/blob/v0.13.1/LICENSE"
       },
       "toolchain": {

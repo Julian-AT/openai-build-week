@@ -1,4 +1,4 @@
-# Proposed Phase 1 direct dependencies. Decisions remain pending in
-# evidence/dependencies/phase-01-package-audit.json; do not install or lock yet.
+# Approved Phase 1 direct dependencies. Exact versions and approval provenance
+# are recorded in evidence/dependencies/phase-01-package-audit.json.
 jsonschema==4.26.0
 rfc8785==0.1.4
