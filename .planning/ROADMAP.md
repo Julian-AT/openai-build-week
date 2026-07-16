@@ -34,12 +34,12 @@ This approved high-level roadmap initializes planning only. It does not authoriz
   3. Golden CON-001 through CON-005 schema, digest, and wire vectors agree across languages, while unknown fields/versions and malformed framing, paths, digests, branches, or identities reject before mutation.
   4. Device crop/orientation checks expose no swapped or silently reinterpreted camera geometry; unknown alignment is quarantined.
 
-**Plans**: 1/14 plans executed
+**Plans**: 2/14 plans executed
 
 Plans:
 
 - [x] 01-01-PLAN.md
-- [ ] 01-02-PLAN.md
+- [x] 01-02-PLAN.md
 - [ ] 01-03-PLAN.md
 - [ ] 01-04-PLAN.md
 - [ ] 01-05-PLAN.md
@@ -56,7 +56,7 @@ Plans:
 **Wave 1**
 
 - [x] 01-01 — Freeze closed fixture/result schemas and immutable contract/JCS/coordinate oracle.
-- [ ] 01-02 — Define canonical sanitized gate/checklist evidence, including human-only waiver rules.
+- [x] 01-02 — Define canonical sanitized gate/checklist evidence, including human-only waiver rules.
 - [ ] 01-04 — Audit and obtain human approval for exact toolchain dependencies or fallbacks.
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -228,7 +228,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Contract and Device Proof | 1/14 | In Progress|  |
+| 1. Contract and Device Proof | 2/14 | In Progress|  |
 | 2. Atomic Capture and Exact Replay | 0/TBD | Not started | - |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |

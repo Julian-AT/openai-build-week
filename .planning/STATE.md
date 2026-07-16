@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-07-16T11:13:14.242Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-07-16T11:26:50.341Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 2 of 14
+Plan: 3 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [█░░░░░░░░░] 7%
+Progress: [█░░░░░░░░░] 14%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [█░░░░░░░░░] 7%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 10min | 2 tasks | 84 files |
+| Phase 01 P02 | 10min | 2 tasks | 24 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - Deterministic application code owns spatial checks, branch revisions, persistence, commit, reconciliation, and compensating restore.
 - RealityKit/compositor, semantic/depth providers, and multi-surface reveal remain provisional behind `GATE-003`, `GATE-004`/`GATE-007`, and `GATE-006` respectively.
 - Phase boundaries follow canonical dependency/risk slices and never person assignments.
+- [Phase 01]: Gate automation is limited to UNRUN, RUNNING, and RED; GREEN and WAIVED_BY_HUMAN require a human actor and signed checklist digest.
+- [Phase 01]: Checked-in gate evidence contains sanitized facts and opaque external artifact digests only; raw/private evidence remains outside Git.
+- [Phase 01]: A waiver requires an explicit lock-change ID plus updated PRD and affected ADR digests before validation.
 
 ### Pending Todos
 
@@ -95,8 +99,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-16T11:13:14.238Z
+Last session: 2026-07-16T11:26:50.337Z
 
-Stopped at: Completed 01-01-PLAN.md
+Stopped at: Completed 01-02-PLAN.md
 
 Resume file: None
