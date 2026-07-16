@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import argparse
-import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 
-from .canonical_json import digest_sha256, execute_jcs_case
+from .canonical_json import canonical_bytes, digest_sha256, execute_jcs_case
+from .coordinate import execute_coordinate_case
 from .loader import LoadedFixture, VerificationFailure, load_fixture, parse_json_bytes
 from .schema_validator import execute_contract_case
 from .wire_frame import execute_wire_case
@@ -29,6 +30,8 @@ def _execute(fixture: LoadedFixture, case: dict[str, Any]) -> list[dict[str, Any
         return execute_jcs_case(fixture, case)
     if case_kind in {"wire_bytes", "wire_mutation"}:
         return execute_wire_case(fixture, case)
+    if case_kind == "coordinate_vector":
+        return execute_coordinate_case(fixture, case)
     raise VerificationFailure("semantic_invariant", f"unknown case kind: {case_kind}")
 
 
@@ -142,18 +145,30 @@ def _git_revision(repo_root: Path) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("manifest", type=Path)
+    parser.add_argument("manifest_positional", nargs="?", type=Path)
+    parser.add_argument("--manifest", dest="manifest_option", type=Path)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--implementation-revision")
     arguments = parser.parse_args(argv)
+    if arguments.manifest_positional and arguments.manifest_option:
+        parser.error("provide the manifest either positionally or with --manifest, not both")
+    manifest = arguments.manifest_option or arguments.manifest_positional
+    if manifest is None:
+        parser.error("a fixture manifest is required")
     repo_root = arguments.repo_root.resolve(strict=True)
     revision = arguments.implementation_revision or _git_revision(repo_root)
     result = run_fixture(
-        arguments.manifest,
+        manifest,
         repo_root=repo_root,
         implementation_revision=revision,
     )
-    print(json.dumps(result, ensure_ascii=False, separators=(",", ":"), sort_keys=True))
+    output = canonical_bytes(result) + b"\n"
+    if arguments.output is None:
+        sys.stdout.buffer.write(output)
+    else:
+        with arguments.output.open("xb") as destination:
+            destination.write(output)
     return 0
 
 
