@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -94,6 +95,55 @@ class PythonRunnerTests(unittest.TestCase):
         wire = encode_frame(header, bytes.fromhex(wire_input["payload_hex"]))
         self.assertEqual(24, len(wire) - len(rfc8785.dumps(header)) - 4)
         self.assertEqual(expected_hex, wire.hex())
+
+    def test_coordinate_vectors_and_all_family_runner(self) -> None:
+        coordinate_path = REPO_ROOT / "tools/python/reroom_verify/coordinate.py"
+        self.assertTrue(
+            coordinate_path.is_file(), "Python coordinate runner is not implemented"
+        )
+
+        from tools.python.reroom_verify.loader import VerificationFailure
+        from tools.python.reroom_verify.runner import run_fixture
+
+        fixture_files = sorted(
+            path
+            for path in (REPO_ROOT / "fixtures").rglob("*")
+            if path.is_file()
+        )
+        before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in fixture_files}
+
+        for manifest_path in (CONTRACT_MANIFEST, JCS_MANIFEST, COORD_MANIFEST):
+            manifest = _manifest(manifest_path)
+            result = run_fixture(
+                manifest_path,
+                repo_root=REPO_ROOT,
+                implementation_revision=REVISION,
+            )
+            self.assertEqual(
+                [_expected_row(case) for case in manifest["cases"]],
+                result["case_results"],
+            )
+            self.assertEqual(len(manifest["cases"]), result["summary"]["total"])
+            self.assertEqual(
+                sorted(case["case_id"] for case in manifest["cases"]),
+                [row["case_id"] for row in result["case_results"]],
+            )
+
+        after = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in fixture_files}
+        self.assertEqual(before, after, "reference execution mutated its oracle")
+
+        unknown = _manifest(COORD_MANIFEST)
+        unknown["cases"][0]["case_kind"] = "unknown_kind"
+        with tempfile.TemporaryDirectory(dir=REPO_ROOT) as directory:
+            temporary_manifest = Path(directory) / "manifest.json"
+            temporary_manifest.write_text(json.dumps(unknown), encoding="utf-8")
+            with self.assertRaises(VerificationFailure) as raised:
+                run_fixture(
+                    temporary_manifest,
+                    repo_root=REPO_ROOT,
+                    implementation_revision=REVISION,
+                )
+        self.assertEqual("schema_validation", raised.exception.rejection_class)
 
 
 if __name__ == "__main__":
