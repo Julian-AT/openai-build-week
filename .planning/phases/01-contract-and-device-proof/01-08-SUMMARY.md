@@ -31,7 +31,7 @@ key-files:
 
 key-decisions:
   - "The Swift validator accepts only the exact 35-keyword surface used by the five frozen 1.0 schemas; unknown keywords and remote/dynamic resolution fail before compilation."
-  - "swift-json-schema remains pinned at approved 0.13.1/f299eb1, while a bounded RFC 3339 date-time checker replaces its fractional-seconds-only helper for reference parity."
+  - "swift-json-schema remains pinned at its approved 0.13.1 immutable revision, while a bounded RFC 3339 date-time checker replaces its fractional-seconds-only helper for reference parity."
   - "Public validation requests keep schema ID, version, and hash as untrusted strings, while construction requires all five canonical schemas at exact registered hashes."
   - "Consumers may lower the 32 MiB/64-depth limits but cannot raise them, and the API returns verdicts without coercing, defaulting, or returning transformed documents."
 
@@ -77,7 +77,7 @@ status: complete
 
 ## Accomplishments
 
-- Bound the already approved `swift-json-schema` `0.13.1` package to revision `f299eb1cce78b2dd736d9a390ec0779d28678416`, enumerated all 35 keywords used by CON-001 through CON-005, and proved exact agreement across all 18 frozen cases and 12 rejection classes.
+- Bound the already approved `swift-json-schema` `0.13.1` package to the immutable revision recorded in Package.resolved and the compatibility evidence, enumerated all 35 keywords used by CON-001 through CON-005, and proved exact agreement across all 18 frozen cases and 12 rejection classes.
 - Added fail-closed schema preflight for unknown keywords, nested identifiers, nonlocal references, and dynamic resolution, plus explicit `date-time` and `uri` assertions and the existing semantic/path/numeric/digest boundaries required by the oracle.
 - Added a public five-schema registry and typed validation request/verdict API that requires exact ID, version, and SHA-256; enforces configurable-but-never-wider 32 MiB and depth-64 limits; and returns no coerced/defaulted document.
 - Recorded exact package/license/artifact provenance, schema hashes, environment, raw benchmark digest, metric calculation, evaluator, fallback, and a MEASURED 2.507663833-second 20-repetition corpus result against the 10-second plan-local timebox.
@@ -135,7 +135,7 @@ Each task was committed as a failing specification followed by its passing imple
 
 - The exact filtered Swift test command passes twice: 9 tests, including 3 parameterized unsafe-schema cases and 3 parameterized selection-spoofing cases.
 - Fresh reference parity passes for `FX-CONTRACT-001`, `FX-JCS-001`, and `FX-COORD-001` across the JavaScript and Python runners with unchanged oracle hashes.
-- Exact dependency closure verification passes for all 6 approved roots and 10 audited transitives; SwiftPM remains locked to `swift-json-schema` `0.13.1` at `f299eb1`.
+- Exact dependency closure verification passes for all 6 approved roots and 10 audited transitives; SwiftPM remains locked to the audited immutable `swift-json-schema` `0.13.1` revision.
 - `evidence/compatibility/swift-schema-validation.json` parses, contains 35 unique keywords, and its embedded compact raw benchmark reproduces SHA-256 `a7220bfa2ce37a25b76554acd2559f57c73eadf52033fe8d31d3ca68c4da05a4`.
 - No physical-device, signing, ARKit, compositor, thermal, human, cloud, deployment, or publication evidence is claimed.
 
