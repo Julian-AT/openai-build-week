@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "gate_id": "GATE-013",
+  "decision": "GREEN",
+  "decision_actor": "human",
+  "report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reviewed_at_utc": "2026-07-16T10:19:00Z",
+  "checklist_items": [
+    {"check_id": "automated_report_reviewed", "outcome": "checked"},
+    {"check_id": "evidence_links_verified", "outcome": "checked"},
+    {"check_id": "privacy_redaction_reviewed", "outcome": "checked"},
+    {"check_id": "physical_or_human_observations_approved", "outcome": "checked"}
+  ],
+  "signature_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

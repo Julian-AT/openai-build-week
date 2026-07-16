@@ -199,7 +199,7 @@
       "additionalProperties": false,
       "required": ["fixture_id", "fixture_revision", "sha256"],
       "properties": {
-        "fixture_id": { "type": "string", "pattern": "^FX-[A-Z0-9]+-[0-9]{3}$" },
+        "fixture_id": { "type": "string", "pattern": "^FX-[A-Z0-9]+(?:-[A-Z0-9]+)+$" },
         "fixture_revision": { "type": "string", "pattern": "^rev-[0-9]{3}$" },
         "sha256": { "$ref": "#/$defs/sha256" }
       }

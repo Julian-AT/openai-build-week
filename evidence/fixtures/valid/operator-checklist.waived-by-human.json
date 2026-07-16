@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0.0",
+  "gate_id": "GATE-006",
+  "decision": "WAIVED_BY_HUMAN",
+  "decision_actor": "human",
+  "report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reviewed_at_utc": "2026-07-16T10:29:00Z",
+  "checklist_items": [
+    {"check_id": "locked_decision_change_verified", "outcome": "checked"},
+    {"check_id": "prd_update_verified", "outcome": "checked"},
+    {"check_id": "affected_adr_updates_verified", "outcome": "checked"},
+    {"check_id": "privacy_redaction_reviewed", "outcome": "checked"}
+  ],
+  "signature_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+}

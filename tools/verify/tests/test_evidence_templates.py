@@ -7,6 +7,7 @@ from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[3]
 TEMPLATES = ROOT / "evidence" / "templates"
+FIXTURES = ROOT / "evidence" / "fixtures"
 SHA_A = "a" * 64
 SHA_B = "b" * 64
 SHA_C = "c" * 64
@@ -234,6 +235,51 @@ class OperatorChecklistSchemaTests(unittest.TestCase):
             checklist[field] = "ABC"
             with self.subTest(field=field):
                 self.assert_rejected(checklist)
+
+
+class CheckedInEvidenceFixtureTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.gate_validator = Draft202012Validator(load_schema("gate-report.schema.json"))
+        cls.checklist_validator = Draft202012Validator(load_schema("operator-checklist.schema.json"))
+
+    def validator_for(self, path: Path) -> Draft202012Validator:
+        if path.name.startswith("gate-report."):
+            return self.gate_validator
+        if path.name.startswith("operator-checklist."):
+            return self.checklist_validator
+        self.fail(f"fixture name does not identify its schema: {path.name}")
+
+    def test_all_valid_fixtures_validate(self) -> None:
+        paths = sorted((FIXTURES / "valid").glob("*.json"))
+        self.assertGreaterEqual(len(paths), 7)
+        for path in paths:
+            with self.subTest(path=path.name):
+                instance = json.loads(path.read_text(encoding="utf-8"))
+                self.assertEqual([], list(self.validator_for(path).iter_errors(instance)))
+
+    def test_all_invalid_fixtures_fail_closed(self) -> None:
+        paths = sorted((FIXTURES / "invalid").glob("*.json"))
+        self.assertGreaterEqual(len(paths), 12)
+        for path in paths:
+            with self.subTest(path=path.name):
+                instance = json.loads(path.read_text(encoding="utf-8"))
+                self.assertTrue(list(self.validator_for(path).iter_errors(instance)))
+
+    def test_negative_fixtures_cover_every_forbidden_private_field(self) -> None:
+        names = {path.name for path in (FIXTURES / "invalid").glob("*.json")}
+        required = {
+            "gate-report.invalid.device-uuid.json",
+            "gate-report.invalid.team-id.json",
+            "gate-report.invalid.account.json",
+            "gate-report.invalid.user-path.json",
+            "gate-report.invalid.raw-room-bytes.json",
+            "gate-report.invalid.raw-logs.json",
+            "gate-report.invalid.signing-material.json",
+            "gate-report.invalid.private-artifact-path.json",
+            "gate-report.invalid.automation-waiver.json",
+        }
+        self.assertEqual(set(), required - names)
 
 
 if __name__ == "__main__":
