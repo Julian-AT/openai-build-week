@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { realpath, readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
@@ -11,6 +12,7 @@ export const MAX_CASES = 2_048;
 export const MAX_PATH_BYTES = 240;
 
 const ARCHIVE_PATH = /^(?!\/)(?![A-Za-z]:)(?!.*(?:^|\/)\.{1,2}(?:\/|$))(?!.*\\)[A-Za-z0-9_-][A-Za-z0-9._-]*(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
+const MODULE_REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const REGISTERED_SCHEMAS = new Map([
   ["CON-001", ["urn:reroom:schema:frame-packet:1", "docs/contracts/frame-packet.schema.json"]],
   ["CON-002", ["urn:reroom:schema:rrcap-manifest:1", "docs/contracts/rrcap-manifest.schema.json"]],
@@ -237,7 +239,7 @@ function createAjv() {
 
 export async function loadFixture(manifestPath, { repoRoot } = {}) {
   const absoluteManifest = path.resolve(manifestPath);
-  const root = path.resolve(repoRoot ?? path.dirname(path.dirname(path.dirname(absoluteManifest))));
+  const root = path.resolve(repoRoot ?? MODULE_REPO_ROOT);
   const manifestBytes = await readBytesBounded(absoluteManifest);
   const manifest = parseJsonBytesStrict(manifestBytes);
   const manifestSchema = await readJsonStrict(path.join(root, "fixtures/manifest.schema.json"));

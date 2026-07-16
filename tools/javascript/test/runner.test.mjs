@@ -88,6 +88,6 @@ test("runner emits complete, ordered, closed RunnerResultV1 envelopes", async ()
     });
     const { result_digest_sha256: digest, ...unsigned } = result;
     assert.equal(digest, canonicalDigest(unsigned));
-    assert.doesNotThrow(() => validateRunnerResult(result, expectedFixture));
+    await assert.doesNotReject(validateRunnerResult(result, expectedFixture));
   }
 });
