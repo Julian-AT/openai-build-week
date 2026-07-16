@@ -24,6 +24,10 @@ let package = Package(
                 .product(name: "JSONSchema", package: "swift-json-schema"),
             ]
         ),
+        .testTarget(
+            name: "ReRoomContractsTests",
+            dependencies: ["ReRoomContracts"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
