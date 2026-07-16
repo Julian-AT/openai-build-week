@@ -155,7 +155,7 @@ Each row shows label, state icon, plain-language value, and one short reason whe
 | Capture retry | Release + Debug | Previous attempt rejected/failed and prerequisites now allow retry | `Try Capture Again` | Creates a new attempt; does not revive a rejected snapshot |
 | Restart session | Release + Debug | Tracking unavailable or explicit quarantine recovery | `Restart Device Check` | Keeps saved evidence; if an attempt is active, requires the confirmation copy below |
 | Diagnostics | Debug only | Always after app launch | `Diagnostics` | Opens the internal checklist; identifier/symbol/control absent from Release |
-| Evidence export | Debug only | Sanitized evidence validates | `Export Sanitized Evidence` | Exports validated allowlisted facts only; never changes gate state |
+| Evidence export | Debug only | Only after sanitized evidence validates | `Export Sanitized Evidence` | Remains unavailable while validation fails and identifies the failed checklist row; after correction and successful revalidation, exports validated allowlisted facts only and never changes gate state |
 
 All actions are native `Button` controls with a 44×44pt minimum target. The enabled primary action is full width. Disabled controls expose the blocker in adjacent text and in their accessibility value; do not provide only a disabled button with no explanation.
 
@@ -190,6 +190,7 @@ State priority is fail-closed: camera restriction/denial → physical landscape 
 | Capture in progress | `Capturing test frame` / `Keep the phone upright and steady.` | Primary disabled with bounded progress | `release.status.capture.inProgress`; cancellation occurs only through invalidating state/restart |
 | Hash-valid journaled packet visible locally | `Test frame saved` / `The frame and its metadata were verified and saved on this iPhone. Nothing was uploaded.` | `Capture Test Frame` may create a fresh attempt | Success icon + text; never say GATE passed; `release.status.capture.saved` |
 | Durability/hash/journal failure | `Test frame wasn’t saved` / `No incomplete frame was published. Check device storage and try again.` | `Try Capture Again`; restart if policy requires | Error remains until action; no partial-success state; `release.status.capture.failed` |
+| Debug: sanitized evidence validation failed | `Evidence wasn’t exported because validation failed. No file was shared. Review the failed check, then try exporting again.` | `Export Sanitized Evidence` remains visible but unavailable until the failed check is corrected and revalidation passes | Persistent failure icon + text identifies the failed checklist row; `debug.action.exportEvidence` remains disabled; no file is written and no share sheet appears |
 
 Restart confirmation while an attempt is active:
 
@@ -219,7 +220,7 @@ No Phase 1 control deletes durable evidence or canonical history. There is no de
 | Capture success | `Test frame saved. The frame and its metadata were verified and saved on this iPhone. Nothing was uploaded.` |
 | Quarantine error | `Alignment needs recovery. Capture is paused because the world frame could not be verified. Restart the device check.` |
 | Debug export success | `Sanitized evidence is ready to export.` |
-| Debug export failure | `Evidence wasn’t exported because validation failed. No file was shared.` |
+| Debug export failure | `Evidence wasn’t exported because validation failed. No file was shared. Review the failed check, then try exporting again.` |
 | Destructive confirmation | None; session restart uses the non-destructive confirmation defined above |
 
 Copy rules:
@@ -273,7 +274,7 @@ Applicable state considerations resolved: 8 covered, 0 backstop, 0 unresolved.
 | Capture attempt | Landscape transition, hash failure, journal failure, and successful journal visibility produce the exact persistent result states; only success may say `saved`. |
 | Release/Debug separation | Debug UI test finds `debug.root.diagnostics` and `debug.action.exportEvidence`. Release UI test finds `release.root.candidate` and proves every `debug.*` identifier/control absent. Binary/resource/symbol inspection must examine the same Release product. |
 | Evidence honesty | Automation can display/export only UNRUN/RUNNING/RED. Any displayed GREEN is read-only from a validated human-bound report; there is no approve/waive control. |
-| Privacy | Release snapshots/accessibility tree contain no device UUID, team/account, path, digest, or raw error. Debug export negative fixtures reject each forbidden field before write/share. |
+| Privacy | Release snapshots/accessibility tree contain no device UUID, team/account, path, digest, or raw error. Debug export negative fixtures reject each forbidden field before write/share, keep `debug.action.exportEvidence` unavailable with the exact failure/recovery copy above, and enable it only after the corrected evidence validates. |
 | Accessibility | Largest Dynamic Type, VoiceOver order/labels, Voice Control visible-name match, Reduce Motion, Differentiate Without Color, 44pt targets, and +40% pseudo-localization pass without clipping or blocked actions. |
 
 Stable accessibility identifiers:
