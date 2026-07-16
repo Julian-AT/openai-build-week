@@ -1,7 +1,7 @@
 {
   "runtime": "codex",
   "resolve_model_ids": false,
-  "model_profile": "balanced",
+  "model_profile": "adaptive",
   "model_profile_overrides": {
     "codex": {
       "opus": "gpt-5.6-sol",
@@ -36,7 +36,7 @@
     "api_coverage_gate": true,
     "context_guard_mode": "warn",
     "text_mode": false,
-    "research_before_questions": true,
+    "research_before_questions": false,
     "discuss_mode": "discuss",
     "skip_discuss": false,
     "code_review": true,
@@ -48,8 +48,8 @@
     "security_enforcement": true,
     "security_asvs_level": 1,
     "security_block_on": "high",
-    "tdd_mode": true,
-    "ui_review": true,
+    "tdd_mode": false,
+    "ui_review": false,
     "use_worktrees": false
   },
   "hooks": {
@@ -60,10 +60,14 @@
     "source_grounding_authority": "grep"
   },
   "intel": {
-    "enabled": true
+    "enabled": false
   },
   "graphify": {
-    "enabled": true,
+    "enabled": false,
     "auto_update": false
+  },
+  "git": {
+    "branching_strategy": "none",
+    "create_tag": true
   }
 }
