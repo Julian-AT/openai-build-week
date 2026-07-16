@@ -34,7 +34,7 @@ This approved high-level roadmap initializes planning only. It does not authoriz
   3. Golden CON-001 through CON-005 schema, digest, and wire vectors agree across languages, while unknown fields/versions and malformed framing, paths, digests, branches, or identities reject before mutation.
   4. Device crop/orientation checks expose no swapped or silently reinterpreted camera geometry; unknown alignment is quarantined.
 
-**Plans**: 8/14 plans executed
+**Plans**: 9/14 plans executed
 
 Plans:
 
@@ -46,7 +46,7 @@ Plans:
 - [x] 01-06-PLAN.md
 - [x] 01-07-PLAN.md
 - [x] 01-08-PLAN.md
-- [ ] 01-09-PLAN.md
+- [x] 01-09-PLAN.md
 - [ ] 01-10-PLAN.md
 - [ ] 01-11-PLAN.md
 - [ ] 01-12-PLAN.md
@@ -74,11 +74,11 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 01-08 — Resolve and implement Swift frozen-schema validation against all five schemas.
+- [x] 01-08 — Resolve and implement Swift frozen-schema validation against all five schemas.
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 01-09 — Implement Swift JCS, wire, path, and RR-COORD-1 policies.
+- [x] 01-09 — Implement Swift JCS, wire, path, and RR-COORD-1 policies.
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
@@ -228,7 +228,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Contract and Device Proof | 8/14 | In Progress|  |
+| 1. Contract and Device Proof | 9/14 | In Progress|  |
 | 2. Atomic Capture and Exact Replay | 0/TBD | Not started | - |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |

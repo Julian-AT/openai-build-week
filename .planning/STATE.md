@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-08-PLAN.md
-last_updated: "2026-07-16T22:48:00.522Z"
+stopped_at: Completed 01-09-PLAN.md
+last_updated: "2026-07-16T23:11:27.286Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 8 of 14
+Plan: 9 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [██████░░░░] 57%
+Progress: [██████░░░░] 64%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [██████░░░░] 57%
 | Phase 01 P06 | 16min | 2 tasks | 8 files |
 | Phase 01 P07 | 12min | 2 tasks | 4 files |
 | Phase 01 P08 | 21min | 2 tasks | 6 files |
+| Phase 01 P09 | 15min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-08: swift-json-schema remains pinned at 0.13.1/f299eb1 with a bounded RFC 3339 date-time checker for reference parity. — Preserve the approved dependency while matching canonical whole-second timestamps.
 - [Phase 01]: Plan 01-08: Public validation treats schema ID, version, and hash as untrusted strings and requires all five exact schema registrations. — Fail closed on schema-selection spoofing and tamper.
 - [Phase 01]: Plan 01-08: Contract input limits may be lowered but never exceed 32 MiB or depth 64, and validation returns no coerced or defaulted document. — Keep later Swift consumers bounded and deterministic.
+- [Phase 01]: Plan 01-09: Frozen checked-in bytes and stable rejection classes are the Swift serialization and coordinate policy authority. — Malformed input fails closed without repair or hidden defaults.
+- [Phase 01]: Plan 01-09: RRFP remains exactly the 24-byte big-endian prefix, canonical header, and payload with no trailer. — Preserve CON-001 byte identity and reject any undeclared extension byte.
+- [Phase 01]: Plan 01-09: RR-COORD-1 quantizes inputs through binary32 and preserves row-major serialization with column-vector math. — Match the immutable coordinate oracle and inclusive tolerance semantics.
+- [Phase 01]: Plan 01-09: Archive paths require normalized ASCII relative segments plus symlink-aware root containment. — Prevent traversal, separator-confusable, absolute, and symlink escape attacks.
 
 ### Pending Todos
 
@@ -119,8 +124,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-16T22:48:00.517Z
+Last session: 2026-07-16T23:11:27.281Z
 
-Stopped at: Completed 01-08-PLAN.md
+Stopped at: Completed 01-09-PLAN.md
 
 Resume file: None
