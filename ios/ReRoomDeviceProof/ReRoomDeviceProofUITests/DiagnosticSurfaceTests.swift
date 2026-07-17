@@ -4,11 +4,6 @@ final class DiagnosticSurfaceTests: XCTestCase {
     @MainActor
     func testBuiltProductExposesOnlyItsConfigurationSurface() {
         let app = XCUIApplication()
-#if DEBUG
-        app.launchEnvironment["REROOM_IMPLEMENTATION_REVISION"] =
-            "git:0123456789abcdef0123456789abcdef01234567"
-        app.launchEnvironment["REROOM_FIXTURE_SHA256"] = String(repeating: "a", count: 64)
-#endif
         app.launch()
 
 #if DEBUG

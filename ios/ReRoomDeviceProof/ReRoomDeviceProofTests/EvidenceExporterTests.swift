@@ -178,6 +178,60 @@ struct EvidenceExporterTests {
         #expect(environment["signing_result"] as? String == "not_tested")
     }
 
+    @MainActor
+    @Test("Normal Debug launch uses bundled build provenance without environment injection")
+    func liveRuntimeFactsValidateWithoutEnvironmentInjection() throws {
+        let runtime = DiagnosticRuntimeFacts.live(
+            environment: [:],
+            date: Date(timeIntervalSince1970: 1_768_608_900)
+        )
+        let request = DiagnosticEvidenceRequestFactory.unrun(
+            deviceState: DeviceProofState(),
+            runtime: runtime
+        )
+        let data = try EvidenceExporter().validatedData(for: request)
+        let object = try #require(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        let environment = try #require(object["environment"] as? [String: Any])
+        let revision = try #require(object["implementation_revision"] as? String)
+        let fixtures = try #require(object["fixture_refs"] as? [[String: Any]])
+        let fixture = try #require(fixtures.first)
+
+        #expect(
+            revision.range(
+                of: #"^git:[0-9a-f]{40}$"#,
+                options: .regularExpression
+            ) != nil
+        )
+        #expect(fixture["fixture_id"] as? String == "FX-CONTRACT-001")
+        #expect(
+            fixture["sha256"] as? String
+                == "54a0753df4c6a963136a59ed1361dc0c4460c59647ab202c0b7c8e565b79194c"
+        )
+        #expect(environment["device_model"] is NSNull)
+    }
+
+    @Test("Shared LaunchAction contains no provenance environment overrides")
+    func sharedLaunchActionIsUnmodified() throws {
+        let root = try repositoryRoot()
+        let scheme = try String(
+            contentsOf: root.appendingPathComponent(
+                "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/xcshareddata/xcschemes/ReRoomDeviceProof.xcscheme"
+            ),
+            encoding: .utf8
+        )
+        let start = try #require(scheme.range(of: "<LaunchAction"))
+        let end = try #require(
+            scheme.range(of: "</LaunchAction>", range: start.lowerBound..<scheme.endIndex)
+        )
+        let launchAction = scheme[start.lowerBound..<end.upperBound]
+
+        #expect(launchAction.contains("REROOM_IMPLEMENTATION_REVISION") == false)
+        #expect(launchAction.contains("REROOM_FIXTURE_SHA256") == false)
+        #expect(launchAction.contains("EnvironmentVariables") == false)
+    }
+
     private func request(state: String) -> EvidenceExportRequest {
         let artifacts: [EvidenceArtifactReference]
         let reportDigest: String?
@@ -232,6 +286,19 @@ struct EvidenceExporterTests {
         )
     }
 
+    private func repositoryRoot() throws -> URL {
+        let fileManager = FileManager.default
+        var cursor = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while fileManager.fileExists(atPath: cursor.appendingPathComponent(".git").path) == false {
+            let parent = cursor.deletingLastPathComponent()
+            guard parent.path != cursor.path else {
+                throw EvidenceExporterTestError.repositoryRootNotFound
+            }
+            cursor = parent
+        }
+        return cursor
+    }
+
     private static let gateReportKeys: Set<String> = [
         "schema_version", "gate_id", "gate_state", "decision_actor", "recorded_at_utc",
         "implementation_revision", "test_ids", "requirement_ids", "adr_ids",
@@ -239,4 +306,8 @@ struct EvidenceExporterTests {
         "automated_report_sha256", "operator_checklist_sha256",
         "locked_decision_change_id", "prd_sha256", "affected_adr_sha256",
     ]
+}
+
+private enum EvidenceExporterTestError: Error {
+    case repositoryRootNotFound
 }
