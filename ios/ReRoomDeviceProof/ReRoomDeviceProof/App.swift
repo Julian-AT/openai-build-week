@@ -6,12 +6,16 @@ import UIKit
 @main
 @MainActor
 struct ReRoomDeviceProofApp: App {
+#if DEBUG
+    @State private var diagnosticOwner = DiagnosticAppOwner()
+#else
     @State private var model = DeviceProofModel()
+#endif
 
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            DiagnosticChecklistView(model: model)
+            DiagnosticChecklistView(owner: diagnosticOwner)
 #else
             CandidateSeedView(model: model)
 #endif

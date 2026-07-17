@@ -1,3 +1,4 @@
+import ARKit
 import Foundation
 import Observation
 import UIKit
@@ -137,6 +138,8 @@ final class DeviceProofModel {
 
     @ObservationIgnored
     private let arSessionController: ARSessionController
+
+    var currentARFrame: ARFrame? { arSessionController.currentFrame }
 
     init(
         state: DeviceProofState = DeviceProofState(),

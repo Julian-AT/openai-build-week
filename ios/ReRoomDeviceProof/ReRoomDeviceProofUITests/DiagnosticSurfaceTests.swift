@@ -1,6 +1,7 @@
 import XCTest
 
 final class DiagnosticSurfaceTests: XCTestCase {
+    @MainActor
     func testBuiltProductExposesOnlyItsConfigurationSurface() {
         let app = XCUIApplication()
 #if DEBUG
@@ -26,6 +27,10 @@ final class DiagnosticSurfaceTests: XCTestCase {
         XCTAssertTrue(waitForValue(containing: "Portrait", in: orientation))
 
         let export = element(in: app, identifiedBy: "debug.action.exportEvidence")
+        for _ in 0..<3 where !export.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(export.isHittable)
         export.tap()
         let exported = element(in: app, identifiedBy: "debug.status.exportEvidence")
         XCTAssertTrue(exported.waitForExistence(timeout: 5))
@@ -44,10 +49,12 @@ final class DiagnosticSurfaceTests: XCTestCase {
 #endif
     }
 
+    @MainActor
     private func element(in app: XCUIApplication, identifiedBy identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier]
     }
 
+    @MainActor
     private func waitForValue(containing expected: String, in element: XCUIElement) -> Bool {
         let predicate = NSPredicate(format: "value CONTAINS %@", expected)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)

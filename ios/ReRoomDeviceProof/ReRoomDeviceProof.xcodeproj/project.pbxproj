@@ -25,6 +25,11 @@
 		A10000000000000000000010 /* scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* scene-state.schema.json */; };
 		A10000000000000000000011 /* edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
 		A10000000000000000000012 /* transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
+		A10000000000000000000013 /* frame-packet.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* frame-packet.schema.json */; };
+		A10000000000000000000014 /* rrcap-manifest.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* rrcap-manifest.schema.json */; };
+		A10000000000000000000015 /* scene-state.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* scene-state.schema.json */; };
+		A10000000000000000000016 /* edit-artifacts.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
+		A10000000000000000000017 /* transaction.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
 		B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* EvidenceExporterTests.swift */; };
 		B10000000000000000000002 /* EvidenceExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* EvidenceExporter.swift */; };
 		B10000000000000000000003 /* DiagnosticChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* DiagnosticChecklistView.swift */; };
@@ -284,6 +289,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000013 /* frame-packet.schema.json in App Resources */,
+				A10000000000000000000014 /* rrcap-manifest.schema.json in App Resources */,
+				A10000000000000000000015 /* scene-state.schema.json in App Resources */,
+				A10000000000000000000016 /* edit-artifacts.schema.json in App Resources */,
+				A10000000000000000000017 /* transaction.schema.json in App Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
