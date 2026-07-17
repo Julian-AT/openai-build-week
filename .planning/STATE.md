@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
-status: executing
-stopped_at: "Plan 01-14 Task 2 waiting for the operator to trust the installed Apple Development profile and run the physical GATE-013 procedure"
-last_updated: "2026-07-17T08:36:39Z"
+status: verifying
+stopped_at: Completed 01-15-PLAN.md
+last_updated: "2026-07-17T16:01:35.258Z"
 last_activity: 2026-07-17
-last_activity_desc: Signed archive and candidate-bound automated preflight passed; exact app installed on the base iPhone and awaits operator trust before physical gates
+last_activity_desc: Completed Plan 01-15; Phase 01 ready for verification
 progress:
-  total_phases: 8
-  completed_phases: 0
-  total_plans: 14
-  completed_plans: 13
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 15
+  completed_plans: 15
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 14 of 14
+Plan: 15 of 15
 
-Status: Waiting at Task 2 for developer-profile trust and physical operator evidence
+Status: Phase complete — ready for verification
 
-Last activity: 2026-07-17 — Signed archive and candidate-bound automated preflight passed; exact app installed on the base iPhone and awaits operator trust before physical gates
+Last activity: 2026-07-17 — Completed Plan 01-15; Phase 01 ready for verification
 
-Progress: [█████████░] 93%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -50,7 +50,7 @@ Progress: [█████████░] 93%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | 0 | 0 | - |
+| 01 | 15 | - | - |
 
 **Recent Trend:**
 
@@ -75,6 +75,7 @@ Progress: [█████████░] 93%
 | Phase 01 P11 | 23min | 2 tasks | 7 files |
 | Phase 01 P12 | 33min | 2 tasks | 8 files |
 | Phase 01 P13 | 27min | 2 tasks | 9 files |
+| Phase 01 P15 | 9min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-13: Evidence is reconstructed from a closed allowlist, independently validated, and durably published only after validation. — Keep private raw evidence outside the report and fail closed before filesystem mutation.
 - [Phase 01]: Plan 01-13: One app target selects its root at compile time, and Release excludes diagnostic and exporter source files entirely. — Prove shipping UI and binary absence rather than merely hiding controls at runtime.
 - [Phase 01]: Plan 01-13: Release inspection resolves the same DerivedData app built by the shared scheme and never rebuilds or substitutes another product. — Bind the surface claim to the product exercised by Release XCUITest.
+- [Phase 01]: Plan 01-15: Bind three-runtime evidence to the last source-changing revision a5bff6896188dcac9397c48ce1a6820a7196011a. — The declared source scope is byte-identical at closeout and excludes the publisher and generated reports, preserving a non-self-referential provenance chain.
+- [Phase 01]: Plan 01-15: Advance deterministic compatibility evidence identities to _002 without changing fixtures or runtime policy. — The implementation binding changed, so the reports require a new evidence-run identity while frozen oracle and comparator meaning remain exact.
+- [Phase 01]: Plan 01-15: Preserve the signed physical gate chain unchanged during host-only provenance repair. — Physical observations retain separate human authority and are verified only by protected byte comparisons in this plan.
 
 ### Pending Todos
 
@@ -130,11 +134,8 @@ Run and sign GATE-013 and GATE-002 on the installed candidate. The operator must
 
 ### Blockers/Concerns
 
-- Planning safeguard satisfied: Phase 1 discussion is recorded and all 14 plans passed independent verification before implementation.
 - Provisional ADR variants cannot be treated as selected or measured until their physical/fixture evidence and deadlines are satisfied.
 - Physical iPhone/Xcode/signing, compositor/thermal, visual-vote, license, and final rules gates require human/device evidence and cannot be fabricated.
-- Plan 01-14 Task 1 is complete: Xcode mounted the developer image, provisioned the base iPhone, produced a strictly verified signed Release archive, and the full automated suite emitted a digest-bound RUNNING preflight.
-- The exact candidate is installed, but iOS denied first launch until the human operator explicitly trusts the Apple Development profile. GATE-013 and GATE-002 remain pending human-observed, signed physical evidence and cannot be completed by automation alone.
 
 ## Deferred Items
 
@@ -145,8 +146,17 @@ Run and sign GATE-013 and GATE-002 on the installed candidate. The operator must
 
 ## Session Continuity
 
-Last session: 2026-07-17T08:36:39Z
+Last session: 2026-07-17T16:00:01.375Z
 
-Stopped at: Plan 01-14 Task 2 waiting for the operator to trust the installed Apple Development profile and run the physical GATE-013 procedure
+Stopped at: Completed 01-15-PLAN.md
 
-Resume file: .planning/phases/01-contract-and-device-proof/01-14-PLAN.md
+Resume file: None
+
+## Rebuild Log
+
+- timestamp: 2026-07-17T16:01:35.254Z
+  kind: by-phase-table-reconciled
+  section: ## Performance Metrics
+  before: | Phase | Plans | Total | Avg/Plan | \n |-------|-------|-------|----------| \n | - | 0 | 0 | - |
+  after: | Phase | Plans | Total | Avg/Plan | \n |-------|-------|-------|----------| \n | 01 | 15 | - | - |
+  reason: phase dirs on disk are canonical; rows for missing phases dropped, missing phases added
