@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0.0",
   "gate_id": "GATE-013",
-  "gate_state": "RUNNING",
-  "decision_actor": "automation",
-  "recorded_at_utc": "2026-07-17T12:54:01Z",
+  "gate_state": "GREEN",
+  "decision_actor": "human",
+  "recorded_at_utc": "2026-07-17T13:39:42Z",
   "implementation_revision": "git:97d8d9d9b05477bddef8ae0aa3a635ed650dce13",
   "test_ids": [
     "TST-CONTRACT-001",
@@ -80,10 +80,17 @@
       "artifact_role": "supporting_evidence",
       "sha256": "031a78ce4205248ffe1279e0a311c29bdfb9f42724a9ca1b506d216184000ac4",
       "external_retention": true
+    },
+    {
+      "opaque_artifact_id": "opaque-phase01-gate-bindings-attestation-v2",
+      "artifact_kind": "ballot",
+      "artifact_role": "operator_attestation",
+      "sha256": "73cc8f428e5f9090820f5a867b77bdbf57f0a5bc23bf9e3703798d901113645b",
+      "external_retention": true
     }
   ],
-  "automated_report_sha256": null,
-  "operator_checklist_sha256": null,
+  "automated_report_sha256": "de1ecf774bf47acd02f4f958586342441eb395210d7eb8f48edd756359da40ef",
+  "operator_checklist_sha256": "01e541a742720c1b2b70236c2e1f08d6b71c17011a56013ba531d22f0e202db7",
   "locked_decision_change_id": null,
   "prd_sha256": null,
   "affected_adr_sha256": []

@@ -1,0 +1,30 @@
+{
+  "schema_version": "2.0.0",
+  "gate_id": "GATE-013",
+  "decision": "GREEN",
+  "decision_actor": "human",
+  "automated_report_sha256": "de1ecf774bf47acd02f4f958586342441eb395210d7eb8f48edd756359da40ef",
+  "report_decision_sha256": "21e1b7028627d40e2b0f3a79dca302a83d39060083f4c3e3bda38700515737d3",
+  "reviewed_at_utc": "2026-07-17T13:39:42Z",
+  "checklist_items": [
+    {
+      "check_id": "automated_report_reviewed",
+      "outcome": "checked"
+    },
+    {
+      "check_id": "evidence_links_verified",
+      "outcome": "checked"
+    },
+    {
+      "check_id": "privacy_redaction_reviewed",
+      "outcome": "checked"
+    },
+    {
+      "check_id": "physical_or_human_observations_approved",
+      "outcome": "checked"
+    }
+  ],
+  "signature_scope": "RR-GATE-CHECKLIST-SHA256-1",
+  "unsigned_checklist_sha256": "c284e4dde195f3a28b1ed9752da7f8ac5b02da7ce9ca76c46baba4d9e9c90b5a",
+  "signature_sha256": "73cc8f428e5f9090820f5a867b77bdbf57f0a5bc23bf9e3703798d901113645b"
+}
