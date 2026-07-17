@@ -1,8 +1,18 @@
+import copy
+import hashlib
 import json
+import tempfile
 import unittest
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
+
+from tools.verify.verify_evidence import (
+    VerificationFailure,
+    report_decision_sha256,
+    unsigned_checklist_sha256,
+    verify_files,
+)
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -11,6 +21,7 @@ FIXTURES = ROOT / "evidence" / "fixtures"
 SHA_A = "a" * 64
 SHA_B = "b" * 64
 SHA_C = "c" * 64
+SHA_D = "d" * 64
 
 
 def load_schema(name: str) -> dict:
@@ -22,14 +33,25 @@ def artifact() -> dict:
     return {
         "opaque_artifact_id": "opaque-gate-002-run-0001",
         "artifact_kind": "automated_report",
+        "artifact_role": "supporting_evidence",
         "sha256": SHA_A,
+        "external_retention": True,
+    }
+
+
+def operator_attestation() -> dict:
+    return {
+        "opaque_artifact_id": "opaque-gate-002-operator-attestation-0001",
+        "artifact_kind": "ballot",
+        "artifact_role": "operator_attestation",
+        "sha256": SHA_B,
         "external_retention": True,
     }
 
 
 def base_report(state: str = "UNRUN", actor: str = "automation") -> dict:
     report = {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "gate_id": "GATE-002",
         "gate_state": state,
         "decision_actor": actor,
@@ -74,12 +96,12 @@ def base_report(state: str = "UNRUN", actor: str = "automation") -> dict:
     elif state == "GREEN":
         report["decision_actor"] = "human"
         report["value_classification"] = "MEASURED"
-        report["evidence_artifacts"] = [artifact()]
+        report["evidence_artifacts"] = [artifact(), operator_attestation()]
         report["automated_report_sha256"] = SHA_A
         report["operator_checklist_sha256"] = SHA_B
     elif state == "WAIVED_BY_HUMAN":
         report["decision_actor"] = "human"
-        report["evidence_artifacts"] = [artifact()]
+        report["evidence_artifacts"] = [artifact(), operator_attestation()]
         report["operator_checklist_sha256"] = SHA_B
         report["locked_decision_change_id"] = "OD-2026-001"
         report["prd_sha256"] = SHA_C
@@ -102,13 +124,16 @@ def base_checklist(decision: str = "GREEN") -> dict:
             {"check_id": "privacy_redaction_reviewed", "outcome": "checked"},
         ]
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "2.0.0",
         "gate_id": "GATE-002",
         "decision": decision,
         "decision_actor": "human",
-        "report_sha256": SHA_A,
+        "automated_report_sha256": SHA_A,
+        "report_decision_sha256": SHA_C,
         "reviewed_at_utc": "2026-07-16T10:20:30Z",
         "checklist_items": items,
+        "signature_scope": "RR-GATE-CHECKLIST-SHA256-1",
+        "unsigned_checklist_sha256": SHA_D,
         "signature_sha256": SHA_B,
     }
 
@@ -152,6 +177,30 @@ class GateReportSchemaTests(unittest.TestCase):
             report = base_report("GREEN")
             report[field] = None
             with self.subTest(field=field):
+                self.assert_rejected(report)
+
+    def test_human_decisions_require_exactly_one_operator_attestation_ballot(self) -> None:
+        for state in ("GREEN", "WAIVED_BY_HUMAN"):
+            missing = base_report(state)
+            missing["evidence_artifacts"] = [artifact()]
+            duplicate = base_report(state)
+            duplicate["evidence_artifacts"].append(
+                dict(operator_attestation(), opaque_artifact_id="opaque-second-attestation")
+            )
+            wrong_kind = base_report(state)
+            wrong_kind["evidence_artifacts"][-1]["artifact_kind"] = "trace"
+            with self.subTest(state=state, mutation="missing"):
+                self.assert_rejected(missing)
+            with self.subTest(state=state, mutation="duplicate"):
+                self.assert_rejected(duplicate)
+            with self.subTest(state=state, mutation="wrong_kind"):
+                self.assert_rejected(wrong_kind)
+
+    def test_nonhuman_states_reject_operator_attestations(self) -> None:
+        for state in ("UNRUN", "RUNNING", "RED"):
+            report = base_report(state)
+            report["evidence_artifacts"].append(operator_attestation())
+            with self.subTest(state=state):
                 self.assert_rejected(report)
 
     def test_green_rejects_waiver_fields_and_target_only_claim(self) -> None:
@@ -229,12 +278,80 @@ class OperatorChecklistSchemaTests(unittest.TestCase):
         checklist["checklist_items"] = checklist["checklist_items"][:-1]
         self.assert_rejected(checklist)
 
-    def test_rejects_malformed_report_and_signature_digests(self) -> None:
-        for field in ("report_sha256", "signature_sha256"):
+    def test_rejects_malformed_binding_and_signature_digests(self) -> None:
+        for field in (
+            "automated_report_sha256",
+            "report_decision_sha256",
+            "unsigned_checklist_sha256",
+            "signature_sha256",
+        ):
             checklist = base_checklist()
             checklist[field] = "ABC"
             with self.subTest(field=field):
                 self.assert_rejected(checklist)
+
+    def test_requires_the_non_circular_signature_scope(self) -> None:
+        checklist = base_checklist()
+        checklist["signature_scope"] = "arbitrary"
+        self.assert_rejected(checklist)
+
+
+class EvidenceBindingTests(unittest.TestCase):
+    def make_bound_pair(self) -> tuple[dict, dict]:
+        report = base_report("GREEN")
+        checklist = base_checklist()
+        checklist["report_decision_sha256"] = report_decision_sha256(report)
+        checklist["unsigned_checklist_sha256"] = unsigned_checklist_sha256(checklist)
+        checklist_bytes = (json.dumps(checklist, indent=2) + "\n").encode("utf-8")
+        report["operator_checklist_sha256"] = hashlib.sha256(checklist_bytes).hexdigest()
+        return report, checklist
+
+    def verify_pair(self, report: dict, checklist: dict) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report_path = root / "report.json"
+            checklist_path = root / "checklist.json"
+            report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            checklist_path.write_text(json.dumps(checklist, indent=2) + "\n", encoding="utf-8")
+            verify_files(report_path, checklist_path)
+
+    def test_accepts_report_decision_and_unsigned_checklist_binding(self) -> None:
+        report, checklist = self.make_bound_pair()
+        self.verify_pair(report, checklist)
+
+    def test_post_signature_report_mutations_fail(self) -> None:
+        report, checklist = self.make_bound_pair()
+        mutations = {
+            "implementation_revision": lambda value: value.__setitem__(
+                "implementation_revision", "git:ffffffffffffffffffffffffffffffffffffffff"
+            ),
+            "fixture": lambda value: value["fixture_refs"][0].__setitem__("sha256", SHA_D),
+            "environment": lambda value: value["environment"].__setitem__(
+                "os_version", "iOS 26.1"
+            ),
+            "artifact": lambda value: value["evidence_artifacts"][0].__setitem__(
+                "sha256", SHA_D
+            ),
+        }
+        for label, mutate in mutations.items():
+            changed = copy.deepcopy(report)
+            mutate(changed)
+            with self.subTest(mutation=label):
+                with self.assertRaisesRegex(VerificationFailure, "final report decision"):
+                    self.verify_pair(changed, checklist)
+
+    def test_post_signature_checklist_mutation_fails(self) -> None:
+        report, checklist = self.make_bound_pair()
+        checklist["reviewed_at_utc"] = "2026-07-16T10:20:31Z"
+        with self.assertRaisesRegex(VerificationFailure, "unsigned checklist"):
+            self.verify_pair(report, checklist)
+
+    def test_signature_digest_must_match_report_attestation_ballot(self) -> None:
+        report, checklist = self.make_bound_pair()
+        checklist["signature_sha256"] = SHA_C
+        checklist["unsigned_checklist_sha256"] = unsigned_checklist_sha256(checklist)
+        with self.assertRaisesRegex(VerificationFailure, "operator attestation ballot"):
+            self.verify_pair(report, checklist)
 
 
 class CheckedInEvidenceFixtureTests(unittest.TestCase):

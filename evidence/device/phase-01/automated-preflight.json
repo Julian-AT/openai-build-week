@@ -22,6 +22,7 @@
   "evidence_artifacts": [
     {
       "artifact_kind": "metric_output",
+      "artifact_role": "supporting_evidence",
       "external_retention": true,
       "opaque_artifact_id": "opaque-phase-01-candidate-build",
       "sha256": "ffef3623404f2e902d7aea12ff2aeecd1e86e31490f2a81ade9ff154544e0fb9"
@@ -56,7 +57,7 @@
     "NFR-COORD-001",
     "OPS-DEVICE-001"
   ],
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "test_ids": [
     "TST-CONTRACT-001",
     "TST-COORD-001",

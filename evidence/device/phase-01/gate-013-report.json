@@ -1,9 +1,9 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "gate_id": "GATE-013",
-  "gate_state": "GREEN",
-  "decision_actor": "human",
-  "recorded_at_utc": "2026-07-17T12:12:35Z",
+  "gate_state": "RUNNING",
+  "decision_actor": "automation",
+  "recorded_at_utc": "2026-07-17T12:54:01Z",
   "implementation_revision": "git:97d8d9d9b05477bddef8ae0aa3a635ed650dce13",
   "test_ids": [
     "TST-CONTRACT-001",
@@ -56,30 +56,34 @@
     {
       "opaque_artifact_id": "opaque-gate013-external-manifest-v1",
       "artifact_kind": "trace",
+      "artifact_role": "supporting_evidence",
       "sha256": "d33c7ab725e298d9060581d196079c7a0770373b1eb9a9566c02ebeb7bf1a5ae",
       "external_retention": true
     },
     {
       "opaque_artifact_id": "opaque-gate013-mic-denied-capture-v1",
       "artifact_kind": "metric_output",
+      "artifact_role": "supporting_evidence",
       "sha256": "0600b3651e4b56c9b3813cdcd6012fd9ca365f283ab6928430c7eca3f5082828",
       "external_retention": true
     },
     {
       "opaque_artifact_id": "opaque-gate013-human-observations-v1",
       "artifact_kind": "trace",
+      "artifact_role": "supporting_evidence",
       "sha256": "c2b2994fd372b4c4d5b54f598478999bb18616447e51a950c9e33fa5c238f7bb",
       "external_retention": true
     },
     {
       "opaque_artifact_id": "opaque-gate013-human-attestation-v1",
       "artifact_kind": "ballot",
+      "artifact_role": "supporting_evidence",
       "sha256": "031a78ce4205248ffe1279e0a311c29bdfb9f42724a9ca1b506d216184000ac4",
       "external_retention": true
     }
   ],
-  "automated_report_sha256": "d3240674f777f5ba1fd9d8b06535555f0625111cd102f1b3184e790f8d7f817a",
-  "operator_checklist_sha256": "f7aba4eb9d75e7a85962d512ecfe22d590f5a1b6b90c56fcf7e8000a30753e5d",
+  "automated_report_sha256": null,
+  "operator_checklist_sha256": null,
   "locked_decision_change_id": null,
   "prd_sha256": null,
   "affected_adr_sha256": []

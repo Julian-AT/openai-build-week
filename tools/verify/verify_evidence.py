@@ -33,6 +33,7 @@ FORBIDDEN_KEYS = {
     "signing_material",
     "private_key",
 }
+CHECKLIST_SIGNATURE_SCOPE = "RR-GATE-CHECKLIST-SHA256-1"
 
 
 class VerificationFailure(ValueError):
@@ -59,6 +60,40 @@ def read_json(path: Path) -> tuple[bytes, Any]:
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise VerificationFailure(f"invalid JSON: {path}: {error}") from error
     return raw, value
+
+
+def canonical_payload_bytes(value: Any) -> bytes:
+    """Serialize schema-bounded payloads deterministically for binding digests."""
+    try:
+        return json.dumps(
+            value,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as error:
+        raise VerificationFailure(f"payload is not canonically serializable: {error}") from error
+
+
+def report_decision_sha256(report: dict[str, Any]) -> str:
+    """Digest decision fields without the two post-decision approval attachments."""
+    payload = dict(report)
+    payload.pop("operator_checklist_sha256", None)
+    payload["evidence_artifacts"] = [
+        artifact
+        for artifact in report.get("evidence_artifacts", [])
+        if artifact.get("artifact_role") != "operator_attestation"
+    ]
+    return hashlib.sha256(canonical_payload_bytes(payload)).hexdigest()
+
+
+def unsigned_checklist_sha256(checklist: dict[str, Any]) -> str:
+    """Digest the exact human decision payload before attaching its digest/signature."""
+    payload = dict(checklist)
+    payload.pop("unsigned_checklist_sha256", None)
+    payload.pop("signature_sha256", None)
+    return hashlib.sha256(canonical_payload_bytes(payload)).hexdigest()
 
 
 def load_validator(name: str) -> Draft202012Validator:
@@ -153,8 +188,27 @@ def verify_files(report_path: Path, checklist_path: Path | None) -> None:
         raise VerificationFailure("checklist gate identity does not match report")
     if checklist["decision"] != report["gate_state"]:
         raise VerificationFailure("checklist decision does not match report state")
-    if checklist["report_sha256"] != report["automated_report_sha256"]:
+    if checklist["automated_report_sha256"] != report["automated_report_sha256"]:
         raise VerificationFailure("checklist is not bound to the automated report digest")
+    expected_report_decision_sha = report_decision_sha256(report)
+    if checklist["report_decision_sha256"] != expected_report_decision_sha:
+        raise VerificationFailure("checklist is not bound to the final report decision payload")
+    expected_unsigned_checklist_sha = unsigned_checklist_sha256(checklist)
+    if checklist["unsigned_checklist_sha256"] != expected_unsigned_checklist_sha:
+        raise VerificationFailure("signature is not scoped to the unsigned checklist payload")
+    if checklist["signature_scope"] != CHECKLIST_SIGNATURE_SCOPE:
+        raise VerificationFailure("unsupported checklist signature scope")
+    matching_attestations = [
+        artifact
+        for artifact in report["evidence_artifacts"]
+        if artifact["artifact_kind"] == "ballot"
+        and artifact["artifact_role"] == "operator_attestation"
+        and artifact["sha256"] == checklist["signature_sha256"]
+    ]
+    if len(matching_attestations) != 1:
+        raise VerificationFailure(
+            "checklist signature digest does not match one report operator attestation ballot"
+        )
     checklist_sha = hashlib.sha256(checklist_bytes).hexdigest()
     if checklist_sha != report["operator_checklist_sha256"]:
         raise VerificationFailure("gate report is not bound to the checklist bytes")

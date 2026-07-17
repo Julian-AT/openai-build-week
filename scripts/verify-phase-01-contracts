@@ -135,14 +135,14 @@ for path in (
 xcode = subprocess.run(["xcodebuild", "-version"], check=True, capture_output=True, text=True).stdout.splitlines()[0]
 head = subprocess.run(["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True).stdout.strip()
 report = {
-    "schema_version": "1.0.0", "gate_id": "GATE-013", "gate_state": "RUNNING", "decision_actor": "automation",
+    "schema_version": "2.0.0", "gate_id": "GATE-013", "gate_state": "RUNNING", "decision_actor": "automation",
     "recorded_at_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "implementation_revision": f"git:{head}",
     "test_ids": ["TST-CONTRACT-001", "TST-COORD-001", "TST-DEVICE-001"],
     "requirement_ids": ["NFR-CONTRACT-001", "NFR-COORD-001", "OPS-DEVICE-001"], "adr_ids": ["ADR-002", "ADR-003"],
     "fixture_refs": fixture_refs,
     "environment": {"device_model": None, "os_version": None, "xcode_version": xcode, "runtime_tier": "local-automated-preflight", "capability_flags": {"camera_permission": "not_tested", "arkit_world_tracking": "not_tested", "plane_detection": "not_tested", "lidar_required": False}, "signing_result": "pass"},
     "value_classification": "TARGET",
-    "evidence_artifacts": [{"opaque_artifact_id": "opaque-phase-01-candidate-build", "artifact_kind": "metric_output", "sha256": candidate_sha, "external_retention": True}],
+    "evidence_artifacts": [{"opaque_artifact_id": "opaque-phase-01-candidate-build", "artifact_kind": "metric_output", "artifact_role": "supporting_evidence", "sha256": candidate_sha, "external_retention": True}],
     "automated_report_sha256": None, "operator_checklist_sha256": None, "locked_decision_change_id": None, "prd_sha256": None, "affected_adr_sha256": [],
 }
 schema = json.loads((root / "evidence/templates/gate-report.schema.json").read_text())
@@ -189,10 +189,10 @@ gate_checks() {
 import hashlib, json, os
 from pathlib import Path
 from jsonschema import Draft202012Validator
+from tools.verify.verify_evidence import verify_files
 
 root = Path.cwd()
 report_schema = json.loads((root / "evidence/templates/gate-report.schema.json").read_text())
-checklist_schema = json.loads((root / "evidence/templates/operator-checklist.schema.json").read_text())
 preflight_path = Path(os.environ["PREFLIGHT_PATH"])
 preflight = json.loads(preflight_path.read_text())
 Draft202012Validator(report_schema).validate(preflight)
@@ -213,12 +213,8 @@ for gate_id, env_name in (("GATE-013", "GATE_013"), ("GATE-002", "GATE_002")):
     checklist_path = Path(os.environ["PHYSICAL_DIR"]) / f"{gate_id.lower()}-operator-checklist.json"
     if state == "GREEN":
         if not checklist_path.is_file(): raise SystemExit(f"gate: missing {gate_id} checklist")
-        checklist_bytes = checklist_path.read_bytes()
-        checklist = json.loads(checklist_bytes)
-        Draft202012Validator(checklist_schema).validate(checklist)
-        if checklist["gate_id"] != gate_id or checklist["decision"] != "GREEN": raise SystemExit(f"gate: invalid {gate_id} checklist decision")
-        if checklist["report_sha256"] != preflight_sha or report["automated_report_sha256"] != preflight_sha: raise SystemExit(f"gate: unbound {gate_id} preflight")
-        if report["operator_checklist_sha256"] != hashlib.sha256(checklist_bytes).hexdigest(): raise SystemExit(f"gate: unbound {gate_id} checklist")
+        if report["automated_report_sha256"] != preflight_sha: raise SystemExit(f"gate: unbound {gate_id} preflight")
+        verify_files(report_path, checklist_path)
 if states != ["GREEN", "GREEN"]:
     raise SystemExit(f"gate: physical states are {','.join(states)}")
 PY

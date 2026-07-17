@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:reroom:evidence-schema:gate-report:1",
-  "title": "GateReportV1",
-  "description": "Closed, sanitized gate-decision record. Raw evidence remains external and is referenced only by opaque ID and lowercase SHA-256. Semantic verification must recompute every referenced digest before accepting this record.",
+  "$id": "urn:reroom:evidence-schema:gate-report:2",
+  "title": "GateReportV2",
+  "description": "Closed, sanitized gate-decision record. Raw evidence remains external and is referenced only by opaque ID and lowercase SHA-256. Human decisions bind a non-circular final-report decision payload, an unsigned checklist payload, the exact signed checklist bytes, and one externally retained operator-attestation ballot.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -26,7 +26,7 @@
     "affected_adr_sha256"
   ],
   "properties": {
-    "schema_version": { "const": "1.0.0" },
+    "schema_version": { "const": "2.0.0" },
     "gate_id": { "$ref": "#/$defs/gateId" },
     "gate_state": {
       "enum": ["UNRUN", "RUNNING", "GREEN", "RED", "WAIVED_BY_HUMAN"]
@@ -123,6 +123,14 @@
         "properties": {
           "automated_report_sha256": { "type": "null" },
           "operator_checklist_sha256": { "type": "null" },
+          "evidence_artifacts": {
+            "contains": {
+              "properties": { "artifact_role": { "const": "operator_attestation" } },
+              "required": ["artifact_role"]
+            },
+            "minContains": 0,
+            "maxContains": 0
+          },
           "locked_decision_change_id": { "type": "null" },
           "prd_sha256": { "type": "null" },
           "affected_adr_sha256": { "maxItems": 0 }
@@ -142,6 +150,17 @@
           "locked_decision_change_id": { "type": "null" },
           "prd_sha256": { "type": "null" },
           "affected_adr_sha256": { "maxItems": 0 }
+        },
+        "not": {
+          "properties": {
+            "evidence_artifacts": {
+              "contains": {
+                "properties": { "artifact_role": { "const": "operator_attestation" } },
+                "required": ["artifact_role"]
+              }
+            }
+          },
+          "required": ["evidence_artifacts"]
         }
       }
     },
@@ -154,7 +173,18 @@
         "properties": {
           "decision_actor": { "const": "human" },
           "value_classification": { "const": "MEASURED" },
-          "evidence_artifacts": { "minItems": 1 },
+          "evidence_artifacts": {
+            "minItems": 1,
+            "contains": {
+              "properties": {
+                "artifact_kind": { "const": "ballot" },
+                "artifact_role": { "const": "operator_attestation" }
+              },
+              "required": ["artifact_kind", "artifact_role"]
+            },
+            "minContains": 1,
+            "maxContains": 1
+          },
           "automated_report_sha256": { "$ref": "#/$defs/sha256" },
           "operator_checklist_sha256": { "$ref": "#/$defs/sha256" },
           "locked_decision_change_id": { "type": "null" },
@@ -171,7 +201,18 @@
       "then": {
         "properties": {
           "decision_actor": { "const": "human" },
-          "evidence_artifacts": { "minItems": 1 },
+          "evidence_artifacts": {
+            "minItems": 1,
+            "contains": {
+              "properties": {
+                "artifact_kind": { "const": "ballot" },
+                "artifact_role": { "const": "operator_attestation" }
+              },
+              "required": ["artifact_kind", "artifact_role"]
+            },
+            "minContains": 1,
+            "maxContains": 1
+          },
           "operator_checklist_sha256": { "$ref": "#/$defs/sha256" },
           "locked_decision_change_id": { "type": "string", "pattern": "^OD-[0-9]{4}-[0-9]{3}$" },
           "prd_sha256": { "$ref": "#/$defs/sha256" },
@@ -244,7 +285,7 @@
     "externalArtifact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["opaque_artifact_id", "artifact_kind", "sha256", "external_retention"],
+      "required": ["opaque_artifact_id", "artifact_kind", "artifact_role", "sha256", "external_retention"],
       "properties": {
         "opaque_artifact_id": {
           "type": "string",
@@ -253,10 +294,24 @@
         "artifact_kind": {
           "enum": ["automated_report", "log", "trace", "screenshot", "video", "metric_output", "ballot"]
         },
+        "artifact_role": {
+          "enum": ["supporting_evidence", "operator_attestation"]
+        },
         "sha256": { "$ref": "#/$defs/sha256" },
         "external_retention": { "const": true }
       },
-      "description": "Opaque external reference only; absolute/relative paths and raw bytes are intentionally unrepresentable."
+      "allOf": [
+        {
+          "if": {
+            "properties": { "artifact_role": { "const": "operator_attestation" } },
+            "required": ["artifact_role"]
+          },
+          "then": {
+            "properties": { "artifact_kind": { "const": "ballot" } }
+          }
+        }
+      ],
+      "description": "Opaque external reference only; absolute/relative paths and raw bytes are intentionally unrepresentable. operator_attestation identifies the one ballot that signs the non-circular unsigned-checklist payload and is excluded from the report-decision digest scope."
     },
     "affectedAdrDigest": {
       "type": "object",

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "gate_id": "GATE-006",
   "gate_state": "WAIVED_BY_HUMAN",
   "decision_actor": "human",
@@ -18,7 +18,10 @@
     "signing_result": "pass"
   },
   "value_classification": "MEASURED",
-  "evidence_artifacts": [{"opaque_artifact_id": "opaque-gate-006-run-0001", "artifact_kind": "ballot", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "external_retention": true}],
+  "evidence_artifacts": [
+    {"opaque_artifact_id": "opaque-gate-006-run-0001", "artifact_kind": "metric_output", "artifact_role": "supporting_evidence", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "external_retention": true},
+    {"opaque_artifact_id": "opaque-gate-006-attestation-0001", "artifact_kind": "ballot", "artifact_role": "operator_attestation", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "external_retention": true}
+  ],
   "automated_report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "operator_checklist_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "locked_decision_change_id": "OD-2026-001",

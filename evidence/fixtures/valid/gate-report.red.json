@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "gate_id": "GATE-013",
   "gate_state": "RED",
   "decision_actor": "automation",
@@ -18,7 +18,7 @@
     "signing_result": "pass"
   },
   "value_classification": "MEASURED",
-  "evidence_artifacts": [{"opaque_artifact_id": "opaque-gate-013-run-0001", "artifact_kind": "automated_report", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "external_retention": true}],
+  "evidence_artifacts": [{"opaque_artifact_id": "opaque-gate-013-run-0001", "artifact_kind": "automated_report", "artifact_role": "supporting_evidence", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "external_retention": true}],
   "automated_report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "operator_checklist_sha256": null,
   "locked_decision_change_id": null,

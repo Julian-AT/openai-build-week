@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "2.0.0",
   "gate_id": "GATE-013",
   "gate_state": "GREEN",
   "decision_actor": "human",
@@ -18,7 +18,10 @@
     "signing_result": "pass"
   },
   "value_classification": "MEASURED",
-  "evidence_artifacts": [{"opaque_artifact_id": "opaque-gate-013-run-0002", "artifact_kind": "automated_report", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "external_retention": true}],
+  "evidence_artifacts": [
+    {"opaque_artifact_id": "opaque-gate-013-run-0002", "artifact_kind": "automated_report", "artifact_role": "supporting_evidence", "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "external_retention": true},
+    {"opaque_artifact_id": "opaque-gate-013-attestation-0002", "artifact_kind": "ballot", "artifact_role": "operator_attestation", "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "external_retention": true}
+  ],
   "automated_report_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "operator_checklist_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "locked_decision_change_id": null,
