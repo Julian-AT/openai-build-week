@@ -151,6 +151,37 @@ struct ContractValidationTests {
         #expect(verdict == .accepted)
     }
 
+    @Test("one shared validator remains deterministic under concurrent schema access")
+    func sharedValidatorSerializesCompiledSchemaAccess() async throws {
+        let fixture = try ContractFixture.load()
+        let validator = try fixture.makeContractValidator()
+        let reference = try #require(
+            fixture.manifest.schemaHashes.first { $0.contractID == "CON-002" }
+        )
+        let document = try fixture.readFixtureFile("instances/con002.rrcap.valid.json")
+        let request = ContractValidationRequest(
+            schemaID: reference.schemaID,
+            schemaVersion: "1.0.0",
+            schemaSHA256: reference.sha256,
+            documentData: document
+        )
+
+        let allAccepted = await withTaskGroup(of: Bool.self, returning: Bool.self) { group in
+            for _ in 0..<32 {
+                group.addTask {
+                    (0..<32).allSatisfy { _ in validator.validate(request) == .accepted }
+                }
+            }
+            var accepted = true
+            for await workerAccepted in group {
+                accepted = accepted && workerAccepted
+            }
+            return accepted
+        }
+
+        #expect(allAccepted)
+    }
+
     @Test("schema-selection spoofing fails closed", arguments: SchemaSelectionMutation.allCases)
     func schemaSelectionSpoofingFailsClosed(mutation: SchemaSelectionMutation) throws {
         let fixture = try ContractFixture.load()

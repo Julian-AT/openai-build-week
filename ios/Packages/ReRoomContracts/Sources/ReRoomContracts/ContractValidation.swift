@@ -102,7 +102,7 @@ public struct ContractValidator: Sendable {
     public static let maximumDocumentBytes = 33_554_432
     public static let maximumDocumentDepth = 64
 
-    private let validators: [ContractSchemaIdentifier: FrozenSchemaValidator]
+    private let validators: [ContractSchemaIdentifier: SerializedSchemaValidator]
     private let maxDocumentBytes: Int
     private let maxDocumentDepth: Int
 
@@ -120,7 +120,7 @@ public struct ContractValidator: Sendable {
             throw ContractValidatorConfigurationError.incompleteSchemaRegistry
         }
 
-        var compiled = [ContractSchemaIdentifier: FrozenSchemaValidator]()
+        var compiled = [ContractSchemaIdentifier: SerializedSchemaValidator]()
         for registration in registrations {
             guard compiled[registration.identifier] == nil else {
                 throw ContractValidatorConfigurationError.duplicateSchemaIdentifier
@@ -135,10 +135,12 @@ public struct ContractValidator: Sendable {
                 throw ContractValidatorConfigurationError.schemaDigestMismatch
             }
             do {
-                compiled[registration.identifier] = try FrozenSchemaValidator(
-                    contractID: registration.identifier.contractID,
-                    expectedSchemaID: registration.identifier.rawValue,
-                    schemaData: registration.schemaData
+                compiled[registration.identifier] = SerializedSchemaValidator(
+                    try FrozenSchemaValidator(
+                        contractID: registration.identifier.contractID,
+                        expectedSchemaID: registration.identifier.rawValue,
+                        schemaData: registration.schemaData
+                    )
                 )
             } catch {
                 throw ContractValidatorConfigurationError.invalidSchema
@@ -213,6 +215,26 @@ public struct ContractValidator: Sendable {
             }
         }
         return true
+    }
+}
+
+private final class SerializedSchemaValidator: @unchecked Sendable {
+    private let lock = NSLock()
+    private let validator: FrozenSchemaValidator
+
+    init(_ validator: FrozenSchemaValidator) {
+        self.validator = validator
+    }
+
+    func validate(documentData: Data, payloadData: Data?) -> FrozenSchemaVerdict {
+        // swift-json-schema's Context contains validation-scoped caches. Its internal
+        // locks prevent data races, but overlapping top-level evaluations can still
+        // observe one another's conditional state. The wrapped validator never
+        // escapes this type and every evaluation holds this lock, which is the safety
+        // invariant supporting @unchecked Sendable.
+        lock.lock()
+        defer { lock.unlock() }
+        return validator.validate(documentData: documentData, payloadData: payloadData)
     }
 }
 

@@ -7,6 +7,12 @@ import UniformTypeIdentifiers
 
 @Suite("Capture attempts")
 struct CaptureAttemptTests {
+    private let validator: ContractValidator
+
+    init() {
+        validator = Self.makeValidator()
+    }
+
     private let readyEpoch = WorldEpochSnapshot(
         worldFrameID: "world_00000000-0000-4000-8000-000000000001",
         worldFrameVersion: 1,
@@ -170,7 +176,7 @@ struct CaptureAttemptTests {
         #expect(journal.visibleFrameIDs == [captureInput.frameID])
         #expect(receipt.packet.packetData.count <= FramePacketBuilder.maximumPacketBytes)
         #expect(
-            Self.validator.validate(
+            validator.validate(
                 ContractValidationRequest(
                     schemaID: ContractSchemaIdentifier.framePacket.rawValue,
                     schemaVersion: "1.0.0",
@@ -385,7 +391,7 @@ struct CaptureAttemptTests {
         let fileSystem = FoundationCaptureFileSystem(root: root)
         let journal = DiagnosticJournal(
             fileSystem: fileSystem,
-            framePacketBuilder: FramePacketBuilder(validator: Self.validator),
+            framePacketBuilder: FramePacketBuilder(validator: validator),
             configuration: DiagnosticCaptureConfiguration(
                 sessionID: captureInput.sessionID,
                 deviceModel: "fixture",
@@ -678,7 +684,7 @@ struct CaptureAttemptTests {
     ) -> DiagnosticJournal {
         DiagnosticJournal(
             fileSystem: fileSystem,
-            framePacketBuilder: FramePacketBuilder(validator: Self.validator),
+            framePacketBuilder: FramePacketBuilder(validator: validator),
             configuration: DiagnosticCaptureConfiguration(
                 sessionID: captureInput.sessionID,
                 deviceModel: "fixture",
@@ -744,7 +750,7 @@ struct CaptureAttemptTests {
         .transaction: "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2",
     ]
 
-    private static let validator: ContractValidator = {
+    private static func makeValidator() -> ContractValidator {
         let resourceNames: [ContractSchemaIdentifier: String] = [
             .framePacket: "frame-packet",
             .rrcapManifest: "rrcap-manifest",
@@ -767,7 +773,7 @@ struct CaptureAttemptTests {
             )
         }
         return try! ContractValidator(registrations: registrations)
-    }()
+    }
 
     private static func jsonObject<T: Encodable>(_ value: T) -> [String: Any] {
         let data = try! JSONEncoder().encode(value)

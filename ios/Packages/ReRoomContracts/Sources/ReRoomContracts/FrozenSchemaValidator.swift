@@ -28,7 +28,7 @@ enum FrozenSchemaVerdict: Equatable, Sendable {
     case rejected(FrozenSchemaRejection)
 }
 
-struct FrozenSchemaValidator: Sendable {
+struct FrozenSchemaValidator {
     static let draft202012URI = "https://json-schema.org/draft/2020-12/schema"
     static let float32Maximum = 3.4028234663852886e38
 
