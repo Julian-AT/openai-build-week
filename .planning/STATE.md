@@ -10,7 +10,7 @@ last_updated: "2026-07-17T04:16:42Z"
 last_activity: 2026-07-17
 last_activity_desc: Release test-bundle regression fixed and quick verification passed; signed candidate still requires Xcode provisioning credentials
 progress:
-  total_phases: 1
+  total_phases: 8
   completed_phases: 0
   total_plans: 14
   completed_plans: 13
