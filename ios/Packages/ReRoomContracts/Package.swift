@@ -10,6 +10,7 @@ let package = Package(
     ],
     products: [
         .library(name: "ReRoomContracts", targets: ["ReRoomContracts"]),
+        .library(name: "ReRoomCaptureCore", targets: ["ReRoomCaptureCore"]),
         .executable(name: "ReRoomContractRunner", targets: ["ReRoomContractRunner"]),
     ],
     dependencies: [
@@ -29,9 +30,17 @@ let package = Package(
             name: "ReRoomContractRunner",
             dependencies: ["ReRoomContracts"]
         ),
+        .target(
+            name: "ReRoomCaptureCore",
+            dependencies: ["ReRoomContracts"]
+        ),
         .testTarget(
             name: "ReRoomContractsTests",
             dependencies: ["ReRoomContracts"]
+        ),
+        .testTarget(
+            name: "ReRoomCaptureCoreTests",
+            dependencies: ["ReRoomCaptureCore"]
         ),
     ],
     swiftLanguageModes: [.v6]
