@@ -1,17 +1,31 @@
+struct CaptureFrameSnapshot: Equatable, Sendable {
+    let id: String
+    let sessionIsRunning: Bool
+    let trackingState: DeviceTrackingState
+
+    var isHealthy: Bool {
+        sessionIsRunning && trackingState == .normal && id.isEmpty == false
+    }
+}
+
 struct CaptureAttemptSnapshot: Equatable, Sendable {
     let orientation: OrientationAttemptSnapshot
     let worldEpoch: WorldEpochSnapshot
+    let frame: CaptureFrameSnapshot
 }
 
 struct ValidatedCaptureAttempt: Equatable, Sendable {
     let worldFrameID: String
     let worldFrameVersion: Int
+    let frameSnapshotID: String
 }
 
 enum CaptureAttemptRejection: Equatable, Sendable {
     case orientation(CaptureRetryCoaching)
     case worldFrameChanged
     case worldFrameQuarantined
+    case sessionUnavailable
+    case frameSnapshotChanged
     case noSelection
 }
 
@@ -31,7 +45,7 @@ struct CaptureAttemptMachine: Sendable {
 
     mutating func select(
         orientation: PhysicalOrientation,
-        sessionIsRunning: Bool,
+        frameSnapshot: CaptureFrameSnapshot,
         worldEpoch: WorldEpochSnapshot
     ) -> CaptureAttemptSelection {
         guard worldEpoch.captureAvailable else {
@@ -40,13 +54,18 @@ struct CaptureAttemptMachine: Sendable {
         }
         guard let orientationSnapshot = orientationGate.snapshot(
             orientation: orientation,
-            sessionIsRunning: sessionIsRunning
+            sessionIsRunning: frameSnapshot.sessionIsRunning
         ) else {
             return .rejected(.orientation(.returnToPortrait))
         }
+        guard frameSnapshot.isHealthy else {
+            selectedAttempt = nil
+            return .rejected(.sessionUnavailable)
+        }
         let snapshot = CaptureAttemptSnapshot(
             orientation: orientationSnapshot,
-            worldEpoch: worldEpoch
+            worldEpoch: worldEpoch,
+            frame: frameSnapshot
         )
         selectedAttempt = snapshot
         return .selected(snapshot)
@@ -54,18 +73,28 @@ struct CaptureAttemptMachine: Sendable {
 
     mutating func finish(
         currentOrientation: PhysicalOrientation,
-        sessionIsRunning: Bool,
+        frameSnapshot: CaptureFrameSnapshot,
         worldEpoch: WorldEpochSnapshot
     ) -> CaptureAttemptResolution {
         guard let selectedAttempt else { return .rejected(.noSelection) }
         self.selectedAttempt = nil
 
-        if case .rejected(let coaching) = orientationGate.evaluate(
+        let orientationResult = orientationGate.evaluate(
             selectedAttempt.orientation,
             currentOrientation: currentOrientation,
-            sessionIsRunning: sessionIsRunning
-        ) {
+            sessionIsRunning: frameSnapshot.sessionIsRunning
+        )
+        if case .rejected(let coaching) = orientationResult {
             return .rejected(.orientation(coaching))
+        }
+        if case .sessionUnavailable = orientationResult {
+            return .rejected(.sessionUnavailable)
+        }
+        guard frameSnapshot.isHealthy else {
+            return .rejected(.sessionUnavailable)
+        }
+        guard selectedAttempt.frame == frameSnapshot else {
+            return .rejected(.frameSnapshotChanged)
         }
         guard selectedAttempt.worldEpoch.worldFrameID == worldEpoch.worldFrameID,
               selectedAttempt.worldEpoch.worldFrameVersion == worldEpoch.worldFrameVersion
@@ -79,7 +108,8 @@ struct CaptureAttemptMachine: Sendable {
         return .ready(
             ValidatedCaptureAttempt(
                 worldFrameID: selectedAttempt.worldEpoch.worldFrameID,
-                worldFrameVersion: selectedAttempt.worldEpoch.worldFrameVersion
+                worldFrameVersion: selectedAttempt.worldEpoch.worldFrameVersion,
+                frameSnapshotID: selectedAttempt.frame.id
             )
         )
     }

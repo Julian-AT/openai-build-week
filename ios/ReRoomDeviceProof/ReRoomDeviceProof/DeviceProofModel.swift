@@ -112,6 +112,7 @@ struct DeviceProofState: Equatable, Sendable {
 enum CandidatePrimaryAction: Equatable, Sendable {
     case requestCamera
     case openSettings
+    case restartTracking
 
     var label: String {
         switch self {
@@ -119,6 +120,8 @@ enum CandidatePrimaryAction: Equatable, Sendable {
             "Allow Camera Access"
         case .openSettings:
             "Open Settings"
+        case .restartTracking:
+            "Restart Tracking"
         }
     }
 }
@@ -154,6 +157,8 @@ final class DeviceProofModel {
             "Camera access is required"
         case .denied, .restricted:
             "Camera access is off"
+        case .granted where arSessionController.recoveryRequirement != nil:
+            "AR tracking needs a restart"
         case .granted where state.physicalOrientation == .landscape:
             "Rotate to portrait"
         case .granted where state.session.isRunning == false:
@@ -175,6 +180,8 @@ final class DeviceProofModel {
             "ReRoom needs the camera to run this device check. No frame is captured until you allow access."
         case .denied, .restricted:
             "Turn on camera access in Settings to run tracking and capture a test frame."
+        case .granted where arSessionController.recoveryRequirement != nil:
+            "Restart tracking before selecting another capture frame. Saved evidence stays on this iPhone."
         case .granted where state.physicalOrientation == .landscape:
             "Tracking stays active. Return to portrait to capture a test frame."
         case .granted where state.session.isRunning == false:
@@ -196,6 +203,8 @@ final class DeviceProofModel {
             .requestCamera
         case .denied, .restricted:
             .openSettings
+        case .granted where arSessionController.recoveryRequirement != nil:
+            .restartTracking
         case .granted:
             nil
         }
@@ -236,6 +245,10 @@ final class DeviceProofModel {
             await requestCameraAccess()
         case .openSettings:
             await openSettings()
+        case .restartTracking:
+            _ = arSessionController.restartAfterRecovery(
+                cameraAuthorization: state.cameraAuthorization
+            )
         case nil:
             break
         }

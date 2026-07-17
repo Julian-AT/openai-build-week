@@ -88,6 +88,7 @@ struct FramePacketBuilder: Sendable {
               input.captureSequence <= 9_007_199_254_740_991,
               input.intrinsicsEncodedPixels.width == input.imageWidth,
               input.intrinsicsEncodedPixels.height == input.imageHeight,
+              validatedAttempt.frameSnapshotID == input.monotonicTimestampNS,
               durableJournalSequence >= 0,
               validInput(input)
         else {

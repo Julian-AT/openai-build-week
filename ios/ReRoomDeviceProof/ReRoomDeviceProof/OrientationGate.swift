@@ -20,6 +20,7 @@ struct OrientationAttemptSnapshot: Equatable, Sendable {
 enum OrientationGateResult: Equatable, Sendable {
     case eligible
     case rejected(CaptureRetryCoaching)
+    case sessionUnavailable
 }
 
 struct OrientationGate: Sendable {
@@ -47,9 +48,9 @@ struct OrientationGate: Sendable {
             return .rejected(.returnToPortrait)
         }
 
-        // Capture eligibility observes session health but never owns or pauses
-        // ARSession. A session failure is handled by the existing AR owner.
-        _ = sessionIsRunning
+        guard snapshot.sessionWasRunning, sessionIsRunning else {
+            return .sessionUnavailable
+        }
         return .eligible
     }
 }

@@ -6,6 +6,11 @@ enum ARSessionEvent: Equatable, Sendable {
     case planeObserved(PlaneAlignment)
 }
 
+enum ARSessionRecoveryRequirement: Equatable, Sendable {
+    case interruption
+    case failure
+}
+
 @MainActor
 protocol ARSessionDriving: AnyObject {
     var delegate: (any ARSessionDelegate)? { get set }
@@ -54,6 +59,7 @@ final class SystemARSessionDriver: ARSessionDriving {
 final class ARSessionController: NSObject {
     private let driver: any ARSessionDriving
     private(set) var isRunning = false
+    private(set) var recoveryRequirement: ARSessionRecoveryRequirement?
     var onEvent: ((ARSessionEvent) -> Void)?
 
     init(driver: any ARSessionDriving = SystemARSessionDriver()) {
@@ -72,13 +78,25 @@ final class ARSessionController: NSObject {
             return
         }
 
-        guard isRunning == false else {
+        guard isRunning == false, recoveryRequirement == nil else {
             return
         }
 
         driver.run(policy: .deviceProof)
         isRunning = true
         onEvent?(.running(true))
+    }
+
+    @discardableResult
+    func restartAfterRecovery(cameraAuthorization: PermissionAuthorizationState) -> Bool {
+        guard cameraAuthorization == .granted, recoveryRequirement != nil else {
+            return false
+        }
+        driver.run(policy: .deviceProof)
+        recoveryRequirement = nil
+        isRunning = true
+        onEvent?(.running(true))
+        return true
     }
 
     func handlePhysicalOrientation(_ orientation: PhysicalOrientation) {
@@ -92,6 +110,7 @@ final class ARSessionController: NSObject {
     }
 
     private func stopForUnavailableCamera() {
+        recoveryRequirement = nil
         guard isRunning else {
             return
         }
@@ -126,11 +145,21 @@ extension ARSessionController: @preconcurrency ARSessionDelegate {
 
     func session(_ session: ARSession, didFailWithError error: any Error) {
         _ = error
-        onEvent?(.tracking(.unavailable))
+        revokeRunningState(requiring: .failure)
     }
 
     func sessionWasInterrupted(_ session: ARSession) {
+        revokeRunningState(requiring: .interruption)
+    }
+
+    private func revokeRunningState(requiring requirement: ARSessionRecoveryRequirement) {
+        recoveryRequirement = requirement
+        if isRunning {
+            driver.pause()
+        }
+        isRunning = false
         onEvent?(.tracking(.unavailable))
+        onEvent?(.running(false))
     }
 
     private func recordPlaneObservations(in anchors: [ARAnchor]) {
