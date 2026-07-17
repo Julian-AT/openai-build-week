@@ -24,7 +24,7 @@ CON002_SCHEMA = ROOT / "docs/contracts/rrcap-manifest.schema.json"
 # This is deliberately external to the fixture manifest. Updating the corpus requires
 # an explicit oracle review and a matching change to this pinned value.
 EXPECTED_FIXTURE_MANIFEST_SHA256 = (
-    "cbe941445cdf4d302462933694406572d330afacc9e0c83a33b80d7b5c85854c"
+    "3b4519d2730e158df73e938f7b841664c6ce5f7d65ed2650c90ca8e89c7a7610"
 )
 
 ARCHIVE_NAMES = (
