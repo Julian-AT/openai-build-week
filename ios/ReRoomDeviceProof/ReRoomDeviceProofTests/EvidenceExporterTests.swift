@@ -1,0 +1,200 @@
+import Foundation
+import Testing
+@testable import ReRoomDeviceProof
+
+@Suite("Sanitized evidence export")
+struct EvidenceExporterTests {
+    private let shaA = String(repeating: "a", count: 64)
+
+    @Test(
+        "Automation emits only deterministic UNRUN, RUNNING, and RED reports",
+        arguments: ["UNRUN", "RUNNING", "RED"]
+    )
+    func allowedAutomationStatesAreDeterministic(state: String) throws {
+        let exporter = EvidenceExporter()
+        let request = request(state: state)
+
+        let first = try exporter.validatedData(for: request)
+        let second = try exporter.validatedData(for: request)
+        let object = try #require(
+            JSONSerialization.jsonObject(with: first) as? [String: Any]
+        )
+
+        #expect(first == second)
+        #expect(object["gate_state"] as? String == state)
+        #expect(object["decision_actor"] as? String == "automation")
+        #expect(Set(object.keys) == Self.gateReportKeys)
+        #expect(object["operator_checklist_sha256"] is NSNull)
+        #expect(object["locked_decision_change_id"] is NSNull)
+        #expect(object["prd_sha256"] is NSNull)
+    }
+
+    @Test(
+        "Closed environment allowlist rejects every private source field",
+        arguments: [
+            "device_uuid", "team_id", "account", "user_path", "raw_room_bytes",
+            "raw_logs", "signing_material",
+        ]
+    )
+    func privateFieldsRejectBeforeSerialization(field: String) {
+        var candidate = request(state: "UNRUN")
+        candidate.environmentFacts[field] = .string("private")
+
+        #expect(throws: EvidenceExportRejection.forbiddenField(field)) {
+            try EvidenceExporter().validatedData(for: candidate)
+        }
+    }
+
+    @Test(
+        "Unknown and human-only states cannot be exported by automation",
+        arguments: ["PASS", "GREEN", "WAIVED_BY_HUMAN"]
+    )
+    func rejectedGateStates(state: String) {
+        let candidate = request(state: state)
+
+        #expect(throws: EvidenceExportRejection.invalidGateState(state)) {
+            try EvidenceExporter().validatedData(for: candidate)
+        }
+    }
+
+    @Test("Unknown capability values and LiDAR requirements fail closed")
+    func invalidCapabilityFactsReject() {
+        var unknown = request(state: "UNRUN")
+        unknown.environmentFacts["camera_permission"] = .string("allowed")
+        #expect(throws: EvidenceExportRejection.invalidCapability("camera_permission")) {
+            try EvidenceExporter().validatedData(for: unknown)
+        }
+
+        var lidar = request(state: "UNRUN")
+        lidar.environmentFacts["lidar_required"] = .boolean(true)
+        #expect(throws: EvidenceExportRejection.invalidCapability("lidar_required")) {
+            try EvidenceExporter().validatedData(for: lidar)
+        }
+    }
+
+    @Test("RED evidence must bind an opaque external artifact and automated report digest")
+    func redRequiresBoundEvidence() {
+        var missingArtifact = request(state: "RED")
+        missingArtifact.evidenceArtifacts = []
+        #expect(throws: EvidenceExportRejection.unboundEvidence) {
+            try EvidenceExporter().validatedData(for: missingArtifact)
+        }
+
+        var missingDigest = request(state: "RED")
+        missingDigest.automatedReportSHA256 = nil
+        #expect(throws: EvidenceExportRejection.unboundEvidence) {
+            try EvidenceExporter().validatedData(for: missingDigest)
+        }
+    }
+
+    @Test("Schema-invalid identifiers reject before any file is written")
+    func invalidSchemaLeavesDestinationUntouched() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destination = root.appendingPathComponent("gate-report.json")
+        var invalid = request(state: "UNRUN")
+        invalid.gateID = "gate-13"
+
+        #expect(throws: EvidenceExportRejection.invalidSchema) {
+            try EvidenceExporter().export(invalid, to: destination)
+        }
+        #expect(FileManager.default.fileExists(atPath: destination.path) == false)
+        #expect(FileManager.default.fileExists(atPath: root.path) == false)
+    }
+
+    @Test("Validated report publishes atomically with no temporary tail")
+    func validReportPublishesAtomically() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let destination = root.appendingPathComponent("gate-report.json")
+
+        let result = try EvidenceExporter().export(request(state: "RUNNING"), to: destination)
+        let paths = try FileManager.default.contentsOfDirectory(atPath: root.path)
+
+        #expect(result.url == destination)
+        #expect(result.data == try Data(contentsOf: destination))
+        #expect(result.sha256.count == 64)
+        #expect(paths == ["gate-report.json"])
+    }
+
+    @Test("Checklist rows preserve the approved independent order")
+    func checklistOrderIsStable() {
+        #expect(DiagnosticChecklistRowID.allCases.map(\.rawValue) == [
+            "debug.check.camera",
+            "debug.check.microphone",
+            "debug.check.orientation",
+            "debug.check.tracking",
+            "debug.check.planes.horizontal",
+            "debug.check.planes.vertical",
+            "debug.check.epoch",
+            "debug.check.packet",
+            "debug.check.journal",
+            "debug.check.build",
+            "debug.check.gate",
+        ])
+    }
+
+    private func request(state: String) -> EvidenceExportRequest {
+        let artifacts: [EvidenceArtifactReference]
+        let reportDigest: String?
+        switch state {
+        case "RUNNING":
+            artifacts = [artifact]
+            reportDigest = nil
+        case "RED":
+            artifacts = [artifact]
+            reportDigest = shaA
+        default:
+            artifacts = []
+            reportDigest = nil
+        }
+        return EvidenceExportRequest(
+            gateID: "GATE-013",
+            gateState: state,
+            recordedAtUTC: "2026-07-17T01:15:00Z",
+            implementationRevision: "git:0123456789abcdef0123456789abcdef01234567",
+            testIDs: ["TST-DEVICE-001"],
+            requirementIDs: ["OPS-DEVICE-001"],
+            adrIDs: ["ADR-002", "ADR-003"],
+            fixtureReferences: [
+                EvidenceFixtureReference(
+                    fixtureID: "FX-RRCAP-010S",
+                    fixtureRevision: "rev-001",
+                    sha256: shaA
+                )
+            ],
+            environmentFacts: [
+                "device_model": .string("iPhone 17"),
+                "os_version": .string("iOS 26.0"),
+                "xcode_version": .string("Xcode 26.4"),
+                "runtime_tier": .string("base-iphone-candidate"),
+                "camera_permission": .string("not_tested"),
+                "arkit_world_tracking": .string("not_tested"),
+                "plane_detection": .string("not_tested"),
+                "lidar_required": .boolean(false),
+                "signing_result": .string("not_tested"),
+            ],
+            valueClassification: "TARGET",
+            evidenceArtifacts: artifacts,
+            automatedReportSHA256: reportDigest
+        )
+    }
+
+    private var artifact: EvidenceArtifactReference {
+        EvidenceArtifactReference(
+            opaqueArtifactID: "opaque-gate-013-run-0001",
+            artifactKind: "automated_report",
+            sha256: shaA
+        )
+    }
+
+    private static let gateReportKeys: Set<String> = [
+        "schema_version", "gate_id", "gate_state", "decision_actor", "recorded_at_utc",
+        "implementation_revision", "test_ids", "requirement_ids", "adr_ids",
+        "fixture_refs", "environment", "value_classification", "evidence_artifacts",
+        "automated_report_sha256", "operator_checklist_sha256",
+        "locked_decision_change_id", "prd_sha256", "affected_adr_sha256",
+    ]
+}

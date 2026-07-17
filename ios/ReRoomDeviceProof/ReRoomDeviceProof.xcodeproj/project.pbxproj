@@ -25,6 +25,7 @@
 		A10000000000000000000010 /* scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* scene-state.schema.json */; };
 		A10000000000000000000011 /* edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
 		A10000000000000000000012 /* transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
+		B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* EvidenceExporterTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,6 +59,7 @@
 		A20000000000000000000012 /* scene-state.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/scene-state.schema.json; sourceTree = SOURCE_ROOT; };
 		A20000000000000000000013 /* edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/edit-artifacts.schema.json; sourceTree = SOURCE_ROOT; };
 		A20000000000000000000014 /* transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
+		B20000000000000000000001 /* EvidenceExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporterTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -112,6 +114,7 @@
 				A20000000000000000000006 /* ARSessionPolicyTests.swift */,
 				A2000000000000000000000C /* CaptureAttemptTests.swift */,
 				A2000000000000000000000D /* WorldEpochTests.swift */,
+				B20000000000000000000001 /* EvidenceExporterTests.swift */,
 			);
 			path = ReRoomDeviceProofTests;
 			sourceTree = "<group>";
@@ -266,6 +269,7 @@
 				A10000000000000000000004 /* ARSessionPolicyTests.swift in Sources */,
 				A1000000000000000000000A /* CaptureAttemptTests.swift in Sources */,
 				A1000000000000000000000B /* WorldEpochTests.swift in Sources */,
+				B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
