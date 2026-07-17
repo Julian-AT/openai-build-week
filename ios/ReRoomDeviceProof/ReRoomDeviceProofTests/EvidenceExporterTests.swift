@@ -21,12 +21,18 @@ struct EvidenceExporterTests {
         )
 
         #expect(first == second)
+        #expect(object["schema_version"] as? String == "2.0.0")
         #expect(object["gate_state"] as? String == state)
         #expect(object["decision_actor"] as? String == "automation")
         #expect(Set(object.keys) == Self.gateReportKeys)
         #expect(object["operator_checklist_sha256"] is NSNull)
         #expect(object["locked_decision_change_id"] is NSNull)
         #expect(object["prd_sha256"] is NSNull)
+
+        let artifacts = try #require(object["evidence_artifacts"] as? [[String: Any]])
+        #expect(artifacts.allSatisfy { artifact in
+            artifact["artifact_role"] as? String == "supporting_evidence"
+        })
     }
 
     @Test(
