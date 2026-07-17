@@ -97,11 +97,15 @@ export function projectCameraPoint(intrinsics, cameraPoint) {
 export function transformIntrinsics(sensorIntrinsics, encodedFromSensor, encodedSize, orientation) {
   requireCoordinate(orientation === "up", "encoded orientation must be physically upright");
   const transform = quantizedArray(encodedFromSensor, 9);
+  requireCoordinate(Math.abs(transform[6]) <= HOMOGENEOUS_ROW_TOLERANCE && Math.abs(transform[7]) <= HOMOGENEOUS_ROW_TOLERANCE && Math.abs(transform[8] - 1) <= HOMOGENEOUS_ROW_TOLERANCE, "encoded pixel transform is not affine");
   const [width, height] = encodedSize;
   requireCoordinate(Number.isInteger(width) && width > 0 && Number.isInteger(height) && height > 0, "encoded size is invalid");
+  const fx = quantizeRrFloat(sensorIntrinsics.fx);
+  const fy = quantizeRrFloat(sensorIntrinsics.fy);
+  requireCoordinate(fx > 0 && fy > 0, "intrinsic focal lengths must be positive");
   const matrix = [
-    quantizeRrFloat(sensorIntrinsics.fx), 0, quantizeRrFloat(sensorIntrinsics.cx),
-    0, quantizeRrFloat(sensorIntrinsics.fy), quantizeRrFloat(sensorIntrinsics.cy),
+    fx, 0, quantizeRrFloat(sensorIntrinsics.cx),
+    0, fy, quantizeRrFloat(sensorIntrinsics.cy),
     0, 0, 1,
   ];
   const product = new Array(9).fill(0);
@@ -110,11 +114,13 @@ export function transformIntrinsics(sensorIntrinsics, encodedFromSensor, encoded
       for (let index = 0; index < 3; index += 1) product[row * 3 + column] += transform[row * 3 + index] * matrix[index * 3 + column];
     }
   }
-  requireCoordinate(Math.abs(product[6]) <= HOMOGENEOUS_ROW_TOLERANCE && Math.abs(product[7]) <= HOMOGENEOUS_ROW_TOLERANCE && Math.abs(product[8] - 1) <= HOMOGENEOUS_ROW_TOLERANCE, "encoded pixel transform is not affine");
+  const encodedFx = Math.hypot(product[0], product[1]);
+  const encodedFy = Math.hypot(product[3], product[4]);
+  requireCoordinate(encodedFx > 0 && encodedFy > 0, "encoded focal lengths are degenerate");
   return {
     encoded_intrinsics: {
-      fx: Math.hypot(product[0], product[1]),
-      fy: Math.hypot(product[3], product[4]),
+      fx: encodedFx,
+      fy: encodedFy,
       cx: product[2],
       cy: product[5],
     },

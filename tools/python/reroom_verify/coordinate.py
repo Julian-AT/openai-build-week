@@ -183,6 +183,8 @@ def project(document: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(intrinsics, dict):
         raise VerificationFailure("coordinate_invalid", "projection intrinsics are missing")
     fx, fy, cx, cy = (_number(intrinsics.get(key)) for key in ("fx", "fy", "cx", "cy"))
+    if fx <= 0 or fy <= 0:
+        raise VerificationFailure("coordinate_invalid", "focal lengths must be positive")
     point = _vector(document.get("camera_point"), 3)
     if document.get("pixel_center") != "half_integer":
         raise VerificationFailure("coordinate_invalid", "pixel center convention is invalid")
