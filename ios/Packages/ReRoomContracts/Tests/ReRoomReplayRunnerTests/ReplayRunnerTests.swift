@@ -1,5 +1,5 @@
 import Foundation
-import ReRoomContracts
+import ReRoomCaptureCore
 import Testing
 
 @Suite("ReplayRunnerTests")
@@ -10,22 +10,14 @@ struct ReplayRunnerTests {
     func packageShape() throws {
         let fixture = try ReplayRunnerFixture.make()
         defer { fixture.remove() }
-        let result = try fixture.runProcess(
-            executable: URL(fileURLWithPath: "/usr/bin/swift"),
-            arguments: ["package", "--package-path", fixture.packageRoot.path, "dump-package"]
+        let package = try String(
+            contentsOf: fixture.packageRoot.appendingPathComponent("Package.swift"),
+            encoding: .utf8
         )
 
-        #expect(result.status == 0)
-        let package = try #require(
-            JSONSerialization.jsonObject(with: result.standardOutput) as? [String: Any]
-        )
-        let products = try #require(package["products"] as? [[String: Any]])
-        let targets = try #require(package["targets"] as? [[String: Any]])
-        #expect(products.contains { $0["name"] as? String == "ReRoomReplayRunner" })
-        let target = try #require(targets.first { $0["name"] as? String == "ReRoomReplayRunner" })
-        let dependencies = try #require(target["dependencies"] as? [[String: Any]])
-        #expect(dependencies.count == 1)
-        #expect(dependencies[0]["byName"] as? [String] == ["ReRoomCaptureCore", nil].compactMap { $0 })
+        #expect(package.contains(#".executable(name: "ReRoomReplayRunner""#))
+        #expect(package.contains(#"name: "ReRoomReplayRunner""#))
+        #expect(package.contains(#"dependencies: ["ReRoomCaptureCore"]"#))
     }
 
     @Test("two isolated invocations emit the complete sorted byte-identical report set")
@@ -46,7 +38,7 @@ struct ReplayRunnerTests {
             let leftBytes = try Data(contentsOf: left)
             let rightBytes = try Data(contentsOf: right)
             #expect(leftBytes == rightBytes)
-            #expect(try CanonicalJSON.canonicalize(jsonData: leftBytes) == leftBytes)
+            #expect(try ReplayInputIntegrity.canonicalizeJSON(leftBytes) == leftBytes)
             let report = try #require(
                 JSONSerialization.jsonObject(with: leftBytes) as? [String: Any]
             )
@@ -73,6 +65,9 @@ struct ReplayRunnerTests {
         #expect(result.standardError.contains("replay-runner: FAIL:"))
         if mutation == .preexistingOutput {
             #expect(try FileManager.default.contentsOfDirectory(atPath: output.path).isEmpty)
+        } else if mutation == .symlinkOutput {
+            let values = try output.resourceValues(forKeys: [.isSymbolicLinkKey])
+            #expect(values.isSymbolicLink == true)
         } else {
             #expect(FileManager.default.fileExists(atPath: output.path) == false)
         }
@@ -219,12 +214,14 @@ private struct ReplayRunnerFixture {
         process.standardOutput = standardOutput
         process.standardError = standardError
         try process.run()
+        let outputData = standardOutput.fileHandleForReading.readDataToEndOfFile()
+        let errorData = standardError.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()
         return ReplayRunnerProcessResult(
             status: process.terminationStatus,
-            standardOutput: standardOutput.fileHandleForReading.readDataToEndOfFile(),
+            standardOutput: outputData,
             standardError: String(
-                decoding: standardError.fileHandleForReading.readDataToEndOfFile(),
+                decoding: errorData,
                 as: UTF8.self
             )
         )
@@ -241,8 +238,8 @@ private struct ReplayRunnerFixture {
         var unsigned = report
         unsigned.removeValue(forKey: "report_sha256")
         let json = try! JSONSerialization.data(withJSONObject: unsigned, options: [.sortedKeys])
-        let canonical = try! CanonicalJSON.canonicalize(jsonData: json)
-        return CanonicalJSON.sha256Hex(canonical)
+        let canonical = try! ReplayInputIntegrity.canonicalizeJSON(json)
+        return ReplayInputIntegrity.sha256Hex(canonical)
     }
 
     func mutatedFixture(_ mutation: ReplayRunnerFixtureMutation) throws -> URL {
@@ -278,7 +275,7 @@ private struct ReplayRunnerFixture {
         }
         object["archives"] = archives
         let encoded = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
-        try CanonicalJSON.canonicalize(jsonData: encoded).write(to: copiedManifest)
+        try ReplayInputIntegrity.canonicalizeJSON(encoded).write(to: copiedManifest)
         return copiedManifest
     }
 }

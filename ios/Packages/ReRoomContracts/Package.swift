@@ -12,6 +12,7 @@ let package = Package(
         .library(name: "ReRoomContracts", targets: ["ReRoomContracts"]),
         .library(name: "ReRoomCaptureCore", targets: ["ReRoomCaptureCore"]),
         .executable(name: "ReRoomContractRunner", targets: ["ReRoomContractRunner"]),
+        .executable(name: "ReRoomReplayRunner", targets: ["ReRoomReplayRunner"]),
     ],
     dependencies: [
         .package(
@@ -34,12 +35,20 @@ let package = Package(
             name: "ReRoomCaptureCore",
             dependencies: ["ReRoomContracts"]
         ),
+        .executableTarget(
+            name: "ReRoomReplayRunner",
+            dependencies: ["ReRoomCaptureCore"]
+        ),
         .testTarget(
             name: "ReRoomContractsTests",
             dependencies: ["ReRoomContracts"]
         ),
         .testTarget(
             name: "ReRoomCaptureCoreTests",
+            dependencies: ["ReRoomCaptureCore"]
+        ),
+        .testTarget(
+            name: "ReRoomReplayRunnerTests",
             dependencies: ["ReRoomCaptureCore"]
         ),
     ],

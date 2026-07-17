@@ -12,7 +12,9 @@ public enum ReplayReport {
         snapshot: ReplaySnapshot,
         caseID: String,
         fixtureManifestSHA256: String,
-        repositoryRevision: String
+        repositoryRevision: String,
+        verdict: ReplayVerdict = .accept,
+        rejection: ReplayRejection? = nil
     ) throws -> ReplayReportV1 {
         guard caseID.isEmpty == false,
               repositoryRevision.range(
@@ -66,9 +68,9 @@ public enum ReplayReport {
                 fixture: fixture,
                 archive: archive,
                 implementation: implementation,
-                verdict: .accept,
+                verdict: verdict,
                 digests: snapshot.digests,
-                rejection: nil,
+                rejection: rejection,
                 metrics: metrics,
                 reportSHA256: String(repeating: "0", count: 64)
             )
@@ -82,9 +84,9 @@ public enum ReplayReport {
                 fixture: fixture,
                 archive: archive,
                 implementation: implementation,
-                verdict: .accept,
+                verdict: verdict,
                 digests: snapshot.digests,
-                rejection: nil,
+                rejection: rejection,
                 metrics: metrics,
                 reportSHA256: digest
             )

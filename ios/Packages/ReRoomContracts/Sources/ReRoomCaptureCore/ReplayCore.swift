@@ -102,6 +102,22 @@ public enum ReplayCore {
     }
 }
 
+public enum ReplayInputIntegrity {
+    public static let maximumDocumentBytes = 33_554_432
+
+    public static func canonicalizeJSON(_ data: Data) throws -> Data {
+        try CanonicalJSON.canonicalize(jsonData: data)
+    }
+
+    public static func sha256Hex(_ data: Data) -> String {
+        CanonicalJSON.sha256Hex(data)
+    }
+
+    public static func resolveArchivePath(_ path: String, under root: URL) throws -> URL {
+        try ArchivePath.resolve(path, under: root)
+    }
+}
+
 private extension ReplayCoreError {
     init(_ error: CaptureRecoveryError) {
         switch error {
