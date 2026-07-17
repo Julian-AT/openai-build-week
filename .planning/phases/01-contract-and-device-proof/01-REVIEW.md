@@ -1,6 +1,6 @@
 ---
 phase: 01-contract-and-device-proof
-reviewed: 2026-07-17T13:49:56Z
+reviewed: 2026-07-17T14:28:49Z
 depth: standard
 files_reviewed: 79
 files_reviewed_list:
@@ -84,60 +84,44 @@ files_reviewed_list:
   - tools/verify/verify_evidence.py
   - tools/verify/verify_phase_01_dependencies.py
 findings:
-  critical: 1
+  critical: 0
   warning: 0
   info: 0
-  total: 1
-status: issues_found
+  total: 0
+status: clean
 ---
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-07-17T13:49:56Z
+**Reviewed:** 2026-07-17T14:28:49Z
 **Depth:** standard
 **Files Reviewed:** 79
-**Status:** issues_found
+**Status:** clean
 
 ## Summary
 
-The previous CR-01, WR-01, and WR-02 findings are fixed: the final V2 report decision, unsigned checklist, external operator-attestation digest, and exact checklist bytes form an acyclic verified chain; shared compiled-schema access is serialized; and a rejected capture re-selection clears the prior selection. Both final physical report/checklist pairs verify as GREEN, and the Swift package plus repeated simulator capture tests passed.
+The frozen 79-file Phase 01 scope was reviewed at standard depth against the repository authority, evidence-integrity rules, and Swift concurrency/testing guidance. All previously reported defects are fixed. The diagnostic exporter now emits automation-owned GateReportV2 bytes, includes only `supporting_evidence` artifact roles, rejects operator-attestation input, and cross-validates its actual serialized output against the checked-in `gate-report.schema.json`. The added generic schema facade preserves byte/depth limits and serialized compiled-validator access, and the pinned JSON Schema implementation supports the newly admitted `maxContains` keyword.
 
-One new blocker remains. The breaking GateReportV2 migration was not synchronized to the diagnostic app's machine-readable evidence exporter. The app still emits and self-validates GateReportV1, which the current canonical evidence schema explicitly rejects.
+The earlier signed-decision binding, shared-validator concurrency, and stale capture re-selection findings also remain fixed. Both final physical report/checklist pairs pass the acyclic digest-chain verifier as GREEN, shared schema access completed the 1,024-validation stress test, and rejected re-selection clears the prior attempt before returning. All reviewed files meet quality standards. No issues found.
 
-## Critical Issues
+## Narrative Findings (AI reviewer)
 
-### CR-01 — BLOCKER: the on-device evidence exporter still emits rejected GateReportV1
-
-**File:** `ios/ReRoomDeviceProof/ReRoomDeviceProof/EvidenceExporter.swift:199`
-
-`evidence/templates/README.md` declares GateReportV2 the checked-in boundary and explicitly says V1 reports are rejected. The current Swift exporter nevertheless serializes `schema_version: "1.0.0"`, omits the V2-required `artifact_role` from every external artifact, and validates the result with a private `GateReportV1Validator`. `EvidenceExporterTests` pass because they exercise only that stale local validator and never validate emitted bytes against the checked-in canonical schema. A representative V1 automated preflight produces two validation errors against the current schema, beginning with `2.0.0 was expected`; therefore a diagnostic export produced by the promoted device-proof seed cannot be consumed by the current evidence verifier.
-
-This breaks the D-07 machine-readable evidence-export deliverable and violates the repository's rule that a contract change synchronize its schema, producers, fixtures, and tests. It is especially load-bearing here because the V2 change is the evidence-integrity correction used to close the physical gates, while the candidate revision named by those reports still contains this V1 producer.
-
-**Fix:** Migrate `EvidenceExporter` and its independent validator to GateReportV2 for the automation-owned UNRUN/RUNNING/RED states, emitting `artifact_role: supporting_evidence` and rejecting operator-attestation roles. Update `EvidenceExporterTests` to assert the V2 version/role fields and cross-validate actual Swift-emitted bytes against `evidence/templates/gate-report.schema.json` so another local-schema drift cannot pass. Preserve the existing signed physical evidence as evidence for its named revision; do not rewrite its implementation revision without a newly bound candidate/evidence decision.
-
-## Warnings
-
-None.
-
-## Informational
-
-None.
+No Critical, Warning, or Informational findings.
 
 ## Verification
 
-- `scripts/verify-phase-01-contracts gate` — passed; both V2 evidence pairs verified and reported `GATE-013=GREEN,GATE-002=GREEN`.
-- `.venv/bin/python -m unittest tools.verify.tests.test_evidence_templates -v` — passed, 22 tests including report/checklist mutation rejection.
-- `swift test --package-path ios/Packages/ReRoomContracts` — passed, 33 tests across 5 suites; the shared-validator concurrency stress test completed 1,024 accepted validations.
-- Full Debug simulator `xcodebuild test ... -only-testing:ReRoomDeviceProofTests` on iPhone 17 / iOS 26.4 — passed, including the complete capture, evidence-export, AR policy, world-epoch, and release-smoke unit target.
-- A second focused simulator `CaptureAttemptTests` run passed, including repeated manifest mutations and `rejectedReselectionClearsStaleAttempt`.
-- Historical V1 automated-preflight bytes validated against the current V2 schema — rejected with two errors, proving the same version/role mismatch present in `EvidenceExporter.swift`.
-- Frozen review scope validation — exactly 79 declared, unique, existing files; no files were added or removed from the scope.
-- `git diff --check` — passed before writing this report and was rerun after writing.
+- `swift test --package-path ios/Packages/ReRoomContracts` — passed 33 tests in 5 suites. The shared-validator stress test completed 1,024 accepted validations.
+- Debug simulator `xcodebuild test ... -only-testing:ReRoomDeviceProofTests` on iPhone 17 / iOS 26.4 — passed the full unit target, including `actualOutputConformsToCanonicalSchema`, `operatorAttestationRoleRejects`, `rejectedReselectionClearsStaleAttempt`, capture durability/recovery, AR policy, world epoch, and release smoke.
+- `.venv/bin/python -m unittest tools.verify.tests.test_evidence_templates -v` — passed 22 tests, including all five gate states, exact-one operator-attestation semantics, nonhuman-state attestation rejection, and post-signature mutation rejection.
+- `scripts/verify-phase-01-contracts gate` — passed; both V2 evidence pairs verified as `GATE-013=GREEN,GATE-002=GREEN`.
+- Direct inspection of pinned `swift-json-schema` 0.13.1 source/tests confirmed `minContains` and `maxContains` are implemented validators, not merely accepted schema spellings.
+- The RED commit `2a02253` exposed the V1 producer drift; GREEN commit `a5bff68` migrated the producer, independent local validator, artifact-role restrictions, generic schema facade, and actual-byte canonical-schema test.
+- Frozen review scope validation — exactly 79 declared, unique, existing files; no file was added to or removed from the scope.
+- `git diff --check` — passed before writing this report and after the report update.
 - The GATE-002 and GATE-013 physical observations were treated only as human-attested evidence. This review did not inspect private external raw artifacts under `/tmp` or fabricate physical evidence.
 
 ---
 
-_Reviewed: 2026-07-17T13:49:56Z_
+_Reviewed: 2026-07-17T14:28:49Z_
 _Reviewer: Codex (generic-agent fallback following gsd-code-reviewer contract)_
 _Depth: standard_

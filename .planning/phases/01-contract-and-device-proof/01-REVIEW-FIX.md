@@ -1,160 +1,107 @@
 ---
 phase: 01-contract-and-device-proof
 review: 01-REVIEW.md
-fixed_at: 2026-07-17T04:08:02Z
-iteration: 3
+fixed_at: 2026-07-17T14:22:57Z
+iteration: 2
 status: all_fixed
-findings_in_scope: 11
-fixed: 11
+findings_in_scope: 4
+fixed: 4
 skipped: 0
-iteration_2_findings:
-  - WR-01
-  - WR-02
-  - WR-03
 resolved_findings:
+  - id: CR-01
+    severity: critical
+    title: bind human approval to the final gate decision
+    commits: [e87d81c, 26cb685]
   - id: WR-01
-    title: journal boundary repair
-    red_commit: e1e1e12
-    green_commit: 9cd95ea
-    resolution: >-
-      Recovery now atomically publishes the validated canonical prefix for every
-      invalid nonempty tail, including a torn first append and a complete final
-      record that lacks its newline delimiter.
-    evidence:
-      - Targeted CaptureAttemptTests passed for memory and Foundation journals.
-      - RED failed all four new boundary cases while existing cases passed.
+    severity: warning
+    title: serialize shared compiled-schema validation
+    commits: [69764a4]
   - id: WR-02
-    title: build-provenanced runtime facts
-    red_commit: 19cbf79
-    green_commit: e6a92c9
-    resolution: >-
-      Debug builds now generate and bundle truthful implementation and contract
-      fixture provenance from tracked product inputs. Normal launches require no
-      injected environment values, dirty scoped inputs fail closed, Release does
-      not contain the generated resource, and generic device-model text is not
-      emitted as hardware evidence.
-    evidence:
-      - Hosted EvidenceExporterTests passed with an empty environment.
-      - Normal Debug DiagnosticSurfaceTests launched and exported evidence without provenance injection.
-      - Targeted Release DiagnosticSurfaceTests and the Release product inspector passed.
-      - ReRoomBuildProvenance.plist was absent from both the Release product and unsigned archive structure.
-  - id: WR-03
-    title: coordinate precondition convergence
-    red_commit: 42a0c16
-    green_commit: 0966d1c
-    resolution: >-
-      Swift, JavaScript, and Python now enforce the shared RR-COORD boundary
-      preconditions before multiplication or projection, including positive
-      focal values and affine-row validation.
-    evidence:
-      - Shared rr-coord-runtime-boundaries.json fixture covers accepted and rejected boundary cases.
-      - JavaScript parity mutations passed.
-      - Python boundary and reference parity tests passed.
-      - Swift runtime-boundary tests passed.
-agreement:
-  commit: 510af5f
-  bound_revision: e6a92c9864f814b5b9a8feeec7456eaf9f889db0
-  result: pass
-  fixtures:
-    - FX-CONTRACT-001
-    - FX-JCS-001
-    - FX-COORD-001
+    severity: warning
+    title: clear stale capture selection before every reselection
+    commits: [2ada97c]
+  - id: CR-01-ITERATION-2
+    severity: critical
+    title: migrate the on-device evidence exporter to the canonical V2 boundary
+    commits: [2a02253, a5bff68]
+verification:
+  evidence_suite:
+    result: pass
+    tests: 22
+  evidence_pairs: pass
+  phase_gate: pass
+  swift_package:
+    result: pass
+    tests: 33
+    suites: 5
+  ios_capture_attempt_suite: pass
+  ios_complete_unit_target: pass
+  ios_evidence_exporter_suite:
+    result: pass
+    tests: 14
+  swift_output_against_canonical_gate_report_v2: pass
+  diff_check: pass
 final_convergence:
-  iteration: 3
+  iteration: 2
   status: clean
-  reviewed_files: 75
+  reviewed_at: 2026-07-17T14:28:49Z
+  reviewed_files: 79
   findings:
     critical: 0
     warning: 0
     info: 0
     total: 0
-  evidence:
-    - Final independent standard-depth review verified every cumulative fix directly.
-    - Swift package passed 32 tests across 5 suites.
-    - JavaScript runtime and mutation suites passed 5 tests.
-    - Python runtime, mutation, reference, evidence, and verifier suites passed 33 tests.
-    - Review frontmatter, frozen file-list equality, generated-artifact cleanup, and git diff check passed.
-verification:
-  targeted_regressions: pass
-  phase_quick_verifier: pass
-  reference_parity: pass
-  javascript_parity_mutations: pass
-  python_parity_and_reference_tests: pass
-  swift_package:
-    result: pass
-    tests: 32
-    suites: 5
-  ios_debug_scheme:
-    result: pass
-    test_nodes: 44
-    parameterized_runs: 82
-  ios_release_ui: pass
-  ios_release_build: pass
-  ios_release_surface_inspector: pass
-  unsigned_release_archive_structure: pass
-  evidence_and_privacy:
-    result: pass
-    tests: 15
-  tracked_secret_scan: pass
-  diff_check: pass
-  project_and_plist_lint: pass
-  gsd_consistency:
-    result: pass
-    warnings: future roadmap phase directories are not created yet
-  gsd_health:
-    result: degraded
-    existing_warnings:
-      - config.json uses model_profile adaptive, which GSD Core 1.7 does not recognize
-      - Plan 01-14 has no SUMMARY.md because physical and signing work remains in progress
-cumulative_commits:
-  iteration_1:
-    red:
-      - 7d4cdb5
-      - 7c0716e
-      - ca9e4a4
-      - 1619323
-      - 66a3bbd
-      - 06d7a22
-      - 790251f
-      - f7ccc31
-    green:
-      - 7dc1c9b
-      - fb5677a
-      - e128209
-      - c9f142a
-      - bd9ad44
-      - 6faa9d5
-      - c8ddc5d
-      - 82049fe
-    agreement: fe4af7f
-  iteration_2:
-    red:
-      - e1e1e12
-      - 42a0c16
-      - 19cbf79
-    green:
-      - 9cd95ea
-      - 0966d1c
-      - e6a92c9
-    agreement: 510af5f
-limitations:
-  - >-
-    The unfiltered Release scheme test action still exits 65 after its UI tests
-    pass because the intentionally source-empty Release unit-test bundle has no
-    executable. The required targeted Release UI, Release build, resource/symbol
-    inspector, and archive-structure checks pass. This unrelated scheme mismatch
-    was not changed outside the three findings in scope.
-  - >-
-    Full signing verification remains intentionally blocked without a real
-    candidate artifact and REROOM_SIGNING_RESULT=pass.
-  - >-
-    GATE-002, GATE-013, Plan 01-14, and all physical-device, ARKit, thermal,
-    camera or microphone authorization, operator signature, and human approval
-    evidence remain pending. No such evidence was fabricated.
-  - >-
-    The first quick-verifier invocation used a system Python without jsonschema;
-    the unchanged verifier passed in the repository's locked Python environment.
-  - >-
-    One CoreSimulator Busy result was recovered with bounded shutdown, boot,
-    boot-status, and unchanged retry; the retry passed.
 ---
+
+# Phase 01 Code Review Fix Report
+
+All four findings found across two standard-depth reviews of the frozen 79-file scope were fixed and verified. No finding was skipped.
+
+## CR-01 — Final gate decision binding
+
+`GateReportV2` and `OperatorChecklistV2` now form a non-circular approval chain:
+
+1. The checklist binds the exact automated preflight digest.
+2. `report_decision_sha256` binds every load-bearing final report field except the post-decision checklist digest and operator-attestation attachment.
+3. `unsigned_checklist_sha256` binds the canonical checklist payload before its own digest and external ballot digest are attached.
+4. The externally retained human ballot digest must match exactly one report artifact with role `operator_attestation`.
+5. The final report binds the exact checked-in checklist bytes.
+
+Mutation tests require changes to the implementation revision, fixture, environment, supporting artifact, checklist payload, or ballot digest to fail verification. The previous general physical attestation remains supporting evidence only. A fresh human response approved the four frozen GATE-013/GATE-002 report and checklist digests; its normalized external ballot is retained outside Git and referenced only by opaque ID and SHA-256. Both final report/checklist pairs independently verify and `scripts/verify-phase-01-contracts gate` reports both gates GREEN.
+
+## WR-01 — Shared validator concurrency
+
+Each compiled `FrozenSchemaValidator` is now owned by a `SerializedSchemaValidator` that locks every top-level validation. The wrapped validator does not escape the boundary. A concurrent shared-validator stress test passes, as do all 33 Swift package tests across five suites.
+
+## WR-02 — Rejected reselection
+
+`CaptureAttemptMachine.select` clears its prior selection before evaluating every new selection. The regression covers valid selection → rejected landscape reselection → finish and requires `.noSelection`. The focused iPhone 17 simulator `CaptureAttemptTests` run passes, including this regression and the journal/capture matrix.
+
+## CR-01, Iteration 2 — Canonical V2 producer migration
+
+The fresh re-review found that the diagnostic app still emitted and locally validated GateReportV1 after the repository boundary moved to V2. The exporter now emits only automation-owned V2 `UNRUN`, `RUNNING`, and `RED` reports; every emitted external artifact has role `supporting_evidence`, and automation rejects `operator_attestation` before serialization.
+
+The frozen schema engine now supports the standard Draft 2020-12 `maxContains` keyword and exposes a narrow `JSONSchemaDocumentValidator` façade for independent document-schema checks. Simulator tests load the checked-in `gate-report.schema.json` and verify actual Swift-emitted bytes for all three automation states. Missing-role and operator-attestation mutations fail closed, preventing the app's local validator from silently drifting from the canonical schema again. The signed physical reports remain unchanged and continue to identify the installed candidate revision they actually measured.
+
+## Fix Commits
+
+- `e87d81c` — V2 evidence schemas, semantic verifier, fixtures, and mutation coverage.
+- `69764a4` — serialized production schema-validation boundary and concurrency coverage.
+- `2ada97c` — stale-selection state-machine fix and regression test.
+- `26cb685` — fresh digest-scoped human ballot bindings and final GREEN evidence.
+- `2a02253` — RED assertions proving the stale V1 exporter mismatch.
+- `a5bff68` — GateReportV2 exporter, canonical-schema façade, and cross-validation coverage.
+
+## Verification Evidence
+
+- `python3 -m unittest tools.verify.tests.test_evidence_templates` — 22 passed.
+- `./scripts/verify-phase-01-contracts evidence` — evidence corpus and semantic checks passed.
+- Independent `verify_evidence.py` runs for GATE-013 and GATE-002 — passed.
+- `./scripts/verify-phase-01-contracts gate` — `GATE-013=GREEN,GATE-002=GREEN`.
+- `swift test --package-path ios/Packages/ReRoomContracts` — 33 tests passed across five suites, including shared-validator concurrency.
+- Focused Debug iPhone 17 simulator `CaptureAttemptTests` — succeeded, including the rejected-reselection regression.
+- Complete Debug iPhone 17 simulator unit target — succeeded after the V2 exporter migration.
+- `EvidenceExporterTests` — 14 tests passed, including actual Swift bytes against the checked-in GateReportV2 schema, missing-role rejection, and operator-attestation rejection.
+- `git diff --check` — passed.
+
+The final independent re-review of the unchanged 79-file scope is clean with zero findings; its full result is recorded separately in `01-REVIEW.md`.
