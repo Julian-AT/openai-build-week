@@ -184,7 +184,7 @@ public struct ContractValidator: Sendable {
         }
     }
 
-    private static func isWithinDepthLimit(_ data: Data, maximum: Int) -> Bool {
+    fileprivate static func isWithinDepthLimit(_ data: Data, maximum: Int) -> Bool {
         var depth = 0
         var inString = false
         var escaped = false
@@ -215,6 +215,65 @@ public struct ContractValidator: Sendable {
             }
         }
         return true
+    }
+}
+
+/// Compiles one checked-in JSON Schema and validates document bytes against it.
+///
+/// This narrow facade lets producer tests cross-check their actual output against
+/// canonical schemas that are outside the versioned ReRoom wire-contract registry.
+public struct JSONSchemaDocumentValidator: Sendable {
+    private let validator: SerializedSchemaValidator
+    private let maxDocumentBytes: Int
+    private let maxDocumentDepth: Int
+
+    public init(
+        schemaID: String,
+        documentSchemaVersion: String,
+        schemaData: Data,
+        maxDocumentBytes: Int = ContractValidator.maximumDocumentBytes,
+        maxDocumentDepth: Int = ContractValidator.maximumDocumentDepth
+    ) throws {
+        guard URL(string: schemaID) != nil,
+              documentSchemaVersion.isEmpty == false,
+              (1...ContractValidator.maximumDocumentBytes).contains(maxDocumentBytes),
+              (1...ContractValidator.maximumDocumentDepth).contains(maxDocumentDepth)
+        else {
+            throw ContractValidatorConfigurationError.invalidLimits
+        }
+
+        do {
+            validator = SerializedSchemaValidator(
+                try FrozenSchemaValidator(
+                    contractID: "JSON-SCHEMA-DOCUMENT",
+                    expectedSchemaID: schemaID,
+                    documentSchemaVersion: documentSchemaVersion,
+                    schemaData: schemaData
+                )
+            )
+        } catch {
+            throw ContractValidatorConfigurationError.invalidSchema
+        }
+        self.maxDocumentBytes = maxDocumentBytes
+        self.maxDocumentDepth = maxDocumentDepth
+    }
+
+    public func validate(documentData: Data) -> ContractValidationVerdict {
+        guard documentData.count <= maxDocumentBytes,
+              ContractValidator.isWithinDepthLimit(
+                documentData,
+                maximum: maxDocumentDepth
+              )
+        else {
+            return .rejected(.jsonParse)
+        }
+
+        switch validator.validate(documentData: documentData, payloadData: nil) {
+        case .accepted:
+            return .accepted
+        case .rejected(let rejection):
+            return .rejected(ContractValidationRejection(rejection))
+        }
     }
 }
 

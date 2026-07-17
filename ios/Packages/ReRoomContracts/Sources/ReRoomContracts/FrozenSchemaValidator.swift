@@ -35,9 +35,10 @@ struct FrozenSchemaValidator {
     static let frozenSupportedKeywords: Set<String> = [
         "$defs", "$id", "$ref", "$schema", "additionalProperties", "allOf", "anyOf",
         "const", "contains", "description", "else", "enum", "exclusiveMinimum", "format",
-        "if", "items", "maxItems", "maxLength", "maxProperties", "maximum", "minContains",
-        "minItems", "minLength", "minProperties", "minimum", "not", "oneOf", "pattern",
-        "prefixItems", "properties", "required", "then", "title", "type", "uniqueItems",
+        "if", "items", "maxContains", "maxItems", "maxLength", "maxProperties", "maximum",
+        "minContains", "minItems", "minLength", "minProperties", "minimum", "not", "oneOf",
+        "pattern", "prefixItems", "properties", "required", "then", "title", "type",
+        "uniqueItems",
     ]
 
     let contractID: String
@@ -45,8 +46,14 @@ struct FrozenSchemaValidator {
     let usedSchemaKeywords: Set<String>
 
     private let schema: Schema
+    private let documentSchemaVersion: String
 
-    init(contractID: String, expectedSchemaID: String, schemaData: Data) throws {
+    init(
+        contractID: String,
+        expectedSchemaID: String,
+        documentSchemaVersion: String = "1.0.0",
+        schemaData: Data
+    ) throws {
         let rawSchema: JSONValue
         do {
             rawSchema = try JSONValue.parse(schemaData)
@@ -94,6 +101,7 @@ struct FrozenSchemaValidator {
         self.schemaID = expectedSchemaID
         self.usedSchemaKeywords = usedKeywords
         self.schema = compiled
+        self.documentSchemaVersion = documentSchemaVersion
     }
 
     func validate(documentData: Data, payloadData: Data? = nil) -> FrozenSchemaVerdict {
@@ -104,7 +112,10 @@ struct FrozenSchemaValidator {
             return .rejected(.jsonParse)
         }
 
-        if let rejection = Self.validateDocumentBoundary(document) {
+        if let rejection = Self.validateDocumentBoundary(
+            document,
+            schemaVersion: documentSchemaVersion
+        ) {
             return .rejected(rejection)
         }
         if let rejection = validateSemanticInvariants(document) {
@@ -189,7 +200,10 @@ struct FrozenSchemaValidator {
         }
     }
 
-    private static func validateDocumentBoundary(_ value: JSONValue) -> FrozenSchemaRejection? {
+    private static func validateDocumentBoundary(
+        _ value: JSONValue,
+        schemaVersion: String
+    ) -> FrozenSchemaRejection? {
         switch value {
         case .number(let number):
             guard number.isFinite, abs(number) <= float32Maximum else {
@@ -200,11 +214,17 @@ struct FrozenSchemaValidator {
                 if key.hasSuffix("path"), let path = child.string, !isSafeArchivePath(path) {
                     return .invalidPath
                 }
-                if let rejection = validateDocumentBoundary(child) { return rejection }
+                if let rejection = validateDocumentBoundary(
+                    child,
+                    schemaVersion: schemaVersion
+                ) { return rejection }
             }
         case .array(let values):
             for child in values {
-                if let rejection = validateDocumentBoundary(child) { return rejection }
+                if let rejection = validateDocumentBoundary(
+                    child,
+                    schemaVersion: schemaVersion
+                ) { return rejection }
             }
         case .string, .integer, .boolean, .null:
             break
@@ -212,7 +232,7 @@ struct FrozenSchemaValidator {
 
         guard let object = value.object else { return nil }
         for versionField in ["protocol_version", "format_version", "schema_version"] {
-            if let version = object[versionField], version.string != "1.0.0" {
+            if let version = object[versionField], version.string != schemaVersion {
                 return .unsupportedContractVersion
             }
         }

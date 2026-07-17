@@ -1,4 +1,5 @@
 import Foundation
+import ReRoomContracts
 import Testing
 @testable import ReRoomDeviceProof
 
@@ -51,6 +52,16 @@ struct EvidenceExporterTests {
         }
     }
 
+    @Test("Non-iPhone device labels cannot escape the canonical V2 boundary")
+    func nonIPhoneDeviceModelRejects() {
+        var candidate = request(state: "UNRUN")
+        candidate.environmentFacts["device_model"] = .string("MacBook Pro")
+
+        #expect(throws: EvidenceExportRejection.forbiddenField("device_model")) {
+            try EvidenceExporter().validatedData(for: candidate)
+        }
+    }
+
     @Test(
         "Unknown and human-only states cannot be exported by automation",
         arguments: ["PASS", "GREEN", "WAIVED_BY_HUMAN"]
@@ -91,6 +102,58 @@ struct EvidenceExporterTests {
         #expect(throws: EvidenceExportRejection.unboundEvidence) {
             try EvidenceExporter().validatedData(for: missingDigest)
         }
+    }
+
+    @Test("Automation rejects operator attestations before serialization")
+    func operatorAttestationRoleRejects() {
+        var candidate = request(state: "RUNNING")
+        candidate.evidenceArtifacts = [
+            EvidenceArtifactReference(
+                opaqueArtifactID: "opaque-gate-013-attestation-0001",
+                artifactKind: "ballot",
+                artifactRole: "operator_attestation",
+                sha256: shaA
+            )
+        ]
+
+        #expect(throws: EvidenceExportRejection.invalidSchema) {
+            try EvidenceExporter().validatedData(for: candidate)
+        }
+    }
+
+    @Test("Actual Swift output conforms to the checked-in GateReportV2 schema")
+    func actualOutputConformsToCanonicalSchema() throws {
+        let schemaData = try Data(
+            contentsOf: repositoryRoot().appendingPathComponent(
+                "evidence/templates/gate-report.schema.json"
+            )
+        )
+        let canonicalValidator = try JSONSchemaDocumentValidator(
+            schemaID: "urn:reroom:evidence-schema:gate-report:2",
+            documentSchemaVersion: "2.0.0",
+            schemaData: schemaData
+        )
+
+        for state in ["UNRUN", "RUNNING", "RED"] {
+            let emitted = try EvidenceExporter().validatedData(for: request(state: state))
+            #expect(
+                canonicalValidator.validate(documentData: emitted) == .accepted,
+                Comment(rawValue: state)
+            )
+        }
+
+        let emitted = try EvidenceExporter().validatedData(for: request(state: "RUNNING"))
+        var missingRole = try #require(
+            JSONSerialization.jsonObject(with: emitted) as? [String: Any]
+        )
+        var artifacts = try #require(missingRole["evidence_artifacts"] as? [[String: Any]])
+        artifacts[0].removeValue(forKey: "artifact_role")
+        missingRole["evidence_artifacts"] = artifacts
+        let mutated = try JSONSerialization.data(
+            withJSONObject: missingRole,
+            options: [.sortedKeys]
+        )
+        #expect(canonicalValidator.validate(documentData: mutated) != .accepted)
     }
 
     @Test("Schema-invalid identifiers reject before any file is written")
@@ -288,6 +351,7 @@ struct EvidenceExporterTests {
         EvidenceArtifactReference(
             opaqueArtifactID: "opaque-gate-013-run-0001",
             artifactKind: "automated_report",
+            artifactRole: "supporting_evidence",
             sha256: shaA
         )
     }

@@ -16,6 +16,7 @@ struct EvidenceFixtureReference: Equatable, Sendable {
 struct EvidenceArtifactReference: Equatable, Sendable {
     let opaqueArtifactID: String
     let artifactKind: String
+    let artifactRole: String
     let sha256: String
 }
 
@@ -61,7 +62,7 @@ struct EvidenceExporter {
             maximumBytes: Self.maximumEvidenceBytes
         )
         guard canonical.count <= Self.maximumEvidenceBytes,
-              GateReportV1Validator.validate(canonical)
+              GateReportV2Validator.validate(canonical)
         else {
             throw EvidenceExportRejection.invalidSchema
         }
@@ -182,7 +183,7 @@ private enum GateReportSanitizer {
         }
 
         let environment: [String: Any] = [
-            "device_model": try optionalSafeFact("device_model", request.environmentFacts),
+            "device_model": try optionalDeviceModel(request.environmentFacts),
             "os_version": try optionalSafeFact("os_version", request.environmentFacts),
             "xcode_version": try optionalSafeFact("xcode_version", request.environmentFacts),
             "runtime_tier": try requiredSafeFact("runtime_tier", request.environmentFacts),
@@ -196,7 +197,7 @@ private enum GateReportSanitizer {
         ]
 
         return [
-            "schema_version": "1.0.0",
+            "schema_version": "2.0.0",
             "gate_id": request.gateID,
             "gate_state": request.gateState,
             "decision_actor": "automation",
@@ -224,6 +225,18 @@ private enum GateReportSanitizer {
         guard let value = facts[key] else { return NSNull() }
         guard case let .string(text) = value, isSafeEnvironmentText(text) else {
             throw EvidenceExportRejection.forbiddenField(key)
+        }
+        return text
+    }
+
+    private static func optionalDeviceModel(
+        _ facts: [String: EvidenceEnvironmentFactValue]
+    ) throws -> Any {
+        guard let value = facts["device_model"] else { return NSNull() }
+        guard case let .string(text) = value,
+              matches(text, #"^iPhone [A-Za-z0-9][A-Za-z0-9 +.-]{0,31}$"#)
+        else {
+            throw EvidenceExportRejection.forbiddenField("device_model")
         }
         return text
     }
@@ -297,6 +310,7 @@ private enum GateReportSanitizer {
         return try artifacts.sorted { $0.opaqueArtifactID < $1.opaqueArtifactID }.map {
             guard matches($0.opaqueArtifactID, #"^opaque-[a-z0-9][a-z0-9._-]{7,95}$"#),
                   artifactKinds.contains($0.artifactKind),
+                  $0.artifactRole == "supporting_evidence",
                   matches($0.sha256, #"^[0-9a-f]{64}$"#)
             else {
                 throw EvidenceExportRejection.invalidSchema
@@ -304,6 +318,7 @@ private enum GateReportSanitizer {
             return [
                 "opaque_artifact_id": $0.opaqueArtifactID,
                 "artifact_kind": $0.artifactKind,
+                "artifact_role": $0.artifactRole,
                 "sha256": $0.sha256,
                 "external_retention": true,
             ]
@@ -315,7 +330,7 @@ private enum GateReportSanitizer {
     }
 }
 
-private enum GateReportV1Validator {
+private enum GateReportV2Validator {
     private static let keys: Set<String> = [
         "schema_version", "gate_id", "gate_state", "decision_actor", "recorded_at_utc",
         "implementation_revision", "test_ids", "requirement_ids", "adr_ids",
@@ -334,7 +349,7 @@ private enum GateReportV1Validator {
     static func validate(_ data: Data) -> Bool {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               Set(root.keys) == keys,
-              root["schema_version"] as? String == "1.0.0",
+              root["schema_version"] as? String == "2.0.0",
               root["decision_actor"] as? String == "automation",
               let gateID = root["gate_id"] as? String,
               GateReportSanitizer.matches(gateID, #"^GATE-[0-9]{3}$"#),
@@ -408,24 +423,34 @@ private enum GateReportV1Validator {
         else {
             return false
         }
-        return optionalSafeLabel(environment["device_model"])
+        return optionalDeviceModel(environment["device_model"])
             && optionalSafeLabel(environment["os_version"])
             && optionalSafeLabel(environment["xcode_version"])
     }
 
     private static func validArtifact(_ artifact: [String: Any]) -> Bool {
         Set(artifact.keys) == [
-            "opaque_artifact_id", "artifact_kind", "sha256", "external_retention",
+            "opaque_artifact_id", "artifact_kind", "artifact_role", "sha256",
+            "external_retention",
         ]
             && GateReportSanitizer.matches(artifact["opaque_artifact_id"] as? String ?? "", #"^opaque-[a-z0-9][a-z0-9._-]{7,95}$"#)
             && ["automated_report", "log", "trace", "screenshot", "video", "metric_output", "ballot"]
                 .contains(artifact["artifact_kind"] as? String ?? "")
+            && artifact["artifact_role"] as? String == "supporting_evidence"
             && isSHA256(artifact["sha256"])
             && artifact["external_retention"] as? Bool == true
     }
 
     private static func optionalSafeLabel(_ value: Any?) -> Bool {
         value is NSNull || safeLabel(value)
+    }
+
+    private static func optionalDeviceModel(_ value: Any?) -> Bool {
+        value is NSNull
+            || GateReportSanitizer.matches(
+                value as? String ?? "",
+                #"^iPhone [A-Za-z0-9][A-Za-z0-9 +.-]{0,31}$"#
+            )
     }
 
     private static func safeLabel(_ value: Any?) -> Bool {
