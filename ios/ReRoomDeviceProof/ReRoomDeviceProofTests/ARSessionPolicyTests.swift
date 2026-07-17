@@ -179,6 +179,27 @@ struct ARSessionPolicyTests {
         #expect(failedDriver.pauseCallCount == 1)
     }
 
+    @MainActor
+    @Test("Explicit world reset uses ARKit reset semantics and emits a new spatial epoch event")
+    func controllerPerformsExplicitWorldReset() {
+        let driver = TestARSessionDriver()
+        let controller = ARSessionController(driver: driver)
+        var events: [ARSessionEvent] = []
+        controller.onEvent = { events.append($0) }
+        controller.synchronize(cameraAuthorization: .granted)
+        controller.recordPlaneObservation(.horizontal)
+
+        let didReset = controller.performExplicitWorldReset(
+            cameraAuthorization: .granted
+        )
+
+        #expect(didReset)
+        #expect(driver.runPolicies == [.deviceProof])
+        #expect(driver.resetPolicies == [.deviceProof])
+        #expect(controller.isRunning)
+        #expect(events.suffix(2) == [.worldReset, .running(true)])
+    }
+
     private func otherwiseReadyState(
         microphoneAuthorization: PermissionAuthorizationState
     ) -> DeviceProofState {
@@ -202,10 +223,15 @@ private final class TestARSessionDriver: ARSessionDriving {
     var delegate: (any ARSessionDelegate)?
     var currentFrame: ARFrame? { nil }
     private(set) var runPolicies: [ARSessionPolicy] = []
+    private(set) var resetPolicies: [ARSessionPolicy] = []
     private(set) var pauseCallCount = 0
 
     func run(policy: ARSessionPolicy) {
         runPolicies.append(policy)
+    }
+
+    func reset(policy: ARSessionPolicy) {
+        resetPolicies.append(policy)
     }
 
     func pause() {
