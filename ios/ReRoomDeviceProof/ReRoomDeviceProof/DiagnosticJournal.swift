@@ -676,9 +676,6 @@ private struct DurablePrefix {
 private extension DiagnosticJournal {
     func repairedDurablePrefixIfNeeded(_ prefix: DurablePrefix) throws -> DurablePrefix {
         guard prefix.hasInvalidTail else { return prefix }
-        guard prefix.entries.isEmpty == false else {
-            throw DiagnosticJournalRejection.invalidJournal
-        }
         var repaired = Data()
         for entry in prefix.entries {
             let encoded = try JSONEncoder().encode(entry)
@@ -748,7 +745,7 @@ private extension DiagnosticJournal {
         let lines = bytes.split(separator: 0x0a, omittingEmptySubsequences: false)
         var entries: [DurableJournalEntry] = []
         var events: [LifecycleEventRecord] = []
-        var invalidTail = false
+        var invalidTail = bytes.isEmpty == false && bytes.last != 0x0a
 
         for rawLine in lines where rawLine.isEmpty == false {
             let line = Data(rawLine)
