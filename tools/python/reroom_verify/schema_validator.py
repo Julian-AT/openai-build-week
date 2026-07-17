@@ -121,7 +121,10 @@ def _validate_schema(fixture: LoadedFixture, schema_path: str, document: Any) ->
     )
     if not errors:
         return
-    if any(error.validator == "additionalProperties" for error in errors):
+    if any(
+        error.validator == "additionalProperties" and "'unknown'" in error.message
+        for error in errors
+    ):
         raise VerificationFailure("unknown_property", errors[0].message)
     for error in errors:
         leaf = str(list(error.absolute_path)[-1]) if error.absolute_path else ""
@@ -141,11 +144,31 @@ def execute_contract_case(fixture: LoadedFixture, case: dict[str, Any]) -> list[
         mutation_spec: dict[str, Any] = {}
     elif case["case_kind"] == "json_mutation":
         if "migration" in spec:
-            if spec.get("representable") is True and spec.get("migration") == "named_1.0_to_1.1":
-                return []
-            raise VerificationFailure(
-                "unsupported_contract_version", "conversion is not exactly representable"
+            source_path = spec.get("source")
+            if not (
+                spec.get("migration") == "named_1.0_to_1.1"
+                and spec.get("source_version") == "1.0.0"
+                and spec.get("reader_version") == "1.1.0"
+                and spec.get("representable") is True
+                and isinstance(source_path, str)
+            ):
+                raise VerificationFailure(
+                    "unsupported_contract_version",
+                    "conversion is not exactly representable",
+                )
+            source = parse_json_bytes(
+                fixture.read_fixture_file(source_path),
+                max_depth=fixture.max_document_depth,
             )
+            if not isinstance(source, dict):
+                raise VerificationFailure(
+                    "schema_validation", "migration source must be a CON-001 object"
+                )
+            _validate_version(source)
+            _validate_authority(source)
+            _walk(source)
+            _validate_schema(fixture, "docs/contracts/frame-packet.schema.json", source)
+            return []
         base_path = spec.get("base")
         if not isinstance(base_path, str):
             raise VerificationFailure("semantic_invariant", "mutation has no base document")
