@@ -25,7 +25,7 @@
     "architecture": "arm64",
     "command": "scripts/run-three-runtime-agreement",
     "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
-    "node": "v22.22.3",
+    "node": "v26.0.0",
     "operating_system": "macOS 26.5.1 build 25F80",
     "python": "Python 3.13.12",
     "swift": "Apple Swift version 6.3 (swiftlang-6.3.0.123.5 clang-2100.0.123.102)"
@@ -39,7 +39,7 @@
     ],
     "sha256": "c69b17cc10a58b36e5d6a663a5be2779f72790a0ce9f1929bf35b09b845d53d9"
   },
-  "evidence_id": "evidence_three_runtime_contract_20260717_004",
+  "evidence_id": "evidence_three_runtime_contract_20260717_005",
   "fixture": {
     "case_count": 18,
     "fixture_id": "FX-CONTRACT-001",
@@ -110,7 +110,7 @@
   ],
   "publisher": {
     "relative_path": "scripts/run-three-runtime-agreement",
-    "sha256": "dcbcd774daf0625ddbcebce338e3387b63c9a21e485f21f0ab1d20deeb7df314"
+    "sha256": "1d923e55769c0f70f9c69428deabcaf6f8892cf59d99f21ae38f8edb341760a8"
   },
   "raw_results": {
     "javascript": {

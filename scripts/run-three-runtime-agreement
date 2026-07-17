@@ -259,6 +259,20 @@ def _source_tree_digest(records: list[dict[str, str]]) -> str:
     return _sha256(scope)
 
 
+def _require_execution_bindings_unchanged(
+    root: Path,
+    *,
+    initial_source_records: list[dict[str, str]],
+    initial_publisher_sha256: str,
+) -> None:
+    final_source_records = _require_bound_sources(root)
+    if final_source_records != initial_source_records:
+        raise AgreementError("bound implementation sources changed during agreement execution")
+    final_publisher_sha256 = _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes())
+    if final_publisher_sha256 != initial_publisher_sha256:
+        raise AgreementError("publisher changed during agreement execution")
+
+
 def _oracle_hashes(root: Path) -> dict[str, str]:
     hashes: dict[str, str] = {}
     for directory in (root / "fixtures", root / "docs/contracts"):
@@ -378,7 +392,7 @@ def _build_report(
     ]
     return {
         "schema_version": "1.0.0",
-        "evidence_id": f"evidence_three_runtime_{stem}_20260717_004",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_005",
         "classification": "MEASURED",
         "requirement_ids": list(requirements),
         "test_ids": list(tests),
@@ -473,6 +487,7 @@ def _atomic_write_reports(targets: dict[Path, bytes]) -> None:
 def run() -> tuple[str, ...]:
     root = _repo_root()
     os.chdir(root)
+    publisher_sha256 = _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes())
     node = _resolve_executable("node", "node")
     python = _resolve_executable(root / ".venv/bin/python", "locked Python")
     source_records = _require_bound_sources(root)
@@ -497,7 +512,6 @@ def run() -> tuple[str, ...]:
     evaluator_sha256 = _sha256(comparator.read_bytes())
     manifest_schema_sha256 = _sha256((root / "fixtures/manifest.schema.json").read_bytes())
     result_schema_sha256 = _sha256((root / "fixtures/runner-result.schema.json").read_bytes())
-    publisher_sha256 = _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes())
 
     reports: dict[Path, bytes] = {}
     fixture_ids: list[str] = []
@@ -581,6 +595,11 @@ def run() -> tuple[str, ...]:
 
     if _oracle_hashes(root) != oracle_before:
         raise AgreementError("oracle files changed during agreement execution")
+    _require_execution_bindings_unchanged(
+        root,
+        initial_source_records=source_records,
+        initial_publisher_sha256=publisher_sha256,
+    )
     _atomic_write_reports(reports)
     return tuple(fixture_ids)
 
