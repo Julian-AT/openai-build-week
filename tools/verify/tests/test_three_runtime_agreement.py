@@ -144,7 +144,7 @@ class ReportProvenanceTests(unittest.TestCase):
             shutil.copyfile(source / name, destination / name)
 
     def test_checked_in_reports_bind_the_exact_metric_publisher(self) -> None:
-        fixture_ids = PUBLISHER._verify_report_provenance(REPO_ROOT)
+        fixture_ids = PUBLISHER._verify_reports(REPO_ROOT)
 
         self.assertEqual(
             ("FX-CONTRACT-001", "FX-JCS-001", "FX-COORD-001"), fixture_ids
@@ -174,9 +174,25 @@ class ReportProvenanceTests(unittest.TestCase):
                     PUBLISHER.AgreementError,
                     "publisher provenance is invalid",
                 ):
-                    PUBLISHER._verify_report_provenance(
-                        REPO_ROOT, report_directory=reports
-                    )
+                    PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
+
+    def test_verifier_rejects_noncanonical_jcs_test_trace(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            self._copy_reports(reports)
+            target = reports / "jcs-agreement.json"
+            report = json.loads(target.read_bytes())
+            report["test_ids"] = ["TST-CONTRACT-001"]
+            target.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                PUBLISHER.AgreementError,
+                "canonical test IDs are invalid",
+            ):
+                PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
 
 
 if __name__ == "__main__":

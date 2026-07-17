@@ -19,6 +19,11 @@ BOUND_REVISION = "a5bff6896188dcac9397c48ce1a6820a7196011a"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"
+CANONICAL_TEST_IDS = {
+    "FX-CONTRACT-001": ("TST-CONTRACT-001", "TST-CONTRACT-002"),
+    "FX-JCS-001": ("TST-DIGEST-001",),
+    "FX-COORD-001": ("TST-COORD-001", "TST-COORD-002"),
+}
 MANIFESTS = (
     (
         "contract",
@@ -26,7 +31,7 @@ MANIFESTS = (
         "fixtures/contracts/1.0.0/rev-001/manifest.json",
         "contract-agreement.json",
         ("NFR-CONTRACT-001",),
-        ("TST-CONTRACT-001", "TST-CONTRACT-002"),
+        CANONICAL_TEST_IDS["FX-CONTRACT-001"],
     ),
     (
         "jcs",
@@ -34,7 +39,7 @@ MANIFESTS = (
         "fixtures/policies/RR-JCS-SHA256-1/rev-001/manifest.json",
         "jcs-agreement.json",
         ("NFR-CONTRACT-001",),
-        ("TST-CONTRACT-001",),
+        CANONICAL_TEST_IDS["FX-JCS-001"],
     ),
     (
         "coordinate",
@@ -42,7 +47,7 @@ MANIFESTS = (
         "fixtures/policies/RR-COORD-1/rev-001/manifest.json",
         "coordinate-agreement.json",
         ("NFR-COORD-001",),
-        ("TST-COORD-001", "TST-COORD-002"),
+        CANONICAL_TEST_IDS["FX-COORD-001"],
     ),
 )
 RUNNERS = {
@@ -373,7 +378,7 @@ def _build_report(
     ]
     return {
         "schema_version": "1.0.0",
-        "evidence_id": f"evidence_three_runtime_{stem}_20260717_003",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_004",
         "classification": "MEASURED",
         "requirement_ids": list(requirements),
         "test_ids": list(tests),
@@ -580,7 +585,7 @@ def run() -> tuple[str, ...]:
     return tuple(fixture_ids)
 
 
-def _verify_report_provenance(
+def _verify_reports(
     root: Path, *, report_directory: Path | None = None
 ) -> tuple[str, ...]:
     reports = report_directory or root / "evidence/compatibility"
@@ -596,6 +601,8 @@ def _verify_report_provenance(
             raise AgreementError(f"{fixture_id} agreement report identity is invalid")
         if report.get("publisher") != expected_publisher:
             raise AgreementError(f"{fixture_id} publisher provenance is invalid")
+        if report.get("test_ids") != list(CANONICAL_TEST_IDS[fixture_id]):
+            raise AgreementError(f"{fixture_id} canonical test IDs are invalid")
         fixture_ids.append(fixture_id)
     return tuple(fixture_ids)
 
@@ -607,8 +614,8 @@ def main(arguments: tuple[str, ...] | None = None) -> int:
             fixture_ids = run()
             label = "three-runtime agreement"
         elif selected == ("--verify-reports",):
-            fixture_ids = _verify_report_provenance(_repo_root())
-            label = "three-runtime report provenance"
+            fixture_ids = _verify_reports(_repo_root())
+            label = "three-runtime reports"
         else:
             raise AgreementError("unsupported command arguments")
     except AgreementError as error:
