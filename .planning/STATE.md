@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Phase 1 UI-SPEC approved
-last_updated: "2026-07-17T00:01:02.085Z"
+stopped_at: Completed 01-11-PLAN.md
+last_updated: "2026-07-17T00:27:52.167Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 10
+  completed_plans: 11
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 10 of 14
+Plan: 11 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
@@ -72,6 +72,7 @@ Progress: [███████░░░] 71%
 | Phase 01 P08 | 21min | 2 tasks | 6 files |
 | Phase 01 P09 | 15min | 2 tasks | 7 files |
 | Phase 01 P10 | 18min | 2 tasks | 7 files |
+| Phase 01 P11 | 23min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -109,6 +110,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-10: Three-runtime evidence binds Swift, JavaScript, and Python to one exact implementation revision and source-tree digest. — Make agreement evidence attributable and reproducible while failing closed on source drift.
 - [Phase 01]: Plan 01-10: Agreement reports publish atomically only after all fresh runtime results pass the closed comparator. — Prevent partial or mismatched evidence from being recorded as success.
 - [Phase 01]: Plan 01-10: Durable reports retain raw-result digests rather than temporary raw output files. — Preserve exact reproducibility without retaining path-bearing ephemeral artifacts.
+- [Phase 01]: Plan 01-11: iOS 26.0 remains only the ASSUMED Xcode 26.4/base-iPhone-17 Phase 1 proof baseline pending Plan 01-14 physical evidence. — Do not infer a broader product minimum OS or D-05 promotion from simulator success.
+- [Phase 01]: Plan 01-11: Microphone readiness uses authorization only and never creates audio capture. — Keep optional microphone state independent from camera, ARKit, visual FramePacket, and typed/tap availability.
+- [Phase 01]: Plan 01-11: Physical landscape changes capture eligibility only and never pauses or restarts AR tracking. — Preserve session continuity while coaching portrait capture.
+- [Phase 01]: Plan 01-11: ARKit uses world tracking with horizontal and vertical planes only, with no scene reconstruction, scene depth, or rear-LiDAR gate. — Keep the base-iPhone path capability-driven and compatible with the locked no-LiDAR requirement.
 
 ### Pending Todos
 
@@ -129,8 +134,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-17T00:01:02.080Z
+Last session: 2026-07-17T00:27:52.163Z
 
-Stopped at: Phase 1 UI-SPEC approved
+Stopped at: Completed 01-11-PLAN.md
 
-Resume file: .planning/phases/01-contract-and-device-proof/01-11-PLAN.md
+Resume file: None

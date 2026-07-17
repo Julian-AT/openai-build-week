@@ -34,7 +34,7 @@ This approved high-level roadmap initializes planning only. It does not authoriz
   3. Golden CON-001 through CON-005 schema, digest, and wire vectors agree across languages, while unknown fields/versions and malformed framing, paths, digests, branches, or identities reject before mutation.
   4. Device crop/orientation checks expose no swapped or silently reinterpreted camera geometry; unknown alignment is quarantined.
 
-**Plans**: 10/14 plans executed
+**Plans**: 11/14 plans executed
 
 Plans:
 
@@ -48,7 +48,7 @@ Plans:
 - [x] 01-08-PLAN.md
 - [x] 01-09-PLAN.md
 - [x] 01-10-PLAN.md
-- [ ] 01-11-PLAN.md
+- [x] 01-11-PLAN.md
 - [ ] 01-12-PLAN.md
 - [ ] 01-13-PLAN.md
 - [ ] 01-14-PLAN.md
@@ -82,11 +82,11 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6 completion)*
 
-- [ ] 01-10 — Execute Swift/JavaScript/Python agreement and record bound evidence.
+- [x] 01-10 — Execute Swift/JavaScript/Python agreement and record bound evidence.
 
 **Wave 8** *(blocked on Wave 7 completion)*
 
-- [ ] 01-11 — Create the narrow portrait-only iOS candidate device-proof seed and AR session policies.
+- [x] 01-11 — Create the narrow portrait-only iOS candidate device-proof seed and AR session policies.
 
 **Wave 9** *(blocked on Wave 8 completion)*
 
@@ -228,7 +228,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Contract and Device Proof | 10/14 | In Progress|  |
+| 1. Contract and Device Proof | 11/14 | In Progress|  |
 | 2. Atomic Capture and Exact Replay | 0/TBD | Not started | - |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
