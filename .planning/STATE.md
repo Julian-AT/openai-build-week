@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-12-PLAN.md
-last_updated: "2026-07-17T01:07:45.571Z"
+stopped_at: Completed 01-13-PLAN.md
+last_updated: "2026-07-17T01:40:10.429Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 12 of 14
+Plan: 13 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Progress: [█████████░] 86%
 | Phase 01 P10 | 18min | 2 tasks | 7 files |
 | Phase 01 P11 | 23min | 2 tasks | 7 files |
 | Phase 01 P12 | 33min | 2 tasks | 8 files |
+| Phase 01 P13 | 27min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -118,6 +119,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-12: World-frame reset or relocalization always advances the sole epoch owner; only one finite rigid correction with matching directed base and target versions can release affected quarantine. — Prevent silent relabeling or heuristic alignment from making stale spatial data capture-eligible.
 - [Phase 01]: Plan 01-12: CON-001 image and packet bytes become internally durable through one staging-directory rename, but remain non-visible and non-network-eligible until the exact CON-002 journal lifecycle is synced. — Keep file durability distinct from authoritative replay visibility and prevent partial capture publication.
 - [Phase 01]: Plan 01-12: Simulator tests embed the existing frozen contract schema resources so full ContractValidator checks do not depend on inaccessible host-repository paths. — Validate the canonical schema bytes inside the simulator without copying or altering the canonical contracts.
+- [Phase 01]: Plan 01-13: Automation evidence emits only UNRUN, RUNNING, or RED; GREEN and WAIVED_BY_HUMAN remain external signed human decisions. — Preserve deterministic gate authority and prevent exporter self-approval.
+- [Phase 01]: Plan 01-13: Evidence is reconstructed from a closed allowlist, independently validated, and durably published only after validation. — Keep private raw evidence outside the report and fail closed before filesystem mutation.
+- [Phase 01]: Plan 01-13: One app target selects its root at compile time, and Release excludes diagnostic and exporter source files entirely. — Prove shipping UI and binary absence rather than merely hiding controls at runtime.
+- [Phase 01]: Plan 01-13: Release inspection resolves the same DerivedData app built by the shared scheme and never rebuilds or substitutes another product. — Bind the surface claim to the product exercised by Release XCUITest.
 
 ### Pending Todos
 
@@ -138,8 +143,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-17T01:07:45.567Z
+Last session: 2026-07-17T01:40:10.425Z
 
-Stopped at: Completed 01-12-PLAN.md
+Stopped at: Completed 01-13-PLAN.md
 
 Resume file: None
