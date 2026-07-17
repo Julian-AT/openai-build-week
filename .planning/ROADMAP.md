@@ -10,7 +10,7 @@ This approved high-level roadmap initializes planning only. It does not authoriz
 
 **Phase numbering:** Sequential integer IDs established during ingest remain the durable phase identifiers. Decimal IDs are reserved for later urgent insertions.
 
-- [ ] **Phase 1: Contract and Device Proof** - Prove shared closed contracts, coordinate fixtures, and the signed no-LiDAR base-device path before architecture-sensitive work.
+- [x] **Phase 1: Contract and Device Proof** - Prove shared closed contracts, coordinate fixtures, and the signed no-LiDAR base-device path before architecture-sensitive work. (completed 2026-07-17)
 - [ ] **Phase 2: Atomic Capture and Exact Replay** - Make consented selected frames durable, recoverable, bounded, and exactly replayable before live inference.
 - [ ] **Phase 3: Typed Place, Commit, and Offline Restore** - Complete the deterministic edit lifecycle without voice, learned geometry, or network dependence.
 - [ ] **Phase 4: Target Grounding and Compositor Gate** - Establish explicit target readiness, fast proxies, and a measured viable base-device compositor with bounded provider fallbacks.
@@ -103,7 +103,7 @@ Plans:
 
 **Wave 12** *(gap closure; blocked on Wave 11 completion)*
 
-- [ ] 01-15 — Refresh byte-reproducible three-runtime agreement provenance for the finalized contract-source revision without changing signed physical evidence.
+- [x] 01-15 — Refresh byte-reproducible three-runtime agreement provenance for the finalized contract-source revision without changing signed physical evidence.
 
 ### Phase 2: Atomic Capture and Exact Replay
 
@@ -233,7 +233,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Contract and Device Proof | 15/15 | In Progress|  |
+| 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
 | 2. Atomic Capture and Exact Replay | 0/TBD | Not started | - |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |

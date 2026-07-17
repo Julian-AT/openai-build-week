@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 01
-current_phase_name: Contract and Device Proof
-status: verifying
-stopped_at: Completed 01-15-PLAN.md
-last_updated: "2026-07-17T16:01:35.258Z"
+current_phase: 2
+current_phase_name: Atomic Capture and Exact Replay
+status: planning
+stopped_at: Phase 1 complete, ready to discuss Phase 2
+last_updated: "2026-07-17T19:45:58.825Z"
 last_activity: 2026-07-17
-last_activity_desc: Completed Plan 01-15; Phase 01 ready for verification
+last_activity_desc: Phase 1 complete, transitioned to Phase 2
 progress:
-  total_phases: 1
+  total_phases: 8
   completed_phases: 1
   total_plans: 15
   completed_plans: 15
@@ -20,29 +20,29 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-15)
+See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Phase 01 — Contract and Device Proof
+**Current focus:** Phase 2 — Atomic Capture and Exact Replay
 
 ## Current Position
 
-Phase: 01 (Contract and Device Proof) — EXECUTING
+Phase: 2 — Atomic Capture and Exact Replay
 
-Plan: 15 of 15
+Plan: Not started
 
-Status: Phase complete — ready for verification
+Status: Ready to plan
 
-Last activity: 2026-07-17 — Completed Plan 01-15; Phase 01 ready for verification
+Last activity: 2026-07-17 — Phase 1 complete, transitioned to Phase 2
 
-Progress: [██████████] 100%
+Progress: [████████████████████] 15/15 planned tasks (100%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 15
 - Average duration: N/A
 - Total execution time: 0 hours
 
@@ -50,7 +50,7 @@ Progress: [██████████] 100%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01 | 15 | - | - |
+| 1 | 15 | - | - |
 
 **Recent Trend:**
 
@@ -130,12 +130,12 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-Run and sign GATE-013 and GATE-002 on the installed candidate. The operator must first trust the Apple Development profile on the iPhone; automation must not infer either physical decision or fabricate raw evidence.
+None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independently re-verified; future physical or human gates remain pending until their own real evidence exists.
 
 ### Blockers/Concerns
 
 - Provisional ADR variants cannot be treated as selected or measured until their physical/fixture evidence and deadlines are satisfied.
-- Physical iPhone/Xcode/signing, compositor/thermal, visual-vote, license, and final rules gates require human/device evidence and cannot be fabricated.
+- Remaining compositor/thermal, visual-vote, license, final-rules, and later physical-device gates require real human/device evidence and cannot be fabricated.
 
 ## Deferred Items
 
@@ -146,9 +146,9 @@ Run and sign GATE-013 and GATE-002 on the installed candidate. The operator must
 
 ## Session Continuity
 
-Last session: 2026-07-17T16:00:01.375Z
+Last session: 2026-07-17T19:45:58.825Z
 
-Stopped at: Completed 01-15-PLAN.md
+Stopped at: Phase 1 complete, ready to discuss Phase 2
 
 Resume file: None
 

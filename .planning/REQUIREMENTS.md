@@ -33,7 +33,7 @@ Canonical IDs are preserved exactly. Acceptance summaries retain the canonical t
 
 ### Correctness, Performance, and Resilience
 
-- [ ] **NFR-COORD-001 - Coordinate correctness:** Every producer and consumer implements RR-COORD-1 and explicit world-frame versioning exactly.
+- [x] **NFR-COORD-001 - Coordinate correctness:** Every producer and consumer implements RR-COORD-1 and explicit world-frame versioning exactly.
   - Acceptance: Cross-language projection fixtures stay within one encoded pixel; duplicated transport/body fields agree; transform and intrinsics comparisons satisfy RR-FLOAT-1; device checks show no crop/orientation swap; reset creates a new epoch and correction rather than silent reinterpretation.
 - [ ] **NFR-REPLAY-001 - Bounded deterministic processing:** Live processing remains bounded and favors newest useful work while accepted durable order stays replay-authoritative.
   - Acceptance: Stress never exceeds configured capacity; stale drops are measured; durable sequences remain monotonic; replay reproduces accepted order independently of live completion order.
@@ -43,7 +43,7 @@ Canonical IDs are preserved exactly. Acceptance summaries retain the canonical t
   - Acceptance: Reports include p50/p95/max for capture, durability, queues, upload, inference, artifact acceptance, preview, commit, and mask age. Target mask-age p95 is at most 250 ms on an advertised tier or the capability degrades.
 - [ ] **NFR-RESILIENCE-001 - Tracking/network/offline resilience:** Tracking loss, network loss, reconnect, and worker failure preserve local operation, acknowledged edits, restore, and record integrity.
   - Acceptance: The fault matrix has zero lost acknowledged commits, no cross-session state, no duplicate mutation, a valid recovered capture prefix, and explicit degraded/recovery UI.
-- [ ] **NFR-CONTRACT-001 - Versioned interoperability:** All capture, scene, artifact, and transaction boundaries use exact versioned schemas and named compatibility migrations.
+- [x] **NFR-CONTRACT-001 - Versioned interoperability:** All capture, scene, artifact, and transaction boundaries use exact versioned schemas and named compatibility migrations.
   - Acceptance: Golden cross-language schema/digest/wire vectors pass; schema IDs are unique; 1.0 readers reject unknown fields and unknown versions without a named migration; malformed framing, path, digest, branch, or identity input rejects before mutation.
 
 ### Security and Privacy
@@ -59,7 +59,7 @@ Canonical IDs are preserved exactly. Acceptance summaries retain the canonical t
 
 ### Operational Readiness and Evidence
 
-- [ ] **OPS-DEVICE-001 - Device/build readiness:** Validate the physical device and toolchain before architecture-sensitive mobile work.
+- [x] **OPS-DEVICE-001 - Device/build readiness:** Validate the physical device and toolchain before architecture-sensitive mobile work.
   - Acceptance: A signed minimal build installs and launches; camera permission, ARKit tracking, and planes work without LiDAR semantics; a repeatable build record is retained. Simulator-only evidence is insufficient.
 - [ ] **OPS-LICENSE-001 - Shipping license evidence:** Every shipped artifact has an exact version/digest, source, applicable terms, attribution, and explicit use/redistribution decision.
   - Acceptance: The shipping bill of materials contains no unknown or noncommercial dependency and retains separate code/weight/asset evidence; missing evidence removes the component or activates a permitted fallback.

@@ -4,7 +4,7 @@
 
 ReRoom is a camera-grounded room-editing product for placing, replacing, removing, and restoring one controlled freestanding chair or small table. Mode A is a native SwiftUI iPhone experience with ARKit world authority; a separate Next.js Mode B0 client provides guaranteed capture replay, inspection, fallback, sessions, sharing, and typed proposals without claiming native Mode A parity.
 
-This is the initialized GSD 1.7 planning entry state. It records product authority and delivery boundaries but does not authorize product implementation, package installation, deployment, or publication.
+Phase 1 has established the verified closed-contract, coordinate, and signed base-device foundation. Remaining product work still proceeds only through an approved phase plan or direct human instruction; deployment, publication, and cloud-resource mutation remain separately gated.
 
 ## Core Value
 
@@ -27,16 +27,18 @@ All numeric thresholds are TARGET values until an evidence record identifies the
 
 ### Validated
 
-(None yet - implementation and physical/human validation have not begun.)
+- ✓ `NFR-COORD-001` coordinate correctness — Phase 1
+- ✓ `NFR-CONTRACT-001` versioned interoperability — Phase 1
+- ✓ `OPS-DEVICE-001` device/build readiness — Phase 1
 
 ### Active P0
 
 The 24 canonical P0 requirement IDs are preserved in `.planning/REQUIREMENTS.md` and each maps to exactly one roadmap phase:
 
 - Capture and edit workflows: `FR-CAPTURE-001`, `FR-TARGET-001`, `FR-PLACE-001`, `FR-REPLACE-001`, `FR-REMOVE-001`, `FR-RESTORE-001`, `FR-TRANSACTION-001`, `FR-AGENT-001`, `FR-B0-001`, `FR-WEB-001`
-- Correctness and quality: `NFR-COORD-001`, `NFR-REPLAY-001`, `NFR-RENDER-001`, `NFR-LATENCY-001`, `NFR-RESILIENCE-001`, `NFR-CONTRACT-001`
+- Correctness and quality: `NFR-REPLAY-001`, `NFR-RENDER-001`, `NFR-LATENCY-001`, `NFR-RESILIENCE-001`
 - Security and privacy: `SEC-CONSENT-001`, `SEC-CREDENTIAL-001`, `SEC-RETENTION-001`, `SEC-AGENT-001`
-- Operational evidence: `OPS-DEVICE-001`, `OPS-LICENSE-001`, `OPS-GOLDEN-001`, `OPS-SUBMISSION-001`
+- Operational evidence: `OPS-LICENSE-001`, `OPS-GOLDEN-001`, `OPS-SUBMISSION-001`
 
 ### Future / Stretch
 
@@ -204,4 +206,4 @@ These ADRs are usable only behind their named boundaries. Their thresholds remai
 - Future/stretch work may enter a later roadmap only through explicit human approval and may never weaken P0 acceptance.
 
 ---
-*Last updated: 2026-07-15 for the portable GSD 1.7 handoff.*
+*Last updated: 2026-07-17 after Phase 1.*
