@@ -45,6 +45,31 @@ struct CaptureAttemptTests {
         #expect(CaptureRetryCoaching.returnToPortrait.preservesARSession)
     }
 
+    @Test("A rejected reselection clears the previously selected attempt")
+    func rejectedReselectionClearsStaleAttempt() {
+        var machine = CaptureAttemptMachine()
+        _ = machine.select(
+            orientation: .portrait,
+            frameSnapshot: readyFrameSnapshot,
+            worldEpoch: readyEpoch
+        )
+
+        #expect(
+            machine.select(
+                orientation: .landscape,
+                frameSnapshot: readyFrameSnapshot,
+                worldEpoch: readyEpoch
+            ) == .rejected(.orientation(.returnToPortrait))
+        )
+        #expect(
+            machine.finish(
+                currentOrientation: .portrait,
+                frameSnapshot: readyFrameSnapshot,
+                worldEpoch: readyEpoch
+            ) == .rejected(.noSelection)
+        )
+    }
+
     @Test("A changed epoch rejects stale selected work")
     func changedEpochRejectsAttempt() {
         var machine = CaptureAttemptMachine()

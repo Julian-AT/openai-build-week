@@ -48,8 +48,9 @@ struct CaptureAttemptMachine: Sendable {
         frameSnapshot: CaptureFrameSnapshot,
         worldEpoch: WorldEpochSnapshot
     ) -> CaptureAttemptSelection {
+        selectedAttempt = nil
+
         guard worldEpoch.captureAvailable else {
-            selectedAttempt = nil
             return .rejected(.worldFrameQuarantined)
         }
         guard let orientationSnapshot = orientationGate.snapshot(
@@ -59,7 +60,6 @@ struct CaptureAttemptMachine: Sendable {
             return .rejected(.orientation(.returnToPortrait))
         }
         guard frameSnapshot.isHealthy else {
-            selectedAttempt = nil
             return .rejected(.sessionUnavailable)
         }
         let snapshot = CaptureAttemptSnapshot(
