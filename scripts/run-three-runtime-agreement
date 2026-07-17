@@ -8,6 +8,7 @@ import json
 import os
 import platform
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -86,14 +87,19 @@ def _run(
     timeout: int = COMMAND_TIMEOUT_SECONDS,
 ) -> subprocess.CompletedProcess[str]:
     try:
-        completed = subprocess.run(
-            command,
-            cwd=root,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        with tempfile.TemporaryDirectory(
+            prefix="reroom-three-runtime-pycache-"
+        ) as python_cache:
+            environment = dict(os.environ, PYTHONPYCACHEPREFIX=python_cache)
+            completed = subprocess.run(
+                command,
+                cwd=root,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
     except (OSError, subprocess.SubprocessError) as error:
         raise AgreementError(f"{label} could not execute") from error
     if completed.returncode != 0:
@@ -121,6 +127,112 @@ def _require_bound_sources(root: Path) -> list[dict[str, str]]:
         label="bound implementation revision",
         timeout=10,
     )
+    listing = _run(
+        ["git", "ls-tree", "-r", "-z", BOUND_REVISION, "--", *BOUND_SOURCE_SCOPES],
+        root=root,
+        label="bound implementation source listing",
+        timeout=20,
+    )
+
+    expected: dict[str, str] = {}
+    for entry in listing.stdout.split("\0"):
+        if not entry:
+            continue
+        try:
+            metadata, relative = entry.split("\t", 1)
+            mode, object_type, _ = metadata.split(" ", 2)
+        except ValueError as error:
+            raise AgreementError("bound implementation source listing is malformed") from error
+        if object_type != "blob" or mode not in {"100644", "100755"}:
+            raise AgreementError("a bound implementation source is not a regular file")
+        expected[relative] = mode
+    if not expected:
+        raise AgreementError("bound implementation source set is empty")
+
+    directory_scopes = tuple(
+        scope.rstrip("/")
+        for scope in BOUND_SOURCE_SCOPES
+        if any(relative.startswith(f"{scope.rstrip('/')}/") for relative in expected)
+    )
+    expected_directories = set(directory_scopes)
+    for relative in expected:
+        for scope in directory_scopes:
+            if not relative.startswith(f"{scope}/"):
+                continue
+            parent = Path(relative).parent
+            while parent.as_posix().startswith(scope):
+                expected_directories.add(parent.as_posix())
+                if parent.as_posix() == scope:
+                    break
+                parent = parent.parent
+
+    def is_isolated_python_cache(relative: str, *, directory: bool) -> bool:
+        parts = Path(relative).parts
+        if "__pycache__" not in parts:
+            return False
+        return directory or relative.endswith(".pyc")
+
+    for scope in directory_scopes:
+        scope_path = root / scope
+        try:
+            scope_mode = scope_path.lstat().st_mode
+        except OSError as error:
+            raise AgreementError("a bound implementation source is unavailable") from error
+        if not stat.S_ISDIR(scope_mode):
+            raise AgreementError("a bound implementation source directory is not regular")
+        for current, directory_names, file_names in os.walk(
+            scope_path, topdown=True, followlinks=False
+        ):
+            current_path = Path(current)
+            for name in directory_names:
+                path = current_path / name
+                relative = path.relative_to(root).as_posix()
+                try:
+                    actual_mode = path.lstat().st_mode
+                except OSError as error:
+                    raise AgreementError("a bound implementation source is unavailable") from error
+                if not stat.S_ISDIR(actual_mode):
+                    raise AgreementError("a bound implementation source is not a regular file")
+                if relative not in expected_directories and not is_isolated_python_cache(
+                    relative, directory=True
+                ):
+                    raise AgreementError(
+                        "an implementation source exists outside the bound implementation revision"
+                    )
+            for name in file_names:
+                path = current_path / name
+                relative = path.relative_to(root).as_posix()
+                try:
+                    actual_mode = path.lstat().st_mode
+                except OSError as error:
+                    raise AgreementError("a bound implementation source is unavailable") from error
+                if not stat.S_ISREG(actual_mode):
+                    raise AgreementError("a bound implementation source is not a regular file")
+                if relative not in expected and not is_isolated_python_cache(
+                    relative, directory=False
+                ):
+                    raise AgreementError(
+                        "an implementation source exists outside the bound implementation revision"
+                    )
+
+    records: list[dict[str, str]] = []
+    executable_bits = stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH
+    for relative, expected_mode in sorted(expected.items()):
+        path = root / relative
+        try:
+            actual_mode = path.lstat().st_mode
+        except OSError as error:
+            raise AgreementError("a bound implementation source is unavailable") from error
+        if not stat.S_ISREG(actual_mode):
+            raise AgreementError("a bound implementation source is not a regular file")
+        expected_executable = expected_mode == "100755"
+        actual_executable = bool(actual_mode & executable_bits)
+        if actual_executable != expected_executable:
+            raise AgreementError(
+                "a bound implementation source mode differs from the bound revision"
+            )
+        records.append({"relative_path": relative, "sha256": _sha256(path.read_bytes())})
+
     comparison = subprocess.run(
         ["git", "diff", "--quiet", BOUND_REVISION, "--", *BOUND_SOURCE_SCOPES],
         cwd=root,
@@ -131,21 +243,6 @@ def _require_bound_sources(root: Path) -> list[dict[str, str]]:
     )
     if comparison.returncode != 0:
         raise AgreementError("bound implementation sources differ from their recorded revision")
-
-    listing = _run(
-        ["git", "ls-tree", "-r", "--name-only", BOUND_REVISION, "--", *BOUND_SOURCE_SCOPES],
-        root=root,
-        label="bound implementation source listing",
-        timeout=20,
-    )
-    records: list[dict[str, str]] = []
-    for relative in listing.stdout.splitlines():
-        path = root / relative
-        if not path.is_file():
-            raise AgreementError("a bound implementation source is unavailable")
-        records.append({"relative_path": relative, "sha256": _sha256(path.read_bytes())})
-    if not records:
-        raise AgreementError("bound implementation source set is empty")
     return records
 
 
