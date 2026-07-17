@@ -248,18 +248,10 @@ public final class CaptureAdmissionGate: Sendable {
 
         func snapshot() -> CaptureAdmissionSnapshot {
             let depth = outstanding
-            let reason: CapturePressureReason
-            if closeReason == .storageUnavailable {
-                reason = .storageUnavailable
-            } else if depth >= pressurePolicy.cadenceReductionDepth {
-                reason = .cadenceQualityReduced
-            } else if depth >= pressurePolicy.uploadPauseDepth {
-                reason = .uploadPaused
-            } else if depth >= pressurePolicy.optionalComputeDropDepth {
-                reason = .optionalComputeDropped
-            } else {
-                reason = .none
-            }
+            let pressure = pressurePolicy.observe(
+                depth: depth,
+                storageUnavailable: closeReason == .storageUnavailable
+            )
             return CaptureAdmissionSnapshot(
                 offered: offered,
                 admitted: admitted,
@@ -275,11 +267,10 @@ public final class CaptureAdmissionGate: Sendable {
                 cancelledBeforeSelection: cancelledBeforeSelection,
                 storageUnavailableBeforeSelection: storageUnavailableBeforeSelection,
                 closeReason: closeReason,
-                pressureReason: reason,
-                optionalComputeDropped: reason != .none,
-                uploadPaused: [.uploadPaused, .cadenceQualityReduced, .storageUnavailable]
-                    .contains(reason),
-                cadenceQualityReductionRequested: reason == .cadenceQualityReduced
+                pressureReason: pressure.pressureReason,
+                optionalComputeDropped: pressure.optionalComputeDropped,
+                uploadPaused: pressure.uploadPaused,
+                cadenceQualityReductionRequested: pressure.cadenceQualityReductionRequested
             )
         }
 

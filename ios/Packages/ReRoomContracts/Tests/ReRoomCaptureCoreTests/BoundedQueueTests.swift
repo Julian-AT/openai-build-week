@@ -150,11 +150,38 @@ struct BoundedQueueTests {
         #expect(reversed.allSatisfy(transport.validate))
         #expect(receipts.map(\.durableJournalSequence) == durableOrder)
 
+        let delayed = try transport.completions(for: receipts, behavior: .delayedFirst)
+        #expect(delayed.map(\.receipt.durableJournalSequence) == [41, 42, 40])
+        #expect(delayed.allSatisfy(transport.validate))
+
         let duplicated = try transport.completions(for: receipts, behavior: .duplicateFirst)
         #expect(duplicated.count == receipts.count + 1)
         #expect(duplicated.allSatisfy(transport.validate))
         #expect(Set(duplicated.map(\.receipt.frameID)).isSubset(of: Set(receipts.map(\.frameID))))
         #expect(receipts.map(\.durableJournalSequence) == durableOrder)
+    }
+
+    @Test("a blackholed in-flight receipt cannot create unbounded live history")
+    func blackholeRemainsBounded() async throws {
+        let queue = try BoundedLatestQueue<NetworkEligibleReceipt>(
+            capacity: 1,
+            pressurePolicy: pressurePolicy(capacity: 1)
+        )
+        let transport = try CaptureTransport(gatewayID: gatewayID)
+        _ = await queue.offer(receipt(60), priority: .cadence)
+        let lease = try #require(await queue.next())
+        #expect(try transport.completions(for: [lease.element], behavior: .blackhole).isEmpty)
+
+        for ordinal in 61..<125 {
+            #expect(await queue.offer(receipt(ordinal), priority: .userEvent) == .droppedCapacity)
+        }
+        let stalled = await queue.snapshot()
+        #expect(stalled.currentDepth == 1)
+        #expect(stalled.maximumDepth == 1)
+        #expect(stalled.dropped == 64)
+
+        #expect(await queue.cancelAll() == [lease.element])
+        #expect(await queue.snapshot().currentDepth == 0)
     }
 
     @Test("typed acknowledgement validation rejects every mismatched binding")
