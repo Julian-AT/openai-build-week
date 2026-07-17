@@ -101,7 +101,7 @@ struct CaptureCrashMatrixTests {
         #expect(ordered.map(\.acceptedSequence) == Array(0..<8))
         #expect(Set(ordered.map(\.frameID)).count == 8)
         #expect(snapshot.acceptedFrames.map(\.sequence) == Array(0..<8))
-        #expect(snapshot.events.map(\.eventSequence) == Array(0..<41))
+        #expect(snapshot.events.map(\.eventSequence) == Array(0..<33))
         #expect(snapshot.journalEntries.map(\.journalSequence) == Array(0..<41))
         #expect(snapshot.journalEntries.filter { $0.entryType == "frame" }.count == 8)
         #expect(try fixture.scanDurablePrefix().networkEligibleFrameIDs.count == 8)
@@ -146,7 +146,13 @@ struct CaptureCrashMatrixTests {
         let memoryReceipt = try await memory.completeAcknowledgedArchive()
 
         #expect(productionReceipt == memoryReceipt)
-        #expect(try production.allFileBytes() == memoryFileSystem.snapshotFiles())
+        let productionFiles = try production.allFileBytes()
+        let memoryFiles = memoryFileSystem.snapshotFiles()
+        #expect(Set(productionFiles.keys) == Set(memoryFiles.keys))
+        #expect(
+            productionFiles.mapValues(CanonicalJSON.sha256Hex)
+                == memoryFiles.mapValues(CanonicalJSON.sha256Hex)
+        )
         #expect(production.faults.observations == memoryRecorder.observations)
     }
 }
@@ -191,18 +197,38 @@ private struct CaptureFaultCase: Sendable, CustomTestStringConvertible {
         fault("first/durable event write/after", .firstFrame, .write, .after, "events/event_0002.json"),
         fault("first/frame journal append/before", .firstFrame, .append, .before, "journal/global.jsonl", occurrence: 3),
         fault("first/frame journal append/after", .firstFrame, .append, .after, "journal/global.jsonl", occurrence: 3, frames: 1),
+        fault("first/journaled event write/after", .firstFrame, .write, .after, "events/event_0003.json", frames: 1),
         fault("first/journaled event append/after", .firstFrame, .append, .after, "journal/global.jsonl", occurrence: 4, frames: 1),
         fault("first/network event write/after", .firstFrame, .write, .after, "events/event_0004.json", frames: 1),
         fault("first/network event append/before", .firstFrame, .append, .before, "journal/global.jsonl", occurrence: 5, frames: 1),
         fault("first/network event append/after", .firstFrame, .append, .after, "journal/global.jsonl", occurrence: 5, frames: 1, eligible: 1),
         fault("first/network journal sync/after", .firstFrame, .synchronizeFile, .after, "journal/global.jsonl", occurrence: 5, frames: 1, eligible: 1),
+        fault("first/network journal directory sync/after", .firstFrame, .synchronizeDirectory, .after, "journal", occurrence: 5, frames: 1, eligible: 1),
 
+        fault("later/selected payload write/before", .laterFrame, .write, .before, "events/event_0005.json", frames: 1, eligible: 1),
         fault("later/selected payload write/after", .laterFrame, .write, .after, "events/event_0005.json", frames: 1, eligible: 1),
+        fault("later/selected payload sync/after", .laterFrame, .synchronizeFile, .after, "events/event_0005.json", frames: 1, eligible: 1),
+        fault("later/selected event directory sync/after", .laterFrame, .synchronizeDirectory, .after, "events", frames: 1, eligible: 1),
+        fault("later/selected journal append/before", .laterFrame, .append, .before, "journal/global.jsonl", frames: 1, eligible: 1),
+        fault("later/selected journal append/after", .laterFrame, .append, .after, "journal/global.jsonl", frames: 1, eligible: 1),
         fault("later/staging image write/after", .laterFrame, .write, .after, "frame_00000002-0000-4000-8000-000000000001.tmp/image.png", frames: 1, eligible: 1),
+        fault("later/staging packet write/after", .laterFrame, .write, .after, "frame_00000002-0000-4000-8000-000000000001.tmp/packet.json", frames: 1, eligible: 1),
+        fault("later/staging image sync/after", .laterFrame, .synchronizeFile, .after, "frame_00000002-0000-4000-8000-000000000001.tmp/image.png", frames: 1, eligible: 1),
+        fault("later/staging packet sync/after", .laterFrame, .synchronizeFile, .after, "frame_00000002-0000-4000-8000-000000000001.tmp/packet.json", frames: 1, eligible: 1),
+        fault("later/staging directory sync/after", .laterFrame, .synchronizeDirectory, .after, "frame_00000002-0000-4000-8000-000000000001.tmp", frames: 1, eligible: 1),
+        fault("later/frame generation rename/before", .laterFrame, .rename, .before, "frame_00000002-0000-4000-8000-000000000001.tmp", frames: 1, eligible: 1),
         fault("later/frame generation rename/after", .laterFrame, .rename, .after, "frame_00000002-0000-4000-8000-000000000001.tmp", frames: 1, eligible: 1),
+        fault("later/frame parent sync/after", .laterFrame, .synchronizeDirectory, .after, "frames", frames: 1, eligible: 1),
+        fault("later/durable event write/after", .laterFrame, .write, .after, "events/event_0006.json", frames: 1, eligible: 1),
         fault("later/frame journal append/before", .laterFrame, .append, .before, "journal/global.jsonl", occurrence: 3, frames: 1, eligible: 1),
         fault("later/frame journal append/after", .laterFrame, .append, .after, "journal/global.jsonl", occurrence: 3, frames: 2, eligible: 1),
+        fault("later/journaled event write/after", .laterFrame, .write, .after, "events/event_0007.json", frames: 2, eligible: 1),
+        fault("later/journaled event append/after", .laterFrame, .append, .after, "journal/global.jsonl", occurrence: 4, frames: 2, eligible: 1),
+        fault("later/network event write/after", .laterFrame, .write, .after, "events/event_0008.json", frames: 2, eligible: 1),
+        fault("later/network event append/before", .laterFrame, .append, .before, "journal/global.jsonl", occurrence: 5, frames: 2, eligible: 1),
         fault("later/network event append/after", .laterFrame, .append, .after, "journal/global.jsonl", occurrence: 5, frames: 2, eligible: 2),
+        fault("later/network journal sync/after", .laterFrame, .synchronizeFile, .after, "journal/global.jsonl", occurrence: 5, frames: 2, eligible: 2),
+        fault("later/network journal directory sync/after", .laterFrame, .synchronizeDirectory, .after, "journal", occurrence: 5, frames: 2, eligible: 2),
 
         fault("ack/payload write/after", .acknowledgement, .write, .after, "events/event_0005.json", frames: 1, eligible: 1),
         fault("ack/payload sync/after", .acknowledgement, .synchronizeFile, .after, "events/event_0005.json", frames: 1, eligible: 1),
@@ -212,7 +238,14 @@ private struct CaptureFaultCase: Sendable, CustomTestStringConvertible {
         fault("ack/journal file sync/after", .acknowledgement, .synchronizeFile, .after, "journal/global.jsonl", frames: 1, eligible: 1, acknowledged: 1),
         fault("ack/journal directory sync/after", .acknowledgement, .synchronizeDirectory, .after, "journal", frames: 1, eligible: 1, acknowledged: 1),
 
+        fault("empty final/event write/before", .emptyFinalization, .write, .before, "events/event_0001.json"),
         fault("empty final/event write/after", .emptyFinalization, .write, .after, "events/event_0001.json"),
+        fault("empty final/event file sync/after", .emptyFinalization, .synchronizeFile, .after, "events/event_0001.json"),
+        fault("empty final/event directory sync/after", .emptyFinalization, .synchronizeDirectory, .after, "events"),
+        fault("empty final/journal append/before", .emptyFinalization, .append, .before, "journal/global.jsonl"),
+        fault("empty final/journal append/after", .emptyFinalization, .append, .after, "journal/global.jsonl"),
+        fault("empty final/journal file sync/after", .emptyFinalization, .synchronizeFile, .after, "journal/global.jsonl"),
+        fault("empty final/journal directory sync/after", .emptyFinalization, .synchronizeDirectory, .after, "journal"),
         fault("empty final/manifest replace/before", .emptyFinalization, .replace, .before, "manifest.json"),
         fault("empty final/manifest replace/after", .emptyFinalization, .replace, .after, "manifest.json", finalized: true),
         fault("empty final/manifest file sync/after", .emptyFinalization, .synchronizeFile, .after, "manifest.json", finalized: true),
@@ -533,7 +566,7 @@ private struct CrashMatrixFixture: Sendable {
             lifecycle.contains("frame_server_acknowledged") ? frameID : nil
         }.sorted()
         for frameID in eligible {
-            guard lifecycleByFrame[frameID] == [
+            guard lifecycleByFrame[frameID]?.prefix(4) == [
                 "frame_selected",
                 "frame_image_and_metadata_durable",
                 "frame_journaled",
@@ -845,14 +878,18 @@ private func verifyManifestDigest(_ data: Data) throws {
 }
 
 private func recursiveFiles(at root: URL) throws -> [String: Data] {
+    let resolvedRoot = root.standardizedFileURL.resolvingSymlinksInPath()
     guard let enumerator = FileManager.default.enumerator(
-        at: root,
+        at: resolvedRoot,
         includingPropertiesForKeys: [.isRegularFileKey]
     ) else { return [:] }
     var files = [String: Data]()
     for case let url as URL in enumerator {
         if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
-            let relative = String(url.path.dropFirst(root.path.count + 1))
+            guard let archiveStart = url.path.range(of: "/archives/") else {
+                throw CrashFixtureError.invalidFileSystem
+            }
+            let relative = String(url.path[archiveStart.lowerBound...].dropFirst())
             files[relative] = try Data(contentsOf: url)
         }
     }

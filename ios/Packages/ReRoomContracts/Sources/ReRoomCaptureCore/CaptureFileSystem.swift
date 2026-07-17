@@ -91,18 +91,21 @@ public extension CaptureFileSystem {
 
 /// Synchronous archive I/O for use inside a non-reentrant storage transaction.
 ///
-/// The observer runs immediately before each valid operation and may throw to inject
-/// a deterministic fault. No mutable state is stored here; one future writer actor owns
-/// ordering and calls these methods without a suspension point.
+/// The observers run immediately before and after each valid operation and may throw to
+/// inject a deterministic fault on either side of the durability boundary. No mutable
+/// state is stored here; one writer actor owns ordering and calls these methods without a
+/// suspension point.
 public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
     public let root: URL
     public let limits: CaptureFileSystemLimits
     private let observe: CaptureFileOperationObserver
+    private let afterOperation: CaptureFileOperationObserver
 
     public init(
         root: URL,
         limits: CaptureFileSystemLimits = .production,
-        observe: @escaping CaptureFileOperationObserver = { _ in }
+        observe: @escaping CaptureFileOperationObserver = { _ in },
+        afterOperation: @escaping CaptureFileOperationObserver = { _ in }
     ) throws {
         guard root.isFileURL else { throw CaptureFileSystemError.invalidRoot }
         guard limits.maximumFileBytes > 0,
@@ -123,11 +126,13 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         self.root = resolvedRoot
         self.limits = limits
         self.observe = observe
+        self.afterOperation = afterOperation
     }
 
     public func createDirectory(at path: String) throws {
         let destination = try resolve(path)
-        try observe(CaptureFileOperation(kind: .createDirectory, path: path))
+        let operation = CaptureFileOperation(kind: .createDirectory, path: path)
+        try observe(operation)
         do {
             try FileManager.default.createDirectory(
                 at: destination,
@@ -136,6 +141,7 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         } catch {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
     }
 
     public func write(_ data: Data, to path: String) throws {
@@ -144,15 +150,18 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         guard FileManager.default.fileExists(atPath: destination.path) == false else {
             throw CaptureFileSystemError.destinationExists
         }
-        try observe(CaptureFileOperation(kind: .write, path: path, byteCount: data.count))
+        let operation = CaptureFileOperation(kind: .write, path: path, byteCount: data.count)
+        try observe(operation)
         guard FileManager.default.createFile(atPath: destination.path, contents: data) else {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
     }
 
     public func synchronizeFile(at path: String) throws {
         let file = try existing(path)
-        try observe(CaptureFileOperation(kind: .synchronizeFile, path: path))
+        let operation = CaptureFileOperation(kind: .synchronizeFile, path: path)
+        try observe(operation)
         do {
             let handle = try FileHandle(forWritingTo: file)
             defer { try? handle.close() }
@@ -160,11 +169,13 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         } catch {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
     }
 
     public func synchronizeDirectory(at path: String) throws {
         let directory = try existing(path, requiresDirectory: true)
-        try observe(CaptureFileOperation(kind: .synchronizeDirectory, path: path))
+        let operation = CaptureFileOperation(kind: .synchronizeDirectory, path: path)
+        try observe(operation)
         #if canImport(Darwin)
         let descriptor = Darwin.open(directory.path, O_RDONLY)
         guard descriptor >= 0 else { throw CaptureFileSystemError.ioFailure }
@@ -173,6 +184,7 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         #else
         throw CaptureFileSystemError.ioFailure
         #endif
+        try afterOperation(operation)
     }
 
     public func append(_ data: Data, to path: String) throws {
@@ -184,7 +196,8 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         guard currentSize <= limits.maximumFileBytes - data.count else {
             throw CaptureFileSystemError.byteLimitExceeded
         }
-        try observe(CaptureFileOperation(kind: .append, path: path, byteCount: data.count))
+        let operation = CaptureFileOperation(kind: .append, path: path, byteCount: data.count)
+        try observe(operation)
         do {
             let handle = try FileHandle(forWritingTo: file)
             defer { try? handle.close() }
@@ -193,17 +206,20 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         } catch {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
     }
 
     public func replace(_ data: Data, at path: String) throws {
         try requireWriteSize(data.count)
         let destination = try resolve(path)
-        try observe(CaptureFileOperation(kind: .replace, path: path, byteCount: data.count))
+        let operation = CaptureFileOperation(kind: .replace, path: path, byteCount: data.count)
+        try observe(operation)
         do {
             try data.write(to: destination, options: .atomic)
         } catch {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
     }
 
     public func rename(from sourcePath: String, to destinationPath: String) throws {
@@ -212,18 +228,18 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         guard FileManager.default.fileExists(atPath: destination.path) == false else {
             throw CaptureFileSystemError.destinationExists
         }
-        try observe(
-            CaptureFileOperation(
-                kind: .rename,
-                path: sourcePath,
-                destinationPath: destinationPath
-            )
+        let operation = CaptureFileOperation(
+            kind: .rename,
+            path: sourcePath,
+            destinationPath: destinationPath
         )
+        try observe(operation)
         do {
             try FileManager.default.moveItem(at: source, to: destination)
         } catch {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
     }
 
     public func read(at path: String, maximumBytes: Int? = nil) throws -> Data {
@@ -235,22 +251,28 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         guard try size(of: file) <= limit else {
             throw CaptureFileSystemError.byteLimitExceeded
         }
-        try observe(CaptureFileOperation(kind: .read, path: path, byteCount: limit))
+        let operation = CaptureFileOperation(kind: .read, path: path, byteCount: limit)
+        try observe(operation)
+        let data: Data
         do {
-            let data = try Data(contentsOf: file, options: .mappedIfSafe)
+            data = try Data(contentsOf: file, options: .mappedIfSafe)
             guard data.count <= limit else { throw CaptureFileSystemError.byteLimitExceeded }
-            return data
         } catch let error as CaptureFileSystemError {
             throw error
         } catch {
             throw CaptureFileSystemError.ioFailure
         }
+        try afterOperation(operation)
+        return data
     }
 
     public func fileExists(at path: String) throws -> Bool {
         let file = try resolve(path)
-        try observe(CaptureFileOperation(kind: .fileExists, path: path))
-        return FileManager.default.fileExists(atPath: file.path)
+        let operation = CaptureFileOperation(kind: .fileExists, path: path)
+        try observe(operation)
+        let exists = FileManager.default.fileExists(atPath: file.path)
+        try afterOperation(operation)
+        return exists
     }
 
     private func requireWriteSize(_ count: Int) throws {
