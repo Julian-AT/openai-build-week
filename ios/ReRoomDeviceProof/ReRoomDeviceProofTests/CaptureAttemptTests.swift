@@ -661,6 +661,15 @@ private final class MemoryCaptureFileSystem: CaptureFileSystem {
         files[path, default: Data()].append(data)
     }
 
+    func replaceAtomically(_ data: Data, at path: String) throws {
+        guard data.count <= CaptureStorageLimits.maximumFileBytes,
+              files[path] != nil
+        else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
+        files[path] = data
+    }
+
     func synchronizeFile(at path: String) throws {
         guard files[path] != nil else { throw DiagnosticJournalRejection.invalidJournal }
     }

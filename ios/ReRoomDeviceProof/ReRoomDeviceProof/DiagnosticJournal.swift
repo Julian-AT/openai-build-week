@@ -34,6 +34,7 @@ struct CaptureCrashInjector {
 
 protocol CaptureFileSystem: AnyObject {
     func write(_ data: Data, to path: String) throws
+    func replaceAtomically(_ data: Data, at path: String) throws
     func append(_ data: Data, to path: String) throws
     func synchronizeFile(at path: String) throws
     func renameDirectory(from sourcePath: String, to destinationPath: String) throws
@@ -78,6 +79,36 @@ final class FoundationCaptureFileSystem: CaptureFileSystem {
             throw DiagnosticJournalRejection.invalidJournal
         }
         try handle.write(contentsOf: data)
+    }
+
+    func replaceAtomically(_ data: Data, at path: String) throws {
+        guard data.count <= CaptureStorageLimits.maximumFileBytes else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
+        let destination = try resolved(path)
+        let directory = destination.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let temporary = directory.appendingPathComponent(
+            ".\(destination.lastPathComponent).\(UUID().uuidString.lowercased()).repair"
+        )
+        do {
+            try data.write(to: temporary, options: .withoutOverwriting)
+            let handle = try FileHandle(forWritingTo: temporary)
+            try handle.synchronize()
+            try handle.close()
+            let result = temporary.path.withCString { source in
+                destination.path.withCString { target in
+                    Darwin.rename(source, target)
+                }
+            }
+            guard result == 0 else {
+                throw POSIXError(.init(rawValue: errno) ?? .EIO)
+            }
+            try synchronizeDirectory(containing: path)
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw error
+        }
     }
 
     func synchronizeFile(at path: String) throws {
@@ -418,10 +449,7 @@ final class DiagnosticJournal {
             throw DiagnosticJournalRejection.invalidJournal
         }
 
-        let existing = try durablePrefix()
-        guard existing.hasInvalidTail == false else {
-            throw DiagnosticJournalRejection.invalidJournal
-        }
+        let existing = try repairedDurablePrefixIfNeeded(try durablePrefix())
         try validateUnusedIdentities(for: input, durablePrefix: existing)
         let firstJournalSequence = (existing.entries.last?.journalSequence ?? -1) + 1
         let firstEventSequence = existing.events.count
@@ -523,7 +551,7 @@ final class DiagnosticJournal {
     }
 
     func recover() throws -> RecoveredCapture {
-        let prefix = try durablePrefix()
+        let prefix = try repairedDurablePrefixIfNeeded(try durablePrefix())
         guard prefix.entries.isEmpty == false else {
             throw DiagnosticJournalRejection.noDurablePrefix
         }
@@ -646,6 +674,29 @@ private struct DurablePrefix {
 }
 
 private extension DiagnosticJournal {
+    func repairedDurablePrefixIfNeeded(_ prefix: DurablePrefix) throws -> DurablePrefix {
+        guard prefix.hasInvalidTail else { return prefix }
+        guard prefix.entries.isEmpty == false else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
+        var repaired = Data()
+        for entry in prefix.entries {
+            let encoded = try JSONEncoder().encode(entry)
+            let canonical = try CanonicalJSON.canonicalize(jsonData: encoded)
+            repaired.append(canonical)
+            repaired.append(0x0a)
+        }
+        try fileSystem.replaceAtomically(repaired, at: Self.journalPath)
+        let verified = try durablePrefix()
+        guard verified.hasInvalidTail == false,
+              verified.entries == prefix.entries,
+              verified.events == prefix.events
+        else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
+        return verified
+    }
+
     func validateUnusedIdentities(
         for input: FramePacketCaptureInput,
         durablePrefix: DurablePrefix
