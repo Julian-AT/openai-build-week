@@ -466,6 +466,56 @@ struct CaptureAttemptTests {
     }
 
     @Test(
+        "A torn first journal append is atomically replaced before capture",
+        arguments: JournalFileSystemKind.allCases
+    )
+    func tornFirstAppendRepairsToEmptyPrefix(kind: JournalFileSystemKind) throws {
+        try withCaptureFileSystem(kind) { fileSystem in
+            try fileSystem.append(Data("{".utf8), to: "journal/global.jsonl")
+
+            let journal = makeJournal(fileSystem: fileSystem)
+            let receipt = try journal.capture(input: captureInput, attempt: readyAttempt)
+            let recovered = try journal.recover()
+            let repairedJournal = try fileSystem.read(at: "journal/global.jsonl")
+
+            #expect(receipt.lifecycle == .networkEligible)
+            #expect(recovered.networkEligibleFrameIDs == [captureInput.frameID])
+            #expect(repairedJournal.last == 0x0a)
+            #expect(String(decoding: repairedJournal, as: UTF8.self).hasPrefix("{\""))
+        }
+    }
+
+    @Test(
+        "A complete final record without newline is repaired before the next capture",
+        arguments: JournalFileSystemKind.allCases
+    )
+    func missingFinalNewlineRepairsBeforeAppend(kind: JournalFileSystemKind) throws {
+        try withCaptureFileSystem(kind) { fileSystem in
+            let firstJournal = makeJournal(fileSystem: fileSystem)
+            _ = try firstJournal.capture(input: captureInput, attempt: readyAttempt)
+            let completeJournal = try fileSystem.read(at: "journal/global.jsonl")
+            #expect(completeJournal.last == 0x0a)
+
+            try fileSystem.replaceAtomically(
+                completeJournal.dropLast(),
+                at: "journal/global.jsonl"
+            )
+            #expect(try fileSystem.read(at: "journal/global.jsonl").last != 0x0a)
+
+            let continuingJournal = makeJournal(fileSystem: fileSystem)
+            _ = try continuingJournal.capture(input: secondCaptureInput, attempt: readyAttempt)
+            let recovered = try continuingJournal.recover()
+            let repairedJournal = try fileSystem.read(at: "journal/global.jsonl")
+
+            #expect(
+                recovered.networkEligibleFrameIDs
+                    == [captureInput.frameID, secondCaptureInput.frameID]
+            )
+            #expect(repairedJournal.last == 0x0a)
+        }
+    }
+
+    @Test(
         "CON-002 recovery rejects ordering, lifecycle, digest, projection, final sequence, and prefix mutations",
         arguments: JournalManifestMutation.allCases
     )
@@ -510,6 +560,21 @@ struct CaptureAttemptTests {
                 "event_00000000-0000-4000-8000-000000000002",
                 "event_00000000-0000-4000-8000-000000000003",
                 "event_00000000-0000-4000-8000-000000000004",
+            ]
+        )
+    }
+
+    private var secondCaptureInput: FramePacketCaptureInput {
+        makeCaptureInput(
+            frameID: "frame_00000000-0000-4000-8000-000000000002",
+            captureSequence: 1,
+            idempotencyKey: "frameidem_00000000-0000-4000-8000-000000000002",
+            previousDurableFrameID: captureInput.frameID,
+            lifecycleEventIDs: [
+                "event_00000000-0000-4000-8000-000000000005",
+                "event_00000000-0000-4000-8000-000000000006",
+                "event_00000000-0000-4000-8000-000000000007",
+                "event_00000000-0000-4000-8000-000000000008",
             ]
         )
     }
@@ -607,7 +672,7 @@ struct CaptureAttemptTests {
     }
 
     private func makeJournal(
-        fileSystem: MemoryCaptureFileSystem,
+        fileSystem: any CaptureFileSystem,
         crashPoint: CaptureCrashPoint? = nil,
         consent: DiagnosticCaptureConsent? = nil
     ) -> DiagnosticJournal {
@@ -627,6 +692,21 @@ struct CaptureAttemptTests {
             ),
             crashInjector: CaptureCrashInjector(point: crashPoint)
         )
+    }
+
+    private func withCaptureFileSystem(
+        _ kind: JournalFileSystemKind,
+        perform body: (any CaptureFileSystem) throws -> Void
+    ) throws {
+        switch kind {
+        case .memory:
+            try body(MemoryCaptureFileSystem())
+        case .foundation:
+            let root = FileManager.default.temporaryDirectory
+                .appendingPathComponent("reroom-journal-boundary-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: root) }
+            try body(FoundationCaptureFileSystem(root: root))
+        }
     }
 
     private var grantedConsent: CaptureConsentRecord {
@@ -699,6 +779,11 @@ enum StableCaptureIdentityCollision: CaseIterable, Sendable {
     case frameID
     case eventID
     case idempotencyKey
+}
+
+enum JournalFileSystemKind: CaseIterable, Sendable {
+    case memory
+    case foundation
 }
 
 enum JournalManifestMutation: String, CaseIterable, Sendable {
