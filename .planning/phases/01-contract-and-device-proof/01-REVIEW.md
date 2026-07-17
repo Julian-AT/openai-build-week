@@ -1,6 +1,6 @@
 ---
 phase: 01-contract-and-device-proof
-reviewed: 2026-07-17T12:41:07Z
+reviewed: 2026-07-17T13:49:56Z
 depth: standard
 files_reviewed: 79
 files_reviewed_list:
@@ -85,50 +85,40 @@ files_reviewed_list:
   - tools/verify/verify_phase_01_dependencies.py
 findings:
   critical: 1
-  warning: 2
+  warning: 0
   info: 0
-  total: 3
+  total: 1
 status: issues_found
 ---
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-07-17T12:41:07Z
+**Reviewed:** 2026-07-17T13:49:56Z
 **Depth:** standard
 **Files Reviewed:** 79
 **Status:** issues_found
 
 ## Summary
 
-One critical evidence-integrity defect and two warnings were proved at standard depth. The explicit world-reset path correctly resets the AR session, advances the epoch, clears tracked state, quarantines incompatible versions, updates the diagnostic surface, and disables capture; the checked-in physical evidence also contains no observed private room media or user identifiers. However, the signed operator decision does not cryptographically bind the final physical gate report, so the current verifier can accept post-approval changes to load-bearing report metadata. The capture test suite also exhibited a reproducible intermittent concurrency failure, and the capture state machine can retain a stale selection after a rejected re-selection.
+The previous CR-01, WR-01, and WR-02 findings are fixed: the final V2 report decision, unsigned checklist, external operator-attestation digest, and exact checklist bytes form an acyclic verified chain; shared compiled-schema access is serialized; and a rejected capture re-selection clears the prior selection. Both final physical report/checklist pairs verify as GREEN, and the Swift package plus repeated simulator capture tests passed.
+
+One new blocker remains. The breaking GateReportV2 migration was not synchronized to the diagnostic app's machine-readable evidence exporter. The app still emits and self-validates GateReportV1, which the current canonical evidence schema explicitly rejects.
 
 ## Critical Issues
 
-### CR-01 — BLOCKER: signed operator decision does not bind the final physical gate report
+### CR-01 — BLOCKER: the on-device evidence exporter still emits rejected GateReportV1
 
-**File:** `tools/verify/verify_evidence.py:156`
+**File:** `ios/ReRoomDeviceProof/ReRoomDeviceProof/EvidenceExporter.swift:199`
 
-The verifier checks that `operator_checklist.report_sha256` equals the report's `automated_report_sha256`, then checks that `report.operator_checklist_sha256` equals the digest of the checklist bytes. In both checked-in physical checklists, `report_sha256` is therefore the digest of `automated-preflight.json`, not a digest of the GATE-002 or GATE-013 physical report. This creates only a final-report-to-checklist link: the signed/checklisted decision does not bind the final report bytes. After approval, an actor can change schema-valid, load-bearing fields such as `implementation_revision`, fixture or device metadata, or artifact IDs and digests while retaining the signed checklist and GREEN decision; the current verifier still accepts the evidence. That defeats the report-bound evidence requirement and leaves critical spoofing/repudiation threat T-01-19 unresolved.
+`evidence/templates/README.md` declares GateReportV2 the checked-in boundary and explicitly says V1 reports are rejected. The current Swift exporter nevertheless serializes `schema_version: "1.0.0"`, omits the V2-required `artifact_role` from every external artifact, and validates the result with a private `GateReportV1Validator`. `EvidenceExporterTests` pass because they exercise only that stale local validator and never validate emitted bytes against the checked-in canonical schema. A representative V1 automated preflight produces two validation errors against the current schema, beginning with `2.0.0 was expected`; therefore a diagnostic export produced by the promoted device-proof seed cannot be consumed by the current evidence verifier.
 
-**Fix:** Define a non-circular digest for the final GateReport payload—for example, canonicalize the report with `operator_checklist_sha256` omitted—and include that digest in the signed checklist or human attestation. Recompute and verify it in `verify_evidence.py`, then continue to bind the exact checklist bytes from the report. Also verify that the external attestation/signature artifact is scoped to those exact checklist bytes and matches the artifact referenced by the report. Add mutation tests that change final-report fixture, environment, implementation revision, and artifact digest fields after signing and require verification to fail.
+This breaks the D-07 machine-readable evidence-export deliverable and violates the repository's rule that a contract change synchronize its schema, producers, fixtures, and tests. It is especially load-bearing here because the V2 change is the evidence-integrity correction used to close the physical gates, while the candidate revision named by those reports still contains this V1 producer.
+
+**Fix:** Migrate `EvidenceExporter` and its independent validator to GateReportV2 for the automation-owned UNRUN/RUNNING/RED states, emitting `artifact_role: supporting_evidence` and rejecting operator-attestation roles. Update `EvidenceExporterTests` to assert the V2 version/role fields and cross-validate actual Swift-emitted bytes against `evidence/templates/gate-report.schema.json` so another local-schema drift cannot pass. Preserve the existing signed physical evidence as evidence for its named revision; do not rewrite its implementation revision without a newly bound candidate/evidence decision.
 
 ## Warnings
 
-### WR-01 — shared schema validator makes the capture suite intermittently fail under concurrent execution
-
-**File:** `ios/ReRoomDeviceProof/ReRoomDeviceProofTests/CaptureAttemptTests.swift:8`
-
-`CaptureAttemptTests` is not serialized, while all parameterized cases share the static `ContractValidator` declared at line 747. A full Debug simulator run failed the `.gap` case in `manifestMutationsReject(mutation:)`: `journal.recover()` unexpectedly threw `.invalidManifest` before the mutation under test. The same complete unit target passed immediately on rerun. The package-level contract validation suite is explicitly serialized, which further indicates that concurrent use of the compiled validator is not established as safe. This makes verification nondeterministic and may expose an unjustified `Sendable` assumption in production validation.
-
-**Fix:** Make `CaptureAttemptTests` serialized or instantiate an isolated validator per test. Separately, either serialize access within the production `ContractValidator` or establish the wrapped compiled schema validator's concurrency safety with a stress test before relying on its `Sendable` conformance.
-
-### WR-02 — a rejected orientation re-selection leaves the prior capture selected
-
-**File:** `ios/ReRoomDeviceProof/ReRoomDeviceProof/CaptureAttemptMachine.swift:55`
-
-`select` returns an orientation rejection without clearing `selectedAttempt`; the quarantine and unhealthy-state branches do clear it. A caller can select a valid portrait attempt, attempt a second landscape selection that is rejected, then call `finish` with values matching the first attempt and receive `.ready`. The current UI constructs a fresh machine for each capture flow, which limits present exposure, but the state machine itself violates re-selection semantics and can authorize a stale attempt if it is reused.
-
-**Fix:** Clear `selectedAttempt` at the start of every `select` operation, or at minimum before returning the orientation rejection. Add a regression test for valid selection → rejected re-selection → finish, requiring `.noSelection`.
+None.
 
 ## Informational
 
@@ -136,16 +126,18 @@ None.
 
 ## Verification
 
-- `scripts/verify-phase-01-contracts gate` — passed; both evidence verification passes completed and GATE-013/GATE-002 were reported GREEN.
-- `.venv/bin/python -m unittest tools.verify.tests.test_compare_results tools.verify.tests.test_evidence_templates tools.verify.tests.test_reference_parity tools.python.tests.test_parity_mutations tools.python.tests.test_runner -v` — passed, 33 tests.
-- `node --test tools/javascript/test/runner.test.mjs tools/javascript/test/parity-mutations.test.mjs` — passed, 5 tests.
-- `swift test --package-path ios/Packages/ReRoomContracts` — passed, 32 tests across 5 suites.
-- Full Debug simulator `xcodebuild test` — the UI target passed, but the unit target failed once in the `.gap` capture mutation case with unexpected `.invalidManifest`; the complete unit target passed on immediate rerun. This is the evidence for WR-01, not a clean full-suite result.
-- `git diff --check` — passed before writing this report; the report itself was checked again after writing.
-- The GATE-002 and GATE-013 physical outcomes were treated as human-attested evidence supplied by the operator. This review did not fabricate physical observations or inspect private external room artifacts.
+- `scripts/verify-phase-01-contracts gate` — passed; both V2 evidence pairs verified and reported `GATE-013=GREEN,GATE-002=GREEN`.
+- `.venv/bin/python -m unittest tools.verify.tests.test_evidence_templates -v` — passed, 22 tests including report/checklist mutation rejection.
+- `swift test --package-path ios/Packages/ReRoomContracts` — passed, 33 tests across 5 suites; the shared-validator concurrency stress test completed 1,024 accepted validations.
+- Full Debug simulator `xcodebuild test ... -only-testing:ReRoomDeviceProofTests` on iPhone 17 / iOS 26.4 — passed, including the complete capture, evidence-export, AR policy, world-epoch, and release-smoke unit target.
+- A second focused simulator `CaptureAttemptTests` run passed, including repeated manifest mutations and `rejectedReselectionClearsStaleAttempt`.
+- Historical V1 automated-preflight bytes validated against the current V2 schema — rejected with two errors, proving the same version/role mismatch present in `EvidenceExporter.swift`.
+- Frozen review scope validation — exactly 79 declared, unique, existing files; no files were added or removed from the scope.
+- `git diff --check` — passed before writing this report and was rerun after writing.
+- The GATE-002 and GATE-013 physical observations were treated only as human-attested evidence. This review did not inspect private external raw artifacts under `/tmp` or fabricate physical evidence.
 
 ---
 
-_Reviewed: 2026-07-17T12:41:07Z_
+_Reviewed: 2026-07-17T13:49:56Z_
 _Reviewer: Codex (generic-agent fallback following gsd-code-reviewer contract)_
 _Depth: standard_
