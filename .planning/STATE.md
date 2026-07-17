@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: executing
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-07-17T22:32:18.313Z"
+stopped_at: Completed 02-04-PLAN.md
+last_updated: "2026-07-17T23:00:31.085Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 22
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 02 (Atomic Capture and Exact Replay) — EXECUTING
 
-Plan: 3 of 7
+Plan: 4 of 7
 
 Status: Ready to execute
 
 Last activity: 2026-07-17 — Phase 02 execution started
 
-Progress: [████████████████████] 15/15 planned tasks ([████████░░] 77%)
+Progress: [████████████████████] 15/15 planned tasks ([████████░░] 82%)
 
 ## Performance Metrics
 
@@ -77,6 +77,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 01 P15 | 9min | 2 tasks | 4 files |
 | Phase 02 P01 | 33min | 2 tasks | 29 files |
 | Phase 02 P02 | 28min | 2 tasks | 5 files |
+| Phase 02 P04 | 16 min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 02]: Return a network receipt only after exact frame and lifecycle journal durability. — Makes authoritative journal order the sole publication and transport boundary.
 - [Phase 02]: Treat gateway acknowledgement as an exact fifth event independent of local replay and finalization. — Server availability cannot weaken local durability or block explicit stop.
 - [Phase 02]: Preserve pre-operation fault observation and add a backward-compatible post-operation observer. — Tests can terminate on both sides of each durability edge without changing existing integrations.
+- [Phase 02]: Merge ordinary and reserved admission lanes only by monotonic admission sequence; reserved capacity never creates replay order.
+- [Phase 02]: Count queued plus the sole writer lease as outstanding and release either lane only at terminal writer completion.
+- [Phase 02]: Use the same injected HYPOTHESIS/TARGET pressure policy for admission and post-durability queues in the locked degradation order.
+- [Phase 02]: Keep acknowledgement scheduling receipt-bound and offline so completion order cannot mutate durable journal authority.
 
 ### Pending Todos
 
@@ -116,9 +121,9 @@ None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independen
 
 ## Session Continuity
 
-Last session: 2026-07-17T22:31:17.766Z
+Last session: 2026-07-17T23:00:31.080Z
 
-Stopped at: Completed 02-02-PLAN.md
+Stopped at: Completed 02-04-PLAN.md
 
 Resume file: None
 
