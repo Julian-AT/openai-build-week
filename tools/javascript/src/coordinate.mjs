@@ -48,9 +48,7 @@ function determinant3(matrix) {
   return a * (e * i - f * h) - b * (d * i - f * g) + c * (d * h - e * g);
 }
 
-export function validateRigidTransform(values) {
-  const matrix = quantizedArray(values, 16);
-  const rotation = [matrix[0], matrix[1], matrix[2], matrix[4], matrix[5], matrix[6], matrix[8], matrix[9], matrix[10]];
+function validateProperRotation(rotation) {
   let orthogonalitySquared = 0;
   for (let row = 0; row < 3; row += 1) {
     for (let column = 0; column < 3; column += 1) {
@@ -62,6 +60,13 @@ export function validateRigidTransform(values) {
   }
   requireCoordinate(Math.sqrt(orthogonalitySquared) <= RIGID_TOLERANCE, "rotation is not orthonormal");
   requireCoordinate(Math.abs(determinant3(rotation) - 1) <= RIGID_TOLERANCE, "rotation determinant is not +1");
+  return rotation;
+}
+
+export function validateRigidTransform(values) {
+  const matrix = quantizedArray(values, 16);
+  const rotation = [matrix[0], matrix[1], matrix[2], matrix[4], matrix[5], matrix[6], matrix[8], matrix[9], matrix[10]];
+  validateProperRotation(rotation);
   const expectedLastRow = [0, 0, 0, 1];
   requireCoordinate(matrix.slice(12).every((value, index) => Math.abs(value - expectedLastRow[index]) <= HOMOGENEOUS_ROW_TOLERANCE), "homogeneous last row is invalid");
   return matrix;
@@ -137,7 +142,7 @@ export function executeCoordinateOperation(input) {
     case "transform_intrinsics":
       return transformIntrinsics(input.sensor_intrinsics, input.encoded_from_sensor, input.encoded_size, input.orientation);
     case "arkit_to_opencv_camera":
-      return { opencv_camera_point: multiplyMatrixVector(quantizedArray(input.conversion, 9), quantizedArray(input.camera_point, 3), 3) };
+      return { opencv_camera_point: multiplyMatrixVector(validateProperRotation(quantizedArray(input.conversion, 9)), quantizedArray(input.camera_point, 3), 3) };
     case "apply_world_correction":
       return { point_to: applyWorldCorrection(input.from_world_frame_version, input.to_world_frame_version, input.to_from_from_transform, input.point_from) };
     case "validate_rr_float":

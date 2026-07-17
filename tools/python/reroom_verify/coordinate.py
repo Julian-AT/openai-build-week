@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import math
 import json
+import math
 import struct
 from typing import Any, Sequence
 
@@ -12,7 +12,10 @@ from .loader import LoadedFixture, VerificationFailure, parse_json_bytes
 
 
 FLOAT32_MAX = 3.4028234663852886e38
-RIGID_TOLERANCE = 1e-6
+SCALAR_ABSOLUTE_TOLERANCE = 1e-5
+SCALAR_RELATIVE_TOLERANCE = 1e-6
+RIGID_TOLERANCE = 1e-4
+HOMOGENEOUS_ROW_TOLERANCE = 1e-6
 
 
 def _number(value: Any) -> float:
@@ -21,7 +24,15 @@ def _number(value: Any) -> float:
     converted = float(value)
     if not math.isfinite(converted):
         raise VerificationFailure("numeric_out_of_range", "coordinate scalar is non-finite")
-    return converted
+    if abs(converted) > FLOAT32_MAX:
+        raise VerificationFailure("numeric_out_of_range", "coordinate scalar exceeds binary32")
+    try:
+        quantized = struct.unpack(">f", struct.pack(">f", converted))[0]
+    except OverflowError as error:
+        raise VerificationFailure("numeric_out_of_range", "coordinate scalar exceeds binary32") from error
+    if not math.isfinite(quantized):
+        raise VerificationFailure("numeric_out_of_range", "coordinate scalar overflows binary32")
+    return quantized
 
 
 def _vector(values: Any, length: int) -> list[float]:
@@ -61,19 +72,41 @@ def _determinant3(matrix: Sequence[Sequence[float]]) -> float:
 
 def validate_rigid_transform(values: Any) -> list[list[float]]:
     matrix = _matrix(values, 4)
-    if any(abs(matrix[3][index] - expected) > RIGID_TOLERANCE for index, expected in enumerate((0, 0, 0, 1))):
+    if any(abs(matrix[3][index] - expected) > HOMOGENEOUS_ROW_TOLERANCE for index, expected in enumerate((0, 0, 0, 1))):
         raise VerificationFailure("coordinate_invalid", "homogeneous row is invalid")
     rotation = [row[:3] for row in matrix[:3]]
-    for row in rotation:
-        if abs(sum(value * value for value in row) - 1.0) > RIGID_TOLERANCE:
-            raise VerificationFailure("coordinate_invalid", "rotation row is not unit length")
-    for first in range(3):
-        for second in range(first + 1, 3):
-            dot = sum(rotation[first][index] * rotation[second][index] for index in range(3))
-            if abs(dot) > RIGID_TOLERANCE:
-                raise VerificationFailure("coordinate_invalid", "rotation rows are not orthogonal")
+    orthogonality_squared = 0.0
+    for row in range(3):
+        for column in range(3):
+            dot = sum(rotation[index][row] * rotation[index][column] for index in range(3))
+            difference = dot - (1.0 if row == column else 0.0)
+            orthogonality_squared += difference * difference
+    if math.sqrt(orthogonality_squared) > RIGID_TOLERANCE:
+        raise VerificationFailure("coordinate_invalid", "rotation is not orthonormal")
     if abs(_determinant3(rotation) - 1.0) > RIGID_TOLERANCE:
         raise VerificationFailure("coordinate_invalid", "rotation must be proper, not reflected")
+    return matrix
+
+
+def rr_float_equal(left: Any, right: Any) -> bool:
+    a = _number(left)
+    b = _number(right)
+    return abs(a - b) <= SCALAR_ABSOLUTE_TOLERANCE + SCALAR_RELATIVE_TOLERANCE * max(abs(a), abs(b))
+
+
+def _validate_rigid_matrix3(values: Any) -> list[list[float]]:
+    matrix = _matrix(values, 3)
+    orthogonality_squared = 0.0
+    for row in range(3):
+        for column in range(3):
+            dot = sum(matrix[index][row] * matrix[index][column] for index in range(3))
+            difference = dot - (1.0 if row == column else 0.0)
+            orthogonality_squared += difference * difference
+    if (
+        math.sqrt(orthogonality_squared) > RIGID_TOLERANCE
+        or abs(_determinant3(matrix) - 1.0) > RIGID_TOLERANCE
+    ):
+        raise VerificationFailure("coordinate_invalid", "camera conversion is not a proper rotation")
     return matrix
 
 
@@ -85,6 +118,7 @@ def apply_world_correction(document: dict[str, Any]) -> dict[str, Any]:
         or isinstance(target, bool)
         or not isinstance(source, int)
         or not isinstance(target, int)
+        or source < 1
         or target <= source
     ):
         raise VerificationFailure("coordinate_invalid", "correction must move strictly forward")
@@ -101,12 +135,12 @@ def transform_intrinsics(document: dict[str, Any]) -> dict[str, Any]:
     if fx <= 0 or fy <= 0:
         raise VerificationFailure("coordinate_invalid", "focal lengths must be positive")
     encoded_from_sensor = _matrix(document.get("encoded_from_sensor"), 3)
-    if any(abs(encoded_from_sensor[2][index] - expected) > RIGID_TOLERANCE for index, expected in enumerate((0, 0, 1))):
+    if any(abs(encoded_from_sensor[2][index] - expected) > HOMOGENEOUS_ROW_TOLERANCE for index, expected in enumerate((0, 0, 1))):
         raise VerificationFailure("coordinate_invalid", "pixel transform is not affine")
     sensor = [[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]]
     encoded = multiply_matrices(encoded_from_sensor, sensor)
-    encoded_fx = max(abs(encoded[0][0]), abs(encoded[0][1]))
-    encoded_fy = max(abs(encoded[1][0]), abs(encoded[1][1]))
+    encoded_fx = math.hypot(encoded[0][0], encoded[0][1])
+    encoded_fy = math.hypot(encoded[1][0], encoded[1][1])
     if encoded_fx <= 0 or encoded_fy <= 0:
         raise VerificationFailure("coordinate_invalid", "encoded focal lengths are degenerate")
     encoded_size = document.get("encoded_size")
@@ -117,8 +151,8 @@ def transform_intrinsics(document: dict[str, Any]) -> dict[str, Any]:
     ):
         raise VerificationFailure("coordinate_invalid", "encoded size is invalid")
     orientation = document.get("orientation")
-    if orientation not in {"up", "down", "left", "right", "up_mirrored", "down_mirrored", "left_mirrored", "right_mirrored"}:
-        raise VerificationFailure("coordinate_invalid", "orientation is invalid")
+    if orientation != "up":
+        raise VerificationFailure("coordinate_invalid", "encoded orientation must be physically upright")
     return {
         "encoded_intrinsics": {
             "fx": encoded_fx,
@@ -162,9 +196,7 @@ def project(document: dict[str, Any]) -> dict[str, Any]:
 
 def arkit_to_opencv_camera(document: dict[str, Any]) -> dict[str, Any]:
     point = _vector(document.get("camera_point"), 3)
-    conversion = _matrix(document.get("conversion"), 3)
-    if abs(_determinant3(conversion) - 1.0) > RIGID_TOLERANCE:
-        raise VerificationFailure("coordinate_invalid", "camera conversion is reflected")
+    conversion = _validate_rigid_matrix3(document.get("conversion"))
     return {"opencv_camera_point": multiply_matrix_vector(conversion, point)}
 
 
