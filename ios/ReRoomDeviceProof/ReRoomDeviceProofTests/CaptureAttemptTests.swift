@@ -1,6 +1,8 @@
 import Foundation
+import ImageIO
 import ReRoomContracts
 import Testing
+import UniformTypeIdentifiers
 @testable import ReRoomDeviceProof
 
 @Suite("Capture attempts")
@@ -318,27 +320,13 @@ struct CaptureAttemptTests {
             submapID: captureInput.submapID,
             frameID: captureInput.frameID,
             captureSequence: captureInput.captureSequence,
-            monotonicTimestampNS: captureInput.monotonicTimestampNS,
-            imageData: captureInput.imageData,
-            imageCodec: captureInput.imageCodec,
-            imageWidth: captureInput.imageWidth,
-            imageHeight: captureInput.imageHeight,
-            colorSpace: captureInput.colorSpace,
-            imageRange: captureInput.imageRange,
-            cropInSensorPixels: captureInput.cropInSensorPixels,
-            intrinsicsEncodedPixels: FrameIntrinsics(
-                fx: 500,
-                fy: 500,
-                cx: 1,
-                cy: 1,
-                width: 1,
-                height: 1
+            capturedFrame: captureInput.capturedFrame,
+            quality: FrameQuality(
+                motionScore: 2,
+                blurScore: 1,
+                exposureScore: 1,
+                selectedReason: "cadence"
             ),
-            encodedFromSensor: captureInput.encodedFromSensor,
-            worldFromCamera: captureInput.worldFromCamera,
-            trackingState: captureInput.trackingState,
-            trackingReason: captureInput.trackingReason,
-            quality: captureInput.quality,
             idempotencyKey: captureInput.idempotencyKey,
             previousDurableFrameID: captureInput.previousDurableFrameID,
             lifecycleEventIDs: captureInput.lifecycleEventIDs
@@ -347,6 +335,46 @@ struct CaptureAttemptTests {
             try journal.capture(input: invalidInput, attempt: readyAttempt)
         }
         #expect(fileSystem.allPaths().isEmpty)
+    }
+
+    @Test("A captured snapshot derives encoded dimensions and intrinsics from upright bytes")
+    func capturedSnapshotDerivesCoherentImageFacts() throws {
+        let snapshot = try makeCapturedFrame()
+
+        #expect(snapshot.imageWidth == 2)
+        #expect(snapshot.imageHeight == 3)
+        #expect(snapshot.intrinsicsEncodedPixels.width == 2)
+        #expect(snapshot.intrinsicsEncodedPixels.height == 3)
+        #expect(snapshot.intrinsicsEncodedPixels.fx == 1.5)
+        #expect(snapshot.intrinsicsEncodedPixels.fy == 2)
+        #expect(snapshot.orientation == "up")
+    }
+
+    @Test("Non-images and crop/transform mismatches cannot become captured snapshots")
+    func capturedSnapshotRejectsUnrelatedFacts() throws {
+        #expect(throws: CapturedFrameSnapshotRejection.invalidInput) {
+            try makeCapturedFrame(imageData: Data("not an image".utf8))
+        }
+        #expect(throws: CapturedFrameSnapshotRejection.invalidInput) {
+            try makeCapturedFrame(
+                encodedFromSensor: [1, 0, 1, 0, 1, 0, 0, 0, 1]
+            )
+        }
+    }
+
+    @Test("Portrait upright geometry preserves checkerboard pixel positions")
+    func uprightGeometryMapsSensorPixels() throws {
+        let geometry = UprightImageGeometry.forSensor(
+            width: 3,
+            height: 2,
+            orientation: .portrait
+        )
+
+        #expect(geometry.encodedWidth == 2)
+        #expect(geometry.encodedHeight == 3)
+        #expect(geometry.map(x: 0, y: 0) == [2, 0])
+        #expect(geometry.map(x: 3, y: 0) == [2, 3])
+        #expect(geometry.map(x: 0, y: 2) == [0, 0])
     }
 
     @Test("The concrete filesystem preserves the same atomic capture and recovery boundary")
@@ -498,31 +526,7 @@ struct CaptureAttemptTests {
             submapID: "submap_00000000-0000-4000-8000-000000000001",
             frameID: frameID,
             captureSequence: captureSequence,
-            monotonicTimestampNS: "9007199254740993",
-            imageData: Data("test".utf8),
-            imageCodec: "jpeg",
-            imageWidth: 480,
-            imageHeight: 640,
-            colorSpace: "srgb",
-            imageRange: "full",
-            cropInSensorPixels: FrameCrop(x: 0, y: 0, width: 480, height: 640),
-            intrinsicsEncodedPixels: FrameIntrinsics(
-                fx: 500,
-                fy: 500,
-                cx: 239.5,
-                cy: 319.5,
-                width: 480,
-                height: 640
-            ),
-            encodedFromSensor: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-            worldFromCamera: [
-                1, 0, 0, 0,
-                0, 1, 0, 0,
-                0, 0, 1, 0,
-                0, 0, 0, 1,
-            ],
-            trackingState: "normal",
-            trackingReason: "none",
+            capturedFrame: try! makeCapturedFrame(),
             quality: FrameQuality(
                 motionScore: 0,
                 blurScore: 1,
@@ -533,6 +537,73 @@ struct CaptureAttemptTests {
             previousDurableFrameID: previousDurableFrameID,
             lifecycleEventIDs: lifecycleEventIDs
         )
+    }
+
+    private func makeCapturedFrame(
+        imageData: Data? = nil,
+        encodedFromSensor: [Double] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    ) throws -> CapturedFrameSnapshot {
+        try CapturedFrameSnapshot.validated(
+            id: readyFrameSnapshot.id,
+            imageData: imageData ?? checkerboardPNG(),
+            imageCodec: "png",
+            colorSpace: "srgb",
+            imageRange: "full",
+            cropInSensorPixels: FrameCrop(x: 0, y: 0, width: 2, height: 3),
+            sensorIntrinsics: FrameIntrinsics(
+                fx: 1.5,
+                fy: 2,
+                cx: 0.5,
+                cy: 1,
+                width: 2,
+                height: 3
+            ),
+            encodedFromSensor: encodedFromSensor,
+            worldFromCamera: [
+                1, 0, 0, 0,
+                0, 1, 0, 0,
+                0, 0, 1, 0,
+                0, 0, 0, 1,
+            ],
+            trackingState: "normal",
+            trackingReason: "none"
+        )
+    }
+
+    private func checkerboardPNG() throws -> Data {
+        let width = 2
+        let height = 3
+        var pixels: [UInt8] = [
+            255, 0, 0, 255, 0, 255, 0, 255,
+            0, 0, 255, 255, 255, 255, 255, 255,
+            255, 255, 0, 255, 0, 0, 0, 255,
+        ]
+        let image: CGImage = try pixels.withUnsafeMutableBytes { bytes in
+            let context = try #require(
+                CGContext(
+                    data: bytes.baseAddress,
+                    width: width,
+                    height: height,
+                    bitsPerComponent: 8,
+                    bytesPerRow: width * 4,
+                    space: CGColorSpaceCreateDeviceRGB(),
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                )
+            )
+            return try #require(context.makeImage())
+        }
+        let data = NSMutableData()
+        let destination = try #require(
+            CGImageDestinationCreateWithData(
+                data,
+                UTType.png.identifier as CFString,
+                1,
+                nil
+            )
+        )
+        CGImageDestinationAddImage(destination, image, nil)
+        #expect(CGImageDestinationFinalize(destination))
+        return data as Data
     }
 
     private func makeJournal(
