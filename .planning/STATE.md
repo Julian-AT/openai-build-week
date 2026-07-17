@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: "Plan 01-14 blocked before automated preflight: Apple signing account/provisioning required"
-last_updated: "2026-07-17T04:10:11.918Z"
-last_activity: 2026-07-16
-last_activity_desc: Phase 01 execution started
+stopped_at: "Plan 01-14 Task 1 ready but blocked before candidate-bound preflight: authenticate the Personal Team in Xcode or install its legitimate provisioning profile"
+last_updated: "2026-07-17T04:16:42Z"
+last_activity: 2026-07-17
+last_activity_desc: Release test-bundle regression fixed and quick verification passed; signed candidate still requires Xcode provisioning credentials
 progress:
   total_phases: 1
   completed_phases: 0
@@ -30,11 +30,11 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 13 of 14
+Plan: 14 of 14
 
-Status: Ready to execute
+Status: Blocked before Task 1 by external signing/provisioning credentials
 
-Last activity: 2026-07-16 — Phase 01 execution started
+Last activity: 2026-07-17 — Release test-bundle regression fixed and quick verification passed; signed candidate still requires Xcode provisioning credentials
 
 Progress: [█████████░] 93%
 
@@ -126,13 +126,14 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Plans 01-04 and 01-14 contain explicit human decision/evidence gates.
+Resume Plan 01-14 Task 1 after Xcode has an authenticated Apple account or a legitimate matching provisioning profile; then obtain the two explicit human physical-gate decisions.
 
 ### Blockers/Concerns
 
 - Planning safeguard satisfied: Phase 1 discussion is recorded and all 14 plans passed independent verification before implementation.
 - Provisional ADR variants cannot be treated as selected or measured until their physical/fixture evidence and deadlines are satisfied.
 - Physical iPhone/Xcode/signing, compositor/thermal, visual-vote, license, and final rules gates require human/device evidence and cannot be fabricated.
+- Plan 01-14 Task 1 cannot create its candidate-bound preflight yet: the Apple Development identity and paired base iPhone 17 are visible, but Xcode has no authenticated account token and no matching provisioning profile, so archive exits with `No Accounts`.
 
 ## Deferred Items
 
@@ -143,8 +144,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-17T04:10:11.913Z
+Last session: 2026-07-17T04:16:42Z
 
-Stopped at: Plan 01-14 blocked before automated preflight: Apple signing account/provisioning required
+Stopped at: Plan 01-14 Task 1 ready but blocked before candidate-bound preflight: authenticate the Personal Team in Xcode or install its legitimate provisioning profile
 
 Resume file: .planning/phases/01-contract-and-device-proof/01-14-PLAN.md
