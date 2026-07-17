@@ -394,6 +394,10 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					DiagnosticChecklistView.swift,
+					EvidenceExporter.swift,
+				);
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ReRoomDeviceProof/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -440,6 +444,12 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				EXCLUDED_SOURCE_FILE_NAMES = (
+					ARSessionPolicyTests.swift,
+					CaptureAttemptTests.swift,
+					EvidenceExporterTests.swift,
+					WorldEpochTests.swift,
+				);
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (

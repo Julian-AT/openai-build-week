@@ -10,7 +10,11 @@ struct ReRoomDeviceProofApp: App {
 
     var body: some Scene {
         WindowGroup {
+#if DEBUG
+            DiagnosticChecklistView(model: model)
+#else
             CandidateSeedView(model: model)
+#endif
         }
     }
 }

@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT="$ROOT_DIR/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
+PBXPROJ="$PROJECT/project.pbxproj"
+
+fail() {
+  echo "release surface verification: FAIL: $*" >&2
+  exit 1
+}
+
+app_target_count="$(/usr/bin/grep -c 'productType = "com.apple.product-type.application";' "$PBXPROJ")"
+[[ "$app_target_count" == "1" ]] || fail "expected exactly one application target, found $app_target_count"
+
+build_settings="$(/usr/bin/xcodebuild \
+  -project "$PROJECT" \
+  -scheme ReRoomDeviceProof \
+  -configuration Release \
+  -sdk iphonesimulator \
+  -showBuildSettings 2>/dev/null)"
+
+setting() {
+  local key="$1"
+  /usr/bin/awk -F ' = ' -v key="$key" '$1 ~ "^[[:space:]]*" key "$" { print $2; exit }' <<<"$build_settings"
+}
+
+target_build_dir="$(setting TARGET_BUILD_DIR)"
+wrapper_name="$(setting WRAPPER_NAME)"
+[[ -n "$target_build_dir" && -n "$wrapper_name" ]] || fail "could not locate the Release app product"
+
+app_path="$target_build_dir/$wrapper_name"
+[[ -d "$app_path" ]] || fail "Release product is missing; run the Release XCUITest first: $app_path"
+[[ "$app_path" == *"/Release-iphonesimulator/"* ]] || fail "inspector resolved a non-Release product: $app_path"
+
+scan_file="$(/usr/bin/mktemp -t reroom-release-surface.XXXXXX)"
+trap '/bin/rm -f "$scan_file"' EXIT
+
+while IFS= read -r -d '' file; do
+  /usr/bin/strings -a "$file" >>"$scan_file" 2>/dev/null || true
+done < <(/usr/bin/find "$app_path" -type f -print0)
+
+for required in 'release.root.candidate' 'ReRoom device check'; do
+  /usr/bin/grep -Fq "$required" "$scan_file" || fail "shipping surface marker is absent: $required"
+done
+
+prohibited_pattern='debug\.root\.diagnostics|debug\.action\.exportEvidence|debug\.permission\.microphone|debug\.check\.|DiagnosticChecklistView|EvidenceExporter|EvidenceExportRequest|Export Sanitized Evidence|gate-report\.schema\.json|operator-checklist\.schema\.json'
+if /usr/bin/grep -E "$prohibited_pattern" "$scan_file" >/dev/null; then
+  fail "diagnostic or evidence-export surface leaked into the Release app"
+fi
+
+if /usr/bin/find "$app_path" -type f \( \
+  -iname '*EvidenceExport*' -o \
+  -iname '*DiagnosticChecklist*' -o \
+  -iname 'gate-report*' -o \
+  -iname 'operator-checklist*' \
+\) -print -quit | /usr/bin/grep -q .; then
+  fail "diagnostic or evidence-export resource leaked into the Release app"
+fi
+
+echo "release surface verification: PASS ($app_path)"
