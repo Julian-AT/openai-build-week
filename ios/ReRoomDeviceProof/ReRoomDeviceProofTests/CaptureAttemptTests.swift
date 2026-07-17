@@ -156,6 +156,50 @@ struct CaptureAttemptTests {
         #expect(recovered.events.contains { $0.type == "frame_server_acknowledged" } == false)
     }
 
+    @Test(
+        "Stable frame, event, and idempotency identities are rejected before any durable write",
+        arguments: StableCaptureIdentityCollision.allCases
+    )
+    func stableIdentityCollisionIsImmutable(collision: StableCaptureIdentityCollision) throws {
+        let fileSystem = MemoryCaptureFileSystem()
+        let journal = makeJournal(fileSystem: fileSystem)
+        _ = try journal.capture(input: captureInput, attempt: readyAttempt)
+        let durableBytesBeforeCollision = fileSystem.snapshot()
+
+        let secondInput = makeCaptureInput(
+            frameID: collision == .frameID
+                ? captureInput.frameID
+                : "frame_00000000-0000-4000-8000-000000000002",
+            captureSequence: 1,
+            idempotencyKey: collision == .idempotencyKey
+                ? captureInput.idempotencyKey
+                : "frameidem_00000000-0000-4000-8000-000000000002",
+            previousDurableFrameID: captureInput.frameID,
+            lifecycleEventIDs: collision == .eventID
+                ? [
+                    captureInput.lifecycleEventIDs[0],
+                    "event_00000000-0000-4000-8000-000000000006",
+                    "event_00000000-0000-4000-8000-000000000007",
+                    "event_00000000-0000-4000-8000-000000000008",
+                ]
+                : [
+                    "event_00000000-0000-4000-8000-000000000005",
+                    "event_00000000-0000-4000-8000-000000000006",
+                    "event_00000000-0000-4000-8000-000000000007",
+                    "event_00000000-0000-4000-8000-000000000008",
+                ]
+        )
+
+        #expect(throws: DiagnosticJournalRejection.invalidJournal) {
+            try journal.capture(input: secondInput, attempt: readyAttempt)
+        }
+        #expect(fileSystem.snapshot() == durableBytesBeforeCollision)
+
+        let recovered = try makeJournal(fileSystem: fileSystem).recover()
+        #expect(recovered.acceptedFrames.map(\.frameID) == [captureInput.frameID])
+        #expect(recovered.events.map(\.eventID) == captureInput.lifecycleEventIDs)
+    }
+
     @Test("Rejected and quarantined attempts cannot reach the packet builder")
     func invalidAttemptRejectsBeforeDurability() {
         let fileSystem = MemoryCaptureFileSystem()
@@ -282,11 +326,32 @@ struct CaptureAttemptTests {
     }
 
     private var captureInput: FramePacketCaptureInput {
+        makeCaptureInput(
+            frameID: "frame_00000000-0000-4000-8000-000000000001",
+            captureSequence: 0,
+            idempotencyKey: "frameidem_00000000-0000-4000-8000-000000000001",
+            previousDurableFrameID: nil,
+            lifecycleEventIDs: [
+                "event_00000000-0000-4000-8000-000000000001",
+                "event_00000000-0000-4000-8000-000000000002",
+                "event_00000000-0000-4000-8000-000000000003",
+                "event_00000000-0000-4000-8000-000000000004",
+            ]
+        )
+    }
+
+    private func makeCaptureInput(
+        frameID: String,
+        captureSequence: UInt64,
+        idempotencyKey: String,
+        previousDurableFrameID: String?,
+        lifecycleEventIDs: [String]
+    ) -> FramePacketCaptureInput {
         FramePacketCaptureInput(
             sessionID: "session_00000000-0000-4000-8000-000000000001",
             submapID: "submap_00000000-0000-4000-8000-000000000001",
-            frameID: "frame_00000000-0000-4000-8000-000000000001",
-            captureSequence: 0,
+            frameID: frameID,
+            captureSequence: captureSequence,
             monotonicTimestampNS: "9007199254740993",
             imageData: Data("test".utf8),
             imageCodec: "jpeg",
@@ -318,14 +383,9 @@ struct CaptureAttemptTests {
                 exposureScore: 1,
                 selectedReason: "cadence"
             ),
-            idempotencyKey: "frameidem_00000000-0000-4000-8000-000000000001",
-            previousDurableFrameID: nil,
-            lifecycleEventIDs: [
-                "event_00000000-0000-4000-8000-000000000001",
-                "event_00000000-0000-4000-8000-000000000002",
-                "event_00000000-0000-4000-8000-000000000003",
-                "event_00000000-0000-4000-8000-000000000004",
-            ]
+            idempotencyKey: idempotencyKey,
+            previousDurableFrameID: previousDurableFrameID,
+            lifecycleEventIDs: lifecycleEventIDs
         )
     }
 
@@ -405,6 +465,12 @@ struct CaptureAttemptTests {
         let data = try! JSONEncoder().encode(value)
         return try! JSONSerialization.jsonObject(with: data) as! [String: Any]
     }
+}
+
+enum StableCaptureIdentityCollision: CaseIterable, Sendable {
+    case frameID
+    case eventID
+    case idempotencyKey
 }
 
 enum JournalManifestMutation: String, CaseIterable, Sendable {
@@ -516,4 +582,6 @@ private final class MemoryCaptureFileSystem: CaptureFileSystem {
     func fileExists(at path: String) -> Bool { files[path] != nil }
 
     func allPaths() -> [String] { files.keys.sorted() }
+
+    func snapshot() -> [String: Data] { files }
 }
