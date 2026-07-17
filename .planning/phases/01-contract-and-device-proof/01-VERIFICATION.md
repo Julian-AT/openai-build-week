@@ -1,18 +1,25 @@
 ---
 phase: 01-contract-and-device-proof
-verified: 2026-07-17T14:46:27Z
-status: gaps_found
-score: 48/49 must-haves verified
+verified: 2026-07-17T19:42:32Z
+status: passed
+score: 53/53 must-haves verified
 behavior_unverified: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 48/49
+  gaps_closed:
+    - "P10.2: the ordinary publisher now binds the finalized source tree and durably publishes one verified three-report generation with exact Swift, Node, and Python provenance."
+  gaps_remaining: []
+  regressions: []
 ---
 
 # Phase 1: Contract and Device Proof Verification Report
 
 **Phase Goal:** The project has one verified contract/coordinate vocabulary and a signed physical base-iPhone path that works without rear LiDAR.
-**Verified:** 2026-07-17T14:46:27Z
-**Status:** gaps_found
+**Verified:** 2026-07-17T19:42:32Z
+**Status:** passed
 
-The phase behavior and both physical gates are verified. Closeout is blocked by one reproducibility/provenance gap: the checked-in three-runtime acceptance command and reports still bind `e6a92c9864f814b5b9a8feeec7456eaf9f889db0`, while the later concurrency fix `69764a4d8181d2af30d1ea5277c547f520e5fa3e` changed two files inside that command's bound source scope. A non-publishing run of the same evaluator against current HEAD passed, so this is a stale recorded-evidence gap rather than an observed contract disagreement.
+The former recorded-provenance gap is closed. The ordinary checked-in publisher now verifies the finalized bound source revision `a5bff6896188dcac9397c48ce1a6820a7196011a`, executes Swift, JavaScript, and Python, and publishes a digest-bound report generation. Independent re-verification proved byte stability, exact Node `v22.22.3` enforcement, SwiftPM manifest-override rejection, restart recovery after a mixed-set interruption, and unchanged signed physical evidence. No pending gap or human verification item remains.
 
 ## Goal Achievement
 
@@ -21,8 +28,8 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | # | Truth | Status | Evidence |
 |---|---|---|---|
 | R1 | A signed build installs and launches on the declared base iPhone, exercises permission/ARKit/plane capability without rear LiDAR, and has repeatable build evidence. | ✓ VERIFIED | Human-supplied GateReportV2/checklist pair for GATE-013 is GREEN and semantically binds candidate `git:97d8d9d9b05477bddef8ae0aa3a635ed650dce13`, the automated preflight, opaque supporting evidence, and signed decision/checklist digests. `scripts/verify-phase-01-contracts gate` passed. |
-| R2 | Swift, JavaScript, and Python agree on RR-COORD-1, orientation/intrinsics, RR-FLOAT-1, and world-epoch cases. | ✓ VERIFIED | Fresh current-HEAD, non-publishing execution of the production three-runtime harness passed `FX-COORD-001`; Swift package tests (33), JavaScript tests (5), and Python tests (7) passed with exact oracle/value assertions. |
-| R3 | CON-001 through CON-005, RR-JCS-SHA256-1, digests, wire bytes, and malformed input behavior agree and fail closed across all three runtimes. | ✓ VERIFIED | Fresh current-HEAD three-runtime evaluation passed `FX-CONTRACT-001` and `FX-JCS-001`; fixture integrity, mutation gates, schema-selection spoofing, byte/depth limits, wire mutations, and archive-path rejection all passed. |
+| R2 | Swift, JavaScript, and Python agree on RR-COORD-1, orientation/intrinsics, RR-FLOAT-1, and world-epoch cases. | ✓ VERIFIED | The ordinary production publisher passed `FX-COORD-001` repeatedly against bound revision `a5bff689...`; Swift package tests (33), JavaScript mutation tests (2), and Python/reference tests (5) passed with exact oracle/value assertions. |
+| R3 | CON-001 through CON-005, RR-JCS-SHA256-1, digests, wire bytes, and malformed input behavior agree and fail closed across all three runtimes. | ✓ VERIFIED | The ordinary three-runtime publisher and checked-in report verifier passed `FX-CONTRACT-001` and `FX-JCS-001`; fixture integrity, mutation gates, schema-selection spoofing, byte/depth limits, wire mutations, and archive-path rejection all passed. |
 | R4 | Physical crop/orientation evidence has no row/column swap and unknown alignment is quarantined. | ✓ VERIFIED | Human-supplied GateReportV2/checklist pair for GATE-002 is GREEN and binds the same candidate/preflight plus opaque retained evidence. The verifier validated the V2 schema, digest scopes, single attestation ballot, and cross-file binding without substituting simulator or synthetic observations for the human check. |
 
 ### Plan Must-Have Truths
@@ -55,8 +62,8 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | P09.2 | RR-COORD-1 adjacency and projection use exact threshold and transform order. | ✓ VERIFIED | Coordinate math tests passed exact inclusive neighbors and all transform vectors. |
 | P09.3 | Null, empty, wrong-length, non-finite, singular, and non-rigid coordinates reject. | ✓ VERIFIED | Parameterized negative coordinate tests passed. |
 | P09.4 | Matrices remain row-major serialized with column-vector math and stable case order. | ✓ VERIFIED | Coordinate oracle and math tests passed exact artifacts/order. |
-| P10.1 | Swift, JavaScript, and Python independently agree on identical current immutable revisions. | ✓ VERIFIED | Current-HEAD non-publishing run of the production harness passed all three fixture families. |
-| P10.2 | Checked-in agreement reports bind the implemented runner revision, source tree, schema/oracle hashes, evaluator, environment, raw-result digests, and measured metrics. | ✗ FAILED | Reports correctly bind `e6a92c...`, but current bound sources differ after `69764a4...`; the checked-in command exits `bound implementation sources differ from their recorded revision`. Current results passed only in a non-publishing verification run, so durable provenance is stale. |
+| P10.1 | Swift, JavaScript, and Python independently agree on identical current immutable revisions. | ✓ VERIFIED | Ordinary checked-in publisher passed all three fixture families with fresh outputs from all three runtimes at `git:a5bff689...`. |
+| P10.2 | Checked-in agreement reports bind the implemented runner revision, source tree, schema/oracle hashes, evaluator, environment, raw-result digests, and measured metrics. | ✓ VERIFIED | All three reports bind `git:a5bff689...`, one source-tree digest, exact evaluator/publisher hashes, selected `Package.swift`, Node `v22.22.3`, three raw-result digests, immutable oracle/schema hashes, and zero disagreement metrics; the shared generation manifest binds their exact bytes. |
 | P11.1 | Device proof is scoped to the declared iOS 26.0 proof baseline, not a broader minimum. | ✓ VERIFIED | Project/build settings and signed GATE-013 report retain the declared proof scope. |
 | P11.2 | One portrait-only SwiftUI seed links the contract package and excludes edit/provider/compositor scope. | ✓ VERIFIED | Project/source inspection and Debug/Release builds/tests passed. |
 | P11.3 | Camera and microphone permissions are independent; microphone denial never blocks visual/typed paths and no audio recording exists. | ✓ VERIFIED | `ARSessionPolicyTests`, source search, app unit tests, and signed GATE-013 binding cover the boundary. |
@@ -74,8 +81,12 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | P14.4 | GREEN requires automated pass, resolvable opaque evidence, and accountable signed checklist. | ✓ VERIFIED | Both pairs pass report-decision, unsigned-checklist, exact-checklist-byte, attestation-ballot, automated-preflight, and opaque-artifact binding checks. |
 | P14.5 | RED remains exact failure evidence and phase completion requires both gates GREEN. | ✓ VERIFIED | V2 schemas/tests and gate script enforce the lifecycle; current gate command passed only because both are GREEN. |
 | P14.6 | D-05 promotion occurs only on GATE-013 GREEN. | ✓ VERIFIED | Gate state is GREEN and the candidate remains the one narrow Mode A seed; non-GREEN/waiver branches remain fail-closed in schema/script tests. |
+| P15.1 | The ordinary checked-in three-runtime command accepts the finalized bound source tree and publishes current MEASURED evidence without a bypass. | ✓ VERIFIED | `scripts/run-three-runtime-agreement` passed repeatedly without monkeypatch, override, or in-memory rebind. Closed enumeration also rejects untracked, ignored, symlinked, or version-specific Swift manifests. |
+| P15.2 | The three reports bind one exact revision/source digest, current oracle/schema/evaluator hashes, all three fresh raw results, and zero disagreements. | ✓ VERIFIED | Independent report parsing and `--verify-reports` passed; generation SHA-256 `7f18feff...` binds the sorted report names and exact report hashes. |
+| P15.3 | A second ordinary execution reproduces the compatibility reports byte-for-byte. | ✓ VERIFIED | Two consecutive ordinary executions preserved all four publication hashes: contract `299cca3d...`, JCS `f4a69f64...`, coordinate `2996f147...`, and generation manifest `b3df9302...`. |
+| P15.4 | The signed candidate, preflight, GATE-013/GATE-002 reports/checklists, attestations, and opaque physical evidence remain unchanged. | ✓ VERIFIED | Both Git baseline comparison and worktree comparison for `evidence/device/phase-01/` passed. Only sanitized record bindings were verified; no raw physical evidence was accessed or recreated. |
 
-**Score:** 48/49 truths verified. All four roadmap criteria are verified; one plan-level recorded-provenance truth is stale.
+**Score:** 53/53 truths verified. All four roadmap criteria and all 49 plan-level truths are verified.
 
 ### Must-Have Prohibitions
 
@@ -103,8 +114,9 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | 01-08 | `ios/Packages/ReRoomContracts/Sources/ReRoomContracts/ContractValidation.swift` | ✓ EXISTS + SUBSTANTIVE | Typed fail-closed registry and serialized validator boundary. |
 | 01-08 | `evidence/compatibility/swift-schema-validation.json` | ✓ EXISTS + SUBSTANTIVE | Measured Swift validator decision and limits. |
 | 01-09 | `ios/Packages/ReRoomContracts/Sources/ReRoomContracts/CoordinateMath.swift` | ✓ EXISTS + SUBSTANTIVE | Pure RR-COORD-1/RR-FLOAT-1 implementation. |
-| 01-10 | `scripts/run-three-runtime-agreement` | ⚠ SUBSTANTIVE, STALE BINDING | Production evaluator works when rebound, but committed `BOUND_REVISION` rejects current bound sources. |
-| 01-10 | `evidence/compatibility/contract-agreement.json` | ⚠ SUBSTANTIVE, STALE PROVENANCE | Valid measured report for `e6a92c...`; not durable evidence for the later validator source change. |
+| 01-10/15 | `scripts/run-three-runtime-agreement` | ✓ EXISTS + SUBSTANTIVE | Closed source enumeration, selected-manifest binding, exact runtime provenance, fresh three-runtime evaluation, and durable generation publication all passed. |
+| 01-10/15 | `evidence/compatibility/{contract,jcs,coordinate}-agreement.json` | ✓ EXISTS + VERIFIED | Current MEASURED reports bind `git:a5bff689...`, one source digest, fresh three-runtime results, and zero disagreements. |
+| 01-15 review fix | `evidence/compatibility/three-runtime-agreement-generation.json` | ✓ EXISTS + VERIFIED | Shared generation manifest binds the exact sorted report set and generation digest; verifier rejects incomplete or mixed generations. |
 | 01-11 | `ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj` | ✓ EXISTS + SUBSTANTIVE | One iPhone app target plus unit/UI tests and local package link. |
 | 01-11 | `ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift` | ✓ EXISTS + SUBSTANTIVE | ARKit/plane/recovery policy with no LiDAR dependency. |
 | 01-12 | `ios/ReRoomDeviceProof/ReRoomDeviceProof/WorldEpochController.swift` | ✓ EXISTS + SUBSTANTIVE | Version/correction/quarantine authority. |
@@ -114,7 +126,7 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | 01-14 | `evidence/device/phase-01/gate-013-report.json` | ✓ EXISTS + VERIFIED | Human GREEN V2 report bound to candidate/preflight/checklist. |
 | 01-14 | `evidence/device/phase-01/gate-002-report.json` | ✓ EXISTS + VERIFIED | Human GREEN V2 report bound to candidate/preflight/checklist. |
 
-**Artifacts:** 22/24 fully current; 2/24 are substantive but share the same stale agreement revision gap.
+**Artifacts:** 24/24 required artifacts are current, plus the review-required shared generation manifest.
 
 ### Key Link Verification
 
@@ -129,13 +141,15 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | 01-07 | Reference parity → comparator | ✓ WIRED | Independent outputs and mutations route through comparator. |
 | 01-08 | Swift validation tests → contract fixtures | ✓ WIRED | Complete frozen corpus executes. |
 | 01-09 | Swift coordinate tests → coordinate fixtures | ✓ WIRED | All accepted/rejected oracle cases execute. |
-| 01-10 | Three-runtime harness → comparator | ✓ WIRED | Three fresh normalized outputs compare; publishing is blocked only by stale revision pin. |
+| 01-10 | Three-runtime harness → comparator | ✓ WIRED | Three fresh normalized outputs are required and compared before any report generation is published. |
 | 01-11 | Xcode app → local contracts package | ✓ WIRED | Build graph resolves and tests link `ReRoomContracts`. |
 | 01-12 | World epoch → coordinate validation | ✓ WIRED | Directed correction calls rigid-transform validation. |
 | 01-13 | Evidence exporter → V2 gate schema | ✓ WIRED | `GateReportV2Validator` runs before any destination creation. Plan frontmatter's literal `GateReportV1` probe is stale after the deliberate V2 migration. |
 | 01-14 | Signed checklist → human gate report | ✓ WIRED | Both exact report-decision and checklist/attestation bindings pass. |
+| 01-15 | Publisher → finalized Git source tree | ✓ WIRED | `BOUND_REVISION`, closed `BOUND_SOURCE_SCOPES`, primary `Package.swift` provenance, and pre/post execution checks bind the executed source to `a5bff689...`. |
+| 01-15 | Three reports → shared generation manifest | ✓ WIRED | Report SHA-256 values and sorted filenames are digest-bound; publication holds a directory lock, uses a durable transaction marker/backups, and verifies or recovers before reading. |
 
-**Wiring:** 14/14 connections verified.
+**Wiring:** 16/16 connections verified.
 
 ## Automated Verification Results
 
@@ -146,18 +160,16 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | Evidence schema/binding and release-bundle regression | PASS — 23 tests |
 | Signed evidence semantic verification | PASS — GATE-013 and GATE-002 V2 report/checklist pairs |
 | Phase gate command | PASS — both states GREEN |
-| Current-HEAD three-runtime agreement, non-publishing | PASS — `FX-CONTRACT-001`, `FX-JCS-001`, `FX-COORD-001` |
-| Checked-in three-runtime publishing command | FAIL — expected drift guard: bound source revision is stale |
+| Three-runtime publisher provenance/recovery suite | PASS — 16 tests, including SwiftPM manifest bypasses, exact Node mismatch, every replacement boundary, and mixed-set restart recovery |
+| Ordinary three-runtime publisher | PASS repeatedly — `FX-CONTRACT-001`, `FX-JCS-001`, `FX-COORD-001`; no report byte changed |
+| Checked-in report verifier and generation coherence | PASS — one exact revision/source digest, three current runtimes, zero disagreements, generation/report hashes coherent |
 | Swift contracts package | PASS — 33 tests in 5 suites; includes 1,024 concurrent shared-validator requests |
-| JavaScript runner/mutations | PASS — 5 tests |
-| Python runner/mutations/reference parity | PASS — 7 tests |
-| Debug app unit target on iPhone 17 simulator | PASS — 50 tests, 88 executions, 0 failures/skips |
-| Debug diagnostic UI surface | PASS — 1/1 |
-| Release candidate UI surface | PASS — 1/1 |
+| JavaScript mutation gate | PASS — 2 tests |
+| Python mutation/reference gate | PASS — 5 tests |
+| Debug app unit/UI and Release UI surfaces | PRIOR PASS, unaffected — the gap-closure commits do not change app source or signed candidate bytes |
 | Release binary/resource surface scanner | PASS |
 | `git diff --check` and tracked-secret pattern scan | PASS |
 | GSD roadmap validation | PASS |
-| GSD consistency | PASS with expected future-phase-directory warnings |
 | GSD health | DEGRADED (non-phase warning): `.planning/config.json` uses model profile `adaptive`, while this installed GSD reports only `quality`, `balanced`, `budget`, or `inherit` as valid |
 
 ### Test Quality Audit
@@ -165,7 +177,7 @@ The phase behavior and both physical gates are verified. Closeout is blocked by 
 | Test surface | Linked requirements | Provenance | Strongest assertion | Verdict |
 |---|---|---|---|---|
 | Immutable contract/JCS/coordinate corpora | NFR-CONTRACT-001, NFR-COORD-001 | Independent checked-in oracle plus canonical schema hashes | Exact value/bytes/digest/rejection class | PASS |
-| Three runtime runners/comparator | NFR-CONTRACT-001, NFR-COORD-001 | Independent Swift/JS/Python execution | Exact cross-runtime behavioral agreement | PASS, recorded revision stale |
+| Three runtime runners/comparator/publisher | NFR-CONTRACT-001, NFR-COORD-001 | Independent Swift/JS/Python execution plus digest-bound durable generation | Exact cross-runtime behavioral agreement, provenance rejection, replacement-boundary faults, and restart recovery | PASS |
 | Swift package tests | NFR-CONTRACT-001, NFR-COORD-001 | Frozen corpus plus held-out mutations/concurrency stress | Value and behavioral | PASS |
 | Capture/epoch/journal tests | OPS-DEVICE-001, NFR-COORD-001, NFR-CONTRACT-001 | Deterministic state/crash fixtures | Multi-step behavioral/ordering | PASS |
 | Evidence tests | OPS-DEVICE-001, NFR-CONTRACT-001 | V2 schemas plus positive/negative mutation fixtures | Exact cross-file binding and pre-write behavior | PASS |
@@ -179,20 +191,20 @@ No disabled requirement test, circular expected-value source, skipped acceptance
 | Requirement | Status | Evidence / Remaining Issue |
 |---|---|---|
 | NFR-COORD-001 | ✓ SATISFIED | Current three-runtime exact coordinate agreement, Swift value tests, epoch/quarantine behavior, and signed GATE-002. |
-| NFR-CONTRACT-001 | ✓ SATISFIED | Current three-runtime execution and all fail-closed contract/JCS/wire/schema tests pass. Durable agreement provenance needs refresh, but no current contract disagreement was observed. |
+| NFR-CONTRACT-001 | ✓ SATISFIED | Current ordinary three-runtime publication, shared-generation verification, and all fail-closed contract/JCS/wire/schema tests pass with durable exact provenance. |
 | OPS-DEVICE-001 | ✓ SATISFIED | Signed GATE-013 and GATE-002 GREEN evidence is bound to the approved installed candidate; simulator/build/release checks independently pass. |
 
-**Coverage:** 3/3 phase requirements behaviorally satisfied. The remaining gap is acceptance-evidence freshness.
+**Coverage:** 3/3 phase requirements behaviorally satisfied with current acceptance evidence.
 
 ## Anti-Patterns and Disconfirmation
 
 | File | Line | Finding | Severity | Impact |
 |---|---|---|---|---|
-| `scripts/run-three-runtime-agreement` | 17 | `BOUND_REVISION` predates the serialized-validator fix inside the bound source scope. | 🛑 Blocker | The ordinary acceptance command cannot publish current measured reports. |
 | `01-13-PLAN.md` | 33 | Static key-link pattern still says `GateReportV1` after intentional V2 migration. | ℹ️ Info | No product gap; direct source/tests prove the stronger V2 link. |
 | `.planning/config.json` | 4 | Installed GSD reports `adaptive` as an invalid model profile. | ℹ️ Info | Health warning outside Phase 1 product/contract goal; consistency and roadmap validation still pass. |
+| `tools/verify/tests/test_three_runtime_agreement.py` | n/a | The explicit restart test interrupts a prepared mixed generation; there is no separate forced-process-restart test after the committed marker and before cleanup. | ℹ️ Info | Not a phase blocker: the required mixed-set recovery path is behaviorally tested, every replace boundary is fault-injected, and committed recovery verifies every published digest before cleanup. |
 
-Searches over tracked Phase 1 implementation/tests found no TODO/FIXME/HACK/placeholder implementation. The partial-looking contract behavior was challenged with current-HEAD execution rather than inferred from old reports; the result passed. The potentially misleading schema-acceptance path was challenged with semantic cross-file binding and mutation tests, not schema presence alone. The externally retained physical bytes remain intentionally human-only; the user's completed signed checklist covers that error path, and this verifier did not access or fabricate it.
+Searches over the reviewed publisher and recovery tests found no TODO/FIXME/HACK/placeholder implementation. The former partial-looking provenance path was challenged through actual ordinary publication, exact report parsing, wrong-Node rejection, SwiftPM version-manifest bypasses, all replacement boundaries, and restart recovery. The schema-acceptance path was challenged with semantic cross-file binding and mutation tests, not schema presence alone. The externally retained physical bytes remain intentionally human-only; the supplied signed checklists cover that observation, and this verifier did not access or fabricate it.
 
 ## Human Verification Required
 
@@ -200,37 +212,17 @@ None pending. The only phase truths that intrinsically required physical human o
 
 ## Gaps Summary
 
-### Critical Gaps (Block Phase Closeout)
-
-1. **Refresh three-runtime recorded provenance after the validator concurrency fix**
-   - Missing: a checked-in `scripts/run-three-runtime-agreement` binding and compatibility report set for the current contract source scope.
-   - Evidence: ordinary execution fails because `ContractValidation.swift` and `FrozenSchemaValidator.swift` changed after `e6a92c...`; the same evaluator bound in memory to current HEAD passes all three corpora.
-   - Impact: current behavior is green, but Plan 01-10's durable measured-evidence requirement and reproducible acceptance command are not current.
-   - Fix: bind the command to the exact post-fix contract revision, regenerate the three compatibility reports, rerun the ordinary command byte-stably, and rerun the focused mutation/package checks. Do not modify the signed physical candidate, preflight, gate reports, checklists, or opaque physical evidence.
-
-## Recommended Fix Plan
-
-### 01-15-PLAN.md: Refresh Post-Review Three-Runtime Provenance
-
-**Objective:** Make the ordinary Phase 1 three-runtime acceptance command and recorded reports reproducible for the finalized contract validator sources without disturbing the signed device candidate.
-
-**Tasks:**
-
-1. Update the harness's exact bound revision to the finalized contract source revision containing `69764a4...`, then regenerate `contract-agreement.json`, `jcs-agreement.json`, and `coordinate-agreement.json` through the production command.
-2. Verify each report records the new revision/source-tree digest and zero oracle/runtime disagreements; rerun the production command to prove byte-stable reproduction.
-3. Run focused Swift concurrency/contract tests, JS/Python mutation gates, fixture integrity, `git diff --check`, and the tracked-secret scan. Leave all GATE-002/GATE-013 signed evidence and candidate `git:97d8...` unchanged.
-
-**Estimated scope:** Small.
+None. The previously blocking P10.2 provenance gap is closed, and no regression or pending human item was found.
 
 ## Verification Metadata
 
 **Verification approach:** Goal-backward; summaries treated as claims, current source/tests/evidence treated as proof.
-**Must-haves source:** Four ROADMAP success criteria plus 45 PLAN frontmatter truths; no semantic deduplication because plan truths add narrower acceptance details.
-**Sources inspected:** All 14 plans and summaries, phase context/research/clean review, ROADMAP, REQUIREMENTS, canonical authority/ADRs/contracts/spec/PRD/test/risk/glossary/research ledger, current code/tests, compatibility evidence, and sanitized signed gate records.
-**Automated checks:** 16 passed, 1 expected stale-provenance failure, 1 non-phase GSD health warning.
+**Must-haves source:** Four ROADMAP success criteria plus 49 PLAN frontmatter truths from Plans 01-01 through 01-15; no semantic deduplication because plan truths add narrower acceptance details.
+**Sources inspected:** All 15 plans and summaries, phase context/research, recovered review and review-fix records, prior verification, ROADMAP, REQUIREMENTS, canonical authority/ADRs/contracts/spec/PRD/test/risk/glossary/research ledger, current source/tests, compatibility evidence, and sanitized signed gate records.
+**Automated checks:** All phase-focused acceptance and regression commands passed. One filename-typo hygiene command was rerun with the checked-in generation-manifest name and passed. One non-phase GSD health warning remains.
 **Human checks required:** 0 pending; 2 supplied and cryptographically/semantically bound.
-**Protected worktree state:** Candidate `git:97d8...` and pre-existing scheme/`.swiftpm`/workspace/`xcuserdata` changes were not modified.
+**Protected worktree state:** Candidate `git:97d8...`, `.planning/config.json`, and pre-existing scheme/`.swiftpm`/workspace/`xcuserdata` changes were not modified. The generated Swift `.build` cache was moved outside the repository after testing.
 
 ---
-*Verified: 2026-07-17T14:46:27Z*
+*Verified: 2026-07-17T19:42:32Z*
 *Verifier: GSD goal verifier (independent subagent)*
