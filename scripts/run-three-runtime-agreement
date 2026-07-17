@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import stat
 import subprocess
@@ -19,6 +20,13 @@ BOUND_REVISION = "a5bff6896188dcac9397c48ce1a6820a7196011a"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"
+SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "ios/Packages/ReRoomContracts"
+SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH = (
+    f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Package.swift"
+)
+SWIFT_VERSION_MANIFEST_PATTERN = re.compile(
+    r"Package@swift-[0-9]+(?:\.[0-9]+){0,2}\.swift"
+)
 CANONICAL_TEST_IDS = {
     "FX-CONTRACT-001": ("TST-CONTRACT-001", "TST-CONTRACT-002"),
     "FX-JCS-001": ("TST-DIGEST-001",),
@@ -259,15 +267,65 @@ def _source_tree_digest(records: list[dict[str, str]]) -> str:
     return _sha256(scope)
 
 
+def _require_swift_package_manifest(
+    root: Path, *, source_records: list[dict[str, str]]
+) -> dict[str, str]:
+    package_root = root / SWIFT_PACKAGE_ROOT_RELATIVE_PATH
+    try:
+        package_root_mode = package_root.lstat().st_mode
+    except OSError as error:
+        raise AgreementError("Swift package root is unavailable") from error
+    if not stat.S_ISDIR(package_root_mode):
+        raise AgreementError("Swift package root is not a regular directory")
+
+    try:
+        with os.scandir(package_root) as scan:
+            entries = tuple(scan)
+    except OSError as error:
+        raise AgreementError("Swift package root cannot be enumerated") from error
+    for entry in entries:
+        if SWIFT_VERSION_MANIFEST_PATTERN.fullmatch(entry.name):
+            raise AgreementError(
+                "a version-specific Swift package manifest can override the exact bound Package.swift"
+            )
+
+    matching_records = [
+        record
+        for record in source_records
+        if record.get("relative_path") == SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH
+    ]
+    if len(matching_records) != 1:
+        raise AgreementError("the exact bound Swift package manifest is unavailable")
+    selected = matching_records[0]
+    manifest_path = root / SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH
+    try:
+        manifest_mode = manifest_path.lstat().st_mode
+        manifest_sha256 = _sha256(manifest_path.read_bytes())
+    except OSError as error:
+        raise AgreementError("the exact bound Swift package manifest is unavailable") from error
+    if not stat.S_ISREG(manifest_mode) or manifest_sha256 != selected.get("sha256"):
+        raise AgreementError("the exact bound Swift package manifest is invalid")
+    return {
+        "relative_path": SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH,
+        "sha256": manifest_sha256,
+    }
+
+
 def _require_execution_bindings_unchanged(
     root: Path,
     *,
     initial_source_records: list[dict[str, str]],
+    initial_swift_package_manifest: dict[str, str],
     initial_publisher_sha256: str,
 ) -> None:
     final_source_records = _require_bound_sources(root)
     if final_source_records != initial_source_records:
         raise AgreementError("bound implementation sources changed during agreement execution")
+    final_swift_package_manifest = _require_swift_package_manifest(
+        root, source_records=final_source_records
+    )
+    if final_swift_package_manifest != initial_swift_package_manifest:
+        raise AgreementError("Swift package manifest changed during agreement execution")
     final_publisher_sha256 = _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes())
     if final_publisher_sha256 != initial_publisher_sha256:
         raise AgreementError("publisher changed during agreement execution")
@@ -371,6 +429,7 @@ def _build_report(
     environment: dict[str, str],
     source_records: list[dict[str, str]],
     source_digest: str,
+    swift_package_manifest: dict[str, str],
     evaluator_sha256: str,
     manifest_schema_sha256: str,
     result_schema_sha256: str,
@@ -392,7 +451,7 @@ def _build_report(
     ]
     return {
         "schema_version": "1.0.0",
-        "evidence_id": f"evidence_three_runtime_{stem}_20260717_005",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_006",
         "classification": "MEASURED",
         "requirement_ids": list(requirements),
         "test_ids": list(tests),
@@ -413,6 +472,7 @@ def _build_report(
             "source_tree_sha256": source_digest,
             "source_file_count": len(source_records),
             "source_scopes": list(BOUND_SOURCE_SCOPES),
+            "swift_package_manifest": swift_package_manifest,
         },
         "raw_results": {
             runtime: _raw_result_record(raw_paths[runtime], results[runtime])
@@ -491,6 +551,9 @@ def run() -> tuple[str, ...]:
     node = _resolve_executable("node", "node")
     python = _resolve_executable(root / ".venv/bin/python", "locked Python")
     source_records = _require_bound_sources(root)
+    swift_package_manifest = _require_swift_package_manifest(
+        root, source_records=source_records
+    )
     source_digest = _source_tree_digest(source_records)
     oracle_before = _oracle_hashes(root)
     environment = _environment(root, node, python)
@@ -583,6 +646,7 @@ def run() -> tuple[str, ...]:
                 environment=environment,
                 source_records=source_records,
                 source_digest=source_digest,
+                swift_package_manifest=swift_package_manifest,
                 evaluator_sha256=evaluator_sha256,
                 manifest_schema_sha256=manifest_schema_sha256,
                 result_schema_sha256=result_schema_sha256,
@@ -598,6 +662,7 @@ def run() -> tuple[str, ...]:
     _require_execution_bindings_unchanged(
         root,
         initial_source_records=source_records,
+        initial_swift_package_manifest=swift_package_manifest,
         initial_publisher_sha256=publisher_sha256,
     )
     _atomic_write_reports(reports)
@@ -612,6 +677,10 @@ def _verify_reports(
         "relative_path": PUBLISHER_RELATIVE_PATH,
         "sha256": _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes()),
     }
+    source_records = _require_bound_sources(root)
+    expected_swift_package_manifest = _require_swift_package_manifest(
+        root, source_records=source_records
+    )
     fixture_ids: list[str] = []
     for _, fixture_id, _, report_name, _, _ in MANIFESTS:
         report = _read_json(reports / report_name, f"{fixture_id} agreement report")
@@ -620,6 +689,13 @@ def _verify_reports(
             raise AgreementError(f"{fixture_id} agreement report identity is invalid")
         if report.get("publisher") != expected_publisher:
             raise AgreementError(f"{fixture_id} publisher provenance is invalid")
+        implementation = report.get("implementation")
+        if not isinstance(implementation, dict) or implementation.get(
+            "swift_package_manifest"
+        ) != expected_swift_package_manifest:
+            raise AgreementError(
+                f"{fixture_id} Swift package manifest provenance is invalid"
+            )
         if report.get("test_ids") != list(CANONICAL_TEST_IDS[fixture_id]):
             raise AgreementError(f"{fixture_id} canonical test IDs are invalid")
         fixture_ids.append(fixture_id)

@@ -138,6 +138,99 @@ class BoundSourceSetTests(unittest.TestCase):
         )
 
 
+class SwiftPackageManifestBindingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self.package_root = self.root / "ios/Packages/ReRoomContracts"
+        self.package_root.mkdir(parents=True)
+        self.manifest = self.package_root / "Package.swift"
+        self.manifest.write_text(
+            "// swift-tools-version: 6.0\nimport PackageDescription\n",
+            encoding="utf-8",
+        )
+        _git(self.root, "init", "--quiet")
+        _git(self.root, "config", "user.email", "tests@reroom.invalid")
+        _git(self.root, "config", "user.name", "ReRoom Tests")
+        (self.root / ".gitignore").write_text(
+            "Package@swift-6.swift\n", encoding="utf-8"
+        )
+        _git(
+            self.root,
+            "add",
+            ".gitignore",
+            self.manifest.relative_to(self.root).as_posix(),
+        )
+        _git(self.root, "commit", "--quiet", "-m", "bound package manifest")
+        self.record = {
+            "relative_path": "ios/Packages/ReRoomContracts/Package.swift",
+            "sha256": PUBLISHER._sha256(self.manifest.read_bytes()),
+        }
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def _require_manifest(self):
+        return PUBLISHER._require_swift_package_manifest(
+            self.root, source_records=[self.record]
+        )
+
+    def test_selects_only_the_exact_bound_primary_manifest(self) -> None:
+        self.assertEqual(self.record, self._require_manifest())
+
+    def test_rejects_major_minor_patch_and_target_redirection_variants(self) -> None:
+        cases = (
+            ("Package@swift-6.swift", "// major\n"),
+            ("Package@swift-06.swift", "// leading-zero major\n"),
+            ("Package@swift-6.3.swift", "// minor\n"),
+            ("Package@swift-6.3.0.swift", "// patch\n"),
+            ("Package@swift-6.3.0.swift", (
+                "// swift-tools-version: 6.0\n"
+                "import PackageDescription\n"
+                "let package = Package(name: \"redirected\", targets: "
+                "[.executableTarget(name: \"ReRoomContractRunner\", path: "
+                "\"../../../../outside\")])\n"
+            )),
+        )
+        for name, contents in cases:
+            with self.subTest(name=name):
+                candidate = self.package_root / name
+                candidate.write_text(contents, encoding="utf-8")
+                with self.assertRaisesRegex(
+                    PUBLISHER.AgreementError,
+                    "version-specific Swift package manifest",
+                ):
+                    self._require_manifest()
+                candidate.unlink()
+
+    def test_rejects_ignored_and_symlinked_variants(self) -> None:
+        ignored = self.package_root / "Package@swift-6.swift"
+        ignored.write_text("// ignored\n", encoding="utf-8")
+        self.assertEqual(
+            "ios/Packages/ReRoomContracts/Package@swift-6.swift",
+            _git(
+                self.root,
+                "check-ignore",
+                "ios/Packages/ReRoomContracts/Package@swift-6.swift",
+            ),
+        )
+        with self.assertRaisesRegex(
+            PUBLISHER.AgreementError,
+            "version-specific Swift package manifest",
+        ):
+            self._require_manifest()
+        ignored.unlink()
+
+        outside = self.root / "outside.swift"
+        outside.write_text("// redirected\n", encoding="utf-8")
+        ignored.symlink_to(outside)
+        with self.assertRaisesRegex(
+            PUBLISHER.AgreementError,
+            "version-specific Swift package manifest",
+        ):
+            self._require_manifest()
+
+
 class ReportProvenanceTests(unittest.TestCase):
     def _copy_reports(self, destination: Path) -> None:
         source = REPO_ROOT / "evidence/compatibility"
@@ -195,10 +288,31 @@ class ReportProvenanceTests(unittest.TestCase):
                 ):
                     PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
 
+    def test_verifier_rejects_wrong_selected_swift_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            self._copy_reports(reports)
+            target = reports / "contract-agreement.json"
+            report = json.loads(target.read_bytes())
+            report["implementation"]["swift_package_manifest"] = {
+                "relative_path": "ios/Packages/ReRoomContracts/Package@swift-6.swift",
+                "sha256": "0" * 64,
+            }
+            target.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                PUBLISHER.AgreementError,
+                "Swift package manifest provenance is invalid",
+            ):
+                PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
+
 
 class ExecutionBindingStabilityTests(unittest.TestCase):
     def test_mutation_during_execution_never_replaces_reports(self) -> None:
-        for mutation_target in ("bound_source", "publisher"):
+        for mutation_target in ("bound_source", "swift_manifest", "publisher"):
             with self.subTest(mutation_target=mutation_target):
                 self._assert_mutation_is_rejected(mutation_target)
 
@@ -212,7 +326,18 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
             source = root / "source/runner.py"
             source.parent.mkdir(parents=True)
             source.write_text("value = 1\n", encoding="utf-8")
-            _git(root, "add", "source/runner.py")
+            package_manifest = root / PUBLISHER.SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH
+            package_manifest.parent.mkdir(parents=True)
+            package_manifest.write_text(
+                "// swift-tools-version: 6.0\nimport PackageDescription\n",
+                encoding="utf-8",
+            )
+            _git(
+                root,
+                "add",
+                "source/runner.py",
+                PUBLISHER.SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH,
+            )
             _git(root, "commit", "--quiet", "-m", "bound source")
             revision = _git(root, "rev-parse", "HEAD")
 
@@ -289,7 +414,12 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
                         encoding="utf-8",
                     )
                 elif label.endswith("three-runtime comparator") and not mutated:
-                    target = source if mutation_target == "bound_source" else publisher
+                    if mutation_target == "bound_source":
+                        target = source
+                    elif mutation_target == "swift_manifest":
+                        target = package_manifest.with_name("Package@swift-6.swift")
+                    else:
+                        target = publisher
                     with target.open("ab") as handle:
                         handle.write(b"# concurrent mutation\n")
                     mutated = True
@@ -300,7 +430,11 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
                 with (
                     mock.patch.object(PUBLISHER, "BOUND_REVISION", revision),
                     mock.patch.object(PUBLISHER, "IMPLEMENTATION_REVISION", implementation_revision),
-                    mock.patch.object(PUBLISHER, "BOUND_SOURCE_SCOPES", ("source",)),
+                    mock.patch.object(
+                        PUBLISHER,
+                        "BOUND_SOURCE_SCOPES",
+                        ("source", PUBLISHER.SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH),
+                    ),
                     mock.patch.object(
                         PUBLISHER,
                         "MANIFESTS",
@@ -329,11 +463,11 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
                         wraps=PUBLISHER._atomic_write_reports,
                     ) as atomic_write,
                 ):
-                    expected = (
-                        "bound implementation sources differ"
-                        if mutation_target == "bound_source"
-                        else "publisher changed during agreement execution"
-                    )
+                    expected = {
+                        "bound_source": "bound implementation sources differ",
+                        "swift_manifest": "version-specific Swift package manifest",
+                        "publisher": "publisher changed during agreement execution",
+                    }[mutation_target]
                     with self.assertRaisesRegex(PUBLISHER.AgreementError, expected):
                         PUBLISHER.run()
                     atomic_write.assert_not_called()
