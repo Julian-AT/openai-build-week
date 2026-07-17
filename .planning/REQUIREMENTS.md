@@ -97,10 +97,10 @@ Each P0 requirement maps to exactly one phase. Future/stretch requirements inten
 | NFR-COORD-001 | Phase 1 | Complete |
 | NFR-CONTRACT-001 | Phase 1 | Complete |
 | OPS-DEVICE-001 | Phase 1 | Complete |
-| FR-CAPTURE-001 | Phase 2 | Pending |
-| FR-B0-001 | Phase 2 | Pending |
-| NFR-REPLAY-001 | Phase 2 | Pending |
-| SEC-CONSENT-001 | Phase 2 | Pending |
+| FR-CAPTURE-001 | Phase 2 | Complete |
+| FR-B0-001 | Phase 2 | Complete |
+| NFR-REPLAY-001 | Phase 2 | Complete |
+| SEC-CONSENT-001 | Phase 2 | Complete |
 | FR-PLACE-001 | Phase 3 | Pending |
 | FR-RESTORE-001 | Phase 3 | Pending |
 | FR-TRANSACTION-001 | Phase 3 | Pending |

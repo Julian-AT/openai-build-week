@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
+current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: executing
-stopped_at: Phase 1 complete, ready to discuss Phase 2
-last_updated: "2026-07-17T21:13:15.457Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-07-17T21:58:11.226Z"
 last_activity: 2026-07-17
-last_activity_desc: Phase 1 complete, transitioned to Phase 2
+last_activity_desc: Phase 02 execution started
 progress:
-  total_phases: 8
+  total_phases: 2
   completed_phases: 1
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 22
+  completed_plans: 16
 ---
 
 # Project State
@@ -24,19 +24,19 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Phase 2 — Atomic Capture and Exact Replay
+**Current focus:** Phase 02 — Atomic Capture and Exact Replay
 
 ## Current Position
 
-Phase: 2 — Atomic Capture and Exact Replay
+Phase: 02 (Atomic Capture and Exact Replay) — EXECUTING
 
-Plan: Not started
+Plan: 2 of 7
 
 Status: Ready to execute
 
-Last activity: 2026-07-17 — Phase 1 complete, transitioned to Phase 2
+Last activity: 2026-07-17 — Phase 02 execution started
 
-Progress: [████████████████████] 15/15 planned tasks (100%)
+Progress: [████████████████████] 15/15 planned tasks ([███████░░░] 73%)
 
 ## Performance Metrics
 
@@ -76,6 +76,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 01 P12 | 33min | 2 tasks | 8 files |
 | Phase 01 P13 | 27min | 2 tasks | 9 files |
 | Phase 01 P15 | 9min | 2 tasks | 4 files |
+| Phase 02 P01 | 33min | 2 tasks | 29 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-15: Bind three-runtime evidence to the last source-changing revision a5bff6896188dcac9397c48ce1a6820a7196011a. — The declared source scope is byte-identical at closeout and excludes the publisher and generated reports, preserving a non-self-referential provenance chain.
 - [Phase 01]: Plan 01-15: Advance deterministic compatibility evidence identities to _002 without changing fixtures or runtime policy. — The implementation binding changed, so the reports require a new evidence-run identity while frozen oracle and comparator meaning remain exact.
 - [Phase 01]: Plan 01-15: Preserve the signed physical gate chain unchanged during host-only provenance repair. — Physical observations retain separate human authority and are verified only by protected byte comparisons in this plan.
+- [Phase 02]: Pin the complete capture fixture manifest digest outside the generated corpus. — Prevents regenerated expected output from redefining its own oracle.
+- [Phase 02]: Keep ReplayReportV1 evidence-only with explicit archive/finalization identity. — Preserves frozen CON-001/CON-002 authority without minting CON-006.
+- [Phase 02]: Reject denied CaptureSessionAuthorization and bind packet plus image digests in durable receipts. — Consent and local durability must be explicit before storage or transport boundaries.
+- [Phase 02]: Run typed filesystem fault observers after validation and before synchronous mutation. — Enables deterministic crash testing without suspension inside the future sole-writer actor.
 
 ### Pending Todos
 
@@ -146,9 +151,9 @@ None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independen
 
 ## Session Continuity
 
-Last session: 2026-07-17T19:45:58.825Z
+Last session: 2026-07-17T21:58:11.220Z
 
-Stopped at: Phase 1 complete, ready to discuss Phase 2
+Stopped at: Completed 02-01-PLAN.md
 
 Resume file: None
 
