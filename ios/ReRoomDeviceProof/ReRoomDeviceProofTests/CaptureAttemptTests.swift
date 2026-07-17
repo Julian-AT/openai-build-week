@@ -169,6 +169,70 @@ struct CaptureAttemptTests {
         }
         #expect(fileSystem.allPaths().isEmpty)
         #expect(journal.visibleFrameIDs.isEmpty)
+
+        let invalidInput = FramePacketCaptureInput(
+            sessionID: captureInput.sessionID,
+            submapID: captureInput.submapID,
+            frameID: captureInput.frameID,
+            captureSequence: captureInput.captureSequence,
+            monotonicTimestampNS: captureInput.monotonicTimestampNS,
+            imageData: captureInput.imageData,
+            imageCodec: captureInput.imageCodec,
+            imageWidth: captureInput.imageWidth,
+            imageHeight: captureInput.imageHeight,
+            colorSpace: captureInput.colorSpace,
+            imageRange: captureInput.imageRange,
+            cropInSensorPixels: captureInput.cropInSensorPixels,
+            intrinsicsEncodedPixels: FrameIntrinsics(
+                fx: 500,
+                fy: 500,
+                cx: 1,
+                cy: 1,
+                width: 1,
+                height: 1
+            ),
+            encodedFromSensor: captureInput.encodedFromSensor,
+            worldFromCamera: captureInput.worldFromCamera,
+            trackingState: captureInput.trackingState,
+            trackingReason: captureInput.trackingReason,
+            quality: captureInput.quality,
+            idempotencyKey: captureInput.idempotencyKey,
+            previousDurableFrameID: captureInput.previousDurableFrameID,
+            lifecycleEventIDs: captureInput.lifecycleEventIDs
+        )
+        #expect(throws: FramePacketBuildRejection.invalidInput) {
+            try journal.capture(input: invalidInput, attempt: readyAttempt)
+        }
+        #expect(fileSystem.allPaths().isEmpty)
+    }
+
+    @Test("The concrete filesystem preserves the same atomic capture and recovery boundary")
+    func concreteFileSystemRoundTrip() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("reroom-capture-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let fileSystem = FoundationCaptureFileSystem(root: root)
+        let journal = DiagnosticJournal(
+            fileSystem: fileSystem,
+            framePacketBuilder: FramePacketBuilder(validator: Self.validator),
+            configuration: DiagnosticCaptureConfiguration(
+                sessionID: captureInput.sessionID,
+                deviceModel: "fixture",
+                osVersion: "26.4",
+                appVersion: "0.1.0",
+                buildID: "fixture",
+                recordedAtUTC: "2026-07-17T00:00:00Z",
+                worldFrameID: readyEpoch.worldFrameID,
+                initialWorldFrameVersion: readyEpoch.worldFrameVersion
+            )
+        )
+
+        let receipt = try journal.capture(input: captureInput, attempt: readyAttempt)
+        let recovered = try journal.recover()
+
+        #expect(receipt.isVisible)
+        #expect(recovered.networkEligibleFrameIDs == [captureInput.frameID])
+        #expect(journal.validateRecoveredManifest(recovered.manifestData) == .accepted)
     }
 
     @Test(
@@ -273,6 +337,7 @@ struct CaptureAttemptTests {
             fileSystem: fileSystem,
             framePacketBuilder: FramePacketBuilder(validator: Self.validator),
             configuration: DiagnosticCaptureConfiguration(
+                sessionID: captureInput.sessionID,
                 deviceModel: "fixture",
                 osVersion: "26.4",
                 appVersion: "0.1.0",
@@ -312,24 +377,25 @@ struct CaptureAttemptTests {
     ]
 
     private static let validator: ContractValidator = {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let paths: [ContractSchemaIdentifier: String] = [
-            .framePacket: "docs/contracts/frame-packet.schema.json",
-            .rrcapManifest: "docs/contracts/rrcap-manifest.schema.json",
-            .sceneState: "docs/contracts/scene-state.schema.json",
-            .editArtifacts: "docs/contracts/edit-artifacts.schema.json",
-            .transaction: "docs/contracts/transaction.schema.json",
+        let resourceNames: [ContractSchemaIdentifier: String] = [
+            .framePacket: "frame-packet",
+            .rrcapManifest: "rrcap-manifest",
+            .sceneState: "scene-state",
+            .editArtifacts: "edit-artifacts",
+            .transaction: "transaction",
         ]
+        let bundle = Bundle(for: MemoryCaptureFileSystem.self)
         let registrations = ContractSchemaIdentifier.allCases.map { identifier in
             ContractSchemaRegistration(
                 identifier: identifier,
                 version: "1.0.0",
                 sha256: schemaHashes[identifier]!,
-                schemaData: try! Data(contentsOf: root.appendingPathComponent(paths[identifier]!))
+                schemaData: try! Data(
+                    contentsOf: bundle.url(
+                        forResource: resourceNames[identifier]!,
+                        withExtension: "schema.json"
+                    )!
+                )
             )
         }
         return try! ContractValidator(registrations: registrations)
@@ -390,6 +456,13 @@ enum JournalManifestMutation: String, CaseIterable, Sendable {
             finalization["state"] = "finalized"
             root["finalization"] = finalization
         }
+        var finalization = root["finalization"] as! [String: Any]
+        finalization.removeValue(forKey: "manifest_sha256")
+        root["finalization"] = finalization
+        let digestInput = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
+        let digest = try CanonicalJSON.digest(jsonData: digestInput)
+        finalization["manifest_sha256"] = digest
+        root["finalization"] = finalization
         return try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
     }
 }
@@ -398,10 +471,18 @@ private final class MemoryCaptureFileSystem: CaptureFileSystem {
     private var files: [String: Data] = [:]
 
     func write(_ data: Data, to path: String) throws {
+        guard data.count <= CaptureStorageLimits.maximumFileBytes else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
         files[path] = data
     }
 
     func append(_ data: Data, to path: String) throws {
+        guard files[path, default: Data()].count
+            <= CaptureStorageLimits.maximumFileBytes - data.count
+        else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
         files[path, default: Data()].append(data)
     }
 
@@ -424,7 +505,11 @@ private final class MemoryCaptureFileSystem: CaptureFileSystem {
     }
 
     func read(at path: String) throws -> Data {
-        guard let data = files[path] else { throw DiagnosticJournalRejection.invalidJournal }
+        guard let data = files[path],
+              data.count <= CaptureStorageLimits.maximumFileBytes
+        else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
         return data
     }
 

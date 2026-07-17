@@ -20,6 +20,11 @@
 		A1000000000000000000000B /* WorldEpochTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* WorldEpochTests.swift */; };
 		A1000000000000000000000C /* FramePacketBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* FramePacketBuilder.swift */; };
 		A1000000000000000000000D /* DiagnosticJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* DiagnosticJournal.swift */; };
+		A1000000000000000000000E /* frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* frame-packet.schema.json */; };
+		A1000000000000000000000F /* rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* rrcap-manifest.schema.json */; };
+		A10000000000000000000010 /* scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* scene-state.schema.json */; };
+		A10000000000000000000011 /* edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
+		A10000000000000000000012 /* transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +53,11 @@
 		A2000000000000000000000D /* WorldEpochTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldEpochTests.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* FramePacketBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePacketBuilder.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* DiagnosticJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticJournal.swift; sourceTree = "<group>"; };
+		A20000000000000000000010 /* frame-packet.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/frame-packet.schema.json; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000011 /* rrcap-manifest.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/rrcap-manifest.schema.json; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000012 /* scene-state.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/scene-state.schema.json; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000013 /* edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/edit-artifacts.schema.json; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000014 /* transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -74,6 +84,7 @@
 			children = (
 				A80000000000000000000002 /* ReRoomDeviceProof */,
 				A80000000000000000000003 /* ReRoomDeviceProofTests */,
+				A80000000000000000000005 /* Contract Test Resources */,
 				A80000000000000000000004 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -112,6 +123,18 @@
 				A20000000000000000000008 /* ReRoomDeviceProofTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A80000000000000000000005 /* Contract Test Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000010 /* frame-packet.schema.json */,
+				A20000000000000000000011 /* rrcap-manifest.schema.json */,
+				A20000000000000000000012 /* scene-state.schema.json */,
+				A20000000000000000000013 /* edit-artifacts.schema.json */,
+				A20000000000000000000014 /* transaction.schema.json */,
+			);
+			name = "Contract Test Resources";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -209,6 +232,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A1000000000000000000000E /* frame-packet.schema.json in Resources */,
+				A1000000000000000000000F /* rrcap-manifest.schema.json in Resources */,
+				A10000000000000000000010 /* scene-state.schema.json in Resources */,
+				A10000000000000000000011 /* edit-artifacts.schema.json in Resources */,
+				A10000000000000000000012 /* transaction.schema.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
