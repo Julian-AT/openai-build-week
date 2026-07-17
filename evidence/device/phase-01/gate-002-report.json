@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "gate_id": "GATE-002",
+  "gate_state": "GREEN",
+  "decision_actor": "human",
+  "recorded_at_utc": "2026-07-17T12:12:35Z",
+  "implementation_revision": "git:97d8d9d9b05477bddef8ae0aa3a635ed650dce13",
+  "test_ids": [
+    "TST-COORD-001",
+    "TST-COORD-002",
+    "TST-DEVICE-002"
+  ],
+  "requirement_ids": [
+    "FR-CAPTURE-001",
+    "NFR-COORD-001"
+  ],
+  "adr_ids": [
+    "ADR-003",
+    "ADR-004"
+  ],
+  "fixture_refs": [
+    {
+      "fixture_id": "FX-COORD-001",
+      "fixture_revision": "rev-001",
+      "sha256": "e707c4ddf3b1856df30420c6125532d95161a5f36f95671ea1336baef7e6c2df"
+    },
+    {
+      "fixture_id": "FX-DEVICE-CHECKERBOARD",
+      "fixture_revision": "rev-001",
+      "sha256": "af8731b6031319ee4787252b8386e8c1d271954b00eb8c7c1befe2cd8ed9ab31"
+    }
+  ],
+  "environment": {
+    "device_model": "iPhone 17",
+    "os_version": "iOS 26.5.2",
+    "xcode_version": "Xcode 26.4",
+    "runtime_tier": "base-iphone-candidate",
+    "capability_flags": {
+      "camera_permission": "granted",
+      "arkit_world_tracking": "pass",
+      "plane_detection": "pass",
+      "lidar_required": false
+    },
+    "signing_result": "pass"
+  },
+  "value_classification": "MEASURED",
+  "evidence_artifacts": [
+    {
+      "opaque_artifact_id": "opaque-gate002-measurement-provenance-v1",
+      "artifact_kind": "trace",
+      "sha256": "171dfd185b49199d8ce8532d1b0f585fccd872a0e768828d62ca8059ef717f46",
+      "external_retention": true
+    },
+    {
+      "opaque_artifact_id": "opaque-gate002-portrait-metrics-v1",
+      "artifact_kind": "metric_output",
+      "sha256": "68b8df782d98aec00ee43a014fd6140b750ff1edbb590a5bc44ec2317ab520bb",
+      "external_retention": true
+    },
+    {
+      "opaque_artifact_id": "opaque-gate002-checkerboard-capture-v1",
+      "artifact_kind": "trace",
+      "sha256": "44943b49b6e2a05cc27b707e172d4021ae26aa7246db0b603de52f856498fb9a",
+      "external_retention": true
+    },
+    {
+      "opaque_artifact_id": "opaque-gate002-human-observations-v1",
+      "artifact_kind": "trace",
+      "sha256": "c2b2994fd372b4c4d5b54f598478999bb18616447e51a950c9e33fa5c238f7bb",
+      "external_retention": true
+    },
+    {
+      "opaque_artifact_id": "opaque-gate002-human-attestation-v1",
+      "artifact_kind": "ballot",
+      "sha256": "031a78ce4205248ffe1279e0a311c29bdfb9f42724a9ca1b506d216184000ac4",
+      "external_retention": true
+    }
+  ],
+  "automated_report_sha256": "d3240674f777f5ba1fd9d8b06535555f0625111cd102f1b3184e790f8d7f817a",
+  "operator_checklist_sha256": "938d9a8a3084b2adf1dff025ec24aed564485734a8a3c0b8cc847423e1b3d634",
+  "locked_decision_change_id": null,
+  "prd_sha256": null,
+  "affected_adr_sha256": []
+}
