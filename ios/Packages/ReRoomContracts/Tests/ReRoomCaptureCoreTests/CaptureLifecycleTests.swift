@@ -308,6 +308,23 @@ struct CaptureLifecycleTests {
         )
         try assertManifestSelfDigest(manifest, expected: finalization.manifestSHA256)
     }
+
+    @Test("local finalization does not depend on server acknowledgement")
+    func localFinalizationWithoutAcknowledgement() async throws {
+        let fixture = try CaptureWriterFixture(sessionOrdinal: 22)
+        defer { fixture.remove() }
+        _ = try await fixture.store.startSession(authorization: fixture.authorization)
+        _ = try await fixture.store.publishSelectedFrame(fixture.candidate(ordinal: 1))
+
+        let finalization = try await fixture.store.finalizeExplicitly()
+        let snapshot = await fixture.store.snapshot()
+        #expect(finalization.acceptedFrameCount == 1)
+        #expect(finalization.eventCount == 6)
+        #expect(finalization.lastDurableJournalSequence == 6)
+        #expect(snapshot.acceptedFrames.first?.serverAcknowledged == false)
+        #expect(snapshot.eventTypes.contains("frame_server_acknowledged") == false)
+        #expect(snapshot.finalization?.state == .finalized)
+    }
 }
 
 struct InvalidTransition: Sendable, CustomTestStringConvertible {
