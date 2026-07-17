@@ -1,127 +1,75 @@
 ---
 phase: 01-contract-and-device-proof
-reviewed: 2026-07-17T14:28:49Z
+reviewed: 2026-07-17T16:10:57Z
 depth: standard
-files_reviewed: 79
+files_reviewed: 4
 files_reviewed_list:
-  - docs/canonical/RESEARCH_LEDGER.md
+  - scripts/run-three-runtime-agreement
   - evidence/compatibility/contract-agreement.json
-  - evidence/compatibility/coordinate-agreement.json
   - evidence/compatibility/jcs-agreement.json
-  - evidence/compatibility/swift-schema-validation.json
-  - evidence/dependencies/phase-01-package-audit.json
-  - evidence/device/phase-01/automated-preflight.json
-  - evidence/device/phase-01/gate-002-operator-checklist.json
-  - evidence/device/phase-01/gate-002-report.json
-  - evidence/device/phase-01/gate-013-operator-checklist.json
-  - evidence/device/phase-01/gate-013-report.json
-  - evidence/fixtures/invalid/gate-report.invalid.automation-waiver.json
-  - evidence/fixtures/valid/gate-report.green.json
-  - evidence/templates/README.md
-  - evidence/templates/gate-report.schema.json
-  - evidence/templates/operator-checklist.schema.json
-  - fixtures/contracts/1.0.0/rev-001/manifest.json
-  - fixtures/manifest.schema.json
-  - fixtures/policies/RR-COORD-1/rev-001/manifest.json
-  - fixtures/policies/RR-JCS-SHA256-1/rev-001/manifest.json
-  - fixtures/runner-result.schema.json
-  - ios/Packages/ReRoomContracts/Package.resolved
-  - ios/Packages/ReRoomContracts/Package.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContractRunner/main.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContracts/ArchivePath.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContracts/CanonicalJSON.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContracts/ContractValidation.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContracts/CoordinateMath.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContracts/FrozenSchemaValidator.swift
-  - ios/Packages/ReRoomContracts/Sources/ReRoomContracts/WireFrame.swift
-  - ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/CanonicalJSONTests.swift
-  - ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/ContractValidationTests.swift
-  - ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/CoordinateMathTests.swift
-  - ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/RunnerTests.swift
-  - ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/WireFrameTests.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/xcshareddata/xcschemes/ReRoomDeviceProof.xcscheme
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/App.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/CaptureAttemptMachine.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/DeviceProofModel.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/DiagnosticChecklistView.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/DiagnosticJournal.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/EvidenceExporter.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/FramePacketBuilder.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/Info.plist
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/OrientationGate.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/PermissionController.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProof/WorldEpochController.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProofTests/ARSessionPolicyTests.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProofTests/CaptureAttemptTests.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProofTests/EvidenceExporterTests.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProofTests/WorldEpochTests.swift
-  - ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/DiagnosticSurfaceTests.swift
-  - tools/javascript/src/canonical-json.mjs
-  - tools/javascript/src/coordinate.mjs
-  - tools/javascript/src/loader.mjs
-  - tools/javascript/src/runner.mjs
-  - tools/javascript/src/schema-validator.mjs
-  - tools/javascript/src/wire-frame.mjs
-  - tools/javascript/test/parity-mutations.test.mjs
-  - tools/javascript/test/runner.test.mjs
-  - tools/python/requirements.in
-  - tools/python/requirements.lock
-  - tools/python/reroom_verify/__init__.py
-  - tools/python/reroom_verify/canonical_json.py
-  - tools/python/reroom_verify/coordinate.py
-  - tools/python/reroom_verify/loader.py
-  - tools/python/reroom_verify/runner.py
-  - tools/python/reroom_verify/schema_validator.py
-  - tools/python/reroom_verify/wire_frame.py
-  - tools/python/tests/test_parity_mutations.py
-  - tools/python/tests/test_runner.py
-  - tools/verify/compare_results.py
-  - tools/verify/tests/test_compare_results.py
-  - tools/verify/tests/test_evidence_templates.py
-  - tools/verify/tests/test_reference_parity.py
-  - tools/verify/verify_evidence.py
-  - tools/verify/verify_phase_01_dependencies.py
+  - evidence/compatibility/coordinate-agreement.json
 findings:
-  critical: 0
-  warning: 0
+  critical: 1
+  warning: 2
   info: 0
-  total: 0
-status: clean
+  total: 3
+status: issues_found
 ---
 
-# Phase 01: Code Review Report
+# Phase 01 Plan 15: Code Review Report
 
-**Reviewed:** 2026-07-17T14:28:49Z
+**Reviewed:** 2026-07-17T16:10:57Z
 **Depth:** standard
-**Files Reviewed:** 79
-**Status:** clean
+**Files Reviewed:** 4
+**Status:** issues_found
 
 ## Summary
 
-The frozen 79-file Phase 01 scope was reviewed at standard depth against the repository authority, evidence-integrity rules, and Swift concurrency/testing guidance. All previously reported defects are fixed. The diagnostic exporter now emits automation-owned GateReportV2 bytes, includes only `supporting_evidence` artifact roles, rejects operator-attestation input, and cross-validates its actual serialized output against the checked-in `gate-report.schema.json`. The added generic schema facade preserves byte/depth limits and serialized compiled-validator access, and the pinned JSON Schema implementation supports the newly admitted `maxContains` keyword.
+The refreshed reports do bind the intended `a5bff6896188dcac9397c48ce1a6820a7196011a` source revision, share the independently recomputed source-tree digest, record distinct deterministic `_002` evidence IDs, and reproduce byte-for-byte through the ordinary checked-in command. The comparator still fails closed on oracle/runtime disagreement, and no shell interpolation or secret exposure was found.
 
-The earlier signed-decision binding, shared-validator concurrency, and stale capture re-selection findings also remain fixed. Both final physical report/checklist pairs pass the acyclic digest-chain verifier as GREEN, shared schema access completed the 1,024-validation stress test, and rejected re-selection clears the prior attempt before returning. All reviewed files meet quality standards. No issues found.
+The review nevertheless found one binding bypass and two evidence-provenance defects. The publisher can execute an untracked Swift source file that neither its Git drift check nor its source digest sees; the reports do not bind the publisher that derives their metrics; and the JCS report cites the schema test rather than the canonical digest test that owns `FX-JCS-001`.
 
 ## Narrative Findings (AI reviewer)
 
-No Critical, Warning, or Informational findings.
+### Critical Issues
+
+#### CR-01: Untracked executable sources bypass the bound-revision guard
+
+**File:** `scripts/run-three-runtime-agreement:117-149`
+
+**Issue:** `_require_bound_sources` uses `git diff` to compare tracked content and `git ls-tree` to enumerate only paths that existed in the bound commit. Git intentionally omits untracked working-tree files from both operations. SwiftPM automatically discovers `.swift` files under `Sources/ReRoomContracts` and `Sources/ReRoomContractRunner`, so an extra untracked source can be compiled at lines 375-387 while remaining absent from both the drift decision and `source_tree_sha256`. The ordinary command can therefore publish `pass` evidence carrying the same exact implementation revision and digest even though it executed source bytes outside that revision. This violates the exact-source truth and the T-01-15-01 tampering mitigation.
+
+**Fix:** Before any build or runner starts, compare the complete set of execution-eligible files under every bound source directory with the bound Git tree and fail on any extra, missing, non-regular, or mode-mismatched path. At minimum, explicitly reject untracked/ignored `.swift`, `.mjs`, and `.py` files under the executable source scopes and isolate generated Python bytecode outside those scopes; then calculate the digest from that verified exact set.
+
+### Warnings
+
+#### WR-01: Reports do not bind the publisher that derives their metrics
+
+**File:** `scripts/run-three-runtime-agreement:244-335`
+
+**Issue:** The reports bind the runner source tree and `tools/verify/compare_results.py`, but not `scripts/run-three-runtime-agreement` itself. That omission is material because `_build_report` derives `accepted`/`rejected`, sets every disagreement counter, and emits the final `verdict`. The current publisher SHA-256 is `9cd07a00ae13795779641b3bd400d3ae9f6c623269e47029a642482177b89b9c`, while the publisher stored at the reports' named implementation revision has different bytes (`870a288df679f4b4c70f9e89ee2f4edcf75952914930baff619962337c20b8ac`). A changed publisher could therefore emit reports with the same implementation revision, comparator hash, and evidence IDs without any report field identifying which metric-producing code ran. Git history can supply external context, but the MEASURED artifacts themselves leave this repudiation link incomplete.
+
+**Fix:** Add a non-self-referential publisher provenance record to every report containing at least `scripts/run-three-runtime-agreement` and its exact SHA-256, and make the reference verifier require it. Hashing the script bytes is non-circular because the reports are outputs and are not embedded in the script.
+
+#### WR-02: The JCS evidence cites the wrong canonical test ID
+
+**File:** `scripts/run-three-runtime-agreement:29-35`
+
+**Issue:** The `FX-JCS-001` manifest is emitted with `TST-CONTRACT-001`, so `jcs-agreement.json:146-148` claims schema-syntax coverage. Canonical `TEST_AND_EVALUATION_PLAN.md` assigns the three-runtime JCS vectors to `TST-DIGEST-001`; `TST-CONTRACT-001` owns schema syntax and IDs. The runtime result is valid, but its durable acceptance trace points to the wrong test family and does not directly satisfy queries for the canonical digest test.
+
+**Fix:** Change the JCS manifest tuple to `("TST-DIGEST-001",)`, regenerate the reports through the ordinary publisher, and verify the report's test IDs against the canonical fixture-to-test mapping.
 
 ## Verification
 
-- `swift test --package-path ios/Packages/ReRoomContracts` — passed 33 tests in 5 suites. The shared-validator stress test completed 1,024 accepted validations.
-- Debug simulator `xcodebuild test ... -only-testing:ReRoomDeviceProofTests` on iPhone 17 / iOS 26.4 — passed the full unit target, including `actualOutputConformsToCanonicalSchema`, `operatorAttestationRoleRejects`, `rejectedReselectionClearsStaleAttempt`, capture durability/recovery, AR policy, world epoch, and release smoke.
-- `.venv/bin/python -m unittest tools.verify.tests.test_evidence_templates -v` — passed 22 tests, including all five gate states, exact-one operator-attestation semantics, nonhuman-state attestation rejection, and post-signature mutation rejection.
-- `scripts/verify-phase-01-contracts gate` — passed; both V2 evidence pairs verified as `GATE-013=GREEN,GATE-002=GREEN`.
-- Direct inspection of pinned `swift-json-schema` 0.13.1 source/tests confirmed `minContains` and `maxContains` are implemented validators, not merely accepted schema spellings.
-- The RED commit `2a02253` exposed the V1 producer drift; GREEN commit `a5bff68` migrated the producer, independent local validator, artifact-role restrictions, generic schema facade, and actual-byte canonical-schema test.
-- Frozen review scope validation — exactly 79 declared, unique, existing files; no file was added to or removed from the scope.
-- `git diff --check` — passed before writing this report and after the report update.
-- The GATE-002 and GATE-013 physical observations were treated only as human-attested evidence. This review did not inspect private external raw artifacts under `/tmp` or fabricate physical evidence.
+- `scripts/run-three-runtime-agreement` — passed normally for `FX-CONTRACT-001`, `FX-JCS-001`, and `FX-COORD-001`.
+- Report SHA-256 values before and after the ordinary run were identical: contract `4fd1379a…`, JCS `465fdaaf…`, coordinate `5111ce0c…`.
+- Independent source-tree recomputation found 117 bound files and digest `7186a0a61c57d2073cdd475b8c8dc877647c1ce88b2e8bec5f87a73395d83ce7`, matching all three reports.
+- `git log -1` over the declared source scopes resolves to `a5bff6896188dcac9397c48ce1a6820a7196011a`; tracked scoped bytes match current HEAD.
+- Python syntax parsing, focused secret/debug-pattern scanning, report field assertions, and `git diff --check` passed.
+- The generated Swift `.build` directory was removed after the ordinary-run check. Pre-existing scheme, `.swiftpm`, workspace, and `xcuserdata` paths remain untouched.
 
 ---
 
-_Reviewed: 2026-07-17T14:28:49Z_
+_Reviewed: 2026-07-17T16:10:57Z_
 _Reviewer: Codex (generic-agent fallback following gsd-code-reviewer contract)_
 _Depth: standard_
