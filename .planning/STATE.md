@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: executing
-stopped_at: Completed 02-04-PLAN.md
-last_updated: "2026-07-17T23:00:31.085Z"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-07-17T23:39:45.665Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 22
-  completed_plans: 18
+  completed_plans: 19
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 02 (Atomic Capture and Exact Replay) — EXECUTING
 
-Plan: 4 of 7
+Plan: 5 of 7
 
 Status: Ready to execute
 
 Last activity: 2026-07-17 — Phase 02 execution started
 
-Progress: [████████████████████] 15/15 planned tasks ([████████░░] 82%)
+Progress: [████████████████████] 15/15 planned tasks ([█████████░] 86%)
 
 ## Performance Metrics
 
@@ -78,6 +78,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 02 P01 | 33min | 2 tasks | 29 files |
 | Phase 02 P02 | 28min | 2 tasks | 5 files |
 | Phase 02 P04 | 16 min | 2 tasks | 7 files |
+| Phase 02 P03 | 32min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 02]: Count queued plus the sole writer lease as outstanding and release either lane only at terminal writer completion.
 - [Phase 02]: Use the same injected HYPOTHESIS/TARGET pressure policy for admission and post-durability queues in the locked degradation order.
 - [Phase 02]: Keep acknowledgement scheduling receipt-bound and offline so completion order cannot mutate durable journal authority.
+- [Phase 02]: Accept only the longest physically present contiguous global-journal prefix. — Gaps, reordering, invalid records, and mismatched bindings fail closed without repair.
+- [Phase 02]: Publish interrupted capture recovery as a new immutable recovered-prefix sibling. — The original archive is never mutated or resumed and quarantine diagnostics remain outside accepted inventory.
+- [Phase 02]: Derive exact replay only from the verified authoritative global journal. — Frozen journal, frame, event, and revision digests make replay independent of filename order, renderer, provider, model, and network.
+- [Phase 02]: Execute the complete 16-case replay evidence set in the local Swift runner. — Atomic publication prevents partial evidence and keeps the shipping runner independent of Node and Python.
 
 ### Pending Todos
 
@@ -121,9 +126,9 @@ None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independen
 
 ## Session Continuity
 
-Last session: 2026-07-17T23:00:31.080Z
+Last session: 2026-07-17T23:39:45.659Z
 
-Stopped at: Completed 02-04-PLAN.md
+Stopped at: Completed 02-03-PLAN.md
 
 Resume file: None
 
