@@ -18,6 +18,8 @@
 		A10000000000000000000009 /* CaptureAttemptMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* CaptureAttemptMachine.swift */; };
 		A1000000000000000000000A /* CaptureAttemptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* CaptureAttemptTests.swift */; };
 		A1000000000000000000000B /* WorldEpochTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* WorldEpochTests.swift */; };
+		A1000000000000000000000C /* FramePacketBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* FramePacketBuilder.swift */; };
+		A1000000000000000000000D /* DiagnosticJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* DiagnosticJournal.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,6 +46,8 @@
 		A2000000000000000000000B /* CaptureAttemptMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAttemptMachine.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* CaptureAttemptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAttemptTests.swift; sourceTree = "<group>"; };
 		A2000000000000000000000D /* WorldEpochTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldEpochTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* FramePacketBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePacketBuilder.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* DiagnosticJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticJournal.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,6 +88,8 @@
 				A20000000000000000000009 /* OrientationGate.swift */,
 				A2000000000000000000000A /* WorldEpochController.swift */,
 				A2000000000000000000000B /* CaptureAttemptMachine.swift */,
+				A2000000000000000000000E /* FramePacketBuilder.swift */,
+				A2000000000000000000000F /* DiagnosticJournal.swift */,
 				A20000000000000000000005 /* Info.plist */,
 			);
 			path = ReRoomDeviceProof;
@@ -220,6 +226,8 @@
 				A10000000000000000000007 /* OrientationGate.swift in Sources */,
 				A10000000000000000000008 /* WorldEpochController.swift in Sources */,
 				A10000000000000000000009 /* CaptureAttemptMachine.swift in Sources */,
+				A1000000000000000000000C /* FramePacketBuilder.swift in Sources */,
+				A1000000000000000000000D /* DiagnosticJournal.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
