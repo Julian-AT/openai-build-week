@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: "Plan 01-14 Task 1 ready but blocked before candidate-bound preflight: authenticate the Personal Team in Xcode or install its legitimate provisioning profile"
-last_updated: "2026-07-17T04:16:42Z"
+stopped_at: "Plan 01-14 Task 1 waiting for the paired iPhone to be unlocked so Xcode can mount its developer image and add it to the provisioning profile"
+last_updated: "2026-07-17T08:25:03Z"
 last_activity: 2026-07-17
-last_activity_desc: Release test-bundle regression fixed and quick verification passed; signed candidate still requires Xcode provisioning credentials
+last_activity_desc: Xcode account and bundle profile restored; locked iPhone now prevents developer-image mount and device provisioning
 progress:
   total_phases: 8
   completed_phases: 0
@@ -32,9 +32,9 @@ Phase: 01 (Contract and Device Proof) — EXECUTING
 
 Plan: 14 of 14
 
-Status: Blocked before Task 1 by external signing/provisioning credentials
+Status: Waiting at Task 1 for the paired iPhone to be unlocked
 
-Last activity: 2026-07-17 — Release test-bundle regression fixed and quick verification passed; signed candidate still requires Xcode provisioning credentials
+Last activity: 2026-07-17 — Xcode account and bundle profile restored; locked iPhone now prevents developer-image mount and device provisioning
 
 Progress: [█████████░] 93%
 
@@ -126,14 +126,14 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-Resume Plan 01-14 Task 1 after Xcode has an authenticated Apple account or a legitimate matching provisioning profile; then obtain the two explicit human physical-gate decisions.
+Resume Plan 01-14 Task 1 after unlocking the paired iPhone; let Xcode mount the developer image, provision the device, and produce the signed candidate before obtaining the two explicit human physical-gate decisions.
 
 ### Blockers/Concerns
 
 - Planning safeguard satisfied: Phase 1 discussion is recorded and all 14 plans passed independent verification before implementation.
 - Provisional ADR variants cannot be treated as selected or measured until their physical/fixture evidence and deadlines are satisfied.
 - Physical iPhone/Xcode/signing, compositor/thermal, visual-vote, license, and final rules gates require human/device evidence and cannot be fabricated.
-- Plan 01-14 Task 1 cannot create its candidate-bound preflight yet: the Apple Development identity and paired base iPhone 17 are visible, but Xcode has no authenticated account token and no matching provisioning profile, so archive exits with `No Accounts`.
+- Plan 01-14 Task 1 cannot create its candidate-bound preflight yet: the Apple Development identity, Xcode account identifier, and matching bundle/team profile now exist, but that profile contains only the Mac UDID. The paired developer-mode iPhone is locked, so CoreDevice returns `kAMDMobileImageMounterDeviceLocked` before Xcode can mount the developer image or add the phone to the profile.
 
 ## Deferred Items
 
@@ -144,8 +144,8 @@ Resume Plan 01-14 Task 1 after Xcode has an authenticated Apple account or a leg
 
 ## Session Continuity
 
-Last session: 2026-07-17T04:16:42Z
+Last session: 2026-07-17T08:25:03Z
 
-Stopped at: Plan 01-14 Task 1 ready but blocked before candidate-bound preflight: authenticate the Personal Team in Xcode or install its legitimate provisioning profile
+Stopped at: Plan 01-14 Task 1 waiting for the paired iPhone to be unlocked so Xcode can mount its developer image and add it to the provisioning profile
 
 Resume file: .planning/phases/01-contract-and-device-proof/01-14-PLAN.md
