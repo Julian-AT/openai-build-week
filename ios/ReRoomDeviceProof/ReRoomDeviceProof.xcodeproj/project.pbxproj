@@ -28,10 +28,18 @@
 		B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* EvidenceExporterTests.swift */; };
 		B10000000000000000000002 /* EvidenceExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* EvidenceExporter.swift */; };
 		B10000000000000000000003 /* DiagnosticChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* DiagnosticChecklistView.swift */; };
+		C10000000000000000000001 /* DiagnosticSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C20000000000000000000001 /* DiagnosticSurfaceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		A40000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A50000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A60000000000000000000001;
+			remoteInfo = ReRoomDeviceProof;
+		};
+		C40000000000000000000001 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = A50000000000000000000001 /* Project object */;
 			proxyType = 1;
@@ -64,6 +72,8 @@
 		B20000000000000000000001 /* EvidenceExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporterTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* EvidenceExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporter.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* DiagnosticChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticChecklistView.swift; sourceTree = "<group>"; };
+		C20000000000000000000001 /* DiagnosticSurfaceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticSurfaceTests.swift; sourceTree = "<group>"; };
+		C20000000000000000000002 /* ReRoomDeviceProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReRoomDeviceProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +92,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C70000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -90,6 +107,7 @@
 			children = (
 				A80000000000000000000002 /* ReRoomDeviceProof */,
 				A80000000000000000000003 /* ReRoomDeviceProofTests */,
+				C80000000000000000000001 /* ReRoomDeviceProofUITests */,
 				A80000000000000000000005 /* Contract Test Resources */,
 				A80000000000000000000004 /* Products */,
 			);
@@ -130,6 +148,7 @@
 			children = (
 				A20000000000000000000007 /* ReRoomDeviceProof.app */,
 				A20000000000000000000008 /* ReRoomDeviceProofTests.xctest */,
+				C20000000000000000000002 /* ReRoomDeviceProofUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -144,6 +163,14 @@
 				A20000000000000000000014 /* transaction.schema.json */,
 			);
 			name = "Contract Test Resources";
+			sourceTree = "<group>";
+		};
+		C80000000000000000000001 /* ReRoomDeviceProofUITests */ = {
+			isa = PBXGroup;
+			children = (
+				C20000000000000000000001 /* DiagnosticSurfaceTests.swift */,
+			);
+			path = ReRoomDeviceProofUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -187,6 +214,24 @@
 			productReference = A20000000000000000000008 /* ReRoomDeviceProofTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		C60000000000000000000001 /* ReRoomDeviceProofUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C90000000000000000000001 /* Build configuration list for PBXNativeTarget "ReRoomDeviceProofUITests" */;
+			buildPhases = (
+				CA0000000000000000000001 /* Sources */,
+				C70000000000000000000001 /* Frameworks */,
+				CB0000000000000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				CC0000000000000000000001 /* PBXTargetDependency */,
+			);
+			name = ReRoomDeviceProofUITests;
+			productName = ReRoomDeviceProofUITests;
+			productReference = C20000000000000000000002 /* ReRoomDeviceProofUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -201,6 +246,10 @@
 						CreatedOnToolsVersion = 26.4;
 					};
 					A60000000000000000000002 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = A60000000000000000000001;
+					};
+					C60000000000000000000001 = {
 						CreatedOnToolsVersion = 26.4;
 						TestTargetID = A60000000000000000000001;
 					};
@@ -225,6 +274,7 @@
 			targets = (
 				A60000000000000000000001 /* ReRoomDeviceProof */,
 				A60000000000000000000002 /* ReRoomDeviceProofTests */,
+				C60000000000000000000001 /* ReRoomDeviceProofUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -246,6 +296,13 @@
 				A10000000000000000000010 /* scene-state.schema.json in Resources */,
 				A10000000000000000000011 /* edit-artifacts.schema.json in Resources */,
 				A10000000000000000000012 /* transaction.schema.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CB0000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,6 +338,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		CA0000000000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C10000000000000000000001 /* DiagnosticSurfaceTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -288,6 +353,11 @@
 			isa = PBXTargetDependency;
 			target = A60000000000000000000001 /* ReRoomDeviceProof */;
 			targetProxy = A40000000000000000000001 /* PBXContainerItemProxy */;
+		};
+		CC0000000000000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A60000000000000000000001 /* ReRoomDeviceProof */;
+			targetProxy = C40000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -422,6 +492,47 @@
 			};
 			name = Release;
 		};
+		CE0000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.reroom.deviceproof.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = ReRoomDeviceProof;
+			};
+			name = Debug;
+		};
+		CE0000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.reroom.deviceproof.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_TARGET_NAME = ReRoomDeviceProof;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -448,6 +559,15 @@
 			buildConfigurations = (
 				AE0000000000000000000005 /* Debug */,
 				AE0000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C90000000000000000000001 /* Build configuration list for PBXNativeTarget "ReRoomDeviceProofUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CE0000000000000000000001 /* Debug */,
+				CE0000000000000000000002 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
