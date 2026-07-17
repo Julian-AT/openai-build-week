@@ -358,6 +358,43 @@ struct CaptureAttemptTests {
         #expect(recoveredJournal.visibleFrameIDs == expectedVisible)
     }
 
+    @Test("Recovery durably truncates a torn journal tail before future capture")
+    func tornTailRecoveryRepairsJournalAndUnblocksCapture() throws {
+        let fileSystem = MemoryCaptureFileSystem()
+        let crashing = makeJournal(
+            fileSystem: fileSystem,
+            crashPoint: .duringJournalAppendOrSync
+        )
+        #expect(throws: InjectedCaptureCrash(point: .duringJournalAppendOrSync)) {
+            try crashing.capture(input: captureInput, attempt: readyAttempt)
+        }
+        #expect(try fileSystem.read(at: "journal/global.jsonl").last != 0x0a)
+
+        let recoveredJournal = makeJournal(fileSystem: fileSystem)
+        let recoveredPrefix = try recoveredJournal.recover()
+        let repairedJournal = try fileSystem.read(at: "journal/global.jsonl")
+        #expect(recoveredPrefix.journal.count == 1)
+        #expect(repairedJournal.last == 0x0a)
+        #expect(String(decoding: repairedJournal, as: UTF8.self).contains("{") == true)
+        #expect(String(decoding: repairedJournal, as: UTF8.self).hasSuffix("{\n") == false)
+
+        let nextInput = makeCaptureInput(
+            frameID: "frame_00000000-0000-4000-8000-000000000002",
+            captureSequence: 0,
+            idempotencyKey: "frameidem_00000000-0000-4000-8000-000000000002",
+            previousDurableFrameID: nil,
+            lifecycleEventIDs: [
+                "event_00000000-0000-4000-8000-000000000005",
+                "event_00000000-0000-4000-8000-000000000006",
+                "event_00000000-0000-4000-8000-000000000007",
+                "event_00000000-0000-4000-8000-000000000008",
+            ]
+        )
+        let receipt = try recoveredJournal.capture(input: nextInput, attempt: readyAttempt)
+        #expect(receipt.lifecycle == .networkEligible)
+        #expect(try recoveredJournal.recover().networkEligibleFrameIDs == [nextInput.frameID])
+    }
+
     @Test(
         "CON-002 recovery rejects ordering, lifecycle, digest, projection, final sequence, and prefix mutations",
         arguments: JournalManifestMutation.allCases
