@@ -18,6 +18,7 @@ from pathlib import Path
 BOUND_REVISION = "a5bff6896188dcac9397c48ce1a6820a7196011a"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
+PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"
 MANIFESTS = (
     (
         "contract",
@@ -354,6 +355,7 @@ def _build_report(
     evaluator_sha256: str,
     manifest_schema_sha256: str,
     result_schema_sha256: str,
+    publisher_sha256: str,
 ) -> dict[str, object]:
     swift_cases = results["swift"]["case_results"]
     case_count = len(swift_cases)
@@ -371,7 +373,7 @@ def _build_report(
     ]
     return {
         "schema_version": "1.0.0",
-        "evidence_id": f"evidence_three_runtime_{stem}_20260717_002",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_003",
         "classification": "MEASURED",
         "requirement_ids": list(requirements),
         "test_ids": list(tests),
@@ -418,6 +420,10 @@ def _build_report(
             "relative_path": "tools/verify/compare_results.py",
             "sha256": evaluator_sha256,
             "required_runtimes": ["swift", "javascript", "python"],
+        },
+        "publisher": {
+            "relative_path": PUBLISHER_RELATIVE_PATH,
+            "sha256": publisher_sha256,
         },
         "commands": _commands(relative_manifest),
         "environment": environment,
@@ -486,6 +492,7 @@ def run() -> tuple[str, ...]:
     evaluator_sha256 = _sha256(comparator.read_bytes())
     manifest_schema_sha256 = _sha256((root / "fixtures/manifest.schema.json").read_bytes())
     result_schema_sha256 = _sha256((root / "fixtures/runner-result.schema.json").read_bytes())
+    publisher_sha256 = _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes())
 
     reports: dict[Path, bytes] = {}
     fixture_ids: list[str] = []
@@ -560,6 +567,7 @@ def run() -> tuple[str, ...]:
                 evaluator_sha256=evaluator_sha256,
                 manifest_schema_sha256=manifest_schema_sha256,
                 result_schema_sha256=result_schema_sha256,
+                publisher_sha256=publisher_sha256,
             )
             reports[root / "evidence/compatibility" / report_name] = (
                 json.dumps(report, indent=2, sort_keys=True).encode("utf-8") + b"\n"
@@ -572,13 +580,41 @@ def run() -> tuple[str, ...]:
     return tuple(fixture_ids)
 
 
-def main() -> int:
+def _verify_report_provenance(
+    root: Path, *, report_directory: Path | None = None
+) -> tuple[str, ...]:
+    reports = report_directory or root / "evidence/compatibility"
+    expected_publisher = {
+        "relative_path": PUBLISHER_RELATIVE_PATH,
+        "sha256": _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes()),
+    }
+    fixture_ids: list[str] = []
+    for _, fixture_id, _, report_name, _, _ in MANIFESTS:
+        report = _read_json(reports / report_name, f"{fixture_id} agreement report")
+        fixture = report.get("fixture")
+        if not isinstance(fixture, dict) or fixture.get("fixture_id") != fixture_id:
+            raise AgreementError(f"{fixture_id} agreement report identity is invalid")
+        if report.get("publisher") != expected_publisher:
+            raise AgreementError(f"{fixture_id} publisher provenance is invalid")
+        fixture_ids.append(fixture_id)
+    return tuple(fixture_ids)
+
+
+def main(arguments: tuple[str, ...] | None = None) -> int:
+    selected = tuple(sys.argv[1:]) if arguments is None else arguments
     try:
-        fixture_ids = run()
+        if not selected:
+            fixture_ids = run()
+            label = "three-runtime agreement"
+        elif selected == ("--verify-reports",):
+            fixture_ids = _verify_report_provenance(_repo_root())
+            label = "three-runtime report provenance"
+        else:
+            raise AgreementError("unsupported command arguments")
     except AgreementError as error:
         print(f"three-runtime agreement: FAIL ({error})", file=sys.stderr)
         return 1
-    print(f"three-runtime agreement: PASS ({','.join(fixture_ids)})")
+    print(f"{label}: PASS ({','.join(fixture_ids)})")
     return 0
 
 

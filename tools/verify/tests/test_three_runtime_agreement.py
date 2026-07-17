@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
-import os
+import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -14,6 +15,11 @@ from unittest import mock
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PUBLISHER_PATH = REPO_ROOT / "scripts/run-three-runtime-agreement"
+REPORT_NAMES = (
+    "contract-agreement.json",
+    "jcs-agreement.json",
+    "coordinate-agreement.json",
+)
 
 
 def _load_publisher():
@@ -129,6 +135,48 @@ class BoundSourceSetTests(unittest.TestCase):
             ["javascript/runner.mjs", "python/runner.py", "swift/Main.swift"],
             [record["relative_path"] for record in records],
         )
+
+
+class ReportProvenanceTests(unittest.TestCase):
+    def _copy_reports(self, destination: Path) -> None:
+        source = REPO_ROOT / "evidence/compatibility"
+        for name in REPORT_NAMES:
+            shutil.copyfile(source / name, destination / name)
+
+    def test_checked_in_reports_bind_the_exact_metric_publisher(self) -> None:
+        fixture_ids = PUBLISHER._verify_report_provenance(REPO_ROOT)
+
+        self.assertEqual(
+            ("FX-CONTRACT-001", "FX-JCS-001", "FX-COORD-001"), fixture_ids
+        )
+
+    def test_verifier_rejects_missing_and_wrong_publisher_provenance(self) -> None:
+        mutations = (
+            ("missing", lambda report: report.pop("publisher", None)),
+            (
+                "wrong",
+                lambda report: report["publisher"].update(sha256="0" * 64),
+            ),
+        )
+        for label, mutate in mutations:
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                reports = Path(directory)
+                self._copy_reports(reports)
+                target = reports / "contract-agreement.json"
+                report = json.loads(target.read_bytes())
+                mutate(report)
+                target.write_text(
+                    json.dumps(report, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+
+                with self.assertRaisesRegex(
+                    PUBLISHER.AgreementError,
+                    "publisher provenance is invalid",
+                ):
+                    PUBLISHER._verify_report_provenance(
+                        REPO_ROOT, report_directory=reports
+                    )
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@
     ],
     "sha256": "c69b17cc10a58b36e5d6a663a5be2779f72790a0ce9f1929bf35b09b845d53d9"
   },
-  "evidence_id": "evidence_three_runtime_jcs_20260717_002",
+  "evidence_id": "evidence_three_runtime_jcs_20260717_003",
   "fixture": {
     "case_count": 12,
     "fixture_id": "FX-JCS-001",
@@ -108,6 +108,10 @@
     "This evidence covers the immutable host-runtime corpus only; it is not physical-device, signing, ARKit, compositor, or thermal evidence.",
     "Any bound source or oracle change requires a new implementation revision and new evidence revision."
   ],
+  "publisher": {
+    "relative_path": "scripts/run-three-runtime-agreement",
+    "sha256": "ea5924c7182f8e59b3729babd35058dcf8acaf61b6aa1cedd91c9dc2b9422b49"
+  },
   "raw_results": {
     "javascript": {
       "byte_length": 4997,

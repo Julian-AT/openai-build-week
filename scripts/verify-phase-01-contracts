@@ -60,6 +60,7 @@ coordinate_checks() {
 reference_checks() {
   [[ -x scripts/run-three-runtime-agreement ]] || fail 'missing_three_runtime_agreement'
   scripts/run-three-runtime-agreement
+  scripts/run-three-runtime-agreement --verify-reports
   for report in contract-agreement.json jcs-agreement.json coordinate-agreement.json; do
     [[ -f "evidence/compatibility/$report" ]] || fail "missing_reference_report:$report"
   done
