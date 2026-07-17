@@ -16,14 +16,14 @@ struct CaptureAttemptTests {
         var machine = CaptureAttemptMachine()
         let selection = machine.select(
             orientation: .portrait,
-            sessionIsRunning: true,
+            frameSnapshot: readyFrameSnapshot,
             worldEpoch: readyEpoch
         )
         #expect(selection == .selected(machine.selectedAttempt!))
 
         let result = machine.finish(
             currentOrientation: .landscape,
-            sessionIsRunning: true,
+            frameSnapshot: readyFrameSnapshot,
             worldEpoch: readyEpoch
         )
 
@@ -42,7 +42,7 @@ struct CaptureAttemptTests {
         var machine = CaptureAttemptMachine()
         _ = machine.select(
             orientation: .portrait,
-            sessionIsRunning: true,
+            frameSnapshot: readyFrameSnapshot,
             worldEpoch: readyEpoch
         )
         let advanced = WorldEpochSnapshot(
@@ -54,7 +54,7 @@ struct CaptureAttemptTests {
         #expect(
             machine.finish(
                 currentOrientation: .portrait,
-                sessionIsRunning: true,
+                frameSnapshot: readyFrameSnapshot,
                 worldEpoch: advanced
             ) == .rejected(.worldFrameChanged)
         )
@@ -71,7 +71,7 @@ struct CaptureAttemptTests {
         #expect(
             selectionMachine.select(
                 orientation: .portrait,
-                sessionIsRunning: true,
+                frameSnapshot: readyFrameSnapshot,
                 worldEpoch: quarantined
             ) == .rejected(.worldFrameQuarantined)
         )
@@ -79,13 +79,13 @@ struct CaptureAttemptTests {
         var completionMachine = CaptureAttemptMachine()
         _ = completionMachine.select(
             orientation: .portrait,
-            sessionIsRunning: true,
+            frameSnapshot: readyFrameSnapshot,
             worldEpoch: readyEpoch
         )
         #expect(
             completionMachine.finish(
                 currentOrientation: .portrait,
-                sessionIsRunning: true,
+                frameSnapshot: readyFrameSnapshot,
                 worldEpoch: quarantined
             ) == .rejected(.worldFrameQuarantined)
         )
@@ -96,21 +96,63 @@ struct CaptureAttemptTests {
         var machine = CaptureAttemptMachine()
         _ = machine.select(
             orientation: .portrait,
-            sessionIsRunning: true,
+            frameSnapshot: readyFrameSnapshot,
             worldEpoch: readyEpoch
         )
 
         #expect(
             machine.finish(
                 currentOrientation: .portrait,
-                sessionIsRunning: true,
+                frameSnapshot: readyFrameSnapshot,
                 worldEpoch: readyEpoch
             ) == .ready(
                 ValidatedCaptureAttempt(
                     worldFrameID: readyEpoch.worldFrameID,
-                    worldFrameVersion: readyEpoch.worldFrameVersion
+                    worldFrameVersion: readyEpoch.worldFrameVersion,
+                    frameSnapshotID: readyFrameSnapshot.id
                 )
             )
+        )
+    }
+
+    @Test("Completion requires the same retained healthy AR frame snapshot")
+    func frameSnapshotMustRemainIdenticalAndHealthy() {
+        var changedMachine = CaptureAttemptMachine()
+        _ = changedMachine.select(
+            orientation: .portrait,
+            frameSnapshot: readyFrameSnapshot,
+            worldEpoch: readyEpoch
+        )
+        let changed = CaptureFrameSnapshot(
+            id: "9007199254740994",
+            sessionIsRunning: true,
+            trackingState: .normal
+        )
+        #expect(
+            changedMachine.finish(
+                currentOrientation: .portrait,
+                frameSnapshot: changed,
+                worldEpoch: readyEpoch
+            ) == .rejected(.frameSnapshotChanged)
+        )
+
+        var interruptedMachine = CaptureAttemptMachine()
+        _ = interruptedMachine.select(
+            orientation: .portrait,
+            frameSnapshot: readyFrameSnapshot,
+            worldEpoch: readyEpoch
+        )
+        let interrupted = CaptureFrameSnapshot(
+            id: readyFrameSnapshot.id,
+            sessionIsRunning: false,
+            trackingState: .unavailable
+        )
+        #expect(
+            interruptedMachine.finish(
+                currentOrientation: .portrait,
+                frameSnapshot: interrupted,
+                worldEpoch: readyEpoch
+            ) == .rejected(.sessionUnavailable)
         )
     }
 
@@ -415,8 +457,17 @@ struct CaptureAttemptTests {
         .ready(
             ValidatedCaptureAttempt(
                 worldFrameID: readyEpoch.worldFrameID,
-                worldFrameVersion: readyEpoch.worldFrameVersion
+                worldFrameVersion: readyEpoch.worldFrameVersion,
+                frameSnapshotID: readyFrameSnapshot.id
             )
+        )
+    }
+
+    private var readyFrameSnapshot: CaptureFrameSnapshot {
+        CaptureFrameSnapshot(
+            id: "9007199254740993",
+            sessionIsRunning: true,
+            trackingState: .normal
         )
     }
 

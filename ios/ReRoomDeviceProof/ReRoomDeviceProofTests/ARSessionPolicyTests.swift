@@ -148,6 +148,37 @@ struct ARSessionPolicyTests {
         #expect(events.last == .running(false))
     }
 
+    @MainActor
+    @Test("Interruption and failure revoke running state until explicit recovery")
+    func controllerRequiresExplicitRecovery() {
+        let interruptedDriver = TestARSessionDriver()
+        let interrupted = ARSessionController(driver: interruptedDriver)
+        var interruptedEvents: [ARSessionEvent] = []
+        interrupted.onEvent = { interruptedEvents.append($0) }
+        interrupted.synchronize(cameraAuthorization: .granted)
+
+        interrupted.sessionWasInterrupted(ARSession())
+
+        #expect(interrupted.isRunning == false)
+        #expect(interrupted.recoveryRequirement == .interruption)
+        #expect(interruptedDriver.pauseCallCount == 1)
+        #expect(interruptedEvents.suffix(2) == [.tracking(.unavailable), .running(false)])
+        interrupted.synchronize(cameraAuthorization: .granted)
+        #expect(interruptedDriver.runPolicies.count == 1)
+        #expect(interrupted.restartAfterRecovery(cameraAuthorization: .granted))
+        #expect(interrupted.isRunning)
+        #expect(interrupted.recoveryRequirement == nil)
+        #expect(interruptedDriver.runPolicies.count == 2)
+
+        let failedDriver = TestARSessionDriver()
+        let failed = ARSessionController(driver: failedDriver)
+        failed.synchronize(cameraAuthorization: .granted)
+        failed.session(ARSession(), didFailWithError: TestSessionFailure())
+        #expect(failed.isRunning == false)
+        #expect(failed.recoveryRequirement == .failure)
+        #expect(failedDriver.pauseCallCount == 1)
+    }
+
     private func otherwiseReadyState(
         microphoneAuthorization: PermissionAuthorizationState
     ) -> DeviceProofState {
@@ -163,6 +194,8 @@ struct ARSessionPolicyTests {
         )
     }
 }
+
+private struct TestSessionFailure: Error {}
 
 @MainActor
 private final class TestARSessionDriver: ARSessionDriving {
