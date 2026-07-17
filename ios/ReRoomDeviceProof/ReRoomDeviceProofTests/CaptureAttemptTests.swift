@@ -200,6 +200,63 @@ struct CaptureAttemptTests {
         #expect(recovered.events.map(\.eventID) == captureInput.lifecycleEventIDs)
     }
 
+    @Test("Denied consent rejects all capture bytes and keeps a usable explanation")
+    func deniedConsentIsAnExplicitNonCapturePath() {
+        let fileSystem = MemoryCaptureFileSystem()
+        let denial = CaptureConsentDenial(
+            sessionID: captureInput.sessionID,
+            recordedAtUTC: "2026-07-17T00:00:00Z",
+            explanation: "Room capture stays off until you grant camera capture consent."
+        )
+        let journal = makeJournal(fileSystem: fileSystem, consent: .denied(denial))
+
+        #expect(throws: DiagnosticJournalRejection.consentDenied(denial.explanation)) {
+            try journal.capture(input: captureInput, attempt: readyAttempt)
+        }
+        #expect(journal.captureDenialExplanation == denial.explanation)
+        #expect(fileSystem.allPaths().isEmpty)
+    }
+
+    @Test("Consent must be session-bound and digest-valid before capture")
+    func invalidConsentRejectsBeforeDurability() {
+        let fileSystem = MemoryCaptureFileSystem()
+        let valid = grantedConsent
+        let invalid = CaptureConsentRecord(
+            sessionID: "session_00000000-0000-4000-8000-000000000099",
+            recordedAtUTC: valid.recordedAtUTC,
+            retentionPolicy: valid.retentionPolicy,
+            retentionExpiresAtUTC: valid.retentionExpiresAtUTC,
+            recordSHA256: valid.recordSHA256
+        )
+        let journal = makeJournal(fileSystem: fileSystem, consent: .granted(invalid))
+
+        #expect(throws: DiagnosticJournalRejection.invalidConsent) {
+            try journal.capture(input: captureInput, attempt: readyAttempt)
+        }
+        #expect(fileSystem.allPaths().isEmpty)
+    }
+
+    @Test("Validated consent drives manifest consent and retention fields")
+    func consentDrivesManifestPrivacy() throws {
+        let fileSystem = MemoryCaptureFileSystem()
+        let consent = try CaptureConsentRecord.granting(
+            sessionID: captureInput.sessionID,
+            recordedAtUTC: "2026-07-17T00:00:00Z",
+            retentionPolicy: .sessionTTL,
+            retentionExpiresAtUTC: "2026-07-18T00:00:00Z"
+        )
+        let journal = makeJournal(fileSystem: fileSystem, consent: .granted(consent))
+        _ = try journal.capture(input: captureInput, attempt: readyAttempt)
+
+        let manifest = try journal.recover().manifestData
+        let root = try JSONSerialization.jsonObject(with: manifest) as! [String: Any]
+        let privacy = root["privacy"] as! [String: Any]
+        #expect(privacy["capture_consent_recorded"] as? Bool == true)
+        #expect(privacy["retention_policy"] as? String == "session_ttl")
+        #expect(privacy["retention_expires_at"] as? String == "2026-07-18T00:00:00Z")
+        #expect(journal.validateRecoveredManifest(manifest) == .accepted)
+    }
+
     @Test("Rejected and quarantined attempts cannot reach the packet builder")
     func invalidAttemptRejectsBeforeDurability() {
         let fileSystem = MemoryCaptureFileSystem()
@@ -267,7 +324,8 @@ struct CaptureAttemptTests {
                 buildID: "fixture",
                 recordedAtUTC: "2026-07-17T00:00:00Z",
                 worldFrameID: readyEpoch.worldFrameID,
-                initialWorldFrameVersion: readyEpoch.worldFrameVersion
+                initialWorldFrameVersion: readyEpoch.worldFrameVersion,
+                consent: .granted(grantedConsent)
             )
         )
 
@@ -391,7 +449,8 @@ struct CaptureAttemptTests {
 
     private func makeJournal(
         fileSystem: MemoryCaptureFileSystem,
-        crashPoint: CaptureCrashPoint? = nil
+        crashPoint: CaptureCrashPoint? = nil,
+        consent: DiagnosticCaptureConsent? = nil
     ) -> DiagnosticJournal {
         DiagnosticJournal(
             fileSystem: fileSystem,
@@ -404,9 +463,19 @@ struct CaptureAttemptTests {
                 buildID: "fixture",
                 recordedAtUTC: "2026-07-17T00:00:00Z",
                 worldFrameID: readyEpoch.worldFrameID,
-                initialWorldFrameVersion: readyEpoch.worldFrameVersion
+                initialWorldFrameVersion: readyEpoch.worldFrameVersion,
+                consent: consent ?? .granted(grantedConsent)
             ),
             crashInjector: CaptureCrashInjector(point: crashPoint)
+        )
+    }
+
+    private var grantedConsent: CaptureConsentRecord {
+        try! CaptureConsentRecord.granting(
+            sessionID: captureInput.sessionID,
+            recordedAtUTC: "2026-07-17T00:00:00Z",
+            retentionPolicy: .localOnlyUntilShare,
+            retentionExpiresAtUTC: nil
         )
     }
 
