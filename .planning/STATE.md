@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: Contract and Device Proof
 status: executing
-stopped_at: Completed 01-11-PLAN.md
-last_updated: "2026-07-17T00:27:52.167Z"
+stopped_at: Completed 01-12-PLAN.md
+last_updated: "2026-07-17T01:07:45.571Z"
 last_activity: 2026-07-16
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 14
-  completed_plans: 11
+  completed_plans: 12
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-15)
 
 Phase: 01 (Contract and Device Proof) — EXECUTING
 
-Plan: 11 of 14
+Plan: 12 of 14
 
 Status: Ready to execute
 
 Last activity: 2026-07-16 — Phase 01 execution started
 
-Progress: [████████░░] 79%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -73,6 +73,7 @@ Progress: [████████░░] 79%
 | Phase 01 P09 | 15min | 2 tasks | 7 files |
 | Phase 01 P10 | 18min | 2 tasks | 7 files |
 | Phase 01 P11 | 23min | 2 tasks | 7 files |
+| Phase 01 P12 | 33min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 01]: Plan 01-11: Microphone readiness uses authorization only and never creates audio capture. — Keep optional microphone state independent from camera, ARKit, visual FramePacket, and typed/tap availability.
 - [Phase 01]: Plan 01-11: Physical landscape changes capture eligibility only and never pauses or restarts AR tracking. — Preserve session continuity while coaching portrait capture.
 - [Phase 01]: Plan 01-11: ARKit uses world tracking with horizontal and vertical planes only, with no scene reconstruction, scene depth, or rear-LiDAR gate. — Keep the base-iPhone path capability-driven and compatible with the locked no-LiDAR requirement.
+- [Phase 01]: Plan 01-12: World-frame reset or relocalization always advances the sole epoch owner; only one finite rigid correction with matching directed base and target versions can release affected quarantine. — Prevent silent relabeling or heuristic alignment from making stale spatial data capture-eligible.
+- [Phase 01]: Plan 01-12: CON-001 image and packet bytes become internally durable through one staging-directory rename, but remain non-visible and non-network-eligible until the exact CON-002 journal lifecycle is synced. — Keep file durability distinct from authoritative replay visibility and prevent partial capture publication.
+- [Phase 01]: Plan 01-12: Simulator tests embed the existing frozen contract schema resources so full ContractValidator checks do not depend on inaccessible host-repository paths. — Validate the canonical schema bytes inside the simulator without copying or altering the canonical contracts.
 
 ### Pending Todos
 
@@ -134,8 +138,8 @@ Execute Phase 1 plans 01-01 through 01-14 in their declared dependency waves. Pl
 
 ## Session Continuity
 
-Last session: 2026-07-17T00:27:52.163Z
+Last session: 2026-07-17T01:07:45.567Z
 
-Stopped at: Completed 01-11-PLAN.md
+Stopped at: Completed 01-12-PLAN.md
 
 Resume file: None
