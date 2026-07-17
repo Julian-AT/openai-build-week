@@ -66,8 +66,17 @@ struct CaptureCoreContractTests {
             acceptedFrameCount: 1,
             eventCount: 7
         )
+        let recoveredFinalization = try CaptureFinalization(
+            sessionID: IDs.session,
+            archivePath: "sessions/session_0001.rrcap",
+            state: .recoveredPrefix,
+            manifestSHA256: IDs.digestB,
+            lastDurableJournalSequence: 7,
+            acceptedFrameCount: 1,
+            eventCount: 6
+        )
         let recovered = try RecoveredArchive(
-            finalization: finalization,
+            finalization: recoveredFinalization,
             acceptedJournalRecordCount: 8,
             firstInvalidJournalSequence: 8,
             quarantineSHA256: IDs.digestC
@@ -167,14 +176,13 @@ struct CaptureCoreContractTests {
                 recoveredPrefixRecords: 0,
                 quarantinedSuffixRecords: 0
             ),
-            timeline: [entry],
             reportSHA256: IDs.digestD
         )
 
         #expect(ReplayVerdict.allCases.map(\.rawValue) == ["accept", "reject"])
         #expect(ReplayTimelineEntryType.allCases.map(\.rawValue) == ["event", "frame"])
         #expect(report.reportVersion == "1.0.0")
-        #expect(report.timeline == [entry])
+        #expect(entry.referenceID == IDs.event)
         #expect(report.rejection == nil)
     }
 
@@ -256,7 +264,7 @@ struct CaptureCoreContractTests {
         try fileSystem.synchronizeDirectory(at: "journal")
 
         #expect(try fileSystem.read(at: "journal/current.jsonl") == Data("final".utf8))
-        #expect(fileSystem.fileExists(at: "journal/published.jsonl"))
+        #expect(try fileSystem.fileExists(at: "journal/published.jsonl"))
         #expect(
             recorder.snapshot().map(\.kind) == [
                 .createDirectory,
