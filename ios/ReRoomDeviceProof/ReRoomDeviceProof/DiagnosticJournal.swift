@@ -59,7 +59,7 @@ final class FoundationCaptureFileSystem: CaptureFileSystem {
             at: url.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        try data.write(to: url)
+        try data.write(to: url, options: .withoutOverwriting)
     }
 
     func append(_ data: Data, to path: String) throws {
@@ -304,6 +304,7 @@ final class DiagnosticJournal {
         guard existing.hasInvalidTail == false else {
             throw DiagnosticJournalRejection.invalidJournal
         }
+        try validateUnusedIdentities(for: input, durablePrefix: existing)
         let firstJournalSequence = (existing.entries.last?.journalSequence ?? -1) + 1
         let firstEventSequence = existing.events.count
         let frameJournalSequence = firstJournalSequence + 2
@@ -527,6 +528,49 @@ private struct DurablePrefix {
 }
 
 private extension DiagnosticJournal {
+    func validateUnusedIdentities(
+        for input: FramePacketCaptureInput,
+        durablePrefix: DurablePrefix
+    ) throws {
+        let durableFrameIDs = Set(
+            durablePrefix.entries.lazy
+                .filter { $0.entryType == "frame" }
+                .map(\.referenceID)
+        )
+        let durableEventIDs = Set(durablePrefix.events.map(\.eventID))
+        guard durableFrameIDs.contains(input.frameID) == false,
+              durableEventIDs.isDisjoint(with: input.lifecycleEventIDs)
+        else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
+
+        let paths = fileSystem.allPaths()
+        guard paths.count <= CaptureStorageLimits.maximumFiles,
+              paths.contains(where: { $0.hasPrefix("frames/\(input.frameID)/") }) == false,
+              paths.contains(where: { $0.hasPrefix("staging/\(input.frameID).tmp/") }) == false,
+              input.lifecycleEventIDs.allSatisfy({ fileSystem.fileExists(at: eventPath($0)) == false })
+        else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
+
+        for path in paths where path.hasPrefix("frames/") && path.hasSuffix("/packet.json") {
+            let packetData = try fileSystem.read(at: path)
+            let canonical = try CanonicalJSON.canonicalize(
+                jsonData: packetData,
+                maximumBytes: FramePacketBuilder.maximumPacketBytes
+            )
+            guard canonical == packetData,
+                  let object = try JSONSerialization.jsonObject(with: canonical) as? [String: Any],
+                  let existingKey = object["idempotency_key"] as? String
+            else {
+                throw DiagnosticJournalRejection.invalidJournal
+            }
+            guard existingKey != input.idempotencyKey else {
+                throw DiagnosticJournalRejection.invalidJournal
+            }
+        }
+    }
+
     func durablePrefix() throws -> DurablePrefix {
         guard fileSystem.fileExists(at: Self.journalPath) else {
             return DurablePrefix(entries: [], events: [], hasInvalidTail: false)

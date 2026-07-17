@@ -540,6 +540,9 @@ private final class MemoryCaptureFileSystem: CaptureFileSystem {
         guard data.count <= CaptureStorageLimits.maximumFileBytes else {
             throw DiagnosticJournalRejection.invalidJournal
         }
+        guard files[path] == nil else {
+            throw DiagnosticJournalRejection.invalidJournal
+        }
         files[path] = data
     }
 
