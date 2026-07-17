@@ -66,6 +66,7 @@ reference_checks() {
 }
 
 quick_checks() {
+  python3 -m unittest tools.verify.tests.test_release_test_bundle -v
   python3 tools/verify/verify_phase_01_dependencies.py \
     --audit evidence/dependencies/phase-01-package-audit.json \
     --package-json tools/javascript/package.json \
