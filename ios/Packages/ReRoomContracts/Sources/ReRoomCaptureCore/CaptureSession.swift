@@ -460,6 +460,13 @@ public struct ReplayMetrics: Codable, Equatable, Sendable {
         self.recoveredPrefixRecords = recoveredPrefixRecords
         self.quarantinedSuffixRecords = quarantinedSuffixRecords
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case maximumQueueDepth = "max_queue_depth"
+        case droppedStaleCandidates = "dropped_stale_candidates"
+        case recoveredPrefixRecords = "recovered_prefix_records"
+        case quarantinedSuffixRecords = "quarantined_suffix_records"
+    }
 }
 
 public struct ReplayReportV1: Codable, Equatable, Sendable {
@@ -505,6 +512,37 @@ public struct ReplayReportV1: Codable, Equatable, Sendable {
         self.rejection = rejection
         self.metrics = metrics
         self.reportSHA256 = reportSHA256
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reportVersion = "report_version"
+        case evaluator
+        case fixture
+        case archive
+        case implementation
+        case verdict
+        case digests
+        case rejection
+        case metrics
+        case reportSHA256 = "report_sha256"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(reportVersion, forKey: .reportVersion)
+        try container.encode(evaluator, forKey: .evaluator)
+        try container.encode(fixture, forKey: .fixture)
+        try container.encode(archive, forKey: .archive)
+        try container.encode(implementation, forKey: .implementation)
+        try container.encode(verdict, forKey: .verdict)
+        try container.encode(digests, forKey: .digests)
+        if let rejection {
+            try container.encode(rejection, forKey: .rejection)
+        } else {
+            try container.encodeNil(forKey: .rejection)
+        }
+        try container.encode(metrics, forKey: .metrics)
+        try container.encode(reportSHA256, forKey: .reportSHA256)
     }
 }
 
