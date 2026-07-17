@@ -13,6 +13,11 @@
 		A10000000000000000000004 /* ARSessionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* ARSessionPolicyTests.swift */; };
 		A10000000000000000000005 /* PermissionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* PermissionController.swift */; };
 		A10000000000000000000006 /* ARSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ARSessionController.swift */; };
+		A10000000000000000000007 /* OrientationGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* OrientationGate.swift */; };
+		A10000000000000000000008 /* WorldEpochController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* WorldEpochController.swift */; };
+		A10000000000000000000009 /* CaptureAttemptMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* CaptureAttemptMachine.swift */; };
+		A1000000000000000000000A /* CaptureAttemptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* CaptureAttemptTests.swift */; };
+		A1000000000000000000000B /* WorldEpochTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* WorldEpochTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -34,6 +39,11 @@
 		A20000000000000000000006 /* ARSessionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARSessionPolicyTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000007 /* ReRoomDeviceProof.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ReRoomDeviceProof.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000008 /* ReRoomDeviceProofTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReRoomDeviceProofTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000009 /* OrientationGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationGate.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* WorldEpochController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldEpochController.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* CaptureAttemptMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAttemptMachine.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* CaptureAttemptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAttemptTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* WorldEpochTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldEpochTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +81,9 @@
 				A20000000000000000000002 /* DeviceProofModel.swift */,
 				A20000000000000000000003 /* PermissionController.swift */,
 				A20000000000000000000004 /* ARSessionController.swift */,
+				A20000000000000000000009 /* OrientationGate.swift */,
+				A2000000000000000000000A /* WorldEpochController.swift */,
+				A2000000000000000000000B /* CaptureAttemptMachine.swift */,
 				A20000000000000000000005 /* Info.plist */,
 			);
 			path = ReRoomDeviceProof;
@@ -80,6 +93,8 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000006 /* ARSessionPolicyTests.swift */,
+				A2000000000000000000000C /* CaptureAttemptTests.swift */,
+				A2000000000000000000000D /* WorldEpochTests.swift */,
 			);
 			path = ReRoomDeviceProofTests;
 			sourceTree = "<group>";
@@ -202,6 +217,9 @@
 				A10000000000000000000002 /* DeviceProofModel.swift in Sources */,
 				A10000000000000000000005 /* PermissionController.swift in Sources */,
 				A10000000000000000000006 /* ARSessionController.swift in Sources */,
+				A10000000000000000000007 /* OrientationGate.swift in Sources */,
+				A10000000000000000000008 /* WorldEpochController.swift in Sources */,
+				A10000000000000000000009 /* CaptureAttemptMachine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -210,6 +228,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000004 /* ARSessionPolicyTests.swift in Sources */,
+				A1000000000000000000000A /* CaptureAttemptTests.swift in Sources */,
+				A1000000000000000000000B /* WorldEpochTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
