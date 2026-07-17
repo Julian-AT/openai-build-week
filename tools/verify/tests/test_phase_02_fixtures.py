@@ -24,7 +24,7 @@ CON002_SCHEMA = ROOT / "docs/contracts/rrcap-manifest.schema.json"
 # This is deliberately external to the fixture manifest. Updating the corpus requires
 # an explicit oracle review and a matching change to this pinned value.
 EXPECTED_FIXTURE_MANIFEST_SHA256 = (
-    "bf738a623c99320d28370ea84b032a0995e09ce388cf11ce2de83aec741397b6"
+    "cbe941445cdf4d302462933694406572d330afacc9e0c83a33b80d7b5c85854c"
 )
 
 ARCHIVE_NAMES = (
@@ -311,6 +311,7 @@ class Phase02FixtureTests(unittest.TestCase):
                 "report_version",
                 "evaluator",
                 "fixture",
+                "archive",
                 "implementation",
                 "verdict",
                 "digests",
@@ -323,6 +324,18 @@ class Phase02FixtureTests(unittest.TestCase):
         self.assertEqual(
             {"report_sha256"},
             set(schema["properties"]["report_sha256"]["x-digest-omits"]),
+        )
+        self.assertEqual(
+            {
+                "case_id",
+                "archive_name",
+                "finalization_state",
+                "manifest_sha256",
+                "accepted_frame_count",
+                "event_count",
+                "journal_record_count",
+            },
+            set(schema["properties"]["archive"]["properties"]),
         )
 
     def test_one_byte_drift_is_fatal(self) -> None:

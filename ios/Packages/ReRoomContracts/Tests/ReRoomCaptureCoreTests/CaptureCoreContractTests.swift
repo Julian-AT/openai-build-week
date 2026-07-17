@@ -17,8 +17,7 @@ struct CaptureCoreContractTests {
 
         let authorization = try CaptureSessionAuthorization(
             sessionID: IDs.session,
-            consentGranted: true,
-            retentionPolicy: .localOnlyUntilShare
+            consentGranted: true
         )
         let descriptor = try CaptureSessionDescriptor(
             sessionID: IDs.session,
@@ -46,6 +45,7 @@ struct CaptureCoreContractTests {
             idempotencyKey: IDs.idempotency,
             packetRelativePath: "frames/frame_0001.json",
             packetSHA256: IDs.digestA,
+            imageSHA256: IDs.digestB,
             acceptedSequence: 0,
             durableJournalSequence: 3
         )
@@ -85,14 +85,30 @@ struct CaptureCoreContractTests {
         #expect(authorization.retentionPolicy.rawValue == "local_only_until_share")
         #expect(descriptor.sessionID == candidate.sessionID)
         #expect(candidate.selectedReason.rawValue == "cadence")
+        #expect(
+            CaptureFrameLifecycleEvent.allCases.map(\.rawValue) == [
+                "frame_selected",
+                "frame_image_and_metadata_durable",
+                "frame_journaled",
+                "frame_network_eligible",
+                "frame_server_acknowledged",
+            ]
+        )
         #expect(receipt.durableJournalSequence == 3)
         #expect(acknowledgement.packetSHA256 == receipt.packetSHA256)
         #expect(finalization.state.rawValue == "finalized")
+        #expect(CaptureFinalizationState.allCases.map(\.rawValue) == ["open", "finalized", "recovered_prefix"])
         #expect(recovered.firstInvalidJournalSequence == 8)
     }
 
     @Test("capture identities paths digests and empty bytes fail closed")
     func captureValueRejections() {
+        #expect(throws: CaptureValueError.consentDenied) {
+            try CaptureSessionAuthorization(
+                sessionID: IDs.session,
+                consentGranted: false
+            )
+        }
         #expect(throws: CaptureValueError.invalidIdentity) {
             try CaptureSessionAuthorization(
                 sessionID: "session_1",
@@ -131,6 +147,7 @@ struct CaptureCoreContractTests {
                 idempotencyKey: IDs.idempotency,
                 packetRelativePath: "frames/frame.json",
                 packetSHA256: "abc",
+                imageSHA256: IDs.digestB,
                 acceptedSequence: 0,
                 durableJournalSequence: 3
             )
@@ -156,6 +173,15 @@ struct CaptureCoreContractTests {
                 fixtureID: "FX-CAPTURE-001",
                 fixtureRevision: "rev-001",
                 manifestSHA256: IDs.digestA
+            ),
+            archive: try ReplayArchiveIdentity(
+                caseID: "finalized-one-frame",
+                archiveName: "finalized-one-frame.rrcap",
+                finalizationState: .finalized,
+                manifestSHA256: IDs.digestB,
+                acceptedFrameCount: 1,
+                eventCount: 7,
+                journalRecordCount: 8
             ),
             implementation: ReplayImplementationIdentity(
                 repositoryRevision: "git:0000000000000000000000000000000000000000",
@@ -298,8 +324,15 @@ struct CaptureCoreContractTests {
             try fileSystem.write(Data("x".utf8), to: "../escape")
         }
         try fileSystem.createDirectory(at: "frames")
+        try fileSystem.write(Data("1234".utf8), to: "frames/max")
+        #expect(try fileSystem.read(at: "frames/max") == Data("1234".utf8))
         #expect(throws: CaptureFileSystemError.byteLimitExceeded) {
             try fileSystem.write(Data("12345".utf8), to: "frames/large")
+        }
+        try fileSystem.write(Data("1".utf8), to: "frames/append")
+        try fileSystem.append(Data("23".utf8), to: "frames/append")
+        #expect(throws: CaptureFileSystemError.byteLimitExceeded) {
+            try fileSystem.append(Data("456".utf8), to: "frames/append")
         }
 
         let faulting = try FoundationCaptureFileSystem(
@@ -316,6 +349,25 @@ struct CaptureCoreContractTests {
             try faulting.write(Data("ok".utf8), to: "frames/faulted")
         }
         #expect(FileManager.default.fileExists(atPath: temporary.url.appendingPathComponent("frames/faulted").path) == false)
+    }
+
+    @Test("filesystem instances isolate identical archive-relative names")
+    func filesystemInstanceIsolation() throws {
+        let firstRoot = try TemporaryRoot()
+        let secondRoot = try TemporaryRoot()
+        defer {
+            firstRoot.remove()
+            secondRoot.remove()
+        }
+        let first = try FoundationCaptureFileSystem(root: firstRoot.url)
+        let second = try FoundationCaptureFileSystem(root: secondRoot.url)
+        try first.createDirectory(at: "frames")
+        try second.createDirectory(at: "frames")
+        try first.write(Data("first".utf8), to: "frames/frame.json")
+        try second.write(Data("second".utf8), to: "frames/frame.json")
+
+        #expect(try first.read(at: "frames/frame.json") == Data("first".utf8))
+        #expect(try second.read(at: "frames/frame.json") == Data("second".utf8))
     }
 }
 

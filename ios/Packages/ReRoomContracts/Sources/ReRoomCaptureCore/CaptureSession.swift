@@ -12,6 +12,7 @@ public enum CaptureValueError: String, Error, Equatable, Sendable {
     case invalidReplayReport = "invalid_replay_report"
     case emptyBytes = "empty_bytes"
     case byteLimitExceeded = "byte_limit_exceeded"
+    case consentDenied = "consent_denied"
 }
 
 public enum CaptureRetentionPolicy: String, Codable, CaseIterable, Sendable {
@@ -26,9 +27,10 @@ public struct CaptureSessionAuthorization: Codable, Equatable, Sendable {
     public init(
         sessionID: String,
         consentGranted: Bool,
-        retentionPolicy: CaptureRetentionPolicy
+        retentionPolicy: CaptureRetentionPolicy = .localOnlyUntilShare
     ) throws {
         try CaptureValueValidation.requireID(sessionID, prefix: "session_")
+        guard consentGranted else { throw CaptureValueError.consentDenied }
         self.sessionID = sessionID
         self.consentGranted = consentGranted
         self.retentionPolicy = retentionPolicy
@@ -64,6 +66,14 @@ public enum SelectedFrameReason: String, Codable, CaseIterable, Sendable {
     case keyframe
     case userEvent = "user_event"
     case recovery
+}
+
+public enum CaptureFrameLifecycleEvent: String, Codable, CaseIterable, Sendable {
+    case selected = "frame_selected"
+    case imageAndMetadataDurable = "frame_image_and_metadata_durable"
+    case journaled = "frame_journaled"
+    case networkEligible = "frame_network_eligible"
+    case serverAcknowledged = "frame_server_acknowledged"
 }
 
 public struct SelectedFrameCandidate: Codable, Equatable, Sendable {
@@ -130,6 +140,7 @@ public struct NetworkEligibleReceipt: Codable, Equatable, Sendable {
     public let idempotencyKey: String
     public let packetRelativePath: String
     public let packetSHA256: String
+    public let imageSHA256: String
     public let acceptedSequence: UInt64
     public let durableJournalSequence: UInt64
 
@@ -139,6 +150,7 @@ public struct NetworkEligibleReceipt: Codable, Equatable, Sendable {
         idempotencyKey: String,
         packetRelativePath: String,
         packetSHA256: String,
+        imageSHA256: String,
         acceptedSequence: UInt64,
         durableJournalSequence: UInt64
     ) throws {
@@ -147,11 +159,13 @@ public struct NetworkEligibleReceipt: Codable, Equatable, Sendable {
         try CaptureValueValidation.requireID(idempotencyKey, prefix: "frameidem_")
         try CaptureValueValidation.requireArchivePath(packetRelativePath)
         try CaptureValueValidation.requireDigest(packetSHA256)
+        try CaptureValueValidation.requireDigest(imageSHA256)
         self.sessionID = sessionID
         self.frameID = frameID
         self.idempotencyKey = idempotencyKey
         self.packetRelativePath = packetRelativePath
         self.packetSHA256 = packetSHA256
+        self.imageSHA256 = imageSHA256
         self.acceptedSequence = acceptedSequence
         self.durableJournalSequence = durableJournalSequence
     }
@@ -188,6 +202,7 @@ public struct GatewayAcknowledgement: Codable, Equatable, Sendable {
 }
 
 public enum CaptureFinalizationState: String, Codable, CaseIterable, Sendable {
+    case open
     case finalized
     case recoveredPrefix = "recovered_prefix"
 }
@@ -237,6 +252,8 @@ public struct RecoveredArchive: Codable, Equatable, Sendable {
     ) throws {
         guard acceptedJournalRecordCount > 0 else { throw CaptureValueError.invalidSequence }
         switch finalization.state {
+        case .open:
+            throw CaptureValueError.invalidReplayReport
         case .finalized:
             guard firstInvalidJournalSequence == nil, quarantineSHA256 == nil else {
                 throw CaptureValueError.invalidReplayReport
@@ -339,6 +356,42 @@ public struct ReplayImplementationIdentity: Codable, Equatable, Sendable {
     }
 }
 
+public struct ReplayArchiveIdentity: Codable, Equatable, Sendable {
+    public let caseID: String
+    public let archiveName: String
+    public let finalizationState: CaptureFinalizationState
+    public let manifestSHA256: String
+    public let acceptedFrameCount: UInt64
+    public let eventCount: UInt64
+    public let journalRecordCount: UInt64
+
+    public init(
+        caseID: String,
+        archiveName: String,
+        finalizationState: CaptureFinalizationState,
+        manifestSHA256: String,
+        acceptedFrameCount: UInt64,
+        eventCount: UInt64,
+        journalRecordCount: UInt64
+    ) throws {
+        guard caseID.isEmpty == false,
+              archiveName.hasSuffix(".rrcap"),
+              archiveName.contains("/") == false,
+              finalizationState != .open,
+              journalRecordCount > 0
+        else { throw CaptureValueError.invalidReplayReport }
+        try CaptureValueValidation.requireArchivePath(archiveName)
+        try CaptureValueValidation.requireDigest(manifestSHA256)
+        self.caseID = caseID
+        self.archiveName = archiveName
+        self.finalizationState = finalizationState
+        self.manifestSHA256 = manifestSHA256
+        self.acceptedFrameCount = acceptedFrameCount
+        self.eventCount = eventCount
+        self.journalRecordCount = journalRecordCount
+    }
+}
+
 public struct ReplayDigestSet: Codable, Equatable, Sendable {
     public let journalTupleSHA256: String
     public let frameProjectionSHA256: String
@@ -411,6 +464,7 @@ public struct ReplayReportV1: Codable, Equatable, Sendable {
     public let reportVersion: String
     public let evaluator: ReplayEvaluator
     public let fixture: ReplayFixtureIdentity
+    public let archive: ReplayArchiveIdentity
     public let implementation: ReplayImplementationIdentity
     public let verdict: ReplayVerdict
     public let digests: ReplayDigestSet
@@ -421,6 +475,7 @@ public struct ReplayReportV1: Codable, Equatable, Sendable {
     public init(
         evaluator: ReplayEvaluator,
         fixture: ReplayFixtureIdentity,
+        archive: ReplayArchiveIdentity,
         implementation: ReplayImplementationIdentity,
         verdict: ReplayVerdict,
         digests: ReplayDigestSet,
@@ -441,6 +496,7 @@ public struct ReplayReportV1: Codable, Equatable, Sendable {
         self.reportVersion = "1.0.0"
         self.evaluator = evaluator
         self.fixture = fixture
+        self.archive = archive
         self.implementation = implementation
         self.verdict = verdict
         self.digests = digests
