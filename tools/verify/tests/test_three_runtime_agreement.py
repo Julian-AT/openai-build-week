@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -231,6 +232,95 @@ class SwiftPackageManifestBindingTests(unittest.TestCase):
             self._require_manifest()
 
 
+class NodeRuntimeBindingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        package = self.root / PUBLISHER.NODE_PACKAGE_RELATIVE_PATH
+        package.parent.mkdir(parents=True)
+        package.write_text(
+            json.dumps({"engines": {"node": "22.22.3"}}) + "\n",
+            encoding="utf-8",
+        )
+
+    def tearDown(self) -> None:
+        self.temporary.cleanup()
+
+    def test_requires_an_exact_engine_declaration(self) -> None:
+        package = self.root / PUBLISHER.NODE_PACKAGE_RELATIVE_PATH
+        for declaration in (">=22.0.0", "22", "v22.22.3", "22.22.03"):
+            with self.subTest(declaration=declaration):
+                package.write_text(
+                    json.dumps({"engines": {"node": declaration}}) + "\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(
+                    PUBLISHER.AgreementError, "one exact Node.js version"
+                ):
+                    PUBLISHER._declared_node_version(self.root)
+
+    def test_path_selected_wrong_node_fails_before_report_replacement(self) -> None:
+        publisher = self.root / PUBLISHER.PUBLISHER_RELATIVE_PATH
+        publisher.parent.mkdir(parents=True)
+        shutil.copyfile(PUBLISHER_PATH, publisher)
+
+        fake_bin = self.root / "fake-bin"
+        fake_bin.mkdir()
+        wrong_node = fake_bin / "node"
+        wrong_node.write_text("#!/bin/sh\necho v26.0.0\n", encoding="utf-8")
+        wrong_node.chmod(0o755)
+        python = self.root / ".venv/bin/python"
+        python.parent.mkdir(parents=True)
+        python.symlink_to(sys.executable)
+
+        reports = self.root / "evidence/compatibility"
+        reports.mkdir(parents=True)
+        baselines = {}
+        for name in REPORT_NAMES:
+            baseline = f"previous {name}\n".encode()
+            (reports / name).write_bytes(baseline)
+            baselines[name] = baseline
+
+        package_path = self.root / PUBLISHER.NODE_PACKAGE_RELATIVE_PATH
+        source_records = [
+            {
+                "relative_path": PUBLISHER.NODE_PACKAGE_RELATIVE_PATH,
+                "sha256": PUBLISHER._sha256(package_path.read_bytes()),
+            }
+        ]
+        previous_directory = Path.cwd()
+        try:
+            with (
+                mock.patch.dict(
+                    os.environ,
+                    {"PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"},
+                ),
+                mock.patch.object(PUBLISHER, "_repo_root", return_value=self.root),
+                mock.patch.object(
+                    PUBLISHER, "_require_bound_sources", return_value=source_records
+                ),
+                mock.patch.object(
+                    PUBLISHER,
+                    "_require_swift_package_manifest",
+                    return_value={"relative_path": "Package.swift", "sha256": "0" * 64},
+                ),
+                mock.patch.object(PUBLISHER, "_environment") as environment,
+                mock.patch.object(PUBLISHER, "_atomic_write_reports") as atomic_write,
+            ):
+                with self.assertRaisesRegex(
+                    PUBLISHER.AgreementError,
+                    "does not match the bound exact version v22.22.3",
+                ):
+                    PUBLISHER.run()
+                environment.assert_not_called()
+                atomic_write.assert_not_called()
+        finally:
+            os.chdir(previous_directory)
+
+        for name, baseline in baselines.items():
+            self.assertEqual(baseline, (reports / name).read_bytes())
+
+
 class ReportProvenanceTests(unittest.TestCase):
     def _copy_reports(self, destination: Path) -> None:
         source = REPO_ROOT / "evidence/compatibility"
@@ -309,6 +399,24 @@ class ReportProvenanceTests(unittest.TestCase):
             ):
                 PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
 
+    def test_verifier_rejects_wrong_node_runtime_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            self._copy_reports(reports)
+            target = reports / "contract-agreement.json"
+            report = json.loads(target.read_bytes())
+            report["environment"]["node"] = "v26.0.0"
+            target.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                PUBLISHER.AgreementError,
+                "Node.js runtime provenance is invalid",
+            ):
+                PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
+
 
 class ExecutionBindingStabilityTests(unittest.TestCase):
     def test_mutation_during_execution_never_replaces_reports(self) -> None:
@@ -332,11 +440,18 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
                 "// swift-tools-version: 6.0\nimport PackageDescription\n",
                 encoding="utf-8",
             )
+            node_package = root / PUBLISHER.NODE_PACKAGE_RELATIVE_PATH
+            node_package.parent.mkdir(parents=True)
+            node_package.write_text(
+                json.dumps({"engines": {"node": "22.22.3"}}) + "\n",
+                encoding="utf-8",
+            )
             _git(
                 root,
                 "add",
                 "source/runner.py",
                 PUBLISHER.SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH,
+                PUBLISHER.NODE_PACKAGE_RELATIVE_PATH,
             )
             _git(root, "commit", "--quiet", "-m", "bound source")
             revision = _git(root, "rev-parse", "HEAD")
@@ -386,6 +501,10 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
                     return original_run(command, root=root, label=label, timeout=timeout)
                 if label == "Swift binary path":
                     return subprocess.CompletedProcess(command, 0, stdout=str(root / "bin"), stderr="")
+                if label == "Node.js":
+                    return subprocess.CompletedProcess(
+                        command, 0, stdout="v22.22.3\n", stderr=""
+                    )
                 if label.endswith(("Swift runner", "JavaScript runner", "Python runner")):
                     runtime = {
                         "Swift runner": "swift",
@@ -433,7 +552,11 @@ class ExecutionBindingStabilityTests(unittest.TestCase):
                     mock.patch.object(
                         PUBLISHER,
                         "BOUND_SOURCE_SCOPES",
-                        ("source", PUBLISHER.SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH),
+                        (
+                            "source",
+                            PUBLISHER.SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH,
+                            PUBLISHER.NODE_PACKAGE_RELATIVE_PATH,
+                        ),
                     ),
                     mock.patch.object(
                         PUBLISHER,

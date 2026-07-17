@@ -20,6 +20,7 @@ BOUND_REVISION = "a5bff6896188dcac9397c48ce1a6820a7196011a"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"
+NODE_PACKAGE_RELATIVE_PATH = "tools/javascript/package.json"
 SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "ios/Packages/ReRoomContracts"
 SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH = (
     f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Package.swift"
@@ -371,14 +372,39 @@ def _version(command: list[str], root: Path, label: str) -> str:
     return lines[0]
 
 
-def _environment(root: Path, node: Path, python: Path) -> dict[str, str]:
+def _declared_node_version(root: Path) -> str:
+    package = _read_json(
+        root / NODE_PACKAGE_RELATIVE_PATH, "bound JavaScript package metadata"
+    )
+    engines = package.get("engines")
+    version = engines.get("node") if isinstance(engines, dict) else None
+    if not isinstance(version, str) or re.fullmatch(
+        r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version
+    ) is None:
+        raise AgreementError("bound JavaScript package must declare one exact Node.js version")
+    return f"v{version}"
+
+
+def _require_locked_node(root: Path, node: Path) -> str:
+    expected = _declared_node_version(root)
+    actual = _version([str(node), "--version"], root, "Node.js")
+    if actual != expected:
+        raise AgreementError(
+            f"Node.js runtime {actual} does not match the bound exact version {expected}"
+        )
+    return actual
+
+
+def _environment(
+    root: Path, *, node_version: str, python: Path
+) -> dict[str, str]:
     product = _version(["sw_vers", "-productVersion"], root, "operating system version")
     build = _version(["sw_vers", "-buildVersion"], root, "operating system build")
     return {
         "operating_system": f"macOS {product} build {build}",
         "architecture": platform.machine(),
         "swift": _version(["swift", "--version"], root, "Swift"),
-        "node": _version([str(node), "--version"], root, "Node.js"),
+        "node": node_version,
         "python": _version([str(python), "--version"], root, "Python"),
         "command": "scripts/run-three-runtime-agreement",
         "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
@@ -451,7 +477,7 @@ def _build_report(
     ]
     return {
         "schema_version": "1.0.0",
-        "evidence_id": f"evidence_three_runtime_{stem}_20260717_006",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_007",
         "classification": "MEASURED",
         "requirement_ids": list(requirements),
         "test_ids": list(tests),
@@ -554,9 +580,10 @@ def run() -> tuple[str, ...]:
     swift_package_manifest = _require_swift_package_manifest(
         root, source_records=source_records
     )
+    node_version = _require_locked_node(root, node)
     source_digest = _source_tree_digest(source_records)
     oracle_before = _oracle_hashes(root)
-    environment = _environment(root, node, python)
+    environment = _environment(root, node_version=node_version, python=python)
 
     _run(
         ["swift", "build", "--package-path", "ios/Packages/ReRoomContracts", "--product", "ReRoomContractRunner"],
@@ -681,6 +708,7 @@ def _verify_reports(
     expected_swift_package_manifest = _require_swift_package_manifest(
         root, source_records=source_records
     )
+    expected_node_version = _declared_node_version(root)
     fixture_ids: list[str] = []
     for _, fixture_id, _, report_name, _, _ in MANIFESTS:
         report = _read_json(reports / report_name, f"{fixture_id} agreement report")
@@ -696,6 +724,11 @@ def _verify_reports(
             raise AgreementError(
                 f"{fixture_id} Swift package manifest provenance is invalid"
             )
+        environment = report.get("environment")
+        if not isinstance(environment, dict) or environment.get(
+            "node"
+        ) != expected_node_version:
+            raise AgreementError(f"{fixture_id} Node.js runtime provenance is invalid")
         if report.get("test_ids") != list(CANONICAL_TEST_IDS[fixture_id]):
             raise AgreementError(f"{fixture_id} canonical test IDs are invalid")
         fixture_ids.append(fixture_id)
