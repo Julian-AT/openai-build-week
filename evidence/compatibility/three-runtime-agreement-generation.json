@@ -1,0 +1,18 @@
+{
+  "generation_sha256": "7f18feff219d3e9c09f62593aa71b34ebaf83218a347ae8d5dfc3256f17c479d",
+  "reports": [
+    {
+      "relative_path": "contract-agreement.json",
+      "sha256": "299cca3dbd58bd5e976c3a48158bf961e40274ec9ec80f41596f57d04c37a39a"
+    },
+    {
+      "relative_path": "coordinate-agreement.json",
+      "sha256": "2996f14769e71404fc43eb9ceb59cb92a8cc40eb00243efdc3212037c83ae878"
+    },
+    {
+      "relative_path": "jcs-agreement.json",
+      "sha256": "f4a69f6494f9ce0f1b28f524ca396a5e694bd5802c1f2356b412d1ea66c1b2b0"
+    }
+  ],
+  "schema_version": "1.0.0"
+}

@@ -39,6 +39,16 @@ def _load_publisher():
 PUBLISHER = _load_publisher()
 
 
+def _rewrite_generation_manifest(report_directory: Path) -> None:
+    targets = {
+        report_directory / name: (report_directory / name).read_bytes()
+        for name in REPORT_NAMES
+    }
+    (report_directory / PUBLISHER.REPORT_GENERATION_MANIFEST_NAME).write_bytes(
+        PUBLISHER._generation_manifest_bytes(targets)
+    )
+
+
 def _git(root: Path, *arguments: str) -> str:
     completed = subprocess.run(
         ["git", *arguments],
@@ -324,7 +334,7 @@ class NodeRuntimeBindingTests(unittest.TestCase):
 class ReportProvenanceTests(unittest.TestCase):
     def _copy_reports(self, destination: Path) -> None:
         source = REPO_ROOT / "evidence/compatibility"
-        for name in REPORT_NAMES:
+        for name in (*REPORT_NAMES, PUBLISHER.REPORT_GENERATION_MANIFEST_NAME):
             shutil.copyfile(source / name, destination / name)
 
     def test_checked_in_reports_bind_the_exact_metric_publisher(self) -> None:
@@ -353,6 +363,7 @@ class ReportProvenanceTests(unittest.TestCase):
                     json.dumps(report, indent=2, sort_keys=True) + "\n",
                     encoding="utf-8",
                 )
+                _rewrite_generation_manifest(reports)
 
                 with self.assertRaisesRegex(
                     PUBLISHER.AgreementError,
@@ -371,6 +382,7 @@ class ReportProvenanceTests(unittest.TestCase):
                 json.dumps(report, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            _rewrite_generation_manifest(reports)
 
             with self.assertRaisesRegex(
                 PUBLISHER.AgreementError,
@@ -392,6 +404,7 @@ class ReportProvenanceTests(unittest.TestCase):
                 json.dumps(report, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            _rewrite_generation_manifest(reports)
 
             with self.assertRaisesRegex(
                 PUBLISHER.AgreementError,
@@ -410,12 +423,122 @@ class ReportProvenanceTests(unittest.TestCase):
                 json.dumps(report, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            _rewrite_generation_manifest(reports)
 
             with self.assertRaisesRegex(
                 PUBLISHER.AgreementError,
                 "Node.js runtime provenance is invalid",
             ):
                 PUBLISHER._verify_reports(REPO_ROOT, report_directory=reports)
+
+
+class ReportTransactionTests(unittest.TestCase):
+    def _targets(self, report_directory: Path, prefix: str) -> dict[Path, bytes]:
+        return {
+            report_directory / name: f"{prefix} {name}\n".encode()
+            for name in REPORT_NAMES
+        }
+
+    def _complete_bytes(self, report_directory: Path) -> dict[str, bytes]:
+        names = (*REPORT_NAMES, PUBLISHER.REPORT_GENERATION_MANIFEST_NAME)
+        return {name: (report_directory / name).read_bytes() for name in names}
+
+    def test_replacement_fault_at_each_boundary_restores_previous_generation(
+        self,
+    ) -> None:
+        replacement_count = len(REPORT_NAMES) + 1
+        for failure_at in range(replacement_count):
+            with self.subTest(failure_at=failure_at), tempfile.TemporaryDirectory() as directory:
+                reports = Path(directory)
+                PUBLISHER._atomic_write_reports(self._targets(reports, "old"))
+                baseline = self._complete_bytes(reports)
+                calls = 0
+
+                def fail_at_boundary(source: Path, target: Path) -> None:
+                    nonlocal calls
+                    if calls == failure_at:
+                        raise OSError("injected report replacement fault")
+                    calls += 1
+                    os.replace(source, target)
+
+                with (
+                    mock.patch.object(
+                        PUBLISHER,
+                        "_replace_report_path",
+                        side_effect=fail_at_boundary,
+                    ),
+                    self.assertRaisesRegex(
+                        PUBLISHER.AgreementError,
+                        "previous generation was restored",
+                    ),
+                ):
+                    PUBLISHER._atomic_write_reports(self._targets(reports, "new"))
+
+                self.assertEqual(baseline, self._complete_bytes(reports))
+                self.assertFalse(
+                    (reports / PUBLISHER.REPORT_TRANSACTION_DIRECTORY_NAME).exists()
+                )
+                PUBLISHER._require_report_generation_unlocked(reports)
+
+    def test_interrupted_mixed_generation_is_recovered_before_verification(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            for name in REPORT_NAMES:
+                shutil.copyfile(
+                    REPO_ROOT / "evidence/compatibility" / name,
+                    reports / name,
+                )
+            old_targets = {
+                reports / name: (reports / name).read_bytes() for name in REPORT_NAMES
+            }
+            PUBLISHER._atomic_write_reports(old_targets)
+            baseline = self._complete_bytes(reports)
+            new_targets: dict[Path, bytes] = {}
+            for name in REPORT_NAMES:
+                target = reports / name
+                report = json.loads(target.read_bytes())
+                report["environment"]["architecture"] = "interrupted-generation"
+                new_targets[target] = (
+                    json.dumps(report, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+                )
+
+            calls = 0
+
+            def interrupt_after_two_replacements(source: Path, target: Path) -> None:
+                nonlocal calls
+                if calls == 2:
+                    raise KeyboardInterrupt("simulated process termination")
+                calls += 1
+                os.replace(source, target)
+
+            with (
+                mock.patch.object(
+                    PUBLISHER,
+                    "_replace_report_path",
+                    side_effect=interrupt_after_two_replacements,
+                ),
+                self.assertRaises(KeyboardInterrupt),
+            ):
+                PUBLISHER._atomic_write_reports(new_targets)
+
+            self.assertTrue(
+                (reports / PUBLISHER.REPORT_TRANSACTION_DIRECTORY_NAME).is_dir()
+            )
+            self.assertNotEqual(baseline, self._complete_bytes(reports))
+
+            fixture_ids = PUBLISHER._verify_reports(
+                REPO_ROOT, report_directory=reports
+            )
+
+            self.assertEqual(
+                ("FX-CONTRACT-001", "FX-JCS-001", "FX-COORD-001"), fixture_ids
+            )
+            self.assertEqual(baseline, self._complete_bytes(reports))
+            self.assertFalse(
+                (reports / PUBLISHER.REPORT_TRANSACTION_DIRECTORY_NAME).exists()
+            )
 
 
 class ExecutionBindingStabilityTests(unittest.TestCase):

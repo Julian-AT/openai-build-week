@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -21,6 +22,8 @@ IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"
 NODE_PACKAGE_RELATIVE_PATH = "tools/javascript/package.json"
+REPORT_GENERATION_MANIFEST_NAME = "three-runtime-agreement-generation.json"
+REPORT_TRANSACTION_DIRECTORY_NAME = ".three-runtime-agreement-transaction"
 SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "ios/Packages/ReRoomContracts"
 SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH = (
     f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Package.swift"
@@ -477,7 +480,7 @@ def _build_report(
     ]
     return {
         "schema_version": "1.0.0",
-        "evidence_id": f"evidence_three_runtime_{stem}_20260717_007",
+        "evidence_id": f"evidence_three_runtime_{stem}_20260717_008",
         "classification": "MEASURED",
         "requirement_ids": list(requirements),
         "test_ids": list(tests),
@@ -535,7 +538,10 @@ def _build_report(
         "reproduction": {
             "command": "scripts/run-three-runtime-agreement",
             "success_condition": "fresh raw-result SHA-256 digests and the complete report bytes reproduce exactly",
-            "report_write_policy": "all three comparisons pass before any report is atomically replaced",
+            "report_write_policy": (
+                "all three comparisons pass before a recoverable generation transaction "
+                "publishes the reports and their shared hash manifest"
+            ),
         },
         "limitations": [
             "This evidence covers the immutable host-runtime corpus only; it is not physical-device, signing, ARKit, compositor, or thermal evidence.",
@@ -544,30 +550,324 @@ def _build_report(
     }
 
 
-def _atomic_write_reports(targets: dict[Path, bytes]) -> None:
-    temporary_paths: list[tuple[Path, Path]] = []
+def _fsync_directory(directory: Path) -> None:
+    descriptor = os.open(directory, os.O_RDONLY)
     try:
-        for target, data in targets.items():
-            descriptor, temporary_name = tempfile.mkstemp(
-                prefix=f".{target.name}.", dir=target.parent
-            )
-            temporary = Path(temporary_name)
-            temporary_paths.append((target, temporary))
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(data)
-                handle.flush()
-                os.fsync(handle.fileno())
-        for target, temporary in temporary_paths:
-            os.replace(temporary, target)
-        directory_descriptor = os.open(next(iter(targets)).parent, os.O_RDONLY)
-        try:
-            os.fsync(directory_descriptor)
-        finally:
-            os.close(directory_descriptor)
+        os.fsync(descriptor)
     finally:
-        for _, temporary in temporary_paths:
-            if temporary.exists():
-                temporary.unlink()
+        os.close(descriptor)
+
+
+def _write_durable(path: Path, data: bytes) -> None:
+    with path.open("xb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def _generation_manifest_bytes(targets: dict[Path, bytes]) -> bytes:
+    if not targets:
+        raise AgreementError("report generation is empty")
+    report_directory = next(iter(targets)).parent
+    names = [target.name for target in targets]
+    if (
+        len(set(names)) != len(names)
+        or REPORT_GENERATION_MANIFEST_NAME in names
+        or any(target.parent != report_directory for target in targets)
+    ):
+        raise AgreementError("report generation targets are invalid")
+    reports = [
+        {"relative_path": target.name, "sha256": _sha256(targets[target])}
+        for target in sorted(targets, key=lambda path: path.name)
+    ]
+    generation_scope = "".join(
+        f"{report['relative_path']}\0{report['sha256']}\n" for report in reports
+    ).encode("utf-8")
+    manifest = {
+        "schema_version": "1.0.0",
+        "generation_sha256": _sha256(generation_scope),
+        "reports": reports,
+    }
+    return json.dumps(manifest, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+
+
+def _transaction_allowed_names(marker: dict) -> set[str]:
+    allowed = {"transaction.json", "transaction.tmp"}
+    for entry in marker["entries"]:
+        allowed.update((entry["staged"], entry["backup"], entry["restore"]))
+    return allowed
+
+
+def _remove_transaction_directory(transaction: Path, allowed_names: set[str]) -> None:
+    try:
+        mode = transaction.lstat().st_mode
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        raise AgreementError("report transaction cleanup is unavailable") from error
+    try:
+        entries = tuple(transaction.iterdir())
+    except OSError as error:
+        raise AgreementError("report transaction cleanup is unavailable") from error
+    if not stat.S_ISDIR(mode):
+        raise AgreementError("report transaction path is not a regular directory")
+    marker = transaction / "transaction.json"
+    for path in sorted(entries, key=lambda item: item.name):
+        if path.name not in allowed_names:
+            raise AgreementError("report transaction contains an unexpected path")
+        try:
+            path_mode = path.lstat().st_mode
+        except OSError as error:
+            raise AgreementError("report transaction cleanup is unavailable") from error
+        if not stat.S_ISREG(path_mode):
+            raise AgreementError("report transaction contains a non-regular path")
+        if path != marker:
+            path.unlink()
+    _fsync_directory(transaction)
+    if marker.exists():
+        marker.unlink()
+        _fsync_directory(transaction)
+    transaction.rmdir()
+    _fsync_directory(transaction.parent)
+
+
+def _load_report_transaction(transaction: Path) -> dict:
+    marker = _read_json(transaction / "transaction.json", "report transaction marker")
+    entries = marker.get("entries")
+    if marker.get("schema_version") != "1.0.0" or marker.get("state") not in {
+        "prepared",
+        "committed",
+    } or not isinstance(entries, list) or not (1 <= len(entries) <= 16):
+        raise AgreementError("report transaction marker is invalid")
+    target_names: set[str] = set()
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise AgreementError("report transaction marker is invalid")
+        expected_names = {
+            "staged": f"new-{index:04d}",
+            "backup": f"old-{index:04d}",
+            "restore": f"restore-{index:04d}",
+        }
+        target = entry.get("target")
+        old_sha256 = entry.get("old_sha256")
+        if (
+            not isinstance(target, str)
+            or Path(target).name != target
+            or target in target_names
+            or any(entry.get(key) != value for key, value in expected_names.items())
+            or not isinstance(entry.get("existed"), bool)
+            or not isinstance(entry.get("new_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", entry["new_sha256"]) is None
+            or (
+                entry["existed"]
+                and (
+                    not isinstance(old_sha256, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", old_sha256) is None
+                )
+            )
+            or (not entry["existed"] and old_sha256 is not None)
+        ):
+            raise AgreementError("report transaction marker is invalid")
+        target_names.add(target)
+    if entries[-1]["target"] != REPORT_GENERATION_MANIFEST_NAME:
+        raise AgreementError("report transaction commit marker is not last")
+    return marker
+
+
+def _recover_report_transaction_unlocked(report_directory: Path) -> str:
+    transaction = report_directory / REPORT_TRANSACTION_DIRECTORY_NAME
+    try:
+        transaction_mode = transaction.lstat().st_mode
+    except FileNotFoundError:
+        return "none"
+    except OSError as error:
+        raise AgreementError("report transaction recovery is unavailable") from error
+    if not stat.S_ISDIR(transaction_mode):
+        raise AgreementError("report transaction path is not a regular directory")
+    marker_path = transaction / "transaction.json"
+    if not marker_path.exists():
+        try:
+            remaining = tuple(transaction.iterdir())
+        except OSError as error:
+            raise AgreementError("report transaction recovery is unavailable") from error
+        if remaining:
+            raise AgreementError("report transaction marker is unavailable")
+        transaction.rmdir()
+        _fsync_directory(report_directory)
+        return "committed"
+    marker = _load_report_transaction(transaction)
+    entries = marker["entries"]
+    if marker["state"] == "committed":
+        for entry in entries:
+            target = report_directory / entry["target"]
+            try:
+                target_mode = target.lstat().st_mode
+                target_sha256 = _sha256(target.read_bytes())
+            except OSError as error:
+                raise AgreementError("committed report generation is unavailable") from error
+            if not stat.S_ISREG(target_mode) or target_sha256 != entry["new_sha256"]:
+                raise AgreementError("committed report generation is invalid")
+    else:
+        for entry in entries:
+            target = report_directory / entry["target"]
+            if entry["existed"]:
+                backup = transaction / entry["backup"]
+                restore = transaction / entry["restore"]
+                try:
+                    backup_mode = backup.lstat().st_mode
+                    backup_data = backup.read_bytes()
+                except OSError as error:
+                    raise AgreementError("report transaction backup is unavailable") from error
+                if not stat.S_ISREG(backup_mode):
+                    raise AgreementError("report transaction backup is not regular")
+                if _sha256(backup_data) != entry["old_sha256"]:
+                    raise AgreementError("report transaction backup digest is invalid")
+                if restore.exists():
+                    if not stat.S_ISREG(restore.lstat().st_mode):
+                        raise AgreementError("report transaction restore path is not regular")
+                    restore.unlink()
+                _write_durable(restore, backup_data)
+                os.replace(restore, target)
+            else:
+                try:
+                    target_mode = target.lstat().st_mode
+                except FileNotFoundError:
+                    target_mode = None
+                except OSError as error:
+                    raise AgreementError(
+                        "new report transaction target is unavailable"
+                    ) from error
+                if target_mode is not None and not stat.S_ISREG(target_mode):
+                    raise AgreementError("new report transaction target is not regular")
+                if target_mode is not None:
+                    target.unlink()
+        _fsync_directory(report_directory)
+    _remove_transaction_directory(transaction, _transaction_allowed_names(marker))
+    return marker["state"]
+
+
+def _recover_report_transaction(report_directory: Path) -> None:
+    descriptor = os.open(report_directory, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        _recover_report_transaction_unlocked(report_directory)
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
+def _prepare_report_transaction(targets: dict[Path, bytes]) -> tuple[Path, dict]:
+    report_directory = next(iter(targets)).parent
+    manifest_target = report_directory / REPORT_GENERATION_MANIFEST_NAME
+    publish_targets = dict(targets)
+    publish_targets[manifest_target] = _generation_manifest_bytes(targets)
+    ordered_targets = sorted(targets, key=lambda path: path.name) + [manifest_target]
+    transaction = report_directory / REPORT_TRANSACTION_DIRECTORY_NAME
+    try:
+        transaction.mkdir(mode=0o700)
+    except OSError as error:
+        raise AgreementError("report transaction cannot be prepared") from error
+
+    entries: list[dict[str, object]] = []
+    marker = {"schema_version": "1.0.0", "state": "prepared", "entries": entries}
+    try:
+        for index, target in enumerate(ordered_targets):
+            if (
+                target.parent != report_directory
+                or target.name != target.relative_to(report_directory).as_posix()
+            ):
+                raise AgreementError("report transaction target is invalid")
+            staged_name = f"new-{index:04d}"
+            backup_name = f"old-{index:04d}"
+            restore_name = f"restore-{index:04d}"
+            data = publish_targets[target]
+            try:
+                target_mode = target.lstat().st_mode
+                existed = True
+            except FileNotFoundError:
+                target_mode = None
+                existed = False
+            except OSError as error:
+                raise AgreementError(
+                    "existing report transaction target is unavailable"
+                ) from error
+            if target_mode is not None and not stat.S_ISREG(target_mode):
+                raise AgreementError("existing report transaction target is not regular")
+            old_data = target.read_bytes() if existed else None
+            entries.append(
+                {
+                    "target": target.name,
+                    "staged": staged_name,
+                    "backup": backup_name,
+                    "restore": restore_name,
+                    "existed": existed,
+                    "old_sha256": _sha256(old_data) if old_data is not None else None,
+                    "new_sha256": _sha256(data),
+                }
+            )
+            _write_durable(transaction / staged_name, data)
+            if old_data is not None:
+                _write_durable(transaction / backup_name, old_data)
+        marker_bytes = json.dumps(marker, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+        _write_durable(transaction / "transaction.tmp", marker_bytes)
+        os.replace(transaction / "transaction.tmp", transaction / "transaction.json")
+        _fsync_directory(transaction)
+        _fsync_directory(report_directory)
+    except Exception:
+        allowed = _transaction_allowed_names(marker)
+        _remove_transaction_directory(transaction, allowed)
+        raise
+    return transaction, marker
+
+
+def _replace_report_path(source: Path, target: Path) -> None:
+    os.replace(source, target)
+
+
+def _atomic_write_reports(targets: dict[Path, bytes]) -> None:
+    if not targets:
+        raise AgreementError("report generation is empty")
+    report_directory = next(iter(targets)).parent
+    if any(target.parent != report_directory for target in targets):
+        raise AgreementError("report generation targets are invalid")
+    descriptor = os.open(report_directory, os.O_RDONLY)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        _recover_report_transaction_unlocked(report_directory)
+        transaction, marker = _prepare_report_transaction(targets)
+        try:
+            for entry in marker["entries"]:
+                _replace_report_path(
+                    transaction / entry["staged"],
+                    report_directory / entry["target"],
+                )
+            _fsync_directory(report_directory)
+            marker["state"] = "committed"
+            marker_bytes = (
+                json.dumps(marker, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+            )
+            _write_durable(transaction / "transaction.tmp", marker_bytes)
+            os.replace(transaction / "transaction.tmp", transaction / "transaction.json")
+            _fsync_directory(transaction)
+            _fsync_directory(report_directory)
+        except Exception as error:
+            try:
+                recovery_state = _recover_report_transaction_unlocked(report_directory)
+            except AgreementError as recovery_error:
+                raise AgreementError(
+                    "report generation failed and recovery is incomplete"
+                ) from recovery_error
+            if recovery_state == "prepared":
+                raise AgreementError(
+                    "report generation failed and the previous generation was restored"
+                ) from error
+            raise AgreementError(
+                "report generation failed after a complete generation was committed"
+            ) from error
+        _remove_transaction_directory(transaction, _transaction_allowed_names(marker))
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 def run() -> tuple[str, ...]:
@@ -696,6 +996,23 @@ def run() -> tuple[str, ...]:
     return tuple(fixture_ids)
 
 
+def _require_report_generation_unlocked(report_directory: Path) -> None:
+    targets: dict[Path, bytes] = {}
+    for _, _, _, report_name, _, _ in MANIFESTS:
+        path = report_directory / report_name
+        if not path.is_file() or not (0 < path.stat().st_size <= 33_554_432):
+            raise AgreementError("report generation member is unavailable")
+        targets[path] = path.read_bytes()
+    expected = _generation_manifest_bytes(targets)
+    manifest = report_directory / REPORT_GENERATION_MANIFEST_NAME
+    try:
+        actual = manifest.read_bytes()
+    except OSError as error:
+        raise AgreementError("report generation manifest is unavailable") from error
+    if actual != expected:
+        raise AgreementError("report generation manifest does not bind the complete report set")
+
+
 def _verify_reports(
     root: Path, *, report_directory: Path | None = None
 ) -> tuple[str, ...]:
@@ -709,30 +1026,41 @@ def _verify_reports(
         root, source_records=source_records
     )
     expected_node_version = _declared_node_version(root)
-    fixture_ids: list[str] = []
-    for _, fixture_id, _, report_name, _, _ in MANIFESTS:
-        report = _read_json(reports / report_name, f"{fixture_id} agreement report")
-        fixture = report.get("fixture")
-        if not isinstance(fixture, dict) or fixture.get("fixture_id") != fixture_id:
-            raise AgreementError(f"{fixture_id} agreement report identity is invalid")
-        if report.get("publisher") != expected_publisher:
-            raise AgreementError(f"{fixture_id} publisher provenance is invalid")
-        implementation = report.get("implementation")
-        if not isinstance(implementation, dict) or implementation.get(
-            "swift_package_manifest"
-        ) != expected_swift_package_manifest:
-            raise AgreementError(
-                f"{fixture_id} Swift package manifest provenance is invalid"
-            )
-        environment = report.get("environment")
-        if not isinstance(environment, dict) or environment.get(
-            "node"
-        ) != expected_node_version:
-            raise AgreementError(f"{fixture_id} Node.js runtime provenance is invalid")
-        if report.get("test_ids") != list(CANONICAL_TEST_IDS[fixture_id]):
-            raise AgreementError(f"{fixture_id} canonical test IDs are invalid")
-        fixture_ids.append(fixture_id)
-    return tuple(fixture_ids)
+    try:
+        descriptor = os.open(reports, os.O_RDONLY)
+    except OSError as error:
+        raise AgreementError("report generation directory is unavailable") from error
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        _recover_report_transaction_unlocked(reports)
+        _require_report_generation_unlocked(reports)
+        fixture_ids: list[str] = []
+        for _, fixture_id, _, report_name, _, _ in MANIFESTS:
+            report = _read_json(reports / report_name, f"{fixture_id} agreement report")
+            fixture = report.get("fixture")
+            if not isinstance(fixture, dict) or fixture.get("fixture_id") != fixture_id:
+                raise AgreementError(f"{fixture_id} agreement report identity is invalid")
+            if report.get("publisher") != expected_publisher:
+                raise AgreementError(f"{fixture_id} publisher provenance is invalid")
+            implementation = report.get("implementation")
+            if not isinstance(implementation, dict) or implementation.get(
+                "swift_package_manifest"
+            ) != expected_swift_package_manifest:
+                raise AgreementError(
+                    f"{fixture_id} Swift package manifest provenance is invalid"
+                )
+            environment = report.get("environment")
+            if not isinstance(environment, dict) or environment.get(
+                "node"
+            ) != expected_node_version:
+                raise AgreementError(f"{fixture_id} Node.js runtime provenance is invalid")
+            if report.get("test_ids") != list(CANONICAL_TEST_IDS[fixture_id]):
+                raise AgreementError(f"{fixture_id} canonical test IDs are invalid")
+            fixture_ids.append(fixture_id)
+        return tuple(fixture_ids)
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
 
 
 def main(arguments: tuple[str, ...] | None = None) -> int:
