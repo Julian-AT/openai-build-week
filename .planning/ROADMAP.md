@@ -118,7 +118,29 @@ Plans:
   3. Finalized and recovered-prefix `.rrcap` inputs replay twice with matching global-journal digest, exact frame/event projections, and expected trace; corrupt-suffix recovery stops at the valid prefix without a learned provider or live network.
   4. Stress never exceeds configured live queue capacity, stale drops are measured, durable sequences stay monotonic, and replay order is independent of live completion order.
 
-**Plans**: TBD
+**Plans**: 7 plans
+
+**Wave 1**
+
+- [ ] 02-01 — Freeze the executable capture/replay oracle, synthetic archives, report schema, and shared package interfaces.
+
+**Wave 2**
+
+- [ ] 02-02 — Implement the consent-bound five-state atomic archive writer and durability fault matrix.
+- [ ] 02-04 — Implement deterministic selection, bounded newest-useful work, pressure behavior, and offline acknowledgement echo.
+
+**Wave 3**
+
+- [ ] 02-03 — Recover only the valid durable prefix and replay verified archives into exact reports and timelines.
+
+**Wave 4**
+
+- [ ] 02-05 — Prove three-runtime replay agreement and publish revision-bound evidence atomically.
+- [ ] 02-06 — Connect the native seed to consent, lifecycle, truthful state, recovery, and the internal replay inspector.
+
+**Wave 5**
+
+- [ ] 02-07 — Run fail-closed verification and obtain or truthfully leave pending the human/device GATE-001 evidence.
 **UI hint**: yes
 
 ### Phase 3: Typed Place, Commit, and Offline Restore
@@ -234,7 +256,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
-| 2. Atomic Capture and Exact Replay | 0/TBD | Not started | - |
+| 2. Atomic Capture and Exact Replay | 0/7 | Not started | - |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
 | 5. Curated Replacement Vertical | 0/TBD | Not started | - |
