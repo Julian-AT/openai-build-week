@@ -1,5 +1,9 @@
+import ARKit
+import CoreImage
 import Foundation
+import ImageIO
 import ReRoomContracts
+import UniformTypeIdentifiers
 
 enum FramePacketBuildRejection: Error, Equatable, Sendable {
     case invalidAttempt
@@ -32,16 +36,70 @@ struct FrameQuality: Equatable, Sendable {
     let selectedReason: String
 }
 
-struct FramePacketCaptureInput: Equatable, Sendable {
-    let sessionID: String
-    let submapID: String
-    let frameID: String
-    let captureSequence: UInt64
-    let monotonicTimestampNS: String
+enum CapturedFrameSnapshotRejection: Error, Equatable, Sendable {
+    case invalidInput
+}
+
+enum CaptureInterfaceOrientation: Equatable, Sendable {
+    case portrait
+    case portraitUpsideDown
+    case landscapeLeft
+    case landscapeRight
+}
+
+struct UprightImageGeometry: Equatable, Sendable {
+    let encodedWidth: Int
+    let encodedHeight: Int
+    let encodedFromSensor: [Double]
+
+    static func forSensor(
+        width: Int,
+        height: Int,
+        orientation: CaptureInterfaceOrientation
+    ) -> UprightImageGeometry {
+        switch orientation {
+        case .portrait:
+            UprightImageGeometry(
+                encodedWidth: height,
+                encodedHeight: width,
+                encodedFromSensor: [0, -1, Double(height), 1, 0, 0, 0, 0, 1]
+            )
+        case .portraitUpsideDown:
+            UprightImageGeometry(
+                encodedWidth: height,
+                encodedHeight: width,
+                encodedFromSensor: [0, 1, 0, -1, 0, Double(width), 0, 0, 1]
+            )
+        case .landscapeLeft:
+            UprightImageGeometry(
+                encodedWidth: width,
+                encodedHeight: height,
+                encodedFromSensor: [-1, 0, Double(width), 0, -1, Double(height), 0, 0, 1]
+            )
+        case .landscapeRight:
+            UprightImageGeometry(
+                encodedWidth: width,
+                encodedHeight: height,
+                encodedFromSensor: [1, 0, 0, 0, 1, 0, 0, 0, 1]
+            )
+        }
+    }
+
+    func map(x: Double, y: Double) -> [Double] {
+        [
+            encodedFromSensor[0] * x + encodedFromSensor[1] * y + encodedFromSensor[2],
+            encodedFromSensor[3] * x + encodedFromSensor[4] * y + encodedFromSensor[5],
+        ]
+    }
+}
+
+struct CapturedFrameSnapshot: Equatable, Sendable {
+    let id: String
     let imageData: Data
     let imageCodec: String
     let imageWidth: Int
     let imageHeight: Int
+    let orientation: String
     let colorSpace: String
     let imageRange: String
     let cropInSensorPixels: FrameCrop
@@ -50,10 +108,235 @@ struct FramePacketCaptureInput: Equatable, Sendable {
     let worldFromCamera: [Double]
     let trackingState: String
     let trackingReason: String
+
+    static func validated(
+        id: String,
+        imageData: Data,
+        imageCodec: String,
+        colorSpace: String,
+        imageRange: String,
+        cropInSensorPixels: FrameCrop,
+        sensorIntrinsics: FrameIntrinsics,
+        encodedFromSensor: [Double],
+        worldFromCamera: [Double],
+        trackingState: String,
+        trackingReason: String
+    ) throws -> CapturedFrameSnapshot {
+        guard imageData.isEmpty == false,
+              imageData.count <= FramePacketBuilder.maximumPayloadBytes,
+              id.wholeNumberValue != nil,
+              ["jpeg", "hevc_intra", "png"].contains(imageCodec),
+              ["srgb", "display_p3"].contains(colorSpace),
+              ["full", "video"].contains(imageRange),
+              trackingState == "normal",
+              trackingReason == "none",
+              let source = CGImageSourceCreateWithData(imageData as CFData, nil),
+              CGImageSourceGetCount(source) == 1,
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any],
+              let width = (properties[kCGImagePropertyPixelWidth] as? NSNumber)?.intValue,
+              let height = (properties[kCGImagePropertyPixelHeight] as? NSNumber)?.intValue,
+              width > 0,
+              height > 0,
+              ((properties[kCGImagePropertyOrientation] as? NSNumber)?.intValue ?? 1) == 1,
+              encodedFromSensor.count == 9,
+              sensorIntrinsics.width > 0,
+              sensorIntrinsics.height > 0,
+              worldFromCamera.count == 16,
+              (try? RRCoordinateMath.validateRigidTransform(worldFromCamera)) != nil,
+              cropAndTransformAgree(
+                crop: cropInSensorPixels,
+                transform: encodedFromSensor,
+                encodedWidth: width,
+                encodedHeight: height
+              ),
+              let transformed = try? RRCoordinateMath.transformIntrinsics(
+                sensor: RRIntrinsics(
+                    fx: sensorIntrinsics.fx,
+                    fy: sensorIntrinsics.fy,
+                    cx: sensorIntrinsics.cx,
+                    cy: sensorIntrinsics.cy
+                ),
+                encodedFromSensor: encodedFromSensor,
+                encodedSize: [width, height],
+                orientation: "up"
+              )
+        else {
+            throw CapturedFrameSnapshotRejection.invalidInput
+        }
+        return CapturedFrameSnapshot(
+            id: id,
+            imageData: imageData,
+            imageCodec: imageCodec,
+            imageWidth: width,
+            imageHeight: height,
+            orientation: "up",
+            colorSpace: colorSpace,
+            imageRange: imageRange,
+            cropInSensorPixels: cropInSensorPixels,
+            intrinsicsEncodedPixels: FrameIntrinsics(
+                fx: transformed.intrinsics.fx,
+                fy: transformed.intrinsics.fy,
+                cx: transformed.intrinsics.cx,
+                cy: transformed.intrinsics.cy,
+                width: width,
+                height: height
+            ),
+            encodedFromSensor: encodedFromSensor,
+            worldFromCamera: worldFromCamera,
+            trackingState: trackingState,
+            trackingReason: trackingReason
+        )
+    }
+
+    private static func cropAndTransformAgree(
+        crop: FrameCrop,
+        transform: [Double],
+        encodedWidth: Int,
+        encodedHeight: Int
+    ) -> Bool {
+        guard crop.x >= 0, crop.y >= 0, crop.width > 0, crop.height > 0 else {
+            return false
+        }
+        let corners = [
+            (crop.x, crop.y),
+            (crop.x + crop.width, crop.y),
+            (crop.x, crop.y + crop.height),
+            (crop.x + crop.width, crop.y + crop.height),
+        ].map { x, y in
+            (
+                transform[0] * x + transform[1] * y + transform[2],
+                transform[3] * x + transform[4] * y + transform[5]
+            )
+        }
+        let xs = corners.map(\.0)
+        let ys = corners.map(\.1)
+        let tolerance = RRCoordinateMath.transformedIntrinsicsAbsoluteTolerance
+        return abs((xs.min() ?? .infinity) - 0) <= tolerance
+            && abs((ys.min() ?? .infinity) - 0) <= tolerance
+            && abs((xs.max() ?? -.infinity) - Double(encodedWidth)) <= tolerance
+            && abs((ys.max() ?? -.infinity) - Double(encodedHeight)) <= tolerance
+    }
+}
+
+@MainActor
+struct ARFrameCaptureAdapter {
+    private let context = CIContext(options: [.cacheIntermediates: false])
+
+    func capture(
+        frame: ARFrame,
+        orientation: CaptureInterfaceOrientation,
+        codec: String = "jpeg"
+    ) throws -> CapturedFrameSnapshot {
+        guard case .normal = frame.camera.trackingState else {
+            throw CapturedFrameSnapshotRejection.invalidInput
+        }
+        let sensorWidth = CVPixelBufferGetWidth(frame.capturedImage)
+        let sensorHeight = CVPixelBufferGetHeight(frame.capturedImage)
+        let geometry = UprightImageGeometry.forSensor(
+            width: sensorWidth,
+            height: sensorHeight,
+            orientation: orientation
+        )
+        let propertyOrientation: CGImagePropertyOrientation = switch orientation {
+        case .portrait: .right
+        case .portraitUpsideDown: .left
+        case .landscapeLeft: .down
+        case .landscapeRight: .up
+        }
+        let oriented = CIImage(cvPixelBuffer: frame.capturedImage)
+            .oriented(propertyOrientation)
+        let normalized = oriented.transformed(
+            by: CGAffineTransform(
+                translationX: -oriented.extent.minX,
+                y: -oriented.extent.minY
+            )
+        )
+        guard Int(normalized.extent.width.rounded()) == geometry.encodedWidth,
+              Int(normalized.extent.height.rounded()) == geometry.encodedHeight,
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)
+        else {
+            throw CapturedFrameSnapshotRejection.invalidInput
+        }
+        let imageData: Data?
+        switch codec {
+        case "jpeg":
+            imageData = context.jpegRepresentation(
+                of: normalized,
+                colorSpace: colorSpace,
+                options: [:]
+            )
+        case "png":
+            imageData = context.pngRepresentation(
+                of: normalized,
+                format: .RGBA8,
+                colorSpace: colorSpace,
+                options: [:]
+            )
+        default:
+            imageData = nil
+        }
+        guard let imageData else {
+            throw CapturedFrameSnapshotRejection.invalidInput
+        }
+
+        let intrinsics = frame.camera.intrinsics
+        let transform = frame.camera.transform
+        let worldFromCamera = (0..<4).flatMap { row in
+            (0..<4).map { column in Double(transform[column][row]) }
+        }
+        return try CapturedFrameSnapshot.validated(
+            id: String(UInt64(max(0, (frame.timestamp * 1_000_000_000).rounded()))),
+            imageData: imageData,
+            imageCodec: codec,
+            colorSpace: "srgb",
+            imageRange: "full",
+            cropInSensorPixels: FrameCrop(
+                x: 0,
+                y: 0,
+                width: Double(sensorWidth),
+                height: Double(sensorHeight)
+            ),
+            sensorIntrinsics: FrameIntrinsics(
+                fx: Double(intrinsics[0][0]),
+                fy: Double(intrinsics[1][1]),
+                cx: Double(intrinsics[2][0]),
+                cy: Double(intrinsics[2][1]),
+                width: sensorWidth,
+                height: sensorHeight
+            ),
+            encodedFromSensor: geometry.encodedFromSensor,
+            worldFromCamera: worldFromCamera,
+            trackingState: "normal",
+            trackingReason: "none"
+        )
+    }
+}
+
+struct FramePacketCaptureInput: Equatable, Sendable {
+    let sessionID: String
+    let submapID: String
+    let frameID: String
+    let captureSequence: UInt64
+    let capturedFrame: CapturedFrameSnapshot
     let quality: FrameQuality
     let idempotencyKey: String
     let previousDurableFrameID: String?
     let lifecycleEventIDs: [String]
+
+    var monotonicTimestampNS: String { capturedFrame.id }
+    var imageData: Data { capturedFrame.imageData }
+    var imageCodec: String { capturedFrame.imageCodec }
+    var imageWidth: Int { capturedFrame.imageWidth }
+    var imageHeight: Int { capturedFrame.imageHeight }
+    var colorSpace: String { capturedFrame.colorSpace }
+    var imageRange: String { capturedFrame.imageRange }
+    var cropInSensorPixels: FrameCrop { capturedFrame.cropInSensorPixels }
+    var intrinsicsEncodedPixels: FrameIntrinsics { capturedFrame.intrinsicsEncodedPixels }
+    var encodedFromSensor: [Double] { capturedFrame.encodedFromSensor }
+    var worldFromCamera: [Double] { capturedFrame.worldFromCamera }
+    var trackingState: String { capturedFrame.trackingState }
+    var trackingReason: String { capturedFrame.trackingReason }
 }
 
 struct BuiltFramePacket: Equatable, Sendable {
