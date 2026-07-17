@@ -11,6 +11,8 @@
 		A10000000000000000000002 /* DeviceProofModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* DeviceProofModel.swift */; };
 		A10000000000000000000003 /* ReRoomContracts in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000001 /* ReRoomContracts */; };
 		A10000000000000000000004 /* ARSessionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* ARSessionPolicyTests.swift */; };
+		A10000000000000000000005 /* PermissionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* PermissionController.swift */; };
+		A10000000000000000000006 /* ARSessionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* ARSessionController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -198,6 +200,8 @@
 			files = (
 				A10000000000000000000001 /* App.swift in Sources */,
 				A10000000000000000000002 /* DeviceProofModel.swift in Sources */,
+				A10000000000000000000005 /* PermissionController.swift in Sources */,
+				A10000000000000000000006 /* ARSessionController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
