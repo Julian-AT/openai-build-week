@@ -32,6 +32,38 @@
         "operation": "validate_rigid_transform",
         "values": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.0000011, 0, 0, 1]
       }
+    },
+    {
+      "case_id": "intrinsics.homogeneous-row-inside-before-multiplication",
+      "expected": "accept",
+      "input": {
+        "operation": "transform_intrinsics",
+        "sensor_intrinsics": {"fx": 1000, "fy": 800, "cx": 640, "cy": 360},
+        "encoded_from_sensor": [1, 0, 0, 0, 1, 0, 0.0000005, 0, 1],
+        "encoded_size": [1280, 720],
+        "orientation": "up"
+      }
+    },
+    {
+      "case_id": "project.negative-focal-length",
+      "expected": "reject",
+      "input": {
+        "operation": "project",
+        "intrinsics": {"fx": -500, "fy": 500, "cx": 319.5, "cy": 239.5},
+        "camera_point": [0, 0, -1],
+        "pixel_center": "half_integer"
+      }
+    },
+    {
+      "case_id": "intrinsics.negative-sensor-focal-length",
+      "expected": "reject",
+      "input": {
+        "operation": "transform_intrinsics",
+        "sensor_intrinsics": {"fx": -1000, "fy": 800, "cx": 640, "cy": 360},
+        "encoded_from_sensor": [1, 0, 0, 0, 1, 0, 0, 0, 1],
+        "encoded_size": [1280, 720],
+        "orientation": "up"
+      }
     }
   ]
 }
