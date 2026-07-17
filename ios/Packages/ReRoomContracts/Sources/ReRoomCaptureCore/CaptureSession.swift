@@ -259,13 +259,15 @@ public struct RecoveredArchive: Codable, Equatable, Sendable {
                 throw CaptureValueError.invalidReplayReport
             }
         case .recoveredPrefix:
-            guard let firstInvalidJournalSequence,
-                  let quarantineSHA256,
-                  firstInvalidJournalSequence == acceptedJournalRecordCount
-            else {
+            guard (firstInvalidJournalSequence == nil) == (quarantineSHA256 == nil) else {
                 throw CaptureValueError.invalidReplayReport
             }
-            try CaptureValueValidation.requireDigest(quarantineSHA256)
+            if let firstInvalidJournalSequence, let quarantineSHA256 {
+                guard firstInvalidJournalSequence == acceptedJournalRecordCount else {
+                    throw CaptureValueError.invalidReplayReport
+                }
+                try CaptureValueValidation.requireDigest(quarantineSHA256)
+            }
         }
         self.finalization = finalization
         self.acceptedJournalRecordCount = acceptedJournalRecordCount

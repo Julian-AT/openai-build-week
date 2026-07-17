@@ -371,7 +371,9 @@ private final class RecoveryFixture {
 
     func snapshot(excludingJournal: Bool = false) throws -> [String: String] {
         var values = try Self.snapshot(of: archiveURL)
-        if excludingJournal { values.removeValue(forKey: "journal/global.jsonl") }
+        if excludingJournal {
+            values = values.filter { $0.key.hasSuffix("journal/global.jsonl") == false }
+        }
         return values
     }
 
