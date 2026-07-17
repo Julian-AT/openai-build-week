@@ -83,6 +83,32 @@ def _mutate_coordinate(
     return manifest_path, target_id
 
 
+def _mutate_migration_descriptor(
+    root: Path, mutate: Callable[[dict], None], *, oversized_source: bool = False
+) -> tuple[Path, str]:
+    manifest_path = root / MANIFESTS["contract"]
+    manifest = _read_json(manifest_path)
+    target_id = "contract.compatibility.named-up-migration"
+    target = next(case for case in manifest["cases"] if case["case_id"] == target_id)
+    input_path = manifest_path.parent / target["input"]["relative_path"]
+    document = _read_json(input_path)
+    mutate(document)
+    if oversized_source:
+        source_path = manifest_path.parent / "cases/oversized-migration-source.json"
+        with source_path.open("wb") as handle:
+            handle.truncate(33_554_433)
+        document["source"] = "cases/oversized-migration-source.json"
+    raw = (
+        json.dumps(document, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        + b"\n"
+    )
+    input_path.write_bytes(raw)
+    target["input"]["byte_length"] = len(raw)
+    target["input"]["sha256"] = _digest(raw)
+    _write_manifest(manifest_path, manifest)
+    return manifest_path, target_id
+
+
 def _oracle_hashes() -> dict[str, str]:
     return {
         str(path.relative_to(REPO_ROOT)): _digest(path.read_bytes())
@@ -108,7 +134,13 @@ class PythonParityMutationTests(unittest.TestCase):
 
     def _assert_mutation_rejected(self, mutation: dict) -> None:
         with _copied_repository() as root:
-            if "mutate" in mutation:
+            if "migration_mutate" in mutation:
+                manifest_path, target_id = _mutate_migration_descriptor(
+                    root,
+                    mutation["migration_mutate"],
+                    oversized_source=mutation.get("oversized_source", False),
+                )
+            elif "mutate" in mutation:
                 manifest_path, target_id = _mutate_coordinate(
                     root, mutation["target"], mutation["mutate"]
                 )
@@ -163,6 +195,26 @@ class PythonParityMutationTests(unittest.TestCase):
                 "target": "jcs.basic-object",
                 "source": "jcs.duplicate-name",
                 "rejection": "duplicate_name",
+            },
+            {
+                "name": "migration reader predicate",
+                "migration_mutate": lambda document: document.__setitem__(
+                    "reader_version", "2.0.0"
+                ),
+                "rejection": "unsupported_contract_version",
+            },
+            {
+                "name": "migration validates CON-001 source",
+                "migration_mutate": lambda document: document.__setitem__(
+                    "source", "instances/con002.rrcap.valid.json"
+                ),
+                "rejection": "schema_validation",
+            },
+            {
+                "name": "migration source read is bounded",
+                "migration_mutate": lambda document: None,
+                "oversized_source": True,
+                "rejection": "json_parse",
             },
         ]
         for name, source, rejection in (
