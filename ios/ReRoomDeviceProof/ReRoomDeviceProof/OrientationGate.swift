@@ -27,7 +27,10 @@ struct OrientationGate: Sendable {
         orientation: PhysicalOrientation,
         sessionIsRunning: Bool
     ) -> OrientationAttemptSnapshot? {
-        OrientationAttemptSnapshot(
+        guard orientation == .portrait, sessionIsRunning else {
+            return nil
+        }
+        return OrientationAttemptSnapshot(
             orientation: orientation,
             sessionWasRunning: sessionIsRunning
         )
@@ -38,8 +41,14 @@ struct OrientationGate: Sendable {
         currentOrientation: PhysicalOrientation,
         sessionIsRunning: Bool
     ) -> OrientationGateResult {
-        _ = snapshot
-        _ = currentOrientation
+        guard snapshot.orientation == .portrait,
+              currentOrientation == .portrait
+        else {
+            return .rejected(.returnToPortrait)
+        }
+
+        // Capture eligibility observes session health but never owns or pauses
+        // ARSession. A session failure is handled by the existing AR owner.
         _ = sessionIsRunning
         return .eligible
     }

@@ -61,13 +61,52 @@ struct WorldEpochController: Sendable {
         reason: WorldEpochChangeReason,
         correctionEvidence: WorldFrameCorrectionEvidence
     ) -> WorldEpochTransition {
-        _ = reason
-        _ = correctionEvidence
+        let previousVersion = worldFrameVersion
+        worldFrameVersion += 1
+        let currentVersion = worldFrameVersion
+        quarantinedVersions.formUnion([previousVersion, currentVersion])
+
+        let correction = validatedCorrection(
+            evidence: correctionEvidence,
+            reason: reason,
+            expectedBaseVersion: previousVersion,
+            expectedTargetVersion: currentVersion
+        )
+        if correction != nil {
+            quarantinedVersions.remove(previousVersion)
+            quarantinedVersions.remove(currentVersion)
+        }
+
         return WorldEpochTransition(
-            previousVersion: worldFrameVersion,
-            currentVersion: worldFrameVersion,
-            correction: nil,
+            previousVersion: previousVersion,
+            currentVersion: currentVersion,
+            correction: correction,
             quarantinedVersions: quarantinedVersions
+        )
+    }
+
+    private func validatedCorrection(
+        evidence: WorldFrameCorrectionEvidence,
+        reason: WorldEpochChangeReason,
+        expectedBaseVersion: Int,
+        expectedTargetVersion: Int
+    ) -> ValidatedWorldFrameCorrection? {
+        guard case .candidate(let candidate) = evidence,
+              candidate.baseWorldFrameVersion == expectedBaseVersion,
+              candidate.targetWorldFrameVersion == expectedTargetVersion,
+              candidate.targetWorldFrameVersion > candidate.baseWorldFrameVersion,
+              let transform = try? RRCoordinateMath.validateRigidTransform(
+                  candidate.targetFromBaseTransform
+              )
+        else {
+            return nil
+        }
+
+        return ValidatedWorldFrameCorrection(
+            baseWorldFrameVersion: candidate.baseWorldFrameVersion,
+            targetWorldFrameVersion: candidate.targetWorldFrameVersion,
+            targetFromBaseTransform: transform,
+            reason: reason
         )
     }
 }

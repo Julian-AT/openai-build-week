@@ -34,6 +34,10 @@ struct CaptureAttemptMachine: Sendable {
         sessionIsRunning: Bool,
         worldEpoch: WorldEpochSnapshot
     ) -> CaptureAttemptSelection {
+        guard worldEpoch.captureAvailable else {
+            selectedAttempt = nil
+            return .rejected(.worldFrameQuarantined)
+        }
         guard let orientationSnapshot = orientationGate.snapshot(
             orientation: orientation,
             sessionIsRunning: sessionIsRunning
@@ -53,11 +57,25 @@ struct CaptureAttemptMachine: Sendable {
         sessionIsRunning: Bool,
         worldEpoch: WorldEpochSnapshot
     ) -> CaptureAttemptResolution {
-        _ = currentOrientation
-        _ = sessionIsRunning
-        _ = worldEpoch
         guard let selectedAttempt else { return .rejected(.noSelection) }
         self.selectedAttempt = nil
+
+        if case .rejected(let coaching) = orientationGate.evaluate(
+            selectedAttempt.orientation,
+            currentOrientation: currentOrientation,
+            sessionIsRunning: sessionIsRunning
+        ) {
+            return .rejected(.orientation(coaching))
+        }
+        guard selectedAttempt.worldEpoch.worldFrameID == worldEpoch.worldFrameID,
+              selectedAttempt.worldEpoch.worldFrameVersion == worldEpoch.worldFrameVersion
+        else {
+            return .rejected(.worldFrameChanged)
+        }
+        guard worldEpoch.captureAvailable else {
+            return .rejected(.worldFrameQuarantined)
+        }
+
         return .ready(
             ValidatedCaptureAttempt(
                 worldFrameID: selectedAttempt.worldEpoch.worldFrameID,
