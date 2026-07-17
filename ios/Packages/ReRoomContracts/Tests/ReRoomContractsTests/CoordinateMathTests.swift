@@ -123,6 +123,27 @@ struct CoordinateMathTests {
         }
     }
 
+    @Test("Frozen RR-COORD runtime boundaries match Swift")
+    func frozenRuntimeBoundaries() throws {
+        let fixtureURL = try CoordinateFixture.repositoryRoot()
+            .appendingPathComponent("tools/verify/fixtures/rr-coord-runtime-boundaries.json")
+        let root = try #require(
+            JSONSerialization.jsonObject(with: Data(contentsOf: fixtureURL)) as? [String: Any]
+        )
+        let cases = try #require(root["cases"] as? [[String: Any]])
+        for fixtureCase in cases {
+            let input = try #require(fixtureCase["input"])
+            let data = try JSONSerialization.data(withJSONObject: input, options: [.sortedKeys])
+            if fixtureCase["expected"] as? String == "accept" {
+                _ = try RRCoordinateMath.evaluate(jsonData: data)
+            } else {
+                #expect(throws: CoordinateMathRejection.coordinateInvalid) {
+                    try RRCoordinateMath.evaluate(jsonData: data)
+                }
+            }
+        }
+    }
+
     @Test(
         "non-finite and binary32-overflow scalars reject",
         arguments: [Double.nan, .infinity, -.infinity, 3.402_823_6e38]
@@ -165,6 +186,12 @@ private struct CoordinateFixture {
     let root: URL
 
     static func load() throws -> CoordinateFixture {
+        CoordinateFixture(root: try repositoryRoot().appendingPathComponent(
+            "fixtures/policies/RR-COORD-1/rev-001"
+        ))
+    }
+
+    static func repositoryRoot() throws -> URL {
         let fileManager = FileManager.default
         var cursor = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
         while !fileManager.fileExists(atPath: cursor.appendingPathComponent(".git").path) {
@@ -172,9 +199,7 @@ private struct CoordinateFixture {
             guard parent.path != cursor.path else { throw CoordinateFixtureError.repositoryRootNotFound }
             cursor = parent
         }
-        return CoordinateFixture(
-            root: cursor.appendingPathComponent("fixtures/policies/RR-COORD-1/rev-001")
-        )
+        return cursor
     }
 
     func read(_ relativePath: String) throws -> Data {

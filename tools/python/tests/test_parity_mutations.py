@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from tools.python.reroom_verify.loader import VerificationFailure
+from tools.python.reroom_verify.coordinate import evaluate_coordinate
 from tools.python.reroom_verify.runner import run_fixture
 
 
@@ -92,6 +93,18 @@ def _oracle_hashes() -> dict[str, str]:
 
 class PythonParityMutationTests(unittest.TestCase):
     maxDiff = None
+
+    def test_frozen_rr_coord_runtime_boundaries(self) -> None:
+        fixture = _read_json(
+            REPO_ROOT / "tools/verify/fixtures/rr-coord-runtime-boundaries.json"
+        )
+        for case in fixture["cases"]:
+            with self.subTest(case=case["case_id"]):
+                if case["expected"] == "accept":
+                    evaluate_coordinate(case["input"])
+                else:
+                    with self.assertRaises(VerificationFailure):
+                        evaluate_coordinate(case["input"])
 
     def _assert_mutation_rejected(self, mutation: dict) -> None:
         with _copied_repository() as root:

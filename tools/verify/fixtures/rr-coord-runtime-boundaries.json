@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "case_id": "rigid.frobenius-inside",
+      "expected": "accept",
+      "input": {
+        "operation": "validate_rigid_transform",
+        "values": [1.00002, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+      }
+    },
+    {
+      "case_id": "rigid.frobenius-outside-determinant-inside",
+      "expected": "reject",
+      "input": {
+        "operation": "validate_rigid_transform",
+        "values": [1.00006, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+      }
+    },
+    {
+      "case_id": "opencv.shear-determinant-one",
+      "expected": "reject",
+      "input": {
+        "operation": "arkit_to_opencv_camera",
+        "camera_point": [1, 2, 3],
+        "conversion": [1, 0.001, 0, 0, 1, 0, 0, 0, 1]
+      }
+    },
+    {
+      "case_id": "rigid.homogeneous-row-outside",
+      "expected": "reject",
+      "input": {
+        "operation": "validate_rigid_transform",
+        "values": [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.0000011, 0, 0, 1]
+      }
+    }
+  ]
+}

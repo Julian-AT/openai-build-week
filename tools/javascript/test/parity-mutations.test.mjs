@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { runFixture } from "../src/runner.mjs";
+import { executeCoordinateOperation } from "../src/coordinate.mjs";
 
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
@@ -16,6 +17,20 @@ const MANIFESTS = {
   jcs: "fixtures/policies/RR-JCS-SHA256-1/rev-001/manifest.json",
   coord: "fixtures/policies/RR-COORD-1/rev-001/manifest.json",
 };
+
+test("frozen RR-COORD runtime boundaries match JavaScript", async () => {
+  const fixture = await readJson(path.join(
+    REPO_ROOT,
+    "tools/verify/fixtures/rr-coord-runtime-boundaries.json",
+  ));
+  for (const fixtureCase of fixture.cases) {
+    if (fixtureCase.expected === "accept") {
+      assert.doesNotThrow(() => executeCoordinateOperation(fixtureCase.input), fixtureCase.case_id);
+    } else {
+      assert.throws(() => executeCoordinateOperation(fixtureCase.input), fixtureCase.case_id);
+    }
+  }
+});
 
 
 async function copiedRepository(operation) {
