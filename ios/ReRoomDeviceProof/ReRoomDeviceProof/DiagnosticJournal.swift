@@ -213,6 +213,111 @@ struct AcceptedFrameProjection: Codable, Equatable, Sendable {
     }
 }
 
+enum CaptureRetentionPolicy: String, Equatable, Sendable {
+    case localOnlyUntilShare = "local_only_until_share"
+    case sessionTTL = "session_ttl"
+    case explicitUserRetention = "explicit_user_retention"
+}
+
+struct CaptureConsentRecord: Equatable, Sendable {
+    let sessionID: String
+    let recordedAtUTC: String
+    let retentionPolicy: CaptureRetentionPolicy
+    let retentionExpiresAtUTC: String?
+    let recordSHA256: String
+
+    init(
+        sessionID: String,
+        recordedAtUTC: String,
+        retentionPolicy: CaptureRetentionPolicy,
+        retentionExpiresAtUTC: String?,
+        recordSHA256: String
+    ) {
+        self.sessionID = sessionID
+        self.recordedAtUTC = recordedAtUTC
+        self.retentionPolicy = retentionPolicy
+        self.retentionExpiresAtUTC = retentionExpiresAtUTC
+        self.recordSHA256 = recordSHA256
+    }
+
+    static func granting(
+        sessionID: String,
+        recordedAtUTC: String,
+        retentionPolicy: CaptureRetentionPolicy,
+        retentionExpiresAtUTC: String?
+    ) throws -> CaptureConsentRecord {
+        let digest = try digest(
+            sessionID: sessionID,
+            recordedAtUTC: recordedAtUTC,
+            retentionPolicy: retentionPolicy,
+            retentionExpiresAtUTC: retentionExpiresAtUTC
+        )
+        return CaptureConsentRecord(
+            sessionID: sessionID,
+            recordedAtUTC: recordedAtUTC,
+            retentionPolicy: retentionPolicy,
+            retentionExpiresAtUTC: retentionExpiresAtUTC,
+            recordSHA256: digest
+        )
+    }
+
+    func isValid(for expectedSessionID: String) -> Bool {
+        guard sessionID == expectedSessionID,
+              Self.isUTCDate(recordedAtUTC),
+              retentionPolicy == .sessionTTL
+                ? retentionExpiresAtUTC.map(Self.isUTCDate) == true
+                : retentionExpiresAtUTC == nil,
+              let expectedDigest = try? Self.digest(
+                sessionID: sessionID,
+                recordedAtUTC: recordedAtUTC,
+                retentionPolicy: retentionPolicy,
+                retentionExpiresAtUTC: retentionExpiresAtUTC
+              )
+        else {
+            return false
+        }
+        return recordSHA256 == expectedDigest
+    }
+
+    private static func digest(
+        sessionID: String,
+        recordedAtUTC: String,
+        retentionPolicy: CaptureRetentionPolicy,
+        retentionExpiresAtUTC: String?
+    ) throws -> String {
+        var record: [String: Any] = [
+            "capture_consent_granted": true,
+            "session_id": sessionID,
+            "recorded_at_utc": recordedAtUTC,
+            "retention_policy": retentionPolicy.rawValue,
+        ]
+        if let retentionExpiresAtUTC {
+            record["retention_expires_at"] = retentionExpiresAtUTC
+        }
+        let encoded = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+        let canonical = try CanonicalJSON.canonicalize(jsonData: encoded)
+        return CanonicalJSON.sha256Hex(canonical)
+    }
+
+    fileprivate static func isUTCDate(_ value: String) -> Bool {
+        value.range(
+            of: #"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$"#,
+            options: .regularExpression
+        ) != nil
+    }
+}
+
+struct CaptureConsentDenial: Equatable, Sendable {
+    let sessionID: String
+    let recordedAtUTC: String
+    let explanation: String
+}
+
+enum DiagnosticCaptureConsent: Equatable, Sendable {
+    case granted(CaptureConsentRecord)
+    case denied(CaptureConsentDenial)
+}
+
 struct DiagnosticCaptureConfiguration: Equatable, Sendable {
     let sessionID: String
     let deviceModel: String
@@ -222,6 +327,7 @@ struct DiagnosticCaptureConfiguration: Equatable, Sendable {
     let recordedAtUTC: String
     let worldFrameID: String
     let initialWorldFrameVersion: Int
+    let consent: DiagnosticCaptureConsent
 }
 
 struct CaptureCommitReceipt: Equatable, Sendable {
@@ -241,6 +347,8 @@ struct RecoveredCapture: Equatable, Sendable {
 
 enum DiagnosticJournalRejection: Error, Equatable, Sendable {
     case invalidAttempt
+    case invalidConsent
+    case consentDenied(String)
     case invalidJournal
     case invalidManifest
     case noDurablePrefix
@@ -275,6 +383,15 @@ final class DiagnosticJournal {
     private(set) var visibleFrameIDs: [String] = []
     private(set) var lifecycleByFrameID: [String: FrameCaptureLifecycle] = [:]
 
+    var captureDenialExplanation: String? {
+        guard case let .denied(denial) = configuration.consent,
+              denial.sessionID == configuration.sessionID
+        else {
+            return nil
+        }
+        return denial.explanation
+    }
+
     init(
         fileSystem: any CaptureFileSystem,
         framePacketBuilder: FramePacketBuilder,
@@ -291,6 +408,7 @@ final class DiagnosticJournal {
         input: FramePacketCaptureInput,
         attempt: CaptureAttemptResolution
     ) throws -> CaptureCommitReceipt {
+        _ = try validatedGrantedConsent()
         guard case .ready = attempt else { throw DiagnosticJournalRejection.invalidAttempt }
         guard input.lifecycleEventIDs.count == Self.phaseOneEventTypes.count,
               Set(input.lifecycleEventIDs).count == input.lifecycleEventIDs.count,
@@ -757,6 +875,17 @@ private extension DiagnosticJournal {
         let replayDigest = CanonicalJSON.sha256Hex(try canonicalData(tupleArray))
         let files = try manifestFiles(events: events, frames: acceptedFrames)
         let lastSequence = try requiredLastSequence(journal)
+        let consent = try validatedGrantedConsent()
+        var privacy: [String: Any] = [
+            "capture_consent_recorded": true,
+            "contains_room_imagery": true,
+            "retention_policy": consent.retentionPolicy.rawValue,
+            "deletion_state": "none",
+            "share_access_state": "not_shared",
+        ]
+        if let retentionExpiresAtUTC = consent.retentionExpiresAtUTC {
+            privacy["retention_expires_at"] = retentionExpiresAtUTC
+        }
         var root: [String: Any] = [
             "format_version": "1.0.0",
             "capture_kind": "native_arkit",
@@ -798,13 +927,7 @@ private extension DiagnosticJournal {
                 "neural_determinism": "tolerance_based_when_provider_pinned",
                 "provider_lock": [],
             ],
-            "privacy": [
-                "capture_consent_recorded": true,
-                "contains_room_imagery": true,
-                "retention_policy": "local_only_until_share",
-                "deletion_state": "none",
-                "share_access_state": "not_shared",
-            ],
+            "privacy": privacy,
             "finalization": [
                 "state": "recovered_prefix",
                 "manifest_sha256_algorithm": "RR-JCS-SHA256-1",
@@ -1032,6 +1155,25 @@ private extension DiagnosticJournal {
             of: #"^event_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#,
             options: .regularExpression
         ) != nil
+    }
+
+    func validatedGrantedConsent() throws -> CaptureConsentRecord {
+        switch configuration.consent {
+        case let .granted(record):
+            guard record.isValid(for: configuration.sessionID) else {
+                throw DiagnosticJournalRejection.invalidConsent
+            }
+            return record
+        case let .denied(denial):
+            guard denial.sessionID == configuration.sessionID,
+                  CaptureConsentRecord.isUTCDate(denial.recordedAtUTC),
+                  denial.explanation.isEmpty == false,
+                  denial.explanation.utf8.count <= 256
+            else {
+                throw DiagnosticJournalRejection.invalidConsent
+            }
+            throw DiagnosticJournalRejection.consentDenied(denial.explanation)
+        }
     }
 
     func mediaType(for codec: String) -> String {
