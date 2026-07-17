@@ -24,7 +24,7 @@
       "artifact_kind": "metric_output",
       "external_retention": true,
       "opaque_artifact_id": "opaque-phase-01-candidate-build",
-      "sha256": "e6b42dbe6d6c44ce44f016f35df0ee46ca7ae4c2b06d80c89cf6896a9aa42f0b"
+      "sha256": "23e8808e35091e2f7e38cb5cd5d4f511badd037e6b00324c449001370743fe48"
     }
   ],
   "fixture_refs": [
@@ -46,11 +46,11 @@
   ],
   "gate_id": "GATE-013",
   "gate_state": "RUNNING",
-  "implementation_revision": "git:21399ce166287ec0c3b198c39a35076d6e44952f",
+  "implementation_revision": "git:36ba5ad7129c5f56aa9a473f7db8500e614ac0bd",
   "locked_decision_change_id": null,
   "operator_checklist_sha256": null,
   "prd_sha256": null,
-  "recorded_at_utc": "2026-07-17T08:34:18Z",
+  "recorded_at_utc": "2026-07-17T08:42:52Z",
   "requirement_ids": [
     "NFR-CONTRACT-001",
     "NFR-COORD-001",
