@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 
-BOUND_REVISION = "3e3adda8d11a871fe721d03ec78e2706bcbf44c5"
+BOUND_REVISION = "c9f142aa31d6b27c4c42901703c68b1da0c6a40f"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 MANIFESTS = (
@@ -62,6 +62,7 @@ BOUND_SOURCE_SCOPES = (
     "tools/python/requirements.lock",
     "tools/python/reroom_verify",
     "tools/verify/compare_results.py",
+    "tools/verify/fixtures",
 )
 
 

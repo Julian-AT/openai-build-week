@@ -17,15 +17,15 @@
   "commands": {
     "comparator": "python3 tools/verify/compare_results.py compare --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --result {swift_output} --result {javascript_output} --result {python_output} --require-runtime swift --require-runtime javascript --require-runtime python",
     "isolation": "exclusive temporary directory; output files must not pre-exist",
-    "javascript": "node tools/javascript/src/runner.mjs --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
-    "python": ".venv/bin/python -m tools.python.reroom_verify.runner --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
-    "swift": "ReRoomContractRunner --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5"
+    "javascript": "node tools/javascript/src/runner.mjs --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f",
+    "python": ".venv/bin/python -m tools.python.reroom_verify.runner --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f",
+    "swift": "ReRoomContractRunner --manifest fixtures/contracts/1.0.0/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f"
   },
   "environment": {
     "architecture": "arm64",
     "command": "scripts/run-three-runtime-agreement",
     "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
-    "node": "v22.22.3",
+    "node": "v26.0.0",
     "operating_system": "macOS 26.5.1 build 25F80",
     "python": "Python 3.13.12",
     "swift": "Apple Swift version 6.3 (swiftlang-6.3.0.123.5 clang-2100.0.123.102)"
@@ -82,9 +82,9 @@
     ]
   },
   "implementation": {
-    "revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
+    "revision": "git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f",
     "revision_scope": "exact bound git revision plus the recorded source-tree digest",
-    "source_file_count": 116,
+    "source_file_count": 117,
     "source_scopes": [
       "fixtures",
       "docs/contracts",
@@ -98,10 +98,11 @@
       "tools/python/requirements.in",
       "tools/python/requirements.lock",
       "tools/python/reroom_verify",
-      "tools/verify/compare_results.py"
+      "tools/verify/compare_results.py",
+      "tools/verify/fixtures"
     ],
     "source_tree_digest_algorithm": "SHA-256 over sorted relative_path NUL sha256 LF records",
-    "source_tree_sha256": "61b736296829ffd00b0981b87a4a1871f2153fcced490abcbc9647f58780bc7c"
+    "source_tree_sha256": "c5a5c8f656276cc9c46444838d1227711a7474cf28aa6549c948e133e4100743"
   },
   "limitations": [
     "This evidence covers the immutable host-runtime corpus only; it is not physical-device, signing, ARKit, compositor, or thermal evidence.",
@@ -110,27 +111,27 @@
   "raw_results": {
     "javascript": {
       "byte_length": 2832,
-      "implementation_revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
-      "result_digest_sha256": "493bbf9288aa341879269e5a0109df70c7c23863130dbd1df364443b8410660e",
+      "implementation_revision": "git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f",
+      "result_digest_sha256": "95713c55ebc686a8cb8b4742282fcfd6998c78f0ed533a56bcdc8b00215413a2",
       "runner_name": "reroom-javascript-reference",
       "runner_version": "1.0.0",
-      "sha256": "d15dd2fd8468082e0a061b741e6804fba7f5002a2fa567c3ff85f25603c15bc4"
+      "sha256": "1ec2034065e16f91997508d16199df2057a2a27b1284bd3bf9f772e6b102800e"
     },
     "python": {
       "byte_length": 2824,
-      "implementation_revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
-      "result_digest_sha256": "0b598cc51daca173cfae9190981c4f8b6435f4fe1a62ee4290fe1e72e812a46e",
+      "implementation_revision": "git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f",
+      "result_digest_sha256": "086899eb8a3ddbe8742d0dd3ef87275172b4bddabe34c8b74652e358caf353ad",
       "runner_name": "reroom-python-reference",
       "runner_version": "1.0.0",
-      "sha256": "8463a7b55d17593e97ccd2683ee5938585893a9654a20fe5a39f4ba3e8682535"
+      "sha256": "9027f6bb84351a10c5192eec6c5df36e68ceb987d3670c34d12c5d9c19ad34d0"
     },
     "swift": {
       "byte_length": 2822,
-      "implementation_revision": "git:3e3adda8d11a871fe721d03ec78e2706bcbf44c5",
-      "result_digest_sha256": "b217cf6fd204a4c5f5c4962330fbbdb9c4cc83b3b07cfc54f97ff6f8a9538c05",
+      "implementation_revision": "git:c9f142aa31d6b27c4c42901703c68b1da0c6a40f",
+      "result_digest_sha256": "8ece362a5afc0caff3f330fe3cee45b918d4e106bfc3a4c8011229c93873df30",
       "runner_name": "reroom-swift-reference",
       "runner_version": "1.0.0",
-      "sha256": "2e26c669da9047f44bbe1f4b322af0be027020d585f5e349262287c049948db2"
+      "sha256": "5b61e8686e92b3cb7e629a5c414672aaeb4fe85dd0f0f3cf2615025f1d02dea9"
     }
   },
   "reproduction": {
