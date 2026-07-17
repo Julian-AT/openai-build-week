@@ -372,6 +372,12 @@ final class DiagnosticAppOwner {
         )
     }
 
+    var canPerformExplicitWorldReset: Bool {
+        model.state.cameraAuthorization == .granted
+            && model.state.session.isRunning
+            && epoch.isQuarantined == false
+    }
+
     func prepare() async {
         await model.prepare()
     }
@@ -462,6 +468,20 @@ final class DiagnosticAppOwner {
         }
     }
 
+    func performExplicitWorldReset() {
+        guard canPerformExplicitWorldReset,
+              model.performExplicitWorldReset()
+        else {
+            return
+        }
+
+        _ = epochController.advance(
+            reason: .arkitReset,
+            correctionEvidence: .absent
+        )
+        epoch = epochController.snapshot
+    }
+
     private func makeJournal(validator: ContractValidator) throws -> DiagnosticJournal {
         let consent = try CaptureConsentRecord.granting(
             sessionID: sessionID,
@@ -526,6 +546,7 @@ struct DiagnosticChecklistView: View {
 
     @State private var exportState: DiagnosticEvidenceExportState = .notReady
     @State private var showsCaptureConsent = false
+    @State private var showsWorldResetConfirmation = false
 
     var body: some View {
         ZStack {
@@ -543,6 +564,7 @@ struct DiagnosticChecklistView: View {
                     }
                     microphoneControl
                     captureControl
+                    worldResetControl
                     exportControl
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -616,6 +638,35 @@ struct DiagnosticChecklistView: View {
             "One test frame is allowed for this diagnostic session."
         case .denied:
             "Test capture is off. The checklist remains usable without it."
+        }
+    }
+
+    private var worldResetControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button("Run Explicit World Reset") {
+                showsWorldResetConfirmation = true
+            }
+            .font(.body.weight(.semibold))
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .buttonStyle(.bordered)
+            .disabled(owner.canPerformExplicitWorldReset == false)
+            .accessibilityIdentifier("debug.action.worldReset")
+            .confirmationDialog(
+                "Reset ARKit world tracking?",
+                isPresented: $showsWorldResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset and Quarantine", role: .destructive) {
+                    owner.performExplicitWorldReset()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This advances world_frame_version and quarantines capture because no physical correction is inferred.")
+            }
+
+            Text("Use once for GATE-002 after the portrait and landscape checks. Capture remains disabled until a separately validated correction exists.")
+                .font(.body)
+                .foregroundStyle(Color(red: 183 / 255, green: 192 / 255, blue: 202 / 255))
         }
     }
 

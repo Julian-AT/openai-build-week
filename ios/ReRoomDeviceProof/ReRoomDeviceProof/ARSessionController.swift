@@ -4,6 +4,7 @@ enum ARSessionEvent: Equatable, Sendable {
     case running(Bool)
     case tracking(DeviceTrackingState)
     case planeObserved(PlaneAlignment)
+    case worldReset
 }
 
 enum ARSessionRecoveryRequirement: Equatable, Sendable {
@@ -17,6 +18,7 @@ protocol ARSessionDriving: AnyObject {
     var currentFrame: ARFrame? { get }
 
     func run(policy: ARSessionPolicy)
+    func reset(policy: ARSessionPolicy)
     func pause()
 }
 
@@ -38,6 +40,17 @@ final class SystemARSessionDriver: ARSessionDriving {
     }
 
     func run(policy: ARSessionPolicy) {
+        session.run(configuration(for: policy))
+    }
+
+    func reset(policy: ARSessionPolicy) {
+        session.run(
+            configuration(for: policy),
+            options: [.resetTracking, .removeExistingAnchors]
+        )
+    }
+
+    private func configuration(for policy: ARSessionPolicy) -> ARWorldTrackingConfiguration {
         let configuration = ARWorldTrackingConfiguration()
         var planeDetection: ARWorldTrackingConfiguration.PlaneDetection = []
         if policy.detectedPlaneAlignments.contains(.horizontal) {
@@ -47,7 +60,7 @@ final class SystemARSessionDriver: ARSessionDriving {
             planeDetection.insert(.vertical)
         }
         configuration.planeDetection = planeDetection
-        session.run(configuration)
+        return configuration
     }
 
     func pause() {
@@ -103,6 +116,21 @@ final class ARSessionController: NSObject {
         // Orientation controls capture eligibility in DeviceProofState. It never
         // pauses or restarts a healthy AR session.
         _ = orientation
+    }
+
+    @discardableResult
+    func performExplicitWorldReset(
+        cameraAuthorization: PermissionAuthorizationState
+    ) -> Bool {
+        guard cameraAuthorization == .granted, isRunning else {
+            return false
+        }
+
+        driver.reset(policy: .deviceProof)
+        recoveryRequirement = nil
+        onEvent?(.worldReset)
+        onEvent?(.running(true))
+        return true
     }
 
     func recordPlaneObservation(_ alignment: PlaneAlignment) {

@@ -15,6 +15,7 @@ final class DiagnosticSurfaceTests: XCTestCase {
         XCTAssertTrue(element(in: app, identifiedBy: "debug.check.camera").exists)
         XCTAssertTrue(element(in: app, identifiedBy: "debug.check.gate").exists)
         XCTAssertTrue(element(in: app, identifiedBy: "debug.action.exportEvidence").exists)
+        XCTAssertTrue(element(in: app, identifiedBy: "debug.action.worldReset").exists)
         let orientation = element(in: app, identifiedBy: "debug.check.orientation")
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(waitForValue(containing: "Landscape", in: orientation))
@@ -41,6 +42,7 @@ final class DiagnosticSurfaceTests: XCTestCase {
         XCTAssertFalse(element(in: app, identifiedBy: "debug.root.diagnostics").exists)
         XCTAssertFalse(element(in: app, identifiedBy: "debug.action.exportEvidence").exists)
         XCTAssertFalse(element(in: app, identifiedBy: "debug.permission.microphone").exists)
+        XCTAssertFalse(element(in: app, identifiedBy: "debug.action.worldReset").exists)
 #endif
     }
 

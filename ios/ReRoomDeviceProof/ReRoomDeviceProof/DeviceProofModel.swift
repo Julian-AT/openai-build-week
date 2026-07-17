@@ -106,6 +106,9 @@ struct DeviceProofState: Equatable, Sendable {
             session.trackingState = trackingState
         case let .planeObserved(alignment):
             session.observedPlaneAlignments.insert(alignment)
+        case .worldReset:
+            session.trackingState = .initializing
+            session.observedPlaneAlignments.removeAll()
         }
     }
 }
@@ -272,6 +275,13 @@ final class DeviceProofModel {
             state.physicalOrientation = .portrait
         }
         arSessionController.handlePhysicalOrientation(state.physicalOrientation)
+    }
+
+    @discardableResult
+    func performExplicitWorldReset() -> Bool {
+        arSessionController.performExplicitWorldReset(
+            cameraAuthorization: state.cameraAuthorization
+        )
     }
 
     private func requestCameraAccess() async {
