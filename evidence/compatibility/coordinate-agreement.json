@@ -25,7 +25,7 @@
     "architecture": "arm64",
     "command": "scripts/run-three-runtime-agreement",
     "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
-    "node": "v26.0.0",
+    "node": "v22.22.3",
     "operating_system": "macOS 26.5.1 build 25F80",
     "python": "Python 3.13.12",
     "swift": "Apple Swift version 6.3 (swiftlang-6.3.0.123.5 clang-2100.0.123.102)"
