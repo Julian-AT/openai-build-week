@@ -460,22 +460,22 @@ Each parameter needs its own temp root/fake instance; do not serialize the whole
 |---|-------|---------|---------------|
 | — | None. Recommendations are grounded in locked context, canonical repository authority, inspected code, installed project skills, or cited platform documentation. | — | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **What queue capacities, cadence, quality cutoffs, storage warning thresholds, and pressure thresholds ship initially?**
+1. **RESOLVED — What queue capacities, cadence, quality cutoffs, storage warning thresholds, and pressure thresholds ship initially?**
    - What we know: all must be bounded; user-event frames are retained; optional compute drops first, upload pauses second, then cadence/quality degrades. [VERIFIED: accepted context]
    - What's unclear: numeric values have no `MEASURED` evidence. [VERIFIED: GATE-001]
-   - Recommendation: inject explicit named `HYPOTHESIS` defaults into fixtures and make GATE-001 output the observed depths/drops/latencies; promotion to `MEASURED` requires real evidence. [VERIFIED: `AGENTS.md`]
+   - **Resolution selected by Plan 02-04:** inject explicit named `HYPOTHESIS`/`TARGET` values into fixtures and make GATE-001 output the observed depths/drops/latencies; promotion to `MEASURED` requires real evidence. [VERIFIED: `AGENTS.md`]
 
-2. **When can GATE-001 become GREEN?**
+2. **RESOLVED — When can GATE-001 become GREEN?**
    - What we know: synthetic/fault/replay automation can be completed in this phase, but the gate also specifies physical 10-second and 60-second captures. [VERIFIED: GATE-001]
    - What's unclear: fresh Phase 2 physical capture evidence does not exist yet. [VERIFIED: repository inspection]
-   - Recommendation: plan an explicit human/device checkpoint after automation is green; leave the phase/gate pending or RED if physical evidence is unavailable or misses the threshold. [VERIFIED: `AGENTS.md`; GATE-001]
+   - **Resolution selected by Plan 02-07:** only the explicit human/device checkpoint after green automation may authorize GREEN; leave the phase/gate pending or RED if real physical evidence is unavailable, incomplete, or misses a threshold. Synthetic/simulator evidence has no GREEN authority. [VERIFIED: `AGENTS.md`; GATE-001]
 
-3. **How should an invalid suffix be retained?**
+3. **RESOLVED — How should an invalid suffix be retained?**
    - What we know: it may be discarded or quarantined, but accepted replay must stop at the valid prefix and immutable history must not be rewritten as complete. [VERIFIED: accepted context]
    - What's unclear: the exact out-of-band representation is discretionary. [VERIFIED: accepted context]
-   - Recommendation: copy the raw invalid suffix plus its SHA-256 and first-invalid sequence into a bounded diagnostic quarantine outside the accepted `.rrcap` inventory, then atomically replace the live journal with the verified prefix. Never expose or commit room bytes. [VERIFIED: accepted context; existing repair pattern; `AGENTS.md`]
+   - **Resolution selected by Plan 02-03:** copy the raw invalid suffix plus its SHA-256 and first-invalid sequence into a bounded diagnostic quarantine outside the accepted `.rrcap` inventory, then atomically replace the live journal with the verified prefix. Never expose or commit room bytes. [VERIFIED: accepted context; existing repair pattern; `AGENTS.md`]
 
 ## Environment Availability
 
