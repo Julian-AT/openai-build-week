@@ -137,6 +137,47 @@ struct EvidenceExporterTests {
         ])
     }
 
+    @Test("UNRUN evidence request derives safe capability facts from live owner state")
+    func liveUnrunRequestUsesIndependentFacts() throws {
+        let state = DeviceProofState(
+            cameraAuthorization: .granted,
+            microphoneAuthorization: .denied,
+            physicalOrientation: .portrait,
+            session: ARSessionEvidence(
+                isRunning: true,
+                trackingState: .normal,
+                observedPlaneAlignments: [.horizontal]
+            )
+        )
+        let runtime = DiagnosticRuntimeFacts(
+            recordedAtUTC: "2026-07-17T01:15:00Z",
+            implementationRevision: "git:0123456789abcdef0123456789abcdef01234567",
+            fixtureSHA256: shaA,
+            deviceModel: "iPhone 17",
+            osVersion: "iOS 26.0",
+            appVersion: "0.1.0"
+        )
+
+        let request = DiagnosticEvidenceRequestFactory.unrun(
+            deviceState: state,
+            runtime: runtime
+        )
+        let data = try EvidenceExporter().validatedData(for: request)
+        let object = try #require(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        let environment = try #require(object["environment"] as? [String: Any])
+        let capabilities = try #require(
+            environment["capability_flags"] as? [String: Any]
+        )
+
+        #expect(object["gate_state"] as? String == "UNRUN")
+        #expect(capabilities["camera_permission"] as? String == "granted")
+        #expect(capabilities["arkit_world_tracking"] as? String == "pass")
+        #expect(capabilities["plane_detection"] as? String == "pass")
+        #expect(environment["signing_result"] as? String == "not_tested")
+    }
+
     private func request(state: String) -> EvidenceExportRequest {
         let artifacts: [EvidenceArtifactReference]
         let reportDigest: String?
