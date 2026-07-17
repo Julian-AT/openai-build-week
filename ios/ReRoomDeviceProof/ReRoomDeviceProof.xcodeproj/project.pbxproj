@@ -188,6 +188,7 @@
 				AA0000000000000000000001 /* Sources */,
 				A70000000000000000000001 /* Frameworks */,
 				AB0000000000000000000001 /* Resources */,
+				BA0000000000000000000001 /* Embed Debug Build Provenance */,
 			);
 			buildRules = (
 			);
@@ -317,6 +318,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BA0000000000000000000001 /* Embed Debug Build Provenance */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed Debug Build Provenance";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/bin/sh \"${SRCROOT}/../../scripts/embed-ios-build-provenance\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000001 /* Sources */ = {

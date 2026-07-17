@@ -214,25 +214,41 @@ struct DiagnosticRuntimeFacts: Equatable, Sendable {
     let recordedAtUTC: String
     let implementationRevision: String
     let fixtureSHA256: String
-    let deviceModel: String
+    let deviceModel: String?
     let osVersion: String
     let appVersion: String
 
     @MainActor
     static func live(
         environment: [String: String] = ProcessInfo.processInfo.environment,
-        date: Date = Date()
+        date: Date = Date(),
+        bundle: Bundle = .main
     ) -> DiagnosticRuntimeFacts {
-        DiagnosticRuntimeFacts(
+        let provenance = bundledProvenance(in: bundle)
+        return DiagnosticRuntimeFacts(
             recordedAtUTC: DiagnosticUTCClock.string(from: date),
-            implementationRevision: environment["REROOM_IMPLEMENTATION_REVISION"] ?? "",
-            fixtureSHA256: environment["REROOM_FIXTURE_SHA256"] ?? "",
-            deviceModel: UIDevice.current.model,
+            implementationRevision: provenance["implementation_revision"] as? String
+                ?? environment["REROOM_IMPLEMENTATION_REVISION"] ?? "",
+            fixtureSHA256: provenance["fixture_sha256"] as? String
+                ?? environment["REROOM_FIXTURE_SHA256"] ?? "",
+            deviceModel: nil,
             osVersion: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
-            appVersion: Bundle.main.object(
+            appVersion: bundle.object(
                 forInfoDictionaryKey: "CFBundleShortVersionString"
             ) as? String ?? "unavailable"
         )
+    }
+
+    private static func bundledProvenance(in bundle: Bundle) -> [String: Any] {
+        guard let url = bundle.url(
+                  forResource: "ReRoomBuildProvenance",
+                  withExtension: "plist"
+              ),
+              let values = NSDictionary(contentsOf: url) as? [String: Any]
+        else {
+            return [:]
+        }
+        return values
     }
 }
 
@@ -241,7 +257,19 @@ enum DiagnosticEvidenceRequestFactory {
         deviceState: DeviceProofState,
         runtime: DiagnosticRuntimeFacts
     ) -> EvidenceExportRequest {
-        EvidenceExportRequest(
+        var environmentFacts: [String: EvidenceEnvironmentFactValue] = [
+            "os_version": .string(runtime.osVersion),
+            "runtime_tier": .string("base-iphone-candidate"),
+            "camera_permission": .string(cameraFact(deviceState.cameraAuthorization)),
+            "arkit_world_tracking": .string(trackingFact(deviceState)),
+            "plane_detection": .string(planeFact(deviceState)),
+            "lidar_required": .boolean(false),
+            "signing_result": .string("not_tested"),
+        ]
+        if let deviceModel = runtime.deviceModel {
+            environmentFacts["device_model"] = .string(deviceModel)
+        }
+        return EvidenceExportRequest(
             gateID: "GATE-013",
             gateState: "UNRUN",
             recordedAtUTC: runtime.recordedAtUTC,
@@ -251,21 +279,12 @@ enum DiagnosticEvidenceRequestFactory {
             adrIDs: ["ADR-002", "ADR-003"],
             fixtureReferences: [
                 EvidenceFixtureReference(
-                    fixtureID: "FX-RRCAP-010S",
+                    fixtureID: "FX-CONTRACT-001",
                     fixtureRevision: "rev-001",
                     sha256: runtime.fixtureSHA256
                 )
             ],
-            environmentFacts: [
-                "device_model": .string(runtime.deviceModel),
-                "os_version": .string(runtime.osVersion),
-                "runtime_tier": .string("base-iphone-candidate"),
-                "camera_permission": .string(cameraFact(deviceState.cameraAuthorization)),
-                "arkit_world_tracking": .string(trackingFact(deviceState)),
-                "plane_detection": .string(planeFact(deviceState)),
-                "lidar_required": .boolean(false),
-                "signing_result": .string("not_tested"),
-            ],
+            environmentFacts: environmentFacts,
             valueClassification: "TARGET",
             evidenceArtifacts: [],
             automatedReportSHA256: nil
@@ -347,7 +366,7 @@ final class DiagnosticAppOwner {
             packetState: packetState,
             journalValue: journalValue,
             journalState: journalState,
-            buildValue: "\(runtime.deviceModel), \(runtime.osVersion), app \(runtime.appVersion); signing not tested",
+            buildValue: "\(runtime.deviceModel ?? "Model not recorded"), \(runtime.osVersion), app \(runtime.appVersion); signing not tested",
             buildState: .pending,
             gateState: "UNRUN"
         )
@@ -461,7 +480,7 @@ final class DiagnosticAppOwner {
             framePacketBuilder: FramePacketBuilder(validator: validator),
             configuration: DiagnosticCaptureConfiguration(
                 sessionID: sessionID,
-                deviceModel: runtime.deviceModel,
+                deviceModel: runtime.deviceModel ?? "unreported",
                 osVersion: runtime.osVersion,
                 appVersion: runtime.appVersion,
                 buildID: runtime.implementationRevision,
