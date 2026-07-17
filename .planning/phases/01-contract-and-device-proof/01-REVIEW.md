@@ -1,8 +1,8 @@
 ---
 phase: 01-contract-and-device-proof
-reviewed: 2026-07-17T04:06:34Z
+reviewed: 2026-07-17T12:41:07Z
 depth: standard
-files_reviewed: 75
+files_reviewed: 79
 files_reviewed_list:
   - docs/canonical/RESEARCH_LEDGER.md
   - evidence/compatibility/contract-agreement.json
@@ -10,6 +10,11 @@ files_reviewed_list:
   - evidence/compatibility/jcs-agreement.json
   - evidence/compatibility/swift-schema-validation.json
   - evidence/dependencies/phase-01-package-audit.json
+  - evidence/device/phase-01/automated-preflight.json
+  - evidence/device/phase-01/gate-002-operator-checklist.json
+  - evidence/device/phase-01/gate-002-report.json
+  - evidence/device/phase-01/gate-013-operator-checklist.json
+  - evidence/device/phase-01/gate-013-report.json
   - evidence/fixtures/invalid/gate-report.invalid.automation-waiver.json
   - evidence/fixtures/valid/gate-report.green.json
   - evidence/templates/README.md
@@ -53,7 +58,6 @@ files_reviewed_list:
   - ios/ReRoomDeviceProof/ReRoomDeviceProofTests/EvidenceExporterTests.swift
   - ios/ReRoomDeviceProof/ReRoomDeviceProofTests/WorldEpochTests.swift
   - ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/DiagnosticSurfaceTests.swift
-  - tools/javascript/package-lock.json
   - tools/javascript/src/canonical-json.mjs
   - tools/javascript/src/coordinate.mjs
   - tools/javascript/src/loader.mjs
@@ -80,31 +84,51 @@ files_reviewed_list:
   - tools/verify/verify_evidence.py
   - tools/verify/verify_phase_01_dependencies.py
 findings:
-  critical: 0
-  warning: 0
+  critical: 1
+  warning: 2
   info: 0
-  total: 0
-status: clean
+  total: 3
+status: issues_found
 ---
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-07-17T04:06:34Z
+**Reviewed:** 2026-07-17T12:41:07Z
 **Depth:** standard
-**Files Reviewed:** 75
-**Status:** clean
+**Files Reviewed:** 79
+**Status:** issues_found
 
 ## Summary
 
-No critical, warning, or informational findings remain at standard depth. The cumulative fixes were verified directly, including stable-ID collision handling, capture-consent authority, physically upright FramePacket construction, AR interruption/failure recovery, Python compatibility-migration validation, journal empty-prefix and terminal-LF repair, bundled Debug provenance under an unmodified shared launch, dirty scoped-input fail-close, Release diagnostic/provenance absence, and cross-runtime coordinate precondition convergence.
+One critical evidence-integrity defect and two warnings were proved at standard depth. The explicit world-reset path correctly resets the AR session, advances the epoch, clears tracked state, quarantines incompatible versions, updates the diagnostic surface, and disables capture; the checked-in physical evidence also contains no observed private room media or user identifiers. However, the signed operator decision does not cryptographically bind the final physical gate report, so the current verifier can accept post-approval changes to load-bearing report metadata. The capture test suite also exhibited a reproducible intermittent concurrency failure, and the capture state machine can retain a stale selection after a rejected re-selection.
 
 ## Critical Issues
 
-None.
+### CR-01 — BLOCKER: signed operator decision does not bind the final physical gate report
+
+**File:** `tools/verify/verify_evidence.py:156`
+
+The verifier checks that `operator_checklist.report_sha256` equals the report's `automated_report_sha256`, then checks that `report.operator_checklist_sha256` equals the digest of the checklist bytes. In both checked-in physical checklists, `report_sha256` is therefore the digest of `automated-preflight.json`, not a digest of the GATE-002 or GATE-013 physical report. This creates only a final-report-to-checklist link: the signed/checklisted decision does not bind the final report bytes. After approval, an actor can change schema-valid, load-bearing fields such as `implementation_revision`, fixture or device metadata, or artifact IDs and digests while retaining the signed checklist and GREEN decision; the current verifier still accepts the evidence. That defeats the report-bound evidence requirement and leaves critical spoofing/repudiation threat T-01-19 unresolved.
+
+**Fix:** Define a non-circular digest for the final GateReport payload—for example, canonicalize the report with `operator_checklist_sha256` omitted—and include that digest in the signed checklist or human attestation. Recompute and verify it in `verify_evidence.py`, then continue to bind the exact checklist bytes from the report. Also verify that the external attestation/signature artifact is scoped to those exact checklist bytes and matches the artifact referenced by the report. Add mutation tests that change final-report fixture, environment, implementation revision, and artifact digest fields after signing and require verification to fail.
 
 ## Warnings
 
-None.
+### WR-01 — shared schema validator makes the capture suite intermittently fail under concurrent execution
+
+**File:** `ios/ReRoomDeviceProof/ReRoomDeviceProofTests/CaptureAttemptTests.swift:8`
+
+`CaptureAttemptTests` is not serialized, while all parameterized cases share the static `ContractValidator` declared at line 747. A full Debug simulator run failed the `.gap` case in `manifestMutationsReject(mutation:)`: `journal.recover()` unexpectedly threw `.invalidManifest` before the mutation under test. The same complete unit target passed immediately on rerun. The package-level contract validation suite is explicitly serialized, which further indicates that concurrent use of the compiled validator is not established as safe. This makes verification nondeterministic and may expose an unjustified `Sendable` assumption in production validation.
+
+**Fix:** Make `CaptureAttemptTests` serialized or instantiate an isolated validator per test. Separately, either serialize access within the production `ContractValidator` or establish the wrapped compiled schema validator's concurrency safety with a stress test before relying on its `Sendable` conformance.
+
+### WR-02 — a rejected orientation re-selection leaves the prior capture selected
+
+**File:** `ios/ReRoomDeviceProof/ReRoomDeviceProof/CaptureAttemptMachine.swift:55`
+
+`select` returns an orientation rejection without clearing `selectedAttempt`; the quarantine and unhealthy-state branches do clear it. A caller can select a valid portrait attempt, attempt a second landscape selection that is rejected, then call `finish` with values matching the first attempt and receive `.ready`. The current UI constructs a fresh machine for each capture flow, which limits present exposure, but the state machine itself violates re-selection semantics and can authorize a stale attempt if it is reused.
+
+**Fix:** Clear `selectedAttempt` at the start of every `select` operation, or at minimum before returning the orientation rejection. Add a regression test for valid selection → rejected re-selection → finish, requiring `.noSelection`.
 
 ## Informational
 
@@ -112,15 +136,16 @@ None.
 
 ## Verification
 
-- `swift test --package-path ios/Packages/ReRoomContracts` — passed, 32 tests across 5 suites.
+- `scripts/verify-phase-01-contracts gate` — passed; both evidence verification passes completed and GATE-013/GATE-002 were reported GREEN.
+- `.venv/bin/python -m unittest tools.verify.tests.test_compare_results tools.verify.tests.test_evidence_templates tools.verify.tests.test_reference_parity tools.python.tests.test_parity_mutations tools.python.tests.test_runner -v` — passed, 33 tests.
 - `node --test tools/javascript/test/runner.test.mjs tools/javascript/test/parity-mutations.test.mjs` — passed, 5 tests.
-- `.venv/bin/python -m unittest tools.python.tests.test_runner tools.python.tests.test_parity_mutations tools.verify.tests.test_compare_results tools.verify.tests.test_evidence_templates tools.verify.tests.test_reference_parity` — passed, 33 tests.
-- The iteration-2 focused simulator evidence for the complete Debug unit target, normal bundled-provenance launch, and Release product inspection was checked against the current frozen source paths; this timeboxed re-review did not rerun `xcodebuild`.
-- `git diff --check` — passed.
-- Physical-device, human-observation, and room-evidence gates remain pending; this review does not fabricate or promote them.
+- `swift test --package-path ios/Packages/ReRoomContracts` — passed, 32 tests across 5 suites.
+- Full Debug simulator `xcodebuild test` — the UI target passed, but the unit target failed once in the `.gap` capture mutation case with unexpected `.invalidManifest`; the complete unit target passed on immediate rerun. This is the evidence for WR-01, not a clean full-suite result.
+- `git diff --check` — passed before writing this report; the report itself was checked again after writing.
+- The GATE-002 and GATE-013 physical outcomes were treated as human-attested evidence supplied by the operator. This review did not fabricate physical observations or inspect private external room artifacts.
 
 ---
 
-_Reviewed: 2026-07-17T04:06:34Z_
-_Reviewer: the agent (gsd-code-reviewer)_
+_Reviewed: 2026-07-17T12:41:07Z_
+_Reviewer: Codex (generic-agent fallback following gsd-code-reviewer contract)_
 _Depth: standard_
