@@ -95,6 +95,18 @@ struct ARSessionPolicyTests {
         #expect(state.planeDetectionAvailable)
     }
 
+    @Test("World reset clears stale plane observations and capture readiness")
+    func worldResetClearsSpatialReadiness() {
+        var state = otherwiseReadyState(microphoneAuthorization: .denied)
+
+        state.apply(.worldReset)
+
+        #expect(state.session.isRunning)
+        #expect(state.session.trackingState == .initializing)
+        #expect(state.session.observedPlaneAlignments.isEmpty)
+        #expect(state.visualFrameCaptureAvailable == false)
+    }
+
     @Test("World tracking requests both plane types without rear LiDAR")
     func worldTrackingConfiguration() {
         let policy = ARSessionPolicy.deviceProof
