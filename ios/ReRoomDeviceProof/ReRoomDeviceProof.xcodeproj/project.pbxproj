@@ -26,6 +26,8 @@
 		A10000000000000000000011 /* edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
 		A10000000000000000000012 /* transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
 		B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* EvidenceExporterTests.swift */; };
+		B10000000000000000000002 /* EvidenceExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* EvidenceExporter.swift */; };
+		B10000000000000000000003 /* DiagnosticChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* DiagnosticChecklistView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -60,6 +62,8 @@
 		A20000000000000000000013 /* edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/edit-artifacts.schema.json; sourceTree = SOURCE_ROOT; };
 		A20000000000000000000014 /* transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000001 /* EvidenceExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporterTests.swift; sourceTree = "<group>"; };
+		B20000000000000000000002 /* EvidenceExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporter.swift; sourceTree = "<group>"; };
+		B20000000000000000000003 /* DiagnosticChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticChecklistView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,6 +107,8 @@
 				A2000000000000000000000B /* CaptureAttemptMachine.swift */,
 				A2000000000000000000000E /* FramePacketBuilder.swift */,
 				A2000000000000000000000F /* DiagnosticJournal.swift */,
+				B20000000000000000000002 /* EvidenceExporter.swift */,
+				B20000000000000000000003 /* DiagnosticChecklistView.swift */,
 				A20000000000000000000005 /* Info.plist */,
 			);
 			path = ReRoomDeviceProof;
@@ -259,6 +265,8 @@
 				A10000000000000000000009 /* CaptureAttemptMachine.swift in Sources */,
 				A1000000000000000000000C /* FramePacketBuilder.swift in Sources */,
 				A1000000000000000000000D /* DiagnosticJournal.swift in Sources */,
+				B10000000000000000000002 /* EvidenceExporter.swift in Sources */,
+				B10000000000000000000003 /* DiagnosticChecklistView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

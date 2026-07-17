@@ -111,10 +111,11 @@ struct EvidenceExporterTests {
         let destination = root.appendingPathComponent("gate-report.json")
 
         let result = try EvidenceExporter().export(request(state: "RUNNING"), to: destination)
+        let persistedData = try Data(contentsOf: destination)
         let paths = try FileManager.default.contentsOfDirectory(atPath: root.path)
 
         #expect(result.url == destination)
-        #expect(result.data == try Data(contentsOf: destination))
+        #expect(result.data == persistedData)
         #expect(result.sha256.count == 64)
         #expect(paths == ["gate-report.json"])
     }
