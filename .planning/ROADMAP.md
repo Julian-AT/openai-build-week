@@ -248,7 +248,14 @@ Plans:
   3. Outside validated observations, the interface coaches for another view or restores safe content instead of exposing an invalid replacement composite.
   4. The selected asset's native/web derivatives, dimensions, origin, collision proxy, hashes, delivery state, and license evidence are bound by one stable asset manifest before it is used in the hero path.
 
-**Plans**: TBD
+**Plans**: 4/4 plans executed
+
+Plans:
+
+- [x] 05-01-PLAN.md — Implement the exact no-reveal replacement reducer and captured-exact inverse.
+- [x] 05-02-PLAN.md — Add sole-authority durability, idempotency, restart/replay, restore, and canonical target bootstrap.
+- [x] 05-03-PLAN.md — Deliver bounded supported-view native replacement with exact retained demo asset loading.
+- [x] 05-04-PLAN.md — Publish source-bound fail-closed automated replacement evidence with formal gates pending.
 **UI hint**: yes
 
 ### Phase 6: Controlled Multi-Surface Removal
@@ -264,7 +271,14 @@ Plans:
   3. Outside the measured view envelope, the interface coaches for another view or keeps remove unavailable; it never exposes unbounded or undisclosed synthesis.
   4. A missed reveal threshold or timebox is recorded as a P0 blocker rather than silently demoting controlled removal.
 
-**Plans**: TBD
+**Plans**: 2/4 plans executed
+
+Plans:
+
+- [x] 06-01-PLAN.md — Implement the exact degraded-fixture reveal-first remove reducer and inverse.
+- [x] 06-02-PLAN.md — Add sole-authority remove durability, retry, crash recovery, replay, and restore.
+- [ ] 06-03-PLAN.md — Deliver the explicit launch-gated two-surface demo fixture while normal removal remains unavailable.
+- [ ] 06-04-PLAN.md — Publish fail-closed automated removal-fixture evidence with GATE-006 pending.
 **UI hint**: yes
 
 ### Phase 7: Separate Mode B0 Web Fallback
@@ -285,9 +299,9 @@ Plans:
 
 Plans:
 
-- [ ] 07-01-PLAN.md — Scaffold the exact web package and expose a fail-closed verified replay DTO through the existing Phase 2 runner.
-- [ ] 07-02-PLAN.md — Deliver the honest local recorded-replay scrubber and inspection/degradation interface.
-- [ ] 07-03-PLAN.md — Publish independently verified automated and local-HTTP evidence while every full web/retention gate remains pending.
+- [x] 07-01-PLAN.md — Scaffold the exact web package and expose a fail-closed verified replay DTO through the existing Phase 2 runner.
+- [x] 07-02-PLAN.md — Deliver the honest local recorded-replay scrubber and inspection/degradation interface.
+- [x] 07-03-PLAN.md — Publish independently verified automated and local-HTTP evidence while every full web/retention gate remains pending.
 
 ### Phase 8: P0 Hardening and Evidence
 
@@ -329,7 +343,7 @@ Plans:
 | 2. Atomic Capture and Exact Replay | 7/7 | In Progress|  |
 | 3. Typed Place, Commit, and Offline Restore | 7/7 | Implementation complete; verification deferred |  |
 | 4. Target Grounding and Compositor Gate | 4/4 | In Progress|  |
-| 5. Curated Replacement Vertical | 0/TBD | Not started | - |
-| 6. Controlled Multi-Surface Removal | 0/TBD | Not started | - |
-| 7. Separate Mode B0 Web Fallback | 0/TBD | Not started | - |
-| 8. P0 Hardening and Evidence | 0/TBD | Not started | - |
+| 5. Curated Replacement Vertical | 4/4 | Sprint implementation complete; human gates pending | 2026-07-18 |
+| 6. Controlled Multi-Surface Removal | 2/4 | In progress; formal GATE-006 pending |  |
+| 7. Separate Mode B0 Web Fallback | 3/3 | Fixed-golden sprint slice complete; canonical/browser/retention work pending | 2026-07-18 |
+| 8. P0 Hardening and Evidence | 0/2 | Planned; blocked on Phase 6 and final evidence inputs | - |
