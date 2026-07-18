@@ -19,7 +19,7 @@ from typing import Any, Sequence
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-BOUND_REVISION = "1e3e42161d65e541e52989c0eb81063ba89c0b56"
+BOUND_REVISION = "1e3e421c104fff70ef6c0664b6c544229ebe35f3"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 REPORT_SCHEMA_REVISION = "1.0.0"
 EVIDENCE_RELATIVE_PATH = "evidence/replacement/phase-05/automated-preflight.json"
