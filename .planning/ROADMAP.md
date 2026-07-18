@@ -178,7 +178,7 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
   3. Retries with the same key and fingerprint return the prior result without another revision; changed content, stale bases, or wrong authority reject, and divergent branches quarantine without automatic merge.
   4. Typed/tap controls can propose all four operations with network and learned providers disabled, while malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit.
 
-**Plans**: 6 plans
+**Plans**: 7 plans
 
 Plans:
 
@@ -204,7 +204,13 @@ Plans:
 
 **Wave 6** *(blocked on Waves 4–5)*
 
-- [ ] 03-06-PLAN.md — Prove Swift/JavaScript/Python agreement with an executable Swift trace exporter and publish honest automated sprint evidence.
+- [ ] 03-06-PLAN.md — Emit independent provenance-bound Swift, TypeScript, and Python transaction traces with complete proposal/blocker/order/injection coverage.
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 03-07-PLAN.md — Compare two isolated runs per runtime, enforce quick/full verification, and publish honest pending-gate automated sprint evidence.
+
+**Cross-cutting constraints**: Both evidence plans retain exact Node v22.22.3, immutable fixture/oracle inputs, exact implementation plus closed source-tree digest binding, and explicit accepted place/restore proposal, typed replace/remove blocker, four-operation order, and injection-rejection coverage. No runtime output is another runtime's oracle, and local automation cannot promote deferred gates.
 **UI hint**: yes
 
 ### Phase 4: Target Grounding and Compositor Gate
