@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import copy
+import importlib.machinery
+import importlib.util
 import json
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 from tools.verify.compare_transaction_traces import (
@@ -231,6 +234,95 @@ class FreshTransactionOutputs(unittest.TestCase):
             expected.write_bytes(changed)
             with self.assertRaisesRegex(TransactionComparisonError, "fixture_file_sha256"):
                 verify_transaction_fixture(fixture / "manifest.json", repo_root=REPO_ROOT)
+
+
+class PhaseThreePreflightContract(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        path = REPO_ROOT / "scripts/verify-phase-03-transactions"
+        loader = importlib.machinery.SourceFileLoader("phase_03_preflight", str(path))
+        specification = importlib.util.spec_from_loader(loader.name, loader)
+        if specification is None:
+            raise RuntimeError("phase 03 verifier could not be loaded")
+        cls.module = importlib.util.module_from_spec(specification)
+        sys.modules[loader.name] = cls.module
+        loader.exec_module(cls.module)
+
+    def valid_report(self) -> dict:
+        return self.module._evidence_template(
+            recorded_at_utc="2026-07-18T12:00:00Z",
+            checks=[
+                {"check_id": check_id, "status": "PASS", "outcome_sha256": "1" * 64}
+                for check_id in self.module.EXPECTED_FULL_CHECKS
+            ],
+            runtime_runs={
+                runtime: {
+                    "byte_identical": True,
+                    "run_count": 2,
+                    "result_sha256": str(index) * 64,
+                    "source_tree_sha256": str(index + 3) * 64,
+                }
+                for index, runtime in enumerate(("swift", "typescript", "python"), start=1)
+            },
+            source_bindings={
+                "comparator_sha256": "7" * 64,
+                "orchestrator_sha256": "8" * 64,
+                "result_schema_sha256": "9" * 64,
+            },
+            working_tree_counts={"tracked_modified": 3, "untracked": 4},
+        )
+
+    def test_closed_evidence_accepts_only_honest_pending_gate_report(self) -> None:
+        report = self.valid_report()
+        self.module.validate_evidence(report)
+        self.assertEqual("automated sprint slice passed", report["claim"])
+        self.assertTrue(all(value == "PENDING" for value in report["pending_gates"].values()))
+        self.assertNotIn("GREEN", canonical_bytes(report).decode("utf-8"))
+
+    def test_evidence_rejects_overclaim_missing_binding_and_private_content(self) -> None:
+        mutations = {
+            "green_claim": lambda value: value.update(claim="GATE-010 GREEN"),
+            "green_gate": lambda value: value["pending_gates"].update({"GATE-010": "PASS"}),
+            "missing_check": lambda value: value["checks"].pop(),
+            "dynamic_revision": lambda value: value.update(implementation_revision="git:HEAD"),
+            "fixture_drift": lambda value: value["fixture"].update(manifest_sha256="0" * 64),
+            "missing_source": lambda value: value["source_bindings"].pop("comparator_sha256"),
+            "machine_path": lambda value: value["limitations"].append("/Users/example/private"),
+            "credential": lambda value: value["limitations"].append("api_key=secret-value"),
+            "raw_room": lambda value: value.update(raw_room_text="private bedroom"),
+            "fabricated_observation": lambda value: value.update(human_observation="looked correct"),
+        }
+        for label, mutation in mutations.items():
+            with self.subTest(label=label):
+                report = self.valid_report()
+                mutation(report)
+                with self.assertRaises(self.module.EvidenceError):
+                    self.module.validate_evidence(report)
+
+    def test_atomic_publication_does_not_replace_prior_evidence_on_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "automated-preflight.json"
+            target.write_bytes(b"prior-evidence")
+            with mock.patch.object(self.module.os, "replace", side_effect=OSError("injected")):
+                with self.assertRaises(self.module.EvidenceError):
+                    self.module._atomic_publish(target, b"new-evidence")
+            self.assertEqual(b"prior-evidence", target.read_bytes())
+            self.assertEqual([], list(target.parent.glob(".automated-preflight.*.tmp")))
+
+    def test_orchestrator_declares_exact_two_run_quick_and_full_surface(self) -> None:
+        path = REPO_ROOT / "scripts/verify-phase-03-transactions"
+        source = path.read_text(encoding="utf-8")
+        required = (
+            "v22.22.3", "tools/javascript/src/transaction.ts", "TemporaryDirectory",
+            "byte_identical", "quick", "full", "RoomEditModelTests",
+            "RoomEditJourneyTests", "Debug", "Release",
+            "scripts/verify-reroom-release-surface", "git", "diff", "--check",
+            "evidence/transactions/phase-03/automated-preflight.json",
+        )
+        for token in required:
+            with self.subTest(token=token):
+                self.assertIn(token, source)
+        self.assertTrue(path.stat().st_mode & 0o111)
 
 
 if __name__ == "__main__":
