@@ -178,7 +178,7 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
   3. Retries with the same key and fingerprint return the prior result without another revision; changed content, stale bases, or wrong authority reject, and divergent branches quarantine without automatic merge.
   4. Typed/tap controls can propose all four operations with network and learned providers disabled, while malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit.
 
-**Plans**: 1/7 plans executed
+**Plans**: 2/7 plans executed
 
 Plans:
 
@@ -188,7 +188,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 03-03-PLAN.md — Implement RR-EDIT-PROJECTION-1 and offline RR-RESTORE-REBASE-1 compensation.
+- [x] 03-03-PLAN.md — Implement RR-EDIT-PROJECTION-1 and offline RR-RESTORE-REBASE-1 compensation.
 
 **Wave 3** *(blocked on Waves 1–2)*
 
@@ -311,7 +311,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
 | 2. Atomic Capture and Exact Replay | 7/7 | In Progress|  |
-| 3. Typed Place, Commit, and Offline Restore | 1/7 | In Progress|  |
+| 3. Typed Place, Commit, and Offline Restore | 2/7 | In Progress|  |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
 | 5. Curated Replacement Vertical | 0/TBD | Not started | - |
 | 6. Controlled Multi-Surface Removal | 0/TBD | Not started | - |
