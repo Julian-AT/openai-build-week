@@ -94,6 +94,145 @@ struct RoomEditModelTests {
         #expect(harness.model.snapshot.operations.count == 4)
         #expect(await harness.authority.activeSnapshot() == before)
     }
+
+    @Test("manual target seed is epoch-bound, revision-neutral, and proposal-ready")
+    func manualTargetSeedBindsStableContextWithoutMutation() async throws {
+        let harness = try TestRoomEditHarness(support: .healthyFixture)
+        await harness.model.prepare()
+        let before = await harness.authority.activeSnapshot()
+
+        await harness.model.groundTarget(
+            candidates: [.heroFixture],
+            tracking: .normal
+        )
+
+        let target = try #require(harness.model.snapshot.target.target)
+        let context = try #require(harness.model.snapshot.targetContext)
+        #expect(target.objectID == RoomEditIdentity.targetObjectID)
+        #expect(target.lifecycle == .tracked)
+        #expect(target.frozenProxy.version == 1)
+        #expect(target.frozenProxy.capturedSceneRevision == 0)
+        #expect(context.selectedObjectID == RoomEditIdentity.targetObjectID)
+        #expect(context.candidateObjectIDs == [RoomEditIdentity.targetObjectID])
+        #expect(context.worldFrameID == before.scene.worldFrame.worldFrameID)
+        #expect(context.worldFrameVersion == before.scene.worldFrame.worldFrameVersion)
+        #expect(harness.model.snapshot.revision == before.scene.sceneRevision)
+        #expect(await harness.authority.activeSnapshot() == before)
+    }
+
+    @Test("miss and ambiguity are typed and preserve prior target plus revision")
+    func failedGroundingIsNonmutating() async throws {
+        let harness = try TestRoomEditHarness(support: .healthyFixture)
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        let grounded = harness.model.snapshot.target.target
+
+        await harness.model.groundTarget(candidates: [], tracking: .normal)
+        #expect(harness.model.snapshot.target.failure == .targetMissed)
+        #expect(harness.model.snapshot.target.target == grounded)
+        #expect(harness.model.snapshot.revision == 0)
+
+        await harness.model.groundTarget(
+            candidates: [.heroFixture, .heroFixture(offsetX: 0.25)],
+            tracking: .normal
+        )
+        #expect(harness.model.snapshot.target.failure == .targetAmbiguous)
+        #expect(harness.model.snapshot.target.target == grounded)
+        #expect((await harness.authority.activeSnapshot()).scene.sceneRevision == 0)
+    }
+
+    @Test("stale, wrong-epoch, unsupported, and unhealthy candidates fail closed")
+    func invalidCandidatesFailClosed() {
+        let environment = TargetGroundingEnvironment.fixture
+        let initial = TargetGroundingReducer.initial(environment: environment)
+        let invalidCases: [(ManualTargetCandidate, TargetGroundingFailure)] = [
+            (.heroFixture(capturedSceneRevision: 1), .staleSceneRevision),
+            (.heroFixture(worldFrameVersion: 2), .worldFrameMismatch),
+            (.heroFixture(category: .unsupported("sofa")), .unsupportedTargetCategory),
+        ]
+
+        for (candidate, expectedFailure) in invalidCases {
+            let reduced = TargetGroundingReducer.reduce(
+                initial,
+                event: .select([candidate]),
+                environment: environment
+            )
+            #expect(reduced.failure == expectedFailure)
+            #expect(reduced.target == nil)
+        }
+
+        let unhealthy = TargetGroundingReducer.reduce(
+            initial,
+            event: .select([.heroFixture]),
+            environment: environment.with(tracking: .limited)
+        )
+        #expect(unhealthy.failure == .trackingNotNormal)
+        #expect(unhealthy.target == nil)
+    }
+
+    @Test("tracking loss revokes edit readiness but restore remains transaction-derived")
+    func readinessIsIndependentAcrossCapabilities() throws {
+        let readyEnvironment = TargetGroundingEnvironment.fixture.with(restoreEligible: true)
+        let seeded = TargetGroundingReducer.reduce(
+            TargetGroundingReducer.initial(environment: readyEnvironment),
+            event: .select([.heroFixture]),
+            environment: readyEnvironment
+        )
+
+        #expect(seeded.readiness.select == .ready)
+        #expect(seeded.readiness.place == .ready)
+        #expect(seeded.readiness.replace == .degraded)
+        #expect(seeded.readiness.remove == .unavailable)
+        #expect(seeded.readiness.restore == .ready)
+        #expect(seeded.reasons.replace == [.providerUnavailable])
+        #expect(seeded.reasons.remove == [.revealQualityFailed])
+
+        let lostEnvironment = readyEnvironment.with(tracking: .notAvailable)
+        let lost = TargetGroundingReducer.reduce(
+            seeded,
+            event: .trackingChanged,
+            environment: lostEnvironment
+        )
+        #expect(lost.target?.lifecycle == .lost)
+        #expect(lost.readiness.select == .unavailable)
+        #expect(lost.readiness.place == .unavailable)
+        #expect(lost.readiness.replace == .unavailable)
+        #expect(lost.readiness.restore == .ready)
+        #expect(lost.reasons.select == [.trackingNotNormal])
+    }
+
+    @Test("world reset requires explicit reseed and preserves semantic identity")
+    func reseedReplacesOnlySpatialEvidence() throws {
+        let firstEnvironment = TargetGroundingEnvironment.fixture
+        let seeded = TargetGroundingReducer.reduce(
+            TargetGroundingReducer.initial(environment: firstEnvironment),
+            event: .select([.heroFixture]),
+            environment: firstEnvironment
+        )
+        let firstTarget = try #require(seeded.target)
+        let resetEnvironment = firstEnvironment.with(worldFrameVersion: 2)
+        let reset = TargetGroundingReducer.reduce(
+            seeded,
+            event: .worldReset,
+            environment: resetEnvironment
+        )
+        #expect(reset.target?.lifecycle == .lost)
+        #expect(reset.target?.frozenProxy == firstTarget.frozenProxy)
+        #expect(reset.failure == .worldFrameMismatch)
+
+        let recovered = TargetGroundingReducer.reduce(
+            reset,
+            event: .reseed([.heroFixture(worldFrameVersion: 2, offsetX: 0.4)]),
+            environment: resetEnvironment
+        )
+        let recoveredTarget = try #require(recovered.target)
+        #expect(recoveredTarget.objectID == firstTarget.objectID)
+        #expect(recoveredTarget.lifecycle == .tracked)
+        #expect(recoveredTarget.frozenProxy.version == 2)
+        #expect(recoveredTarget.frozenProxy.worldFrameVersion == 2)
+        #expect(recoveredTarget.frozenProxy.worldFromTarget != firstTarget.frozenProxy.worldFromTarget)
+        #expect(recovered.failure == nil)
+    }
 }
 
 private struct TestRoomEditHarness {
@@ -163,6 +302,59 @@ private extension RoomEditSupportContext {
         confidence: 0.95,
         method: "arkit_plane"
     )
+}
+
+private extension ManualTargetCandidate {
+    static var heroFixture: Self { heroFixture() }
+
+    static func heroFixture(
+        category: ManualTargetCategory = .chair,
+        capturedSceneRevision: UInt64 = 0,
+        worldFrameVersion: UInt64 = 1,
+        offsetX: Double = 0
+    ) -> Self {
+        ManualTargetCandidate(
+            category: category,
+            capturedAtFrameID: RoomEditIdentity.frameID,
+            capturedSceneRevision: capturedSceneRevision,
+            worldFrameID: RoomEditIdentity.worldFrameID,
+            worldFrameVersion: worldFrameVersion,
+            cameraPose: .identity,
+            worldFromTarget: Matrix4(values: [
+                1, 0, 0, offsetX,
+                0, 1, 0, 0,
+                0, 0, 1, -1.2,
+                0, 0, 0, 1,
+            ]),
+            screenPointEncodedPixels: [320, 480]
+        )
+    }
+}
+
+private extension TargetGroundingEnvironment {
+    static let fixture = TargetGroundingEnvironment(
+        sceneRevision: 0,
+        worldFrameID: RoomEditIdentity.worldFrameID,
+        worldFrameVersion: 1,
+        tracking: .normal,
+        supportReady: true,
+        restoreEligible: false
+    )
+
+    func with(
+        worldFrameVersion: UInt64? = nil,
+        tracking: TargetTrackingHealth? = nil,
+        restoreEligible: Bool? = nil
+    ) -> Self {
+        TargetGroundingEnvironment(
+            sceneRevision: sceneRevision,
+            worldFrameID: worldFrameID,
+            worldFrameVersion: worldFrameVersion ?? self.worldFrameVersion,
+            tracking: tracking ?? self.tracking,
+            supportReady: supportReady,
+            restoreEligible: restoreEligible ?? self.restoreEligible
+        )
+    }
 }
 
 private final class RoomEditMemoryFileSystem: ReRoomCaptureCore.CaptureFileSystem, @unchecked Sendable {
