@@ -39,6 +39,27 @@ public enum CaptureFrameState: String, Codable, CaseIterable, Sendable {
     }
 }
 
+public struct CaptureLifecycleObservation: Equatable, Sendable {
+    public let sessionID: String
+    public let frameID: String
+    public let selectedReason: SelectedFrameReason
+    public let state: CaptureFrameState
+
+    public init(
+        sessionID: String,
+        frameID: String,
+        selectedReason: SelectedFrameReason,
+        state: CaptureFrameState
+    ) {
+        self.sessionID = sessionID
+        self.frameID = frameID
+        self.selectedReason = selectedReason
+        self.state = state
+    }
+}
+
+public typealias CaptureLifecycleObserver = @Sendable (CaptureLifecycleObservation) -> Void
+
 public struct CaptureArchiveSource: Codable, Equatable, Sendable {
     public let deviceModel: String
     public let osVersion: String
@@ -161,6 +182,7 @@ public actor CaptureArchiveStore {
     private let descriptor: CaptureSessionDescriptor
     private let source: CaptureArchiveSource
     private let makeEventID: @Sendable (UInt64) -> String
+    private let lifecycleObserver: CaptureLifecycleObserver
 
     private var sessionState = SessionState.notStarted
     private var journalEntries = [CaptureJournalEntry]()
@@ -168,6 +190,7 @@ public actor CaptureArchiveStore {
     private var acceptedFrames = [CaptureAcceptedFrame]()
     private var receipts = [NetworkEligibleReceipt]()
     private var lifecycleByFrameID = [String: CaptureFrameState]()
+    private var selectedReasonByFrameID = [String: SelectedFrameReason]()
     private var finalization: CaptureFinalization?
     private var manifestData: Data?
     private var lastMonotonicTimestampNanoseconds: String
@@ -179,13 +202,15 @@ public actor CaptureArchiveStore {
         source: CaptureArchiveSource,
         eventID: @escaping @Sendable (UInt64) -> String = { _ in
             "event_\(UUID().uuidString.lowercased())"
-        }
+        },
+        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in }
     ) {
         self.fileSystem = fileSystem
         self.encoder = encoder
         self.descriptor = descriptor
         self.source = source
         self.makeEventID = eventID
+        self.lifecycleObserver = lifecycleObserver
         self.lastMonotonicTimestampNanoseconds = descriptor.startedAtMonotonicNanoseconds
     }
 
@@ -256,6 +281,8 @@ public actor CaptureArchiveStore {
                 details: frameDetails(candidate)
             )
             lifecycleByFrameID[candidate.frameID] = .selected
+            selectedReasonByFrameID[candidate.frameID] = candidate.selectedReason
+            observeLifecycle(candidate: candidate, state: .selected)
 
             try publishFrameGeneration(
                 candidate: candidate,
@@ -269,6 +296,7 @@ public actor CaptureArchiveStore {
                 timestamp: candidate.monotonicTimestampNanoseconds,
                 details: frameDetails(candidate)
             )
+            observeLifecycle(candidate: candidate, state: .imageAndMetadataDurable)
 
             try appendJournalEntry(
                 CaptureJournalEntry(
@@ -286,6 +314,7 @@ public actor CaptureArchiveStore {
                 timestamp: candidate.monotonicTimestampNanoseconds,
                 details: frameDetails(candidate)
             )
+            observeLifecycle(candidate: candidate, state: .journaled)
             lifecycleByFrameID[candidate.frameID] = try lifecycleByFrameID[candidate.frameID]!
                 .advanced(to: .networkEligible)
             _ = try persistEvent(
@@ -316,6 +345,7 @@ public actor CaptureArchiveStore {
                 )
             )
             receipts.append(receipt)
+            observeLifecycle(candidate: candidate, state: .networkEligible)
             lastMonotonicTimestampNanoseconds = candidate.monotonicTimestampNanoseconds
             return receipt
         } catch {
@@ -341,7 +371,8 @@ public actor CaptureArchiveStore {
             throw CaptureArchiveError.acknowledgementMismatch
         }
         guard lifecycleByFrameID[receipt.frameID] == .networkEligible,
-              acceptedFrames[receiptIndex].serverAcknowledged == false
+              acceptedFrames[receiptIndex].serverAcknowledged == false,
+              let selectedReason = selectedReasonByFrameID[receipt.frameID]
         else {
             throw CaptureArchiveError.duplicateAcknowledgement
         }
@@ -361,10 +392,32 @@ public actor CaptureArchiveStore {
             lifecycleByFrameID[receipt.frameID] = try lifecycleByFrameID[receipt.frameID]!
                 .advanced(to: .serverAcknowledged)
             acceptedFrames[receiptIndex].serverAcknowledged = true
+            lifecycleObserver(
+                CaptureLifecycleObservation(
+                    sessionID: receipt.sessionID,
+                    frameID: receipt.frameID,
+                    selectedReason: selectedReason,
+                    state: .serverAcknowledged
+                )
+            )
         } catch {
             sessionState = .interrupted
             throw error
         }
+    }
+
+    private func observeLifecycle(
+        candidate: SelectedFrameCandidate,
+        state: CaptureFrameState
+    ) {
+        lifecycleObserver(
+            CaptureLifecycleObservation(
+                sessionID: candidate.sessionID,
+                frameID: candidate.frameID,
+                selectedReason: candidate.selectedReason,
+                state: state
+            )
+        )
     }
 
     public func finalizeExplicitly() throws -> CaptureFinalization {
