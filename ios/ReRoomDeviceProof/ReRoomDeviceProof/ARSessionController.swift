@@ -12,6 +12,10 @@ enum ARSessionRecoveryRequirement: Equatable, Sendable {
     case failure
 }
 
+struct ARSessionObserverToken: Hashable, Sendable {
+    fileprivate let rawValue: UInt64
+}
+
 @MainActor
 protocol ARSessionDriving: AnyObject {
     var delegate: (any ARSessionDelegate)? { get set }
@@ -70,9 +74,21 @@ final class SystemARSessionDriver: ARSessionDriving {
 
 @MainActor
 final class ARSessionController: NSObject {
+    private struct Observer {
+        let token: ARSessionObserverToken
+        let handler: (ARSessionEvent) -> Void
+    }
+
     private let driver: any ARSessionDriving
+    private var observers: [Observer] = []
+    private var nextObserverID: UInt64 = 0
+    private var lastTrackingState: DeviceTrackingState?
+    private var observedPlaneAlignments: Set<PlaneAlignment> = []
     private(set) var isRunning = false
     private(set) var recoveryRequirement: ARSessionRecoveryRequirement?
+
+    // Compatibility seam for the existing device-proof consumer. Additional
+    // consumers register independently and cannot replace this callback.
     var onEvent: ((ARSessionEvent) -> Void)?
 
     init(driver: any ARSessionDriving = SystemARSessionDriver()) {
@@ -83,6 +99,19 @@ final class ARSessionController: NSObject {
 
     var currentFrame: ARFrame? {
         driver.currentFrame
+    }
+
+    @discardableResult
+    func addObserver(_ handler: @escaping (ARSessionEvent) -> Void) -> ARSessionObserverToken {
+        precondition(nextObserverID < UInt64.max, "AR session observer token space exhausted")
+        let token = ARSessionObserverToken(rawValue: nextObserverID)
+        nextObserverID += 1
+        observers.append(Observer(token: token, handler: handler))
+        return token
+    }
+
+    func removeObserver(_ token: ARSessionObserverToken) {
+        observers.removeAll { $0.token == token }
     }
 
     func synchronize(cameraAuthorization: PermissionAuthorizationState) {
@@ -97,7 +126,7 @@ final class ARSessionController: NSObject {
 
         driver.run(policy: .deviceProof)
         isRunning = true
-        onEvent?(.running(true))
+        publish(.running(true))
     }
 
     @discardableResult
@@ -108,7 +137,7 @@ final class ARSessionController: NSObject {
         driver.run(policy: .deviceProof)
         recoveryRequirement = nil
         isRunning = true
-        onEvent?(.running(true))
+        publish(.running(true))
         return true
     }
 
@@ -128,13 +157,22 @@ final class ARSessionController: NSObject {
 
         driver.reset(policy: .deviceProof)
         recoveryRequirement = nil
-        onEvent?(.worldReset)
-        onEvent?(.running(true))
+        lastTrackingState = nil
+        observedPlaneAlignments.removeAll(keepingCapacity: true)
+        publish(.worldReset)
+        publish(.running(true))
         return true
     }
 
+    func recordTrackingState(_ state: DeviceTrackingState) {
+        guard state != lastTrackingState else { return }
+        lastTrackingState = state
+        publish(.tracking(state))
+    }
+
     func recordPlaneObservation(_ alignment: PlaneAlignment) {
-        onEvent?(.planeObserved(alignment))
+        guard observedPlaneAlignments.insert(alignment).inserted else { return }
+        publish(.planeObserved(alignment))
     }
 
     private func stopForUnavailableCamera() {
@@ -145,7 +183,16 @@ final class ARSessionController: NSObject {
 
         driver.pause()
         isRunning = false
-        onEvent?(.running(false))
+        publish(.running(false))
+    }
+
+    private func publish(_ event: ARSessionEvent) {
+        onEvent?(event)
+        // Copying this deliberately small registry makes removal during a
+        // callback deterministic. Delivery is synchronous and has no queue.
+        for observer in observers {
+            observer.handler(event)
+        }
     }
 }
 
@@ -160,7 +207,7 @@ extension ARSessionController: @preconcurrency ARSessionDelegate {
         case .notAvailable:
             state = .unavailable
         }
-        onEvent?(.tracking(state))
+        recordTrackingState(state)
     }
 
     func session(_ session: ARSession, didAdd anchors: [ARAnchor]) {
@@ -186,8 +233,8 @@ extension ARSessionController: @preconcurrency ARSessionDelegate {
             driver.pause()
         }
         isRunning = false
-        onEvent?(.tracking(.unavailable))
-        onEvent?(.running(false))
+        recordTrackingState(.unavailable)
+        publish(.running(false))
     }
 
     private func recordPlaneObservations(in anchors: [ARAnchor]) {

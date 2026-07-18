@@ -239,6 +239,14 @@ struct ARSessionPolicyTests {
             ObservedDelivery(observer: "second", event: .planeObserved(.horizontal)),
         ])
 
+        #expect(controller.performExplicitWorldReset(cameraAuthorization: .granted))
+        #expect(deliveries.suffix(4) == [
+            ObservedDelivery(observer: "first", event: .worldReset),
+            ObservedDelivery(observer: "second", event: .worldReset),
+            ObservedDelivery(observer: "first", event: .running(true)),
+            ObservedDelivery(observer: "second", event: .running(true)),
+        ])
+
         controller.removeObserver(first)
         controller.sessionWasInterrupted(ARSession())
 
@@ -247,6 +255,9 @@ struct ARSessionPolicyTests {
             ObservedDelivery(observer: "second", event: .running(false)),
         ])
         #expect(driver.pauseCallCount == 1)
+        #expect(controller.restartAfterRecovery(cameraAuthorization: .granted))
+        #expect(deliveries.last == ObservedDelivery(observer: "second", event: .running(true)))
+        #expect(driver.runPolicies == [.deviceProof, .deviceProof])
     }
 
     @MainActor
