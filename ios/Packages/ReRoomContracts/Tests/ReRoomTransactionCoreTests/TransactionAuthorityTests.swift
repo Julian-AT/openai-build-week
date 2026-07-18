@@ -767,7 +767,7 @@ enum AuthorityFixtures {
         return try NativeBranchAuthority(
             store: TransactionPersistenceFixtures.store(fileSystem: fileSystem),
             bootstrap: TransactionGenerationCandidate(
-                scene: RemoveFixtures.scene,
+                scene: removeDurableScene,
                 transactions: [],
                 requiredArtifacts: [TransactionTestFixtures.secondManifest],
                 receipts: [],
@@ -775,6 +775,36 @@ enum AuthorityFixtures {
             ),
             locallyAvailableArtifacts: artifacts
         )
+    }
+
+    private static var removeDurableScene: SceneState {
+        let unavailableReason = ReadinessReason(
+            contractCode: "unsupported_target_category",
+            message: "Controlled degraded remove fixture"
+        )
+        let objects = RemoveFixtures.scene.objects.map { object in
+            SceneObject(
+                contractObjectID: object.objectID,
+                label: object.label,
+                labelConfidence: object.labelConfidence,
+                attributes: object.attributes,
+                lifecycle: object.lifecycle,
+                readiness: object.readiness,
+                readinessReasons: ReadinessReasons(
+                    contractSelect: [unavailableReason],
+                    place: [unavailableReason],
+                    replace: [unavailableReason],
+                    remove: [unavailableReason],
+                    restore: [unavailableReason]
+                ),
+                artifactRefs: object.artifactRefs,
+                editState: object.editState,
+                createdSceneRevision: object.createdSceneRevision,
+                lastObservedFrameID: object.lastObservedFrameID,
+                rendererBinding: object.rendererBinding
+            )
+        }
+        return RemoveFixtures.replacingObjects(in: RemoveFixtures.scene, with: objects)
     }
 
     static let restoreRequest = RestoreRequest(

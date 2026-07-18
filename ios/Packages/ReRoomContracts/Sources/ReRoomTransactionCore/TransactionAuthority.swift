@@ -243,6 +243,83 @@ public actor NativeBranchAuthority {
         )
     }
 
+    public func previewRemove(
+        proposal: BoundProposal,
+        candidate: DeterministicRemoveCandidate,
+        seed: RemovePreviewSeed
+    ) throws -> RemovePreviewReduction {
+        try RemoveReducer.preview(
+            proposal: proposal,
+            currentScene: active.scene,
+            candidate: candidate,
+            seed: seed
+        )
+    }
+
+    public func commitRemove(
+        _ preview: RemovePreviewReduction,
+        confirmation: ExplicitConfirmation,
+        request: PlaceConfirmationRequest,
+        localUndoToken: String
+    ) throws -> TransactionReceipt {
+        try commitRemoveCritical(
+            preview,
+            confirmation: confirmation,
+            request: request,
+            localUndoToken: localUndoToken
+        )
+    }
+
+    private func commitRemoveCritical(
+        _ preview: RemovePreviewReduction,
+        confirmation: ExplicitConfirmation,
+        request: PlaceConfirmationRequest,
+        localUndoToken: String
+    ) throws -> TransactionReceipt {
+        let fingerprint = try TransactionFingerprint.digest(
+            proposal: preview.proposal,
+            proposedOperations: preview.proposedOperations
+        )
+        if let prior = active.idempotencyRecords.first(where: {
+            $0.idempotencyKey == request.idempotencyKey
+        }) {
+            guard prior.requestFingerprintSHA256 == fingerprint else {
+                throw TransactionAuthorityError.idempotencyConflict
+            }
+            return prior.receipt
+        }
+        guard divergenceQuarantine == nil else {
+            throw TransactionAuthorityError.authorityFrozen
+        }
+        try requireUndoToken(localUndoToken)
+
+        let reduction = try RemoveReducer.confirm(
+            preview,
+            currentScene: active.scene,
+            confirmation: confirmation,
+            request: request
+        )
+        let transaction = try makeCommittedTransaction(
+            transactionID: request.transactionID,
+            idempotencyKey: request.idempotencyKey,
+            fingerprint: fingerprint,
+            proposal: preview.proposal,
+            validation: preview.validation,
+            preview: preview.preview,
+            proposedOperations: reduction.proposedOperations,
+            inverseOperation: reduction.inverseOperation,
+            compensatesTransactionID: nil,
+            confirmation: confirmation,
+            committedAtUTC: request.updatedAtUTC,
+            localUndoToken: localUndoToken,
+            committedSceneRevision: reduction.pendingSceneRevision
+        )
+        return try activate(
+            transaction: transaction,
+            pendingScene: reduction.pendingScene
+        )
+    }
+
     public func previewRestore(
         proposal: BoundProposal,
         request: RestoreRequest,
