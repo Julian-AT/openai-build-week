@@ -1,4 +1,5 @@
 import ARKit
+import CoreGraphics
 import Foundation
 import Observation
 import ReRoomCaptureCore
@@ -97,6 +98,51 @@ struct TargetReadinessReasons: Equatable, Sendable {
     let replace: [TargetReadinessReasonCode]
     let remove: [TargetReadinessReasonCode]
     let restore: [TargetReadinessReasonCode]
+}
+
+enum RoomEditCompositorLayerID: String, CaseIterable, Equatable, Sendable {
+    case camera
+    case reveal
+    case occluder
+    case assetProxy = "asset_proxy"
+    case debug
+    case swiftUI = "swiftui"
+}
+
+enum RoomEditCompositorLayerReason: String, Equatable, Sendable {
+    case liveCamera = "live_camera"
+    case localRenderer = "local_renderer"
+    case revealArtifactMissing = "reveal_artifact_missing"
+    case occluderArtifactMissing = "occluder_artifact_missing"
+    case debugOverlayDisabled = "debug_overlay_disabled"
+    case nativeControls = "native_controls"
+}
+
+enum RoomEditCompositorLayerAvailability: Equatable, Sendable {
+    case available(RoomEditCompositorLayerReason)
+    case unavailable(RoomEditCompositorLayerReason)
+}
+
+struct RoomEditCompositorLayer: Equatable, Sendable {
+    let id: RoomEditCompositorLayerID
+    let availability: RoomEditCompositorLayerAvailability
+}
+
+struct RoomEditCompositorDescriptor: Equatable, Sendable {
+    let layers: [RoomEditCompositorLayer]
+
+    static let canonical = RoomEditCompositorDescriptor(layers: [
+        RoomEditCompositorLayer(id: .camera, availability: .available(.liveCamera)),
+        RoomEditCompositorLayer(id: .reveal, availability: .unavailable(.revealArtifactMissing)),
+        RoomEditCompositorLayer(id: .occluder, availability: .unavailable(.occluderArtifactMissing)),
+        RoomEditCompositorLayer(id: .assetProxy, availability: .available(.localRenderer)),
+        RoomEditCompositorLayer(id: .debug, availability: .unavailable(.debugOverlayDisabled)),
+        RoomEditCompositorLayer(id: .swiftUI, availability: .available(.nativeControls)),
+    ])
+
+    static func isCanonical(_ layers: [RoomEditCompositorLayer]) -> Bool {
+        layers == canonical.layers
+    }
 }
 
 struct ManualTargetCandidate: Equatable, Sendable {
@@ -405,6 +451,25 @@ struct RoomEditPreviewSnapshot: Equatable, Sendable {
     let supportStatus: String
 }
 
+enum RoomEditRenderProxyKind: String, Equatable, Sendable {
+    case frozenTarget = "frozen_target"
+    case provisionalPlace = "provisional_place"
+    case committedPlace = "committed_place"
+}
+
+struct RoomEditRenderProxySnapshot: Equatable, Sendable {
+    let objectID: String
+    let worldFrameVersion: UInt64
+    let worldFromProxy: Matrix4
+    let kind: RoomEditRenderProxyKind
+}
+
+struct RoomEditRenderSnapshot: Equatable, Sendable {
+    let revision: UInt64
+    let layers: [RoomEditCompositorLayer]
+    let targetProxy: RoomEditRenderProxySnapshot?
+}
+
 struct RoomEditSnapshot: Equatable, Sendable {
     let operations: [RoomEditOperation]
     let selectedOperation: RoomEditOperation?
@@ -418,6 +483,32 @@ struct RoomEditSnapshot: Equatable, Sendable {
     let target: TargetGroundingSnapshot
     let targetContext: TargetContext?
     let status: String
+
+    var render: RoomEditRenderSnapshot {
+        let proxy: RoomEditRenderProxySnapshot?
+        if let target = target.target {
+            proxy = RoomEditRenderProxySnapshot(
+                objectID: target.objectID,
+                worldFrameVersion: target.frozenProxy.worldFrameVersion,
+                worldFromProxy: target.frozenProxy.worldFromTarget,
+                kind: .frozenTarget
+            )
+        } else if preview != nil || placedAssetVisible {
+            proxy = RoomEditRenderProxySnapshot(
+                objectID: RoomEditIdentity.placedAssetID,
+                worldFrameVersion: target.worldFrameVersion,
+                worldFromProxy: .phase3ProxyPlacement,
+                kind: placedAssetVisible ? .committedPlace : .provisionalPlace
+            )
+        } else {
+            proxy = nil
+        }
+        return RoomEditRenderSnapshot(
+            revision: revision,
+            layers: RoomEditCompositorDescriptor.canonical.layers,
+            targetProxy: proxy
+        )
+    }
 
     static let loading = RoomEditSnapshot(
         operations: RoomEditOperation.allCases,
@@ -442,9 +533,183 @@ struct RoomEditSupportContext: Equatable, Sendable {
     let worldFromAsset: Matrix4
     let confidence: Double
     let method: String
+
+    static let fixture = RoomEditSupportContext(
+        capturedFrameID: RoomEditIdentity.frameID,
+        surfaceID: RoomEditIdentity.surfaceID,
+        cameraPose: .identity,
+        worldFromAsset: .phase3ProxyPlacement,
+        confidence: 0.95,
+        method: "arkit_plane"
+    )
 }
 
 typealias RoomEditSupportProvider = @MainActor @Sendable (SceneState) async -> RoomEditSupportContext?
+
+enum RoomEditTargetSessionEvent: Equatable, Sendable {
+    case tracking(TargetTrackingHealth)
+    case worldReset
+}
+
+@MainActor
+protocol RoomEditTargetSession: AnyObject {
+    var tracking: TargetTrackingHealth { get }
+    var cameraPose: Matrix4? { get }
+
+    func prepare() async
+    func candidates(at point: CGPoint, context: TargetRaycastContext) -> [TargetRaycastCandidate]
+    func setEventHandler(_ handler: @escaping (RoomEditTargetSessionEvent) -> Void)
+}
+
+enum RoomEditTargetFixtureScenario: String, Equatable, Sendable {
+    case healthy
+    case miss
+    case ambiguous
+    case trackingLossAfterSeed = "tracking_loss_after_seed"
+}
+
+@MainActor
+final class RoomEditFixtureTargetSession: RoomEditTargetSession {
+    private(set) var prepareCount = 0
+    private(set) var requestedPoints: [CGPoint] = []
+    private let scenario: RoomEditTargetFixtureScenario
+    private var eventHandler: ((RoomEditTargetSessionEvent) -> Void)?
+
+    init(scenario: RoomEditTargetFixtureScenario) {
+        self.scenario = scenario
+    }
+
+    var tracking: TargetTrackingHealth { .normal }
+    var cameraPose: Matrix4? { .identity }
+
+    func prepare() async {
+        prepareCount += 1
+    }
+
+    func candidates(at point: CGPoint, context: TargetRaycastContext) -> [TargetRaycastCandidate] {
+        requestedPoints.append(point)
+        let first = candidate(context: context, offsetX: 0)
+        switch scenario {
+        case .healthy:
+            return [first]
+        case .miss:
+            return []
+        case .ambiguous:
+            return [first, candidate(context: context, offsetX: 0.25)]
+        case .trackingLossAfterSeed:
+            eventHandler?(.tracking(.notAvailable))
+            return [first]
+        }
+    }
+
+    func setEventHandler(_ handler: @escaping (RoomEditTargetSessionEvent) -> Void) {
+        eventHandler = handler
+    }
+
+    private func candidate(
+        context: TargetRaycastContext,
+        offsetX: Double
+    ) -> TargetRaycastCandidate {
+        TargetRaycastCandidate(
+            source: .existingPlaneGeometry,
+            worldFrameID: context.worldFrameID,
+            worldFrameVersion: context.worldFrameVersion,
+            capturedSceneRevision: context.capturedSceneRevision,
+            worldFromCandidate: Matrix4(values: [
+                1, 0, 0, offsetX,
+                0, 1, 0, 0,
+                0, 0, 1, -1.2,
+                0, 0, 0, 1,
+            ])
+        )
+    }
+}
+
+@MainActor
+final class RoomEditLiveTargetSession: RoomEditTargetSession {
+    let sharedSession: SharedRealityKitSession
+    let deviceProof: DeviceProofModel
+
+    private var prepared = false
+    private var eventHandler: ((RoomEditTargetSessionEvent) -> Void)?
+
+    init(sharedSession: SharedRealityKitSession, deviceProof: DeviceProofModel) {
+        self.sharedSession = sharedSession
+        self.deviceProof = deviceProof
+        sharedSession.controller.addObserver { [weak self] event in
+            self?.consume(event)
+        }
+    }
+
+    var tracking: TargetTrackingHealth {
+        switch deviceProof.state.session.trackingState {
+        case .normal:
+            .normal
+        case .initializing, .limited:
+            .limited
+        case .unavailable:
+            .notAvailable
+        }
+    }
+
+    var cameraPose: Matrix4? {
+        deviceProof.currentARFrame.map { Matrix4(simdTransform: $0.camera.transform) }
+    }
+
+    func prepare() async {
+        guard prepared == false else { return }
+        prepared = true
+        await deviceProof.prepare()
+    }
+
+    func candidates(at point: CGPoint, context: TargetRaycastContext) -> [TargetRaycastCandidate] {
+        sharedSession.controller.targetCandidates(at: point, context: context)
+    }
+
+    func setEventHandler(_ handler: @escaping (RoomEditTargetSessionEvent) -> Void) {
+        eventHandler = handler
+    }
+
+    private func consume(_ event: ARSessionEvent) {
+        switch event {
+        case let .tracking(state):
+            switch state {
+            case .normal:
+                eventHandler?(.tracking(.normal))
+            case .initializing, .limited:
+                eventHandler?(.tracking(.limited))
+            case .unavailable:
+                eventHandler?(.tracking(.notAvailable))
+            }
+        case let .running(isRunning) where isRunning == false:
+            eventHandler?(.tracking(.notAvailable))
+        case .worldReset:
+            eventHandler?(.worldReset)
+        case .running, .planeObserved:
+            break
+        }
+    }
+}
+
+@MainActor
+final class RoomEditRuntime {
+    let model: RoomEditModel
+    let sharedSession: SharedRealityKitSession?
+    let deviceProof: DeviceProofModel?
+    let fixtureScenario: RoomEditTargetFixtureScenario?
+
+    init(
+        model: RoomEditModel,
+        sharedSession: SharedRealityKitSession?,
+        deviceProof: DeviceProofModel?,
+        fixtureScenario: RoomEditTargetFixtureScenario?
+    ) {
+        self.model = model
+        self.sharedSession = sharedSession
+        self.deviceProof = deviceProof
+        self.fixtureScenario = fixtureScenario
+    }
+}
 
 struct Phase3ProxyManifest: Codable, Equatable, Sendable {
     let schemaVersion: String
@@ -514,30 +779,92 @@ final class RoomEditModel {
     @ObservationIgnored private let authority: NativeBranchAuthority
     @ObservationIgnored private let manifest: Phase3ProxyManifest
     @ObservationIgnored private let supportProvider: RoomEditSupportProvider
+    @ObservationIgnored private let targetSession: (any RoomEditTargetSession)?
     @ObservationIgnored private var placePreview: PlacePreviewReduction?
     @ObservationIgnored private var targetGrounding: TargetGroundingSnapshot = .loading
+    @ObservationIgnored private var hasPrepared = false
+    @ObservationIgnored private var currentWorldFrameID = RoomEditIdentity.worldFrameID
+    @ObservationIgnored private var currentWorldFrameVersion: UInt64 = 1
 
     init(
         authority: NativeBranchAuthority,
         manifest: Phase3ProxyManifest,
-        supportProvider: @escaping RoomEditSupportProvider
+        supportProvider: @escaping RoomEditSupportProvider,
+        targetSession: (any RoomEditTargetSession)? = nil
     ) {
         self.authority = authority
         self.manifest = manifest
         self.supportProvider = supportProvider
+        self.targetSession = targetSession
+        targetSession?.setEventHandler { [weak self] event in
+            Task { @MainActor [weak self] in
+                await self?.consumeTargetSessionEvent(event)
+            }
+        }
     }
 
     func prepare() async {
+        guard hasPrepared == false else { return }
+        hasPrepared = true
+        await targetSession?.prepare()
         placePreview = nil
         let active = await authority.activeSnapshot()
+        currentWorldFrameID = active.scene.worldFrame.worldFrameID
+        currentWorldFrameVersion = active.scene.worldFrame.worldFrameVersion
         targetGrounding = TargetGroundingReducer.initial(
             environment: targetEnvironment(
                 for: active,
-                tracking: .limited,
+                tracking: targetSession?.tracking ?? .limited,
                 supportReady: false
             )
         )
         publish(active, status: "Local room state recovered")
+    }
+
+    func groundTarget(at point: CGPoint) async {
+        await groundTarget(at: point, reseeding: false)
+    }
+
+    func reseedTarget(at point: CGPoint) async {
+        await groundTarget(at: point, reseeding: true)
+    }
+
+    private func groundTarget(at point: CGPoint, reseeding: Bool) async {
+        guard let targetSession,
+              let cameraPose = targetSession.cameraPose,
+              point.x.isFinite,
+              point.y.isFinite
+        else {
+            if reseeding {
+                await reseedTarget(candidates: [], tracking: targetSession?.tracking ?? .notAvailable)
+            } else {
+                await groundTarget(candidates: [], tracking: targetSession?.tracking ?? .notAvailable)
+            }
+            return
+        }
+        let active = await authority.activeSnapshot()
+        let context = TargetRaycastContext(
+            worldFrameID: currentWorldFrameID,
+            worldFrameVersion: currentWorldFrameVersion,
+            capturedSceneRevision: active.scene.sceneRevision
+        )
+        let candidates = targetSession.candidates(at: point, context: context).map {
+            ManualTargetCandidate(
+                category: .chair,
+                capturedAtFrameID: RoomEditIdentity.frameID,
+                capturedSceneRevision: $0.capturedSceneRevision,
+                worldFrameID: $0.worldFrameID,
+                worldFrameVersion: $0.worldFrameVersion,
+                cameraPose: cameraPose,
+                worldFromTarget: $0.worldFromCandidate,
+                screenPointEncodedPixels: [Double(point.x), Double(point.y)]
+            )
+        }
+        if reseeding {
+            await reseedTarget(candidates: candidates, tracking: targetSession.tracking)
+        } else {
+            await groundTarget(candidates: candidates, tracking: targetSession.tracking)
+        }
     }
 
     func groundTarget(
@@ -596,6 +923,8 @@ final class RoomEditModel {
         worldFrameVersion: UInt64,
         tracking: TargetTrackingHealth
     ) async {
+        currentWorldFrameID = worldFrameID
+        currentWorldFrameVersion = worldFrameVersion
         let active = await authority.activeSnapshot()
         targetGrounding = TargetGroundingReducer.reduce(
             targetGrounding,
@@ -610,6 +939,19 @@ final class RoomEditModel {
             )
         )
         publish(active, status: "World epoch changed; explicit target reseed required")
+    }
+
+    private func consumeTargetSessionEvent(_ event: RoomEditTargetSessionEvent) async {
+        switch event {
+        case let .tracking(tracking):
+            await updateTargetTracking(tracking)
+        case .worldReset:
+            await noteTargetWorldReset(
+                worldFrameID: currentWorldFrameID,
+                worldFrameVersion: currentWorldFrameVersion + 1,
+                tracking: targetSession?.tracking ?? .limited
+            )
+        }
     }
 
     func selectOperation(_ operation: RoomEditOperation) async {
@@ -889,8 +1231,8 @@ final class RoomEditModel {
     ) -> TargetGroundingEnvironment {
         TargetGroundingEnvironment(
             sceneRevision: active.scene.sceneRevision,
-            worldFrameID: active.scene.worldFrame.worldFrameID,
-            worldFrameVersion: active.scene.worldFrame.worldFrameVersion,
+            worldFrameID: currentWorldFrameID,
+            worldFrameVersion: currentWorldFrameVersion,
             tracking: tracking,
             supportReady: supportReady ?? active.scene.surfaces.contains {
                 $0.lifecycle == "tracked"
@@ -1013,7 +1355,11 @@ enum RoomEditFactory {
     }
 
     @MainActor
-    static func live(resetStore: Bool = false, useFixtureSupport: Bool = false) throws -> RoomEditModel {
+    static func runtime(
+        resetStore: Bool = false,
+        useFixtureSupport: Bool = false,
+        fixtureScenario: RoomEditTargetFixtureScenario = .healthy
+    ) throws -> RoomEditRuntime {
         let manifest = try Phase3ProxyManifest.load(bundle: .main)
         let documents = try FileManager.default.url(
             for: .documentDirectory,
@@ -1038,27 +1384,32 @@ enum RoomEditFactory {
             bootstrap: bootstrap(manifest: manifest),
             locallyAvailableArtifacts: [manifest.artifactReference]
         )
-        let deviceProof = DeviceProofModel()
-        return RoomEditModel(
+        if useFixtureSupport {
+            let targetSession = RoomEditFixtureTargetSession(scenario: fixtureScenario)
+            let model = RoomEditModel(
+                authority: authority,
+                manifest: manifest,
+                supportProvider: { _ in .fixture },
+                targetSession: targetSession
+            )
+            return RoomEditRuntime(
+                model: model,
+                sharedSession: nil,
+                deviceProof: nil,
+                fixtureScenario: fixtureScenario
+            )
+        }
+
+        let sharedSession = SharedRealityKitSession()
+        let deviceProof = DeviceProofModel(arSessionController: sharedSession.controller)
+        let targetSession = RoomEditLiveTargetSession(
+            sharedSession: sharedSession,
+            deviceProof: deviceProof
+        )
+        let model = RoomEditModel(
             authority: authority,
             manifest: manifest,
-            supportProvider: { scene in
-                if useFixtureSupport {
-                    return RoomEditSupportContext(
-                        capturedFrameID: RoomEditIdentity.frameID,
-                        surfaceID: RoomEditIdentity.surfaceID,
-                        cameraPose: .identity,
-                        worldFromAsset: Matrix4(values: [
-                            1, 0, 0, 0,
-                            0, 1, 0, 0,
-                            0, 0, 1, -1.2,
-                            0, 0, 0, 1,
-                        ]),
-                        confidence: 0.95,
-                        method: "arkit_plane"
-                    )
-                }
-                await deviceProof.prepare()
+            supportProvider: { _ in
                 guard deviceProof.state.visualFrameCaptureAvailable,
                       deviceProof.state.horizontalPlaneObserved,
                       let frame = deviceProof.currentARFrame
@@ -1076,8 +1427,23 @@ enum RoomEditFactory {
                     confidence: 0.9,
                     method: "arkit_plane"
                 )
-            }
+            },
+            targetSession: targetSession
         )
+        return RoomEditRuntime(
+            model: model,
+            sharedSession: sharedSession,
+            deviceProof: deviceProof,
+            fixtureScenario: nil
+        )
+    }
+
+    @MainActor
+    static func live(resetStore: Bool = false, useFixtureSupport: Bool = false) throws -> RoomEditModel {
+        try runtime(
+            resetStore: resetStore,
+            useFixtureSupport: useFixtureSupport
+        ).model
     }
 
     private static func contractValidator(bundle: Bundle) throws -> ContractValidator {
@@ -1107,6 +1473,13 @@ extension Matrix4 {
         1, 0, 0, 0,
         0, 1, 0, 0,
         0, 0, 1, 0,
+        0, 0, 0, 1,
+    ])
+
+    static let phase3ProxyPlacement = Matrix4(values: [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, -1.2,
         0, 0, 0, 1,
     ])
 
