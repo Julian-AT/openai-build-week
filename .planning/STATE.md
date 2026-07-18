@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Typed Place, Commit, and Offline Restore
 status: ready_to_execute
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-07-18T14:11:19.363Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-07-18T14:22:36.150Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 03 planning verified; GATE-001 remains PENDING under the approved sprint cut
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 29
-  completed_plans: 24
+  completed_plans: 25
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 03 (Typed Place, Commit, and Offline Restore) — READY TO EXECUTE
 
-Plan: 2 of 7
+Plan: 3 of 7
 
 Status: Seven Phase 03 plans passed the independent GSD plan checker with zero blockers or warnings
 
 Last activity: 2026-07-18 — Phase 03 planning verified; GATE-001 remains PENDING under the approved sprint cut
 
-Progress: [████████████████████] 15/15 planned tasks ([████████░░] 83%)
+Progress: [████████████████████] 15/15 planned tasks ([█████████░] 86%)
 
 ## Performance Metrics
 
@@ -83,6 +83,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 02 P06 | 1h35m | 2 tasks | 11 files |
 | Phase 03 P01 | 15min | 1 tasks | 7 files |
 | Phase 03 P03 | 11min | 2 tasks | 4 files |
+| Phase 03 P02 | 9min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -123,6 +124,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 03]: Hash and compare only the complete closed RR-EDIT-PROJECTION-1 member; keep revision, readiness, tracking, surfaces, history, and timestamps outside. — Matches the frozen digest scope and prevents restore from rewinding live semantic evidence.
 - [Phase 03]: Restore replays and verifies the source ordered operations against its captured inverse before rebasing touched IDs onto the current projection. — Makes source hashes, operation identity, touched sets, and current-before equality fail closed as one pure reduction.
 - [Phase 03]: Require local artifacts for both the restore result and the fresh inverse returned for later compensation. — A successful offline restore must remain renderable and compensable without network access.
+- [Phase 03]: Parse only semantic operation, arguments, and ordered typed constraints from untrusted bytes; attach identity, revision, target, and world values from trusted native context. — Prevents typed, tap, voice, model, or replay input from acquiring deterministic mutation authority.
+- [Phase 03]: Represent the request fingerprint as a dedicated seven-member Codable value. — Prevents lifecycle, result, transaction ID, idempotency ID, or generic dictionary drift from changing the frozen RR-JCS scope.
+- [Phase 03]: Replay immutable deterministic preview inputs before cancel or confirm and return pending r+1 content only. — Keeps preview revision-neutral and leaves persistence plus canonical CAS activation to the later sole-writer plan.
 
 ### Pending Todos
 
@@ -152,9 +156,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T14:11:19.358Z
+Last session: 2026-07-18T14:22:24.132Z
 
-Stopped at: Completed 03-03-PLAN.md
+Stopped at: Completed 03-02-PLAN.md
 
 Resume file: None
 
