@@ -151,8 +151,13 @@ struct CaptureSessionAdapterTests {
     @Test("storage failure recovers only a verified prefix and launch discovery never resumes it")
     func storageFailureAndLaunchDiscovery() async throws {
         let recovered = try verifiedRecovery(sessionOrdinal: 7)
+        let discoveryFailure = CaptureRecoveryFailureSnapshot(
+            archiveName: "session_corrupt.rrcap",
+            message: "Integrity verification failed; no archive records were exposed."
+        )
         let recovery = TestCaptureRecoveryDriver(
             discovered: [recovered],
+            discoveryFailures: [discoveryFailure],
             recoveredAfterFailure: recovered
         )
         let failingWriter = TestCaptureArchiveSession(stallsWrites: true, failsWrites: true)
@@ -168,6 +173,7 @@ struct CaptureSessionAdapterTests {
         #expect(adapter.presentation.phase == .recovered)
         #expect(adapter.presentation.recovered?.report.verdict == .accept)
         #expect(adapter.presentation.recovered?.timeline.map(\.journalSequence) == [0])
+        #expect(adapter.presentation.recoveryFailures == [discoveryFailure])
         #expect(await factory.makeCount == 0)
 
         await adapter.acceptDisclosure()
@@ -192,6 +198,28 @@ struct CaptureSessionAdapterTests {
         #expect(await recovery.recoverCount == 1)
     }
 
+    @MainActor
+    @Test("launch discovery reports rejected archives without exposing replay records")
+    func launchDiscoveryFailureIsVisibleAndClosed() async throws {
+        let failure = CaptureRecoveryFailureSnapshot(
+            archiveName: "session_rejected.rrcap",
+            message: "Integrity verification failed; no archive records were exposed."
+        )
+        let adapter = try makeAdapter(
+            identities: TestCaptureIdentities(sessionOrdinals: [1]),
+            factory: TestCaptureArchiveFactory(writers: []),
+            recovery: TestCaptureRecoveryDriver(discoveryFailures: [failure])
+        )
+
+        await adapter.discoverInterruptedArchives()
+
+        #expect(adapter.presentation.phase == .failed)
+        #expect(adapter.presentation.recovered == nil)
+        #expect(adapter.presentation.recoveryFailures == [failure])
+        #expect(adapter.presentation.failureMessage == failure.message)
+    }
+
+    @MainActor
     @Test("per-frame encoding uses the exact pose supplied with each admitted ARFrame snapshot")
     func framePacketEncoderUsesPerFrameProfile() throws {
         let validator = try contractValidator()
@@ -278,6 +306,28 @@ struct CaptureSessionAdapterTests {
         #expect(throws: VerifiedReplayInspectorError.unverifiedSelection) {
             _ = try inspector.entry(journalSequence: 1)
         }
+    }
+
+    @MainActor
+    @Test("internal diagnostic owner starts the real local archive only after acceptance")
+    func diagnosticOwnerStartsCoreArchive() async {
+        let owner = DiagnosticAppOwner(
+            runtime: DiagnosticRuntimeFacts(
+                recordedAtUTC: "2026-07-18T00:00:00Z",
+                implementationRevision: "git:" + String(repeating: "1", count: 40),
+                fixtureSHA256: String(repeating: "a", count: 64),
+                deviceModel: "Simulator fixture",
+                osVersion: "iOS fixture",
+                appVersion: "0.1.0"
+            )
+        )
+
+        await owner.grantCaptureConsent()
+
+        #expect(owner.capturePresentation.failureMessage == nil)
+        #expect(owner.capturePresentation.phase == .recording)
+        await owner.stopCapture()
+        #expect(owner.capturePresentation.phase == .finalized)
     }
 
     @MainActor
@@ -473,23 +523,9 @@ struct CaptureSessionAdapterTests {
         return VerifiedCaptureReplay(recovered: recovered, report: report, timeline: timeline)
     }
 
+    @MainActor
     private func contractValidator() throws -> ContractValidator {
-        let schemas: [(ContractSchemaIdentifier, String, String)] = [
-            (.framePacket, "frame-packet", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
-            (.rrcapManifest, "rrcap-manifest", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
-            (.sceneState, "scene-state", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
-            (.editArtifacts, "edit-artifacts", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
-            (.transaction, "transaction", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
-        ]
-        return try ContractValidator(registrations: schemas.map { identifier, name, digest in
-            let url = try #require(Bundle.main.url(forResource: name, withExtension: "schema.json"))
-            return ContractSchemaRegistration(
-                identifier: identifier,
-                version: "1.0.0",
-                sha256: digest,
-                schemaData: try Data(contentsOf: url)
-            )
-        })
+        try DiagnosticAppOwner.makeContractValidator()
     }
 
     private var onePixelPNG: Data {
@@ -634,18 +670,26 @@ private actor TestCaptureArchiveSession: CaptureArchiveSessionWriting {
 
 private actor TestCaptureRecoveryDriver: CaptureRecoveryDriving {
     private let discovered: [VerifiedCaptureReplay]
+    private let discoveryFailures: [CaptureRecoveryFailureSnapshot]
     private let recoveredAfterFailure: VerifiedCaptureReplay?
     private(set) var recoverCount = 0
 
     init(
         discovered: [VerifiedCaptureReplay] = [],
+        discoveryFailures: [CaptureRecoveryFailureSnapshot] = [],
         recoveredAfterFailure: VerifiedCaptureReplay? = nil
     ) {
         self.discovered = discovered
+        self.discoveryFailures = discoveryFailures
         self.recoveredAfterFailure = recoveredAfterFailure
     }
 
-    func discoverVerifiedArchives() async -> [VerifiedCaptureReplay] { discovered }
+    func discoverArchives() async -> CaptureRecoveryDiscoverySnapshot {
+        CaptureRecoveryDiscoverySnapshot(
+            verified: discovered,
+            failures: discoveryFailures
+        )
+    }
 
     func recoverInterruptedArchive(at archivePath: String) async -> VerifiedCaptureReplay? {
         recoverCount += 1

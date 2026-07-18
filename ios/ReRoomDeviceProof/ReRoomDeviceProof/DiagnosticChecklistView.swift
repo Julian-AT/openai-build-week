@@ -1,7 +1,10 @@
 import Observation
 import ReRoomContracts
+import ReRoomCaptureCore
 import SwiftUI
 import UIKit
+
+private final class DiagnosticAppBundleToken {}
 
 enum DiagnosticChecklistRowID: String, CaseIterable, Identifiable, Sendable {
     case camera = "debug.check.camera"
@@ -331,24 +334,21 @@ final class DiagnosticAppOwner {
     private(set) var journalValue = "No authoritative journal prefix"
     private(set) var journalState: DiagnosticFactState = .pending
     private(set) var captureConsent: DiagnosticCaptureConsentChoice = .unanswered
+    private(set) var replayInspector: VerifiedReplayInspector?
+    private(set) var replaySelection: ReplayTimelineEntry?
+    private(set) var replaySelectionError: String?
 
     @ObservationIgnored private let runtime: DiagnosticRuntimeFacts
-    @ObservationIgnored private let sessionID: String
-    @ObservationIgnored private let submapID: String
     @ObservationIgnored private var epochController: WorldEpochController
-    @ObservationIgnored private var journal: DiagnosticJournal?
-    @ObservationIgnored private var captureSequence: UInt64 = 0
 
     init(
-        model: DeviceProofModel = DeviceProofModel(),
+        model: DeviceProofModel? = nil,
         runtime: DiagnosticRuntimeFacts? = nil
     ) {
-        let sessionUUID = UUID().uuidString.lowercased()
+        let resolvedRuntime = runtime ?? .live()
         let worldUUID = UUID().uuidString.lowercased()
-        self.model = model
-        self.runtime = runtime ?? .live()
-        sessionID = "session_\(sessionUUID)"
-        submapID = "submap_\(UUID().uuidString.lowercased())"
+        self.runtime = resolvedRuntime
+        self.model = model ?? Self.makeLiveModel(runtime: resolvedRuntime)
         epochController = WorldEpochController(worldFrameID: "world_\(worldUUID)")
         epoch = epochController.snapshot
     }
@@ -380,91 +380,85 @@ final class DiagnosticAppOwner {
 
     func prepare() async {
         await model.prepare()
+        await model.discoverInterruptedRoomCaptures()
     }
 
     func refreshPhysicalOrientation() {
         model.refreshPhysicalOrientation()
     }
 
-    func grantCaptureConsent() {
+    var capturePresentation: CapturePresentationSnapshot {
+        model.capturePresentation
+    }
+
+    func grantCaptureConsent() async {
         captureConsent = .granted
         packetValue = "No ARFrame snapshot captured"
         packetState = .pending
+        await model.acceptRoomCaptureDisclosure()
     }
 
     func denyCaptureConsent() {
         captureConsent = .denied
-        packetValue = "Test capture remains off by your choice"
+        model.declineRoomCaptureDisclosure()
+        packetValue = "Room capture remains off by your choice"
         packetState = .warning
     }
 
     func captureTestFrame() {
-        guard captureConsent == .granted,
-              captureSequence == 0,
-              let frame = model.currentARFrame,
-              let validator = try? makeContractValidator()
-        else {
-            packetValue = captureConsent == .granted
-                ? "Capture unavailable: no healthy ARFrame"
-                : "Capture consent is required"
+        switch model.offerCurrentFrameForCapture(isUserEvent: true) {
+        case .admission(.admitted):
+            packetValue = "Explicit frame admitted to bounded local saving"
+            packetState = .pending
+        case .admission(.rejected(.userEventBusy)):
+            packetValue = CaptureSessionAdapter.userEventBusyMessage
             packetState = .warning
+        case .admission(.rejected):
+            packetValue = "Capture candidate rejected before selection"
+            packetState = .warning
+        case .notSelected:
+            packetValue = "Frame did not meet the deterministic selector"
+            packetState = .warning
+        case .notRecording, .invalidSnapshot:
+            packetValue = "Capture unavailable: no healthy ARFrame"
+            packetState = .warning
+        }
+    }
+
+    func stopCapture() async {
+        await model.stopRoomCapture()
+    }
+
+    func startNewCaptureDisclosure() {
+        captureConsent = .unanswered
+        replayInspector = nil
+        replaySelection = nil
+        replaySelectionError = nil
+    }
+
+    func inspectReplay() {
+        guard let replay = capturePresentation.recovered else {
+            replayInspector = nil
+            replaySelectionError = "No hash-verified replay is available."
             return
         }
         do {
-            let captured = try ARFrameCaptureAdapter().capture(
-                frame: frame,
-                orientation: .portrait
-            )
-            let health = CaptureFrameSnapshot(
-                id: captured.id,
-                sessionIsRunning: model.state.session.isRunning,
-                trackingState: model.state.session.trackingState
-            )
-            var attemptMachine = CaptureAttemptMachine()
-            _ = attemptMachine.select(
-                orientation: model.state.physicalOrientation,
-                frameSnapshot: health,
-                worldEpoch: epoch
-            )
-            let attempt = attemptMachine.finish(
-                currentOrientation: model.state.physicalOrientation,
-                frameSnapshot: health,
-                worldEpoch: epoch
-            )
-            let journal = try journal ?? makeJournal(validator: validator)
-            self.journal = journal
-            let receipt = try journal.capture(
-                input: FramePacketCaptureInput(
-                    sessionID: sessionID,
-                    submapID: submapID,
-                    frameID: "frame_\(UUID().uuidString.lowercased())",
-                    captureSequence: captureSequence,
-                    capturedFrame: captured,
-                    quality: FrameQuality(
-                        motionScore: 0,
-                        blurScore: 1,
-                        exposureScore: 1,
-                        selectedReason: "user_event"
-                    ),
-                    idempotencyKey: "frameidem_\(UUID().uuidString.lowercased())",
-                    previousDurableFrameID: nil,
-                    lifecycleEventIDs: (0..<4).map { _ in
-                        "event_\(UUID().uuidString.lowercased())"
-                    }
-                ),
-                attempt: attempt
-            )
-            captureSequence += 1
-            packetValue = "\(receipt.packet.frameID) — \(receipt.lifecycle.rawValue)"
-            packetState = .ready
-            let recovered = try journal.recover()
-            journalValue = "\(recovered.journal.count) synced records; \(recovered.networkEligibleFrameIDs.count) visible frame"
-            journalState = .ready
+            replayInspector = try VerifiedReplayInspector(replay: replay)
+            replaySelection = nil
+            replaySelectionError = nil
         } catch {
-            packetValue = "Capture rejected before publication"
-            packetState = .failed
-            journalValue = "Journal unchanged"
-            journalState = .pending
+            replayInspector = nil
+            replaySelectionError = "Replay verification failed; no frame was exposed."
+        }
+    }
+
+    func selectReplayEntry(journalSequence: UInt64) {
+        do {
+            replaySelection = try replayInspector?.entry(journalSequence: journalSequence)
+            replaySelectionError = nil
+        } catch {
+            replaySelection = nil
+            replaySelectionError = "That journal item is not part of the verified replay."
         }
     }
 
@@ -482,37 +476,7 @@ final class DiagnosticAppOwner {
         epoch = epochController.snapshot
     }
 
-    private func makeJournal(validator: ContractValidator) throws -> DiagnosticJournal {
-        let consent = try CaptureConsentRecord.granting(
-            sessionID: sessionID,
-            recordedAtUTC: runtime.recordedAtUTC,
-            retentionPolicy: .localOnlyUntilShare,
-            retentionExpiresAtUTC: nil
-        )
-        let root = try FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ).appendingPathComponent("diagnostic-captures/\(sessionID)", isDirectory: true)
-        return DiagnosticJournal(
-            fileSystem: FoundationCaptureFileSystem(root: root),
-            framePacketBuilder: FramePacketBuilder(validator: validator),
-            configuration: DiagnosticCaptureConfiguration(
-                sessionID: sessionID,
-                deviceModel: runtime.deviceModel ?? "unreported",
-                osVersion: runtime.osVersion,
-                appVersion: runtime.appVersion,
-                buildID: runtime.implementationRevision,
-                recordedAtUTC: runtime.recordedAtUTC,
-                worldFrameID: epoch.worldFrameID,
-                initialWorldFrameVersion: epoch.worldFrameVersion,
-                consent: .granted(consent)
-            )
-        )
-    }
-
-    private func makeContractValidator() throws -> ContractValidator {
+    static func makeContractValidator() throws -> ContractValidator {
         let resources: [(ContractSchemaIdentifier, String, String)] = [
             (.framePacket, "frame-packet", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
             (.rrcapManifest, "rrcap-manifest", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
@@ -521,7 +485,10 @@ final class DiagnosticAppOwner {
             (.transaction, "transaction", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
         ]
         return try ContractValidator(registrations: resources.map { identifier, name, digest in
-            guard let url = Bundle.main.url(forResource: name, withExtension: "schema.json") else {
+            guard let url = Bundle(for: DiagnosticAppBundleToken.self).url(
+                forResource: "\(name).schema",
+                withExtension: "json"
+            ) else {
                 throw EvidenceExportRejection.invalidSchema
             }
             return ContractSchemaRegistration(
@@ -531,6 +498,58 @@ final class DiagnosticAppOwner {
                 schemaData: try Data(contentsOf: url)
             )
         })
+    }
+
+    private static func makeLiveModel(runtime: DiagnosticRuntimeFacts) -> DeviceProofModel {
+        do {
+            let documents = try FileManager.default.url(
+                for: .documentDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+            let adapter = CaptureSessionAdapter(
+                identities: UUIDCaptureIdentityDriver(),
+                archiveFactory: CoreCaptureArchiveSessionFactory(
+                    root: documents,
+                    validator: try makeContractValidator(),
+                    source: CaptureArchiveSource(
+                        deviceModel: runtime.deviceModel ?? "unreported",
+                        osVersion: runtime.osVersion,
+                        appVersion: runtime.appVersion,
+                        buildID: runtime.implementationRevision,
+                        recordedAtUTC: runtime.recordedAtUTC
+                    )
+                ),
+                recoveryDriver: FoundationCaptureRecoveryDriver(
+                    root: documents,
+                    fixtureManifestSHA256: runtime.fixtureSHA256,
+                    repositoryRevision: runtime.implementationRevision
+                ),
+                storageDriver: CaptureStorageState(),
+                backgroundDriver: UIApplicationCaptureBackgroundDriver(),
+                selectorPolicy: try FrameSelectionPolicy(
+                    policyID: "policy_selection_hypothesis_device_1",
+                    classification: .hypothesis,
+                    minimumCadenceNanoseconds: 500_000_000,
+                    minimumViewNovelty: 0.15,
+                    maximumMotionScore: 0.5,
+                    minimumBlurScore: 0.5,
+                    minimumExposureScore: 0.25
+                ),
+                pressurePolicy: try CapturePressurePolicy(
+                    policyID: "policy_pressure_hypothesis_device_1",
+                    classification: .hypothesis,
+                    ordinaryCapacity: 3,
+                    optionalComputeDropDepth: 1,
+                    uploadPauseDepth: 2,
+                    cadenceReductionDepth: 3
+                )
+            )
+            return DeviceProofModel(captureSessionAdapter: adapter)
+        } catch {
+            return DeviceProofModel()
+        }
     }
 }
 
@@ -599,46 +618,223 @@ struct DiagnosticChecklistView: View {
 
     private var captureControl: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Button("Capture Test Frame") {
-                if owner.captureConsent == .granted {
+            if owner.capturePresentation.phase == .recovered,
+               let recovered = owner.capturePresentation.recovered {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Recovered — capture may be incomplete")
+                        .font(.headline)
+                    Text(
+                        "Verified \(recovered.recovered.acceptedJournalRecordCount) authoritative journal records; "
+                            + "status \(recovered.recovered.finalization.state.rawValue)."
+                    )
+                    .font(.body)
+                    .foregroundStyle(Color(red: 183 / 255, green: 192 / 255, blue: 202 / 255))
+                    .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Button("Inspect replay") {
+                            owner.inspectReplay()
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("diagnostic.capture.inspect-replay")
+                        Button("Start new capture") {
+                            owner.startNewCaptureDisclosure()
+                            showsCaptureConsent = true
+                        }
+                        .buttonStyle(.bordered)
+                        .accessibilityIdentifier("diagnostic.capture.start-new")
+                    }
+                }
+                .padding(12)
+                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("diagnostic.capture.recovery")
+            }
+
+            if owner.capturePresentation.recoveryFailures.isEmpty == false {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Archive verification failed")
+                        .font(.headline)
+                    ForEach(
+                        owner.capturePresentation.recoveryFailures,
+                        id: \.archiveName
+                    ) { failure in
+                        Text("\(failure.archiveName): \(failure.message)")
+                            .font(.body)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .foregroundStyle(.orange)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("diagnostic.capture.recovery-failure")
+            }
+
+            if owner.capturePresentation.phase == .recording {
+                captureStateRow(
+                    label: owner.capturePresentation.localRecordingLabel,
+                    identifier: "diagnostic.capture.local-state"
+                )
+                captureStateRow(
+                    label: owner.capturePresentation.uploadLabel,
+                    identifier: "diagnostic.capture.upload-state"
+                )
+                captureStateRow(
+                    label: owner.capturePresentation.shareLabel,
+                    identifier: "diagnostic.capture.share-state"
+                )
+
+                if let admission = owner.capturePresentation.admission {
+                    Text(
+                        "HYPOTHESIS capacity — offered \(admission.offered), queued \(admission.queued), "
+                            + "in flight \(admission.inFlight), maximum \(admission.maximumOutstanding); "
+                            + "ordinary rejected \(admission.rejectedOrdinaryCapacity), "
+                            + "explicit busy \(admission.rejectedUserEventBusy); "
+                            + "close \(admission.closeReason?.rawValue ?? "open")"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color(red: 183 / 255, green: 192 / 255, blue: 202 / 255))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("diagnostic.capture.admission")
+                }
+
+                Button("Save explicit capture frame") {
                     owner.captureTestFrame()
-                } else {
+                }
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.bordered)
+                .disabled(owner.capturePresentation.explicitCaptureBusy)
+                .accessibilityIdentifier("diagnostic.capture.explicit")
+
+                if let busyMessage = owner.capturePresentation.busyMessage {
+                    Text(busyMessage)
+                        .font(.body)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier(
+                            CaptureSessionAdapter.userEventBusyAccessibilityIdentifier
+                        )
+                }
+
+                Button("Stop room capture", role: .destructive) {
+                    Task { await owner.stopCapture() }
+                }
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("diagnostic.capture.stop")
+            } else {
+                Button("Start room capture") {
                     showsCaptureConsent = true
                 }
-            }
-            .font(.body.weight(.semibold))
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("debug.action.captureFrame")
-            .confirmationDialog(
-                "Allow one test-frame capture?",
-                isPresented: $showsCaptureConsent,
-                titleVisibility: .visible
-            ) {
-                Button("Allow One Test Frame") {
-                    owner.grantCaptureConsent()
+                .font(.body.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("diagnostic.capture.start")
+
+                if owner.captureConsent == .denied {
+                    Text("Room capture is off. Diagnostics remain available without recording.")
+                        .font(.body)
+                        .foregroundStyle(Color(red: 183 / 255, green: 192 / 255, blue: 202 / 255))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("diagnostic.capture.denied")
                 }
-                Button("Keep Capture Off", role: .cancel) {
-                    owner.denyCaptureConsent()
+                if owner.capturePresentation.phase == .failed,
+                   let failure = owner.capturePresentation.failureMessage {
+                    Text(failure)
+                        .font(.body)
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("diagnostic.capture.failure")
                 }
-            } message: {
-                Text("The frame stays on this iPhone unless you explicitly share sanitized evidence.")
             }
-            Text(captureConsentExplanation)
-                .font(.body)
-                .foregroundStyle(Color(red: 183 / 255, green: 192 / 255, blue: 202 / 255))
+
+            if let inspector = owner.replayInspector {
+                replayInspector(inspector)
+            }
+            if let error = owner.replaySelectionError {
+                Text(error)
+                    .font(.body)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("diagnostic.capture.inspector-error")
+            }
+        }
+        .confirmationDialog(
+            "Start local room capture?",
+            isPresented: $showsCaptureConsent,
+            titleVisibility: .visible
+        ) {
+            Button("Accept and Start") {
+                Task { await owner.grantCaptureConsent() }
+            }
+            Button("Keep Capture Off") {
+                owner.denyCaptureConsent()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "ARFrame images, calibration, pose, and events are recorded locally for this new session. "
+                    + "Nothing is uploaded or shared unless you choose that separately."
+            )
         }
     }
 
-    private var captureConsentExplanation: String {
-        switch owner.captureConsent {
-        case .unanswered:
-            "Capture requires a separate, session-only consent choice."
-        case .granted:
-            "One test frame is allowed for this diagnostic session."
-        case .denied:
-            "Test capture is off. The checklist remains usable without it."
+    private func captureStateRow(label: String, identifier: String) -> some View {
+        Text(label)
+            .font(.body.weight(.semibold))
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier(identifier)
+    }
+
+    private func replayInspector(_ inspector: VerifiedReplayInspector) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Verified replay")
+                .font(.headline)
+            Text("Verdict \(inspector.report.verdict.rawValue); status \(inspector.status.rawValue)")
+                .font(.body)
+                .accessibilityIdentifier("diagnostic.capture.inspector-verdict")
+            Text(
+                "Journal \(inspector.digests.journalTupleSHA256.prefix(12))… · "
+                    + "frames \(inspector.digests.frameProjectionSHA256.prefix(12))… · "
+                    + "events \(inspector.digests.eventProjectionSHA256.prefix(12))…"
+            )
+            .font(.caption.monospaced())
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("diagnostic.capture.inspector-digests")
+
+            ForEach(inspector.timeline, id: \.journalSequence) { entry in
+                Button {
+                    owner.selectReplayEntry(journalSequence: entry.journalSequence)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("#\(entry.journalSequence) · \(entry.entryType.rawValue)")
+                            .font(.body.weight(.semibold))
+                        Text(entry.referenceID)
+                            .font(.caption.monospaced())
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    "Journal sequence \(entry.journalSequence), \(entry.entryType.rawValue), \(entry.referenceID)"
+                )
+                .accessibilityIdentifier(
+                    "diagnostic.capture.timeline.\(entry.journalSequence)"
+                )
+            }
+
+            if let selection = owner.replaySelection {
+                Text("Selected verified ID \(selection.referenceID)")
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("diagnostic.capture.inspector-selection")
+            }
         }
+        .padding(12)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("diagnostic.capture.inspector")
     }
 
     private var worldResetControl: some View {

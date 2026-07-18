@@ -5,6 +5,9 @@ import JSONSchema
 enum FrozenSchemaDefinitionError: Error, Equatable, Sendable {
     case invalidJSON
     case invalidSchema
+    case schemaCompilation
+    case metaSchemaUnavailable
+    case metaSchemaRejected
     case schemaIdentifierMismatch
     case unsupportedKeyword(String)
     case dynamicResolutionForbidden(String)
@@ -88,13 +91,17 @@ struct FrozenSchemaValidator {
                 context: context,
                 baseURI: URL(string: expectedSchemaID)!
             )
-            guard try compiled.validateAgainstMetaSchema().isValid else {
-                throw FrozenSchemaDefinitionError.invalidSchema
-            }
-        } catch let error as FrozenSchemaDefinitionError {
-            throw error
         } catch {
-            throw FrozenSchemaDefinitionError.invalidSchema
+            throw FrozenSchemaDefinitionError.schemaCompilation
+        }
+        let metaSchemaResult: ValidationResult
+        do {
+            metaSchemaResult = try Self.validateAgainstDraftMetaSchema(rawSchema)
+        } catch {
+            throw FrozenSchemaDefinitionError.metaSchemaUnavailable
+        }
+        guard metaSchemaResult.isValid else {
+            throw FrozenSchemaDefinitionError.metaSchemaRejected
         }
 
         self.contractID = contractID
@@ -102,6 +109,68 @@ struct FrozenSchemaValidator {
         self.usedSchemaKeywords = usedKeywords
         self.schema = compiled
         self.documentSchemaVersion = documentSchemaVersion
+    }
+
+    private static func validateAgainstDraftMetaSchema(
+        _ rawSchema: JSONValue
+    ) throws -> ValidationResult {
+        let bundle = try metaSchemaResourceBundle()
+        guard let schemaURL = bundle.url(forResource: "schema", withExtension: "json"),
+              let baseURI = URL(string: draft202012URI)
+        else {
+            throw FrozenSchemaDefinitionError.metaSchemaUnavailable
+        }
+
+        let decoder = JSONDecoder()
+        func jsonValue(from url: URL) throws -> JSONValue {
+            try decoder.decode(JSONValue.self, from: Data(contentsOf: url))
+        }
+
+        let remoteSchemas = try bundle.urls(
+            forResourcesWithExtension: "json",
+            subdirectory: nil
+        )?.reduce(into: [String: JSONValue]()) { result, url in
+            guard url.lastPathComponent.hasPrefix("schema") == false else { return }
+            let resourceName = url.deletingPathExtension().lastPathComponent
+            if let key = URL(
+                string: "meta/\(resourceName)",
+                relativeTo: baseURI
+            )?.absoluteString {
+                result[key] = try jsonValue(from: url)
+            }
+        } ?? [:]
+
+        let metaSchema = try Schema(
+            rawSchema: jsonValue(from: schemaURL),
+            context: Context(dialect: .draft2020_12, remoteSchema: remoteSchemas),
+            baseURI: baseURI
+        )
+        return metaSchema.validate(rawSchema)
+    }
+
+    private static func metaSchemaResourceBundle() throws -> Bundle {
+        let dependencyBundle = Bundle.jsonSchemaResources
+        if dependencyBundle.url(forResource: "schema", withExtension: "json") != nil {
+            return dependencyBundle
+        }
+
+        let bundleName = "swift-json-schema_JSONSchema.bundle"
+        let roots = [
+            Bundle.main.resourceURL,
+            Bundle(for: FrozenSchemaResourceBundleToken.self).resourceURL,
+            dependencyBundle.resourceURL,
+        ] + Bundle.allBundles.map(\.resourceURL) + Bundle.allFrameworks.map(\.resourceURL)
+
+        for root in roots.compactMap({ $0 }) {
+            let candidateURL = root.lastPathComponent == bundleName
+                ? root
+                : root.appendingPathComponent(bundleName, isDirectory: true)
+            if let candidate = Bundle(url: candidateURL),
+               candidate.url(forResource: "schema", withExtension: "json") != nil {
+                return candidate
+            }
+        }
+        throw FrozenSchemaDefinitionError.metaSchemaUnavailable
     }
 
     func validate(documentData: Data, payloadData: Data? = nil) -> FrozenSchemaVerdict {
@@ -314,6 +383,8 @@ struct FrozenSchemaValidator {
         }
     }
 }
+
+private final class FrozenSchemaResourceBundleToken {}
 
 private struct ReRoomDateTimeFormatValidator: FormatValidator {
     let formatName = "date-time"

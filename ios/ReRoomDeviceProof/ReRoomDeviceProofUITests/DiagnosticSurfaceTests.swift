@@ -4,6 +4,9 @@ final class DiagnosticSurfaceTests: XCTestCase {
     @MainActor
     func testBuiltProductExposesOnlyItsConfigurationSurface() {
         let app = XCUIApplication()
+        app.launchEnvironment["REROOM_IMPLEMENTATION_REVISION"] =
+            "git:" + String(repeating: "1", count: 40)
+        app.launchEnvironment["REROOM_FIXTURE_SHA256"] = String(repeating: "a", count: 64)
         app.launch()
 
 #if DEBUG
@@ -20,7 +23,9 @@ final class DiagnosticSurfaceTests: XCTestCase {
         makeHittable(startCapture, in: app)
         startCapture.tap()
         XCTAssertTrue(app.staticTexts["Start local room capture?"].waitForExistence(timeout: 3))
-        app.buttons["Keep Capture Off"].tap()
+        let keepCaptureOff = button(in: app, named: "Keep Capture Off")
+        XCTAssertTrue(keepCaptureOff.waitForExistence(timeout: 3))
+        keepCaptureOff.tap()
         XCTAssertTrue(
             element(in: app, identifiedBy: "diagnostic.capture.denied")
                 .waitForExistence(timeout: 3)
@@ -29,9 +34,17 @@ final class DiagnosticSurfaceTests: XCTestCase {
 
         makeHittable(startCapture, in: app)
         startCapture.tap()
-        app.buttons["Accept and Start"].tap()
+        let acceptCapture = button(in: app, named: "Accept and Start")
+        XCTAssertTrue(acceptCapture.waitForExistence(timeout: 3))
+        acceptCapture.tap()
         let localState = element(in: app, identifiedBy: "diagnostic.capture.local-state")
-        XCTAssertTrue(localState.waitForExistence(timeout: 5))
+        let localStateAppeared = localState.waitForExistence(timeout: 5)
+        let captureFailure = element(in: app, identifiedBy: "diagnostic.capture.failure")
+        XCTAssertTrue(
+            localStateAppeared,
+            "Capture did not start: \(captureFailure.label)"
+        )
+        guard localStateAppeared else { return }
         XCTAssertTrue(localState.label.contains("Recording locally"))
         XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.upload-state").exists)
         XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.share-state").exists)
@@ -86,5 +99,10 @@ final class DiagnosticSurfaceTests: XCTestCase {
             app.swipeUp()
         }
         XCTAssertTrue(element.isHittable)
+    }
+
+    @MainActor
+    private func button(in app: XCUIApplication, named label: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
     }
 }

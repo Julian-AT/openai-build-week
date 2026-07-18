@@ -159,6 +159,9 @@ final class DeviceProofModel {
         self.permissionController = permissionController ?? PermissionController()
         self.arSessionController = arSessionController ?? ARSessionController()
         self.captureSessionAdapter = captureSessionAdapter
+        self.captureSessionAdapter?.onPresentationChange = { [weak self] snapshot in
+            self?.capturePresentation = snapshot
+        }
         self.arSessionController.onEvent = { [weak self] event in
             self?.state.apply(event)
         }

@@ -33,12 +33,64 @@ struct VerifiedCaptureReplay: Equatable, Sendable {
     let timeline: [ReplayTimelineEntry]
 }
 
+struct CaptureRecoveryFailureSnapshot: Equatable, Sendable {
+    let archiveName: String
+    let message: String
+}
+
+struct CaptureRecoveryDiscoverySnapshot: Equatable, Sendable {
+    let verified: [VerifiedCaptureReplay]
+    let failures: [CaptureRecoveryFailureSnapshot]
+
+    static let empty = CaptureRecoveryDiscoverySnapshot(verified: [], failures: [])
+}
+
+enum VerifiedReplayInspectorError: Error, Equatable, Sendable {
+    case invalidVerifiedReplay
+    case unverifiedSelection
+}
+
+struct VerifiedReplayInspector: Equatable, Sendable {
+    let recovered: RecoveredArchive
+    let report: ReplayReportV1
+    let timeline: [ReplayTimelineEntry]
+
+    var status: CaptureFinalizationState { recovered.finalization.state }
+    var digests: ReplayDigestSet { report.digests }
+
+    init(replay: VerifiedCaptureReplay) throws {
+        let finalization = replay.recovered.finalization
+        guard replay.report.verdict == .accept,
+              replay.report.rejection == nil,
+              replay.report.archive.manifestSHA256 == finalization.manifestSHA256,
+              replay.report.archive.finalizationState == finalization.state,
+              replay.report.archive.acceptedFrameCount == finalization.acceptedFrameCount,
+              replay.report.archive.eventCount == finalization.eventCount,
+              replay.report.archive.journalRecordCount == UInt64(replay.timeline.count),
+              replay.timeline.indices.allSatisfy({
+                  replay.timeline[$0].journalSequence == UInt64($0)
+              })
+        else { throw VerifiedReplayInspectorError.invalidVerifiedReplay }
+        recovered = replay.recovered
+        report = replay.report
+        timeline = replay.timeline
+    }
+
+    func entry(journalSequence: UInt64) throws -> ReplayTimelineEntry {
+        guard journalSequence < UInt64(timeline.count),
+              timeline[Int(journalSequence)].journalSequence == journalSequence
+        else { throw VerifiedReplayInspectorError.unverifiedSelection }
+        return timeline[Int(journalSequence)]
+    }
+}
+
 struct CapturePresentationSnapshot: Equatable, Sendable {
     var phase: CaptureSessionPhase
     var sessionID: String?
     var admission: CaptureAdmissionSnapshot?
     var finalization: CaptureFinalization?
     var recovered: VerifiedCaptureReplay?
+    var recoveryFailures: [CaptureRecoveryFailureSnapshot]
     var explicitCaptureBusy: Bool
     var busyMessage: String?
     var uploadState: CaptureUploadState
@@ -52,6 +104,7 @@ struct CapturePresentationSnapshot: Equatable, Sendable {
         admission: nil,
         finalization: nil,
         recovered: nil,
+        recoveryFailures: [],
         explicitCaptureBusy: false,
         busyMessage: nil,
         uploadState: .notConfigured,
@@ -112,7 +165,7 @@ protocol CaptureArchiveSessionFactory: Sendable {
 }
 
 protocol CaptureRecoveryDriving: Sendable {
-    func discoverVerifiedArchives() async -> [VerifiedCaptureReplay]
+    func discoverArchives() async -> CaptureRecoveryDiscoverySnapshot
     func recoverInterruptedArchive(at archivePath: String) async -> VerifiedCaptureReplay?
 }
 
@@ -242,52 +295,62 @@ struct FoundationCaptureRecoveryDriver: CaptureRecoveryDriving, Sendable {
     let fixtureManifestSHA256: String
     let repositoryRevision: String
 
-    func discoverVerifiedArchives() async -> [VerifiedCaptureReplay] {
-        let urls: [URL]
-        do {
-            urls = try FileManager.default.contentsOfDirectory(
-                at: root,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            )
-        } catch {
-            return []
+    func discoverArchives() async -> CaptureRecoveryDiscoverySnapshot {
+        scanArchives()
+    }
+
+    private func scanArchives() -> CaptureRecoveryDiscoverySnapshot {
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return .empty }
+        var urls = [URL]()
+        for case let url as URL in enumerator where url.lastPathComponent.hasSuffix(".rrcap") {
+            urls.append(url)
         }
-        return urls
-            .filter { $0.lastPathComponent.hasSuffix(".rrcap") }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .compactMap(verifiedReplay(at:))
+        var verified = [VerifiedCaptureReplay]()
+        var failures = [CaptureRecoveryFailureSnapshot]()
+        for url in urls.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+            do {
+                verified.append(try verifiedReplay(at: url))
+            } catch {
+                failures.append(
+                    CaptureRecoveryFailureSnapshot(
+                        archiveName: url.lastPathComponent,
+                        message: "Integrity verification failed; no archive records were exposed."
+                    )
+                )
+            }
+        }
+        return CaptureRecoveryDiscoverySnapshot(verified: verified, failures: failures)
     }
 
     func recoverInterruptedArchive(at archivePath: String) async -> VerifiedCaptureReplay? {
-        verifiedReplay(at: root.appendingPathComponent(archivePath))
+        try? verifiedReplay(at: root.appendingPathComponent(archivePath))
     }
 
-    private func verifiedReplay(at sourceURL: URL) -> VerifiedCaptureReplay? {
-        do {
-            let recovered = try CaptureRecovery.inspect(root: sourceURL)
-            let replayURL = sourceURL.deletingLastPathComponent()
-                .appendingPathComponent(recovered.finalization.archivePath)
-            let snapshot = try ReplayCore.replay(root: replayURL)
-            let report = try ReplayReport.make(
-                snapshot: snapshot,
-                caseID: recovered.finalization.sessionID,
-                fixtureManifestSHA256: fixtureManifestSHA256,
-                repositoryRevision: repositoryRevision
-            )
-            return VerifiedCaptureReplay(
-                recovered: recovered,
-                report: report,
-                timeline: snapshot.timeline
-            )
-        } catch {
-            return nil
-        }
+    private func verifiedReplay(at sourceURL: URL) throws -> VerifiedCaptureReplay {
+        let recovered = try CaptureRecovery.inspect(root: sourceURL)
+        let replayURL = sourceURL.deletingLastPathComponent()
+            .appendingPathComponent(recovered.finalization.archivePath)
+        let snapshot = try ReplayCore.replay(root: replayURL)
+        let report = try ReplayReport.make(
+            snapshot: snapshot,
+            caseID: recovered.finalization.sessionID,
+            fixtureManifestSHA256: fixtureManifestSHA256,
+            repositoryRevision: repositoryRevision
+        )
+        return VerifiedCaptureReplay(
+            recovered: recovered,
+            report: report,
+            timeline: snapshot.timeline
+        )
     }
 }
 
 struct EmptyCaptureRecoveryDriver: CaptureRecoveryDriving, Sendable {
-    func discoverVerifiedArchives() async -> [VerifiedCaptureReplay] { [] }
+    func discoverArchives() async -> CaptureRecoveryDiscoverySnapshot { .empty }
     func recoverInterruptedArchive(at archivePath: String) async -> VerifiedCaptureReplay? { nil }
 }
 
@@ -316,6 +379,7 @@ final class CaptureSessionAdapter {
     private var backgroundExpired = false
 
     private(set) var presentation: CapturePresentationSnapshot = .idle
+    var onPresentationChange: (@MainActor (CapturePresentationSnapshot) -> Void)?
 
     init(
         identities: any CaptureIdentityDriving,
@@ -338,6 +402,7 @@ final class CaptureSessionAdapter {
     }
 
     func declineDisclosure() {
+        defer { notifyPresentationChange() }
         guard presentation.phase != .recording else { return }
         presentation = .idle
         presentation.phase = .declined
@@ -345,6 +410,7 @@ final class CaptureSessionAdapter {
     }
 
     func acceptDisclosure() async {
+        defer { notifyPresentationChange() }
         guard presentation.phase != .recording,
               consumerTask == nil
         else { return }
@@ -475,6 +541,7 @@ final class CaptureSessionAdapter {
         _ snapshot: CapturedFrameSnapshot,
         selectionInput: FrameSelectionInput
     ) -> CaptureFrameOfferResult {
+        defer { notifyPresentationChange() }
         guard presentation.phase == .recording,
               let gate,
               let payloads
@@ -540,6 +607,7 @@ final class CaptureSessionAdapter {
     }
 
     func stop() async {
+        defer { notifyPresentationChange() }
         guard let gate,
               let task = consumerTask,
               let archive
@@ -568,6 +636,7 @@ final class CaptureSessionAdapter {
     }
 
     func finalizeForBackground() async {
+        defer { notifyPresentationChange() }
         guard gate != nil, consumerTask != nil, archive != nil else { return }
         backgroundExpired = false
         let identifier = backgroundDriver.begin { [weak self] in
@@ -605,17 +674,27 @@ final class CaptureSessionAdapter {
     }
 
     func discoverInterruptedArchives() async {
-        let verified = await recoveryDriver.discoverVerifiedArchives()
-        guard let latest = verified.last else { return }
+        defer { notifyPresentationChange() }
+        let discovery = await recoveryDriver.discoverArchives()
+        guard discovery.verified.isEmpty == false || discovery.failures.isEmpty == false else {
+            return
+        }
         presentation = .idle
-        presentation.phase = .recovered
-        presentation.sessionID = latest.recovered.finalization.sessionID
-        presentation.recovered = latest
-        presentation.finalization = latest.recovered.finalization
+        presentation.recoveryFailures = discovery.failures
+        if let latest = discovery.verified.last {
+            presentation.phase = .recovered
+            presentation.sessionID = latest.recovered.finalization.sessionID
+            presentation.recovered = latest
+            presentation.finalization = latest.recovered.finalization
+        } else {
+            presentation.phase = .failed
+            presentation.failureMessage = discovery.failures.last?.message
+        }
     }
 
     func setOffline(_ offline: Bool) {
         presentation.isOffline = offline
+        notifyPresentationChange()
     }
 
     private func expireBackgroundFinalization() {
@@ -626,6 +705,7 @@ final class CaptureSessionAdapter {
         consumerTask?.cancel()
         presentation.phase = .interrupted
         presentation.failureMessage = "Background time expired; the durable prefix was preserved."
+        notifyPresentationChange()
     }
 
     private func recordTerminal(_ result: CaptureAdmissionTerminalResult) {
@@ -634,6 +714,7 @@ final class CaptureSessionAdapter {
             presentation.busyMessage = nil
         }
         if let gate { applyAdmissionSnapshot(gate.snapshot()) }
+        notifyPresentationChange()
     }
 
     private func recordConsumerOutcome(_ outcome: CaptureConsumerOutcome) {
@@ -652,6 +733,7 @@ final class CaptureSessionAdapter {
                 presentation.failureMessage = "Capture storage failed: \(message)"
             }
         }
+        notifyPresentationChange()
     }
 
     private func applyCloseReport(_ report: CaptureAdmissionCloseReport) {
@@ -686,6 +768,10 @@ final class CaptureSessionAdapter {
         guard let identifier = backgroundAssertionID else { return }
         backgroundAssertionID = nil
         backgroundDriver.end(identifier)
+    }
+
+    private func notifyPresentationChange() {
+        onPresentationChange?(presentation)
     }
 
     nonisolated private static func selectedCandidate(
