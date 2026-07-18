@@ -19,7 +19,7 @@ struct RestoreReducerTests {
                 compensatesTransactionID: source.transactionID,
                 updatedAtUTC: "2026-07-18T16:00:00Z"
             ),
-            locallyAvailableArtifacts: [TransactionTestFixtures.secondManifest]
+            locallyAvailableArtifacts: [TransactionTestFixtures.firstManifest, TransactionTestFixtures.secondManifest]
         )
 
         #expect(result.networkReads == 0)
@@ -233,7 +233,7 @@ enum RestoreFixtures {
         var source = try sourceTransaction()
         var transactions = [source]
         var requestedSource = source.transactionID
-        var available = [TransactionTestFixtures.secondManifest]
+        var available = [TransactionTestFixtures.firstManifest, TransactionTestFixtures.secondManifest]
 
         switch failure {
         case .touchedDrift:
