@@ -332,6 +332,7 @@ private enum DiagnosticUTCClock {
 @Observable
 final class DiagnosticAppOwner {
     let model: DeviceProofModel
+    let terminationControlsEnabled: Bool
     private(set) var epoch: WorldEpochSnapshot
     private(set) var packetValue = "No ARFrame snapshot captured"
     private(set) var packetState: DiagnosticFactState = .pending
@@ -341,18 +342,32 @@ final class DiagnosticAppOwner {
     private(set) var replayInspector: VerifiedReplayInspector?
     private(set) var replaySelection: ReplayTimelineEntry?
     private(set) var replaySelectionError: String?
+    private(set) var armedTerminationState: CaptureFrameState?
 
     @ObservationIgnored private let runtime: DiagnosticRuntimeFacts
     @ObservationIgnored private var epochController: WorldEpochController
+    @ObservationIgnored private let terminationController: Gate001TerminationController
 
     init(
         model: DeviceProofModel? = nil,
-        runtime: DiagnosticRuntimeFacts? = nil
+        runtime: DiagnosticRuntimeFacts? = nil,
+        terminationControlsEnabled: Bool = Gate001LaunchConfiguration.controlsEnabled(
+            arguments: ProcessInfo.processInfo.arguments
+        ),
+        terminationController: Gate001TerminationController? = nil
     ) {
         let resolvedRuntime = runtime ?? .live()
+        let resolvedTerminationController = terminationController ?? .live()
         let worldUUID = UUID().uuidString.lowercased()
         self.runtime = resolvedRuntime
-        self.model = model ?? Self.makeLiveModel(runtime: resolvedRuntime)
+        self.terminationControlsEnabled = terminationControlsEnabled
+        self.terminationController = resolvedTerminationController
+        self.model = model ?? Self.makeLiveModel(
+            runtime: resolvedRuntime,
+            lifecycleObserver: { observation in
+                resolvedTerminationController.observe(observation)
+            }
+        )
         epochController = WorldEpochController(worldFrameID: "world_\(worldUUID)")
         epoch = epochController.snapshot
     }
@@ -427,6 +442,20 @@ final class DiagnosticAppOwner {
             packetValue = "Capture unavailable: no healthy ARFrame"
             packetState = .warning
         }
+    }
+
+    func armTermination(at state: CaptureFrameState) {
+        guard terminationControlsEnabled,
+              capturePresentation.phase == .recording,
+              capturePresentation.explicitCaptureBusy == false,
+              terminationController.arm(state)
+        else { return }
+        armedTerminationState = state
+    }
+
+    func disarmTermination() {
+        terminationController.disarm()
+        armedTerminationState = nil
     }
 
     func stopCapture() async {
@@ -504,7 +533,10 @@ final class DiagnosticAppOwner {
         })
     }
 
-    private static func makeLiveModel(runtime: DiagnosticRuntimeFacts) -> DeviceProofModel {
+    private static func makeLiveModel(
+        runtime: DiagnosticRuntimeFacts,
+        lifecycleObserver: @escaping CaptureLifecycleObserver
+    ) -> DeviceProofModel {
         do {
             let documents = try FileManager.default.url(
                 for: .documentDirectory,
@@ -523,7 +555,8 @@ final class DiagnosticAppOwner {
                         appVersion: runtime.appVersion,
                         buildID: runtime.implementationRevision,
                         recordedAtUTC: runtime.recordedAtUTC
-                    )
+                    ),
+                    lifecycleObserver: lifecycleObserver
                 ),
                 recoveryDriver: FoundationCaptureRecoveryDriver(
                     root: documents,
@@ -570,6 +603,8 @@ struct DiagnosticChecklistView: View {
     @State private var exportState: DiagnosticEvidenceExportState = .notReady
     @State private var showsCaptureConsent = false
     @State private var showsWorldResetConfirmation = false
+    @State private var selectedTerminationState = CaptureFrameState.selected
+    @State private var showsTerminationConfirmation = false
 
     var body: some View {
         ZStack {
@@ -709,6 +744,10 @@ struct DiagnosticChecklistView: View {
                 .disabled(owner.capturePresentation.explicitCaptureBusy)
                 .accessibilityIdentifier("diagnostic.capture.explicit")
 
+                if owner.terminationControlsEnabled {
+                    gateTerminationControl
+                }
+
                 if let busyMessage = owner.capturePresentation.busyMessage {
                     Text(busyMessage)
                         .font(.body)
@@ -781,6 +820,62 @@ struct DiagnosticChecklistView: View {
                     + "Nothing is uploaded or shared unless you choose that separately."
             )
         }
+        .confirmationDialog(
+            "Arm abrupt process termination?",
+            isPresented: $showsTerminationConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Arm \(selectedTerminationState.rawValue)", role: .destructive) {
+                owner.armTermination(at: selectedTerminationState)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "The next explicit user-event frame will terminate this process with SIGKILL "
+                    + "after the selected durable boundary. No live upload is configured."
+            )
+        }
+    }
+
+    private var gateTerminationControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("GATE-001 exact termination")
+                .font(.headline)
+            Text("Internal fixture acknowledgement only — no live upload is configured.")
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            Picker("Termination boundary", selection: $selectedTerminationState) {
+                ForEach(CaptureFrameState.allCases, id: \.rawValue) { state in
+                    Text(state.rawValue).tag(state)
+                }
+            }
+            .pickerStyle(.menu)
+            .accessibilityIdentifier("gate001.termination.state")
+
+            if let armedState = owner.armedTerminationState {
+                Text("Armed for \(armedState.rawValue). Save one explicit frame now.")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("gate001.termination.armed")
+                Button("Disarm termination", role: .destructive) {
+                    owner.disarmTermination()
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("gate001.termination.disarm")
+            } else {
+                Button("Arm abrupt termination", role: .destructive) {
+                    showsTerminationConfirmation = true
+                }
+                .buttonStyle(.bordered)
+                .disabled(owner.capturePresentation.explicitCaptureBusy)
+                .accessibilityIdentifier("gate001.termination.arm")
+            }
+        }
+        .padding(12)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("gate001.termination.controls")
     }
 
     private func captureStateRow(label: String, identifier: String) -> some View {

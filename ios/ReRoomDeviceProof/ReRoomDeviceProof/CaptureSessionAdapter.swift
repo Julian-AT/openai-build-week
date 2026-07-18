@@ -322,6 +322,19 @@ struct CoreCaptureArchiveSessionFactory: CaptureArchiveSessionFactory, Sendable 
     let root: URL
     let validator: ContractValidator
     let source: CaptureArchiveSource
+    let lifecycleObserver: CaptureLifecycleObserver
+
+    init(
+        root: URL,
+        validator: ContractValidator,
+        source: CaptureArchiveSource,
+        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in }
+    ) {
+        self.root = root
+        self.validator = validator
+        self.source = source
+        self.lifecycleObserver = lifecycleObserver
+    }
 
     func makeSession(
         descriptor: CaptureSessionDescriptor
@@ -334,7 +347,8 @@ struct CoreCaptureArchiveSessionFactory: CaptureArchiveSessionFactory, Sendable 
                 profile: .syntheticOnePixelPNG
             ),
             descriptor: descriptor,
-            source: source
+            source: source,
+            lifecycleObserver: lifecycleObserver
         )
         return CoreCaptureArchiveSession(
             store: store,
