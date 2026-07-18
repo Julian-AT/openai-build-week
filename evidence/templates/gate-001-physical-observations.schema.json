@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reroom:evidence-schema:gate-001-physical-observations:1",
+  "title": "Gate001PhysicalObservationsV1",
+  "description": "Closed sanitized physical base-device observations. Raw room/device artifacts stay outside Git and are represented only by opaque identifiers and lowercase SHA-256 digests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gate_id",
+    "decision_actor",
+    "evidence_origin",
+    "value_classification",
+    "recorded_at_utc",
+    "implementation_revision",
+    "build_revision",
+    "evaluator_id",
+    "environment",
+    "environment_sha256",
+    "fixture_refs",
+    "consent_denial_observation",
+    "termination_observations",
+    "fallback_and_kill_acknowledgement"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "gate_id": { "const": "GATE-001" },
+    "decision_actor": { "const": "human" },
+    "evidence_origin": { "const": "physical_base_device" },
+    "value_classification": { "const": "MEASURED" },
+    "recorded_at_utc": { "$ref": "#/$defs/utcTimestamp" },
+    "implementation_revision": { "type": "string", "pattern": "^git:[0-9a-f]{40}$" },
+    "build_revision": { "$ref": "#/$defs/safeLabel" },
+    "evaluator_id": { "$ref": "#/$defs/opaqueEvaluatorId" },
+    "environment": { "$ref": "#/$defs/environment" },
+    "environment_sha256": { "$ref": "#/$defs/sha256" },
+    "fixture_refs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "prefixItems": [
+        { "$ref": "#/$defs/fixture010" },
+        { "$ref": "#/$defs/fixture060" }
+      ],
+      "items": false
+    },
+    "consent_denial_observation": { "$ref": "#/$defs/consentDenial" },
+    "termination_observations": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/terminationObservation" }
+    },
+    "fallback_and_kill_acknowledgement": { "$ref": "#/$defs/fallbackAndKill" }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "utcTimestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$"
+    },
+    "safeLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._+():-]*$"
+    },
+    "opaqueEvaluatorId": {
+      "type": "string",
+      "pattern": "^opaque-evaluator-[a-z0-9][a-z0-9._-]{7,79}$"
+    },
+    "opaqueArtifactId": {
+      "type": "string",
+      "pattern": "^opaque-[a-z0-9][a-z0-9._-]{7,95}$"
+    },
+    "fixture010": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_id", "fixture_revision", "sha256"],
+      "properties": {
+        "fixture_id": { "const": "FX-RRCAP-010S" },
+        "fixture_revision": { "type": "string", "pattern": "^rev-[0-9]{3}$" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "fixture060": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixture_id", "fixture_revision", "sha256"],
+      "properties": {
+        "fixture_id": { "const": "FX-RRCAP-060S" },
+        "fixture_revision": { "type": "string", "pattern": "^rev-[0-9]{3}$" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "capabilityFlags": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["camera_permission", "arkit_world_tracking", "plane_detection", "lidar_required"],
+      "properties": {
+        "camera_permission": { "const": "granted" },
+        "arkit_world_tracking": { "const": "pass" },
+        "plane_detection": { "const": "pass" },
+        "lidar_required": { "const": false }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Sanitized environment facts only; device UUIDs, accounts, team IDs, signing material, and filesystem paths have no field.",
+      "required": ["device_model", "os_version", "xcode_version", "runtime_tier", "capability_flags", "signing_result"],
+      "properties": {
+        "device_model": { "type": "string", "pattern": "^iPhone 17[A-Za-z0-9 +.-]{0,31}$" },
+        "os_version": { "$ref": "#/$defs/safeLabel" },
+        "xcode_version": { "$ref": "#/$defs/safeLabel" },
+        "runtime_tier": { "const": "base-iphone-17" },
+        "capability_flags": { "$ref": "#/$defs/capabilityFlags" },
+        "signing_result": { "const": "pass" }
+      }
+    },
+    "rawArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opaque_artifact_id", "sha256", "external_retention"],
+      "properties": {
+        "opaque_artifact_id": { "$ref": "#/$defs/opaqueArtifactId" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "external_retention": { "const": true }
+      }
+    },
+    "consentDenial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempted", "local_capture_created", "upload_reference_count", "raw_artifact"],
+      "properties": {
+        "attempted": { "const": true },
+        "local_capture_created": { "const": false },
+        "upload_reference_count": { "const": 0 },
+        "raw_artifact": { "$ref": "#/$defs/rawArtifact" }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replay_id",
+        "evaluator_id",
+        "journal_digest_sha256",
+        "projection_digest_sha256",
+        "accepted_order_digest_sha256",
+        "matches_expected"
+      ],
+      "properties": {
+        "replay_id": { "$ref": "#/$defs/opaqueArtifactId" },
+        "evaluator_id": { "$ref": "#/$defs/opaqueEvaluatorId" },
+        "journal_digest_sha256": { "$ref": "#/$defs/sha256" },
+        "projection_digest_sha256": { "$ref": "#/$defs/sha256" },
+        "accepted_order_digest_sha256": { "$ref": "#/$defs/sha256" },
+        "matches_expected": { "const": true }
+      }
+    },
+    "queueObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capacity", "maximum_depth", "stale_drop_count", "pressure_applied", "network_blackholed", "upload_paused_first"],
+      "properties": {
+        "capacity": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "maximum_depth": { "type": "integer", "minimum": 0, "maximum": 1024 },
+        "stale_drop_count": { "type": "integer", "minimum": 0 },
+        "pressure_applied": { "const": true },
+        "network_blackholed": { "const": true },
+        "upload_paused_first": { "const": true }
+      }
+    },
+    "physicalRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fixture_id",
+        "target_duration_seconds",
+        "observed_duration_milliseconds",
+        "build_revision",
+        "evaluator_id",
+        "environment_sha256",
+        "raw_artifact",
+        "consent_state",
+        "local_capture_state",
+        "upload_state",
+        "packet_image_binding_valid",
+        "non_journaled_upload_reference_count",
+        "earlier_record_corruption_count",
+        "expected_recovered_global_sequence",
+        "actual_recovered_global_sequence",
+        "recovered_prefix_exact",
+        "queue_observation",
+        "replays"
+      ],
+      "properties": {
+        "fixture_id": { "enum": ["FX-RRCAP-010S", "FX-RRCAP-060S"] },
+        "target_duration_seconds": { "enum": [10, 60] },
+        "observed_duration_milliseconds": { "type": "integer", "minimum": 10000 },
+        "build_revision": { "$ref": "#/$defs/safeLabel" },
+        "evaluator_id": { "$ref": "#/$defs/opaqueEvaluatorId" },
+        "environment_sha256": { "$ref": "#/$defs/sha256" },
+        "raw_artifact": { "$ref": "#/$defs/rawArtifact" },
+        "consent_state": { "const": "granted" },
+        "local_capture_state": { "const": "recovered_hash_valid_prefix" },
+        "upload_state": { "const": "paused_or_blackholed" },
+        "packet_image_binding_valid": { "const": true },
+        "non_journaled_upload_reference_count": { "const": 0 },
+        "earlier_record_corruption_count": { "const": 0 },
+        "expected_recovered_global_sequence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "actual_recovered_global_sequence": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "recovered_prefix_exact": { "const": true },
+        "queue_observation": { "$ref": "#/$defs/queueObservation" },
+        "replays": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/replay" }
+        }
+      }
+    },
+    "terminationObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["termination_state", "build_revision", "evaluator_id", "environment_sha256", "runs"],
+      "properties": {
+        "termination_state": {
+          "enum": [
+            "selected",
+            "image_and_metadata_durable",
+            "journaled",
+            "network_eligible",
+            "server_acknowledged"
+          ]
+        },
+        "build_revision": { "$ref": "#/$defs/safeLabel" },
+        "evaluator_id": { "$ref": "#/$defs/opaqueEvaluatorId" },
+        "environment_sha256": { "$ref": "#/$defs/sha256" },
+        "runs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/physicalRun" }
+        }
+      }
+    },
+    "fallbackAndKill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pause_upload_first", "preserve_valid_local_prefix", "provider_work_uses_replay_fixtures_only_if_red", "live_integration_blocked_unless_green"],
+      "properties": {
+        "pause_upload_first": { "const": true },
+        "preserve_valid_local_prefix": { "const": true },
+        "provider_work_uses_replay_fixtures_only_if_red": { "const": true },
+        "live_integration_blocked_unless_green": { "const": true }
+      }
+    }
+  }
+}
