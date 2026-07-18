@@ -516,6 +516,18 @@ class RoutingAndSanitizationTests(unittest.TestCase):
         with self.assertRaises(gate.GateVerificationError):
             gate.sanitize_check_results(gate.QUICK_CHECK_IDS, failed)
 
+    def test_release_surface_uses_a_simulator_isolated_from_debug_ui(self) -> None:
+        specs = {spec.check_id: spec for spec in gate.command_specs("full")}
+
+        def destination(check_id: str) -> str:
+            command = specs[check_id].commands[0]
+            return command[command.index("-destination") + 1]
+
+        self.assertNotEqual(
+            destination("native_simulator_flow"),
+            destination("release_surface"),
+        )
+
     def test_sanitizer_reconstructs_allowlisted_shape_and_rejects_private_input(self) -> None:
         raw = [
             {"check_id": check_id, "exit_code": 0, "output": f"safe output for {check_id}"}
