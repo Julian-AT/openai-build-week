@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02
-current_phase_name: Atomic Capture and Exact Replay
-status: executing
-stopped_at: Completed 02-06-PLAN.md
-last_updated: "2026-07-18T01:56:16.081Z"
-last_activity: 2026-07-17
-last_activity_desc: Phase 02 execution started
+current_phase: 03
+current_phase_name: Typed Place, Commit, and Offline Restore
+status: planning
+stopped_at: Phase 02 automated verification complete; human verification deferred under approved sprint cut
+last_updated: "2026-07-18T12:58:00Z"
+last_activity: 2026-07-18
+last_activity_desc: Phase 02 verified 48/48 automated must-haves; GATE-001 remains pending while sprint sequencing advances to Phase 03
 progress:
   total_phases: 2
   completed_phases: 1
@@ -24,17 +24,17 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** 36-hour demo sprint — close Phase 02 honestly, then deliver the four-operation native hero vertical and minimal B0 replay/inspection path.
+**Current focus:** 36-hour demo sprint — deliver the four-operation native hero vertical and minimal B0 replay/inspection path while Phase 02 human verification remains explicitly deferred.
 
 ## Current Position
 
-Phase: 02 (Atomic Capture and Exact Replay) — EXECUTING
+Phase: 03 (Typed Place, Commit, and Offline Restore) — PLANNING
 
-Plan: 7 of 7
+Plan: Not yet planned
 
-Status: Ready to execute
+Status: Phase 02 automated/local slice verified; Phase 03 authorized by the human-approved sprint overlay
 
-Last activity: 2026-07-17 — Phase 02 execution started
+Last activity: 2026-07-18 — Phase 02 automated verification completed with GATE-001 still PENDING
 
 Progress: [████████████████████] 15/15 planned tasks ([██████████] 95%)
 
@@ -134,6 +134,12 @@ Full locked and provisional decision blocks are in PROJECT.md.
 | Future/stretch | `STR-B1-001` isolated offline refinement | Frozen until all P0 gates are green and human-approved | Initial planning |
 | 36-hour sprint | Full new-revision `GATE-001` consent plus 10-run physical matrix, videos, logs, and attestation | Deferred; one signed-device pressure/recovery smoke in sprint | Human-approved sprint cut, 2026-07-18 |
 | 36-hour sprint | Formal `GATE-003`, `GATE-004`, `GATE-005`, `GATE-006`, `GATE-007`, `GATE-008`, `GATE-009`, `GATE-011`, `GATE-012`, and `OPS-GOLDEN-001` campaigns | Deferred as itemized in `.planning/SPRINT-CUT-36H.md`; canonical fallbacks active where defined | Human-approved sprint cut, 2026-07-18 |
+
+## Deferred Verification
+
+| Phase | State | Resume |
+|-------|-------|--------|
+| 02 | verification_deferred_human | `$gsd-verify-work 02` |
 
 ## Session Continuity
 
