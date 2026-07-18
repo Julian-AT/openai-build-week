@@ -1,0 +1,13 @@
+{
+  "artifact_id": "artifact_53000000-0000-4000-8000-000000000001",
+  "artifact_revision": 1,
+  "artifact_type": "asset_manifest",
+  "contract_asset_id": "asset_53000000-0000-4000-8000-000000000002",
+  "generation_recipe": "six_named_usd_cubes_with_literal_scale_and_translation_values",
+  "provenance_file": "PROVENANCE.md",
+  "proxy_id": "asset_proxy-chair-phase3",
+  "qualification": "phase3_local_demo_proxy_only",
+  "schema_version": "1.0.0",
+  "source_file": "proxy-chair.usda",
+  "source_sha256": "afdd38d8713f7e02fb91b15709094c9a0f990d91cedddf8812ea7e4ae5e32379"
+}

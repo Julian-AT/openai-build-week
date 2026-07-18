@@ -41,6 +41,9 @@
 		F10000000000000000000001 /* RoomEditModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* RoomEditModel.swift */; };
 		F10000000000000000000002 /* RoomEditModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* RoomEditModelTests.swift */; };
 		F10000000000000000000003 /* ReRoomTransactionCore in Frameworks */ = {isa = PBXBuildFile; productRef = F30000000000000000000001 /* ReRoomTransactionCore */; };
+		G10000000000000000000001 /* asset-manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = G20000000000000000000001 /* asset-manifest.json */; };
+		G10000000000000000000002 /* proxy-chair.usda in Resources */ = {isa = PBXBuildFile; fileRef = G20000000000000000000002 /* proxy-chair.usda */; };
+		G10000000000000000000003 /* PROVENANCE.md in Resources */ = {isa = PBXBuildFile; fileRef = G20000000000000000000003 /* PROVENANCE.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -91,6 +94,9 @@
 		E20000000000000000000002 /* CaptureSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionAdapter.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* RoomEditModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditModel.swift; sourceTree = "<group>"; };
 		F20000000000000000000002 /* RoomEditModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditModelTests.swift; sourceTree = "<group>"; };
+		G20000000000000000000001 /* asset-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Resources/Phase3Proxy/asset-manifest.json"; sourceTree = "<group>"; };
+		G20000000000000000000002 /* proxy-chair.usda */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Resources/Phase3Proxy/proxy-chair.usda"; sourceTree = "<group>"; };
+		G20000000000000000000003 /* PROVENANCE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Resources/Phase3Proxy/PROVENANCE.md"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +143,9 @@
 			children = (
 				A20000000000000000000001 /* App.swift */,
 				F20000000000000000000001 /* RoomEditModel.swift */,
+				G20000000000000000000001 /* asset-manifest.json */,
+				G20000000000000000000002 /* proxy-chair.usda */,
+				G20000000000000000000003 /* PROVENANCE.md */,
 				E20000000000000000000002 /* CaptureSessionAdapter.swift */,
 				A20000000000000000000002 /* DeviceProofModel.swift */,
 				A20000000000000000000003 /* PermissionController.swift */,
@@ -316,6 +325,9 @@
 				A10000000000000000000015 /* scene-state.schema.json in App Resources */,
 				A10000000000000000000016 /* edit-artifacts.schema.json in App Resources */,
 				A10000000000000000000017 /* transaction.schema.json in App Resources */,
+				G10000000000000000000001 /* asset-manifest.json in Resources */,
+				G10000000000000000000002 /* proxy-chair.usda in Resources */,
+				G10000000000000000000003 /* PROVENANCE.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
