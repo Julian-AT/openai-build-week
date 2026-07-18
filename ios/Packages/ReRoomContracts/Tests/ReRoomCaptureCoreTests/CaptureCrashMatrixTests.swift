@@ -74,6 +74,49 @@ struct CaptureCrashMatrixTests {
         }
     }
 
+    @Test(
+        "each exact lifecycle boundary publishes a replayable open manifest",
+        arguments: LifecycleRecoveryCase.cases
+    )
+    private func exactLifecycleRecovery(testCase: LifecycleRecoveryCase) async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("reroom-lifecycle-recovery-tests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let sourceURL = root
+            .appendingPathComponent("archives", isDirectory: true)
+            .appendingPathComponent("\(CrashIDs.session(testCase.sessionOrdinal)).rrcap")
+        let probe = LifecycleRecoveryProbe(target: testCase.state, sourceURL: sourceURL)
+        let faults = CaptureOperationFaultController()
+        let fileSystem = try FoundationCaptureFileSystem(
+            root: root,
+            observe: faults.observeBefore,
+            afterOperation: faults.observeAfter
+        )
+        let fixture = try CrashMatrixFixture(
+            sessionOrdinal: testCase.sessionOrdinal,
+            fileSystem: fileSystem,
+            faults: faults,
+            root: root,
+            lifecycleObserver: probe.observe
+        )
+        defer { fixture.remove() }
+
+        _ = try await fixture.store.startSession(authorization: fixture.authorization)
+        let receipt = try await fixture.store.publishSelectedFrame(fixture.candidate(ordinal: 1))
+        if testCase.state == .serverAcknowledged {
+            try await fixture.store.recordAcknowledgement(fixture.acknowledgement(for: receipt))
+        }
+
+        let result = probe.snapshot()
+        #expect(result.didObserve)
+        #expect(result.failure == nil)
+        #expect(result.recovered?.finalization.state == .recoveredPrefix)
+        #expect(result.recovered?.acceptedJournalRecordCount == testCase.journalCount)
+        #expect(result.recovered?.finalization.acceptedFrameCount == testCase.frameCount)
+        #expect(result.recovered?.finalization.eventCount == testCase.eventCount)
+    }
+
     @Test("concurrent publishers receive unique monotonic actor-owned sequences")
     func concurrentPublishersAreSerializedByTheWriter() async throws {
         let fixture = try CrashMatrixFixture(sessionOrdinal: 80)
@@ -286,6 +329,102 @@ private struct CaptureFaultCase: Sendable, CustomTestStringConvertible {
     }
 }
 
+private struct LifecycleRecoveryCase: Sendable, CustomTestStringConvertible {
+    let state: CaptureFrameState
+    let journalCount: UInt64
+    let frameCount: UInt64
+    let eventCount: UInt64
+    let sessionOrdinal: Int
+
+    var testDescription: String { state.rawValue }
+
+    static let cases = [
+        LifecycleRecoveryCase(
+            state: .selected,
+            journalCount: 2,
+            frameCount: 0,
+            eventCount: 2,
+            sessionOrdinal: 201
+        ),
+        LifecycleRecoveryCase(
+            state: .imageAndMetadataDurable,
+            journalCount: 3,
+            frameCount: 0,
+            eventCount: 3,
+            sessionOrdinal: 202
+        ),
+        LifecycleRecoveryCase(
+            state: .journaled,
+            journalCount: 5,
+            frameCount: 1,
+            eventCount: 4,
+            sessionOrdinal: 203
+        ),
+        LifecycleRecoveryCase(
+            state: .networkEligible,
+            journalCount: 6,
+            frameCount: 1,
+            eventCount: 5,
+            sessionOrdinal: 204
+        ),
+        LifecycleRecoveryCase(
+            state: .serverAcknowledged,
+            journalCount: 7,
+            frameCount: 1,
+            eventCount: 6,
+            sessionOrdinal: 205
+        ),
+    ]
+}
+
+private final class LifecycleRecoveryProbe: @unchecked Sendable {
+    struct Snapshot {
+        let didObserve: Bool
+        let recovered: RecoveredArchive?
+        let failure: String?
+    }
+
+    let target: CaptureFrameState
+    let sourceURL: URL
+
+    private let lock = NSLock()
+    private var didObserve = false
+    private var recovered: RecoveredArchive?
+    private var failure: String?
+
+    init(target: CaptureFrameState, sourceURL: URL) {
+        self.target = target
+        self.sourceURL = sourceURL
+    }
+
+    func observe(_ observation: CaptureLifecycleObservation) {
+        lock.lock()
+        guard didObserve == false, observation.state == target else {
+            lock.unlock()
+            return
+        }
+        didObserve = true
+        lock.unlock()
+
+        do {
+            let value = try CaptureRecovery.inspect(root: sourceURL)
+            lock.lock()
+            recovered = value
+            lock.unlock()
+        } catch {
+            lock.lock()
+            failure = String(describing: error)
+            lock.unlock()
+        }
+    }
+
+    func snapshot() -> Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        return Snapshot(didObserve: didObserve, recovered: recovered, failure: failure)
+    }
+}
+
 private enum FaultWorkflow: Sendable {
     case start
     case firstFrame
@@ -407,7 +546,8 @@ private struct CrashMatrixFixture: Sendable {
         sessionOrdinal: Int,
         fileSystem: any CaptureFileSystem,
         faults: CaptureOperationFaultController,
-        root: URL? = nil
+        root: URL? = nil,
+        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in }
     ) throws {
         self.root = root
         self.fileSystem = fileSystem
@@ -438,7 +578,8 @@ private struct CrashMatrixFixture: Sendable {
                 buildID: "build_fixture_0002",
                 recordedAtUTC: "2026-07-17T00:00:00Z"
             ),
-            eventID: { sequence in CrashIDs.event(sessionOrdinal * 100 + Int(sequence) + 1) }
+            eventID: { sequence in CrashIDs.event(sessionOrdinal * 100 + Int(sequence) + 1) },
+            lifecycleObserver: lifecycleObserver
         )
     }
 
@@ -593,7 +734,10 @@ private struct CrashMatrixFixture: Sendable {
                 )
             ) == .accepted else { throw CrashFixtureError.invalidManifest }
             try verifyManifestDigest(manifest)
-            hasFinalizedManifest = true
+            let object = try JSONSerialization.jsonObject(with: manifest) as! [String: Any]
+            let manifestFinalization = object["finalization"] as! [String: Any]
+            hasFinalizedManifest = manifestFinalization["state"] as? String
+                == CaptureFinalizationState.finalized.rawValue
         }
 
         return DurablePrefixScan(
