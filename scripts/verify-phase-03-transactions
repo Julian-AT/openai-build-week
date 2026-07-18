@@ -286,17 +286,19 @@ def _reboot_booted_ui_simulator(root: Path) -> bytes:
     devices = document.get("devices") if isinstance(document, dict) else None
     if not isinstance(devices, dict):
         raise EvidenceError("ui_simulator:listing")
-    booted = [
+    candidates = [
         item
         for values in devices.values()
         if isinstance(values, list)
         for item in values
-        if isinstance(item, dict) and item.get("name") == "iPhone 17" and item.get("state") == "Booted" and item.get("isAvailable", True) is True
+        if isinstance(item, dict) and item.get("name") == "iPhone 17" and item.get("isAvailable", True) is True
     ]
-    if len(booted) != 1 or not isinstance(booted[0].get("udid"), str):
-        raise EvidenceError("ui_simulator:booted_target")
-    identifier = booted[0]["udid"]
-    shutdown = _run([xcrun, "simctl", "shutdown", identifier], root=root, label="ui_simulator_shutdown", timeout=60)
+    if len(candidates) != 1 or not isinstance(candidates[0].get("udid"), str) or candidates[0].get("state") not in {"Booted", "Shutdown"}:
+        raise EvidenceError("ui_simulator:unique_target")
+    identifier = candidates[0]["udid"]
+    shutdown = b""
+    if candidates[0]["state"] == "Booted":
+        shutdown = _run([xcrun, "simctl", "shutdown", identifier], root=root, label="ui_simulator_shutdown", timeout=60)
     boot = _run([xcrun, "simctl", "boot", identifier], root=root, label="ui_simulator_boot", timeout=60)
     ready = _run([xcrun, "simctl", "bootstatus", identifier, "-b"], root=root, label="ui_simulator_ready", timeout=180)
     return shutdown + boot + ready
