@@ -118,6 +118,40 @@ class PhaseFiveReplacementContract(unittest.TestCase):
                         self.module._verify_replacement_source_contract(root)
                     view_path.write_text(canonical, encoding="utf-8")
 
+            model_path = root / self.module.SOURCE_BINDING_PATHS["room_edit_model_sha256"]
+            canonical_model = model_path.read_text(encoding="utf-8")
+            model_mutations = {
+                "default_true": canonical_model.replace(
+                    "replacementSupportedViewPolicy: RoomEditSupportedViewPolicy = .denyAll",
+                    "replacementSupportedView: Bool = true",
+                    1,
+                ),
+                "fixture_policy_omitted": canonical_model.replace(
+                    "replacementSupportedViewPolicy: .fixtureDemoHypothesis",
+                    "",
+                    1,
+                ),
+                "live_policy_omitted": canonical_model.replace(
+                    "replacementSupportedViewPolicy: .liveDemoHypothesis",
+                    "",
+                    1,
+                ),
+            }
+            for label, source in model_mutations.items():
+                with self.subTest(label=label):
+                    self.assertNotEqual(source, canonical_model)
+                    model_path.write_text(source, encoding="utf-8")
+                    with self.assertRaises(self.module.EvidenceError):
+                        self.module._verify_replacement_source_contract(root)
+                    model_path.write_text(canonical_model, encoding="utf-8")
+
+    def test_bound_product_digests_cover_every_product_source(self) -> None:
+        expected = set(self.module.SOURCE_BINDING_PATHS) - {
+            "orchestrator_sha256",
+            "mutation_tests_sha256",
+        }
+        self.assertEqual(set(self.module.BOUND_PRODUCT_DIGESTS), expected)
+
     def test_source_contract_requires_inverse_idempotency_and_failure_tests(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -181,9 +215,10 @@ class PhaseFiveReplacementContract(unittest.TestCase):
         raw_content["raw_room"] = "private capture"
         mutations.append(raw_content)
 
-        source_drift = copy.deepcopy(report)
-        source_drift["source_bindings"]["room_edit_view_sha256"] = "0" * 64
-        mutations.append(source_drift)
+        for key in self.module.BOUND_PRODUCT_DIGESTS:
+            source_drift = copy.deepcopy(report)
+            source_drift["source_bindings"][key] = "0" * 64
+            mutations.append(source_drift)
 
         incomplete = copy.deepcopy(report)
         incomplete["checks"].pop()
