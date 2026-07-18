@@ -6,6 +6,7 @@ import copy
 import importlib.machinery
 import importlib.util
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -54,6 +55,19 @@ class PhaseFiveReplacementContract(unittest.TestCase):
             working_tree_counts={"tracked_modified": 3, "untracked": 4},
         )
 
+    def write_bound_source_contract(self, root: Path) -> None:
+        for key in self.module.SOURCE_CONTRACT_PATH_KEYS:
+            relative = self.module.SOURCE_BINDING_PATHS[key]
+            result = subprocess.run(
+                ["git", "show", f"{self.module.BOUND_REVISION}:{relative}"],
+                cwd=REPO_ROOT,
+                check=True,
+                capture_output=True,
+            )
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(result.stdout)
+
     def test_manifest_rejects_every_missing_or_reordered_check(self) -> None:
         expected = list(self.module.EXPECTED_FULL_CHECKS)
         self.module._validate_complete_checks(expected)
@@ -84,11 +98,7 @@ class PhaseFiveReplacementContract(unittest.TestCase):
     def test_source_contract_binds_one_time_retained_exact_asset_and_fail_closed_seam(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for key in self.module.SOURCE_CONTRACT_PATH_KEYS:
-                relative = self.module.SOURCE_BINDING_PATHS[key]
-                target = root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes((REPO_ROOT / relative).read_bytes())
+            self.write_bound_source_contract(root)
 
             result = self.module._verify_replacement_source_contract(root)
             self.assertIn(b'"asset_load_count":1', result)
@@ -159,11 +169,7 @@ class PhaseFiveReplacementContract(unittest.TestCase):
     def test_source_contract_requires_inverse_idempotency_and_failure_tests(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for key in self.module.SOURCE_CONTRACT_PATH_KEYS:
-                relative = self.module.SOURCE_BINDING_PATHS[key]
-                target = root / relative
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes((REPO_ROOT / relative).read_bytes())
+            self.write_bound_source_contract(root)
             self.module._verify_replacement_source_contract(root)
 
             for key, token in self.module.REQUIRED_TEST_TOKENS.items():

@@ -17,9 +17,9 @@ updated: 2026-07-18T20:40:00Z
 
 ## Current Focus
 
-- hypothesis: The minimal verifier/test-fixture correction resolves the false drift while retaining fail-closed replacement mutation coverage.
-- test: Complete standalone retained-evidence checks using each verifier's actual interface, then run relevant Phase 8 validators and `git diff --check`.
-- expecting: All adjacent suites and evidence validators pass without rewriting the retained Phase 5 report.
+- hypothesis: The historical evidence and current successor tree need separate, explicit validation scopes.
+- test: Phase 5 tests load the bound implementation revision; Phase 8 validates implementation bindings, verification-parent bindings, unchanged current core files, and Phase 6 superseding shared-app bindings independently.
+- expecting: All adjacent suites and evidence validators pass without rewriting the retained Phase 5 report or weakening current-tree coverage.
 - next_action: Archive this resolved session and retain the corrected cross-phase mutation suite in final verification.
 - reasoning_checkpoint:
     hypothesis: Phase 6's additive remove arguments and support-provider closure cause Phase 5's adjacency-sensitive source token and current-tree report fixture to fail, while replacement semantics remain present.
@@ -28,7 +28,7 @@ updated: 2026-07-18T20:40:00Z
       - The two current shared-source digests differ from `BOUND_PRODUCT_DIGESTS`, while `git show f53ba72:<path> | shasum -a 256` exactly equals both bound constants and the retained evidence report.
       - The f53ba72-to-HEAD diff shows removal additions and trailing initializer arguments; replacement policy revalidation calls and replacement authority paths were not removed.
     falsification_test: If the minimal verifier/test-fixture patch does not make the exact five failures green, or if existing policy/digest mutations stop failing, then this diagnosis is incomplete.
-    fix_rationale: Decoupling semantic policy assertions from unrelated initializer adjacency preserves the fail-closed invariant across additive arguments; constructing a revision-bound report from revision-bound product digests matches the validator's explicit evidence identity.
+    fix_rationale: Testing the immutable Phase 5 verifier against its bound source and separating implementation, verification-parent, unchanged-current-core, and superseding-Phase-6 bindings preserves each authority instead of conflating revisions.
     blind_spots: No heavy Xcode/device run will be performed in this focused repair; Phase 5/6 Python mutation suites and retained evidence validation cover the verifier seam, while existing phase evidence remains the runtime record.
 - tdd_checkpoint: Existing failing Phase 5 contract tests are the RED reproduction.
 
@@ -69,7 +69,7 @@ updated: 2026-07-18T20:40:00Z
 
 ## Resolution
 
-- root_cause: Phase 5 verifier/test code encoded a closed shared-file snapshot at two seams: an adjacency-sensitive fixture-policy token and current-tree source digests in a retained-revision report fixture. Phase 6 extended the shared Swift files compatibly, exposing both stale assumptions.
-- fix: Require fixture/live replacement policies independently of unrelated initializer adjacency, and construct retained Phase 5 report fixtures by overlaying immutable `BOUND_PRODUCT_DIGESTS` on current verifier/test bindings.
+- root_cause: Phase 5 verifier tests fed current successor source and digests into checks that intentionally describe the immutable Phase 5 implementation; Phase 8 also treated historical verifier/test bindings as if they had to equal the current files.
+- fix: Load Phase 5 source-contract fixtures from the bound implementation revision, use immutable product digests for retained-report fixtures, and make Phase 8 validate product bindings at the implementation revision, verifier/test bindings at the verification-parent revision, unchanged current core files directly, and shared-app successors through Phase 6 evidence.
 - verification: Phase 5 and Phase 6 mutation suites passed 20/20 together; Phase 7 retained evidence and both Phase 8 standalone evidence validators passed; repository whitespace validation passed.
-- files_changed: [scripts/verify-phase-05-replacement, tools/verify/tests/test_phase_05_replacement.py]
+- files_changed: [tools/verify/tests/test_phase_05_replacement.py, tools/verify/verify_phase_08_hardening.py]

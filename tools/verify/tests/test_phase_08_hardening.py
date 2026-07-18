@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from tools.verify import verify_phase_08_hardening as hardening
 
@@ -132,6 +135,38 @@ class Phase08HardeningTests(unittest.TestCase):
         report["limitations"].append("tampered")
         with self.assertRaises(hardening.HardeningRejected):
             hardening.validate_preflight(report)
+
+    def test_historical_and_current_binding_scopes_remain_independent(self) -> None:
+        historical = b"historical verifier"
+        report = {
+            "implementation_revision": "git:" + "a" * 40,
+            "verification_parent_revision": "git:" + "b" * 40,
+            "source_bindings": {
+                "core": hashlib.sha256(b"current core").hexdigest(),
+                "verifier": hashlib.sha256(historical).hexdigest(),
+            },
+        }
+        paths = {"core": "core.swift", "verifier": "verify.py"}
+        completed = subprocess.CompletedProcess([], 0, stdout=historical, stderr=b"")
+        with mock.patch.object(hardening.subprocess, "run", return_value=completed) as invoked:
+            hardening._validate_historical_bindings(
+                Path("."), report, paths,
+                revision_field="verification_parent_revision", keys={"verifier"},
+            )
+        self.assertIn("b" * 40 + ":verify.py", invoked.call_args.args[0])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "core.swift").write_bytes(b"current core")
+            (root / "verify.py").write_bytes(b"successor verifier")
+            hardening._validate_current_bindings(
+                root, report, paths, historical_only_keys={"verifier"},
+            )
+            (root / "core.swift").write_bytes(b"drifted core")
+            with self.assertRaises(hardening.HardeningRejected):
+                hardening._validate_current_bindings(
+                    root, report, paths, historical_only_keys={"verifier"},
+                )
 
     def test_atomic_publish_preserves_existing_pair_when_validation_fails(self) -> None:
         temporary = tempfile.TemporaryDirectory()

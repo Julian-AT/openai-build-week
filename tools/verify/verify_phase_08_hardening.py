@@ -178,15 +178,20 @@ def _load_script(path: Path, name: str) -> Any:
 
 def _validate_historical_bindings(
     root: Path, report: Mapping[str, object], paths: Mapping[str, str],
+    *, revision_field: str = "implementation_revision", keys: set[str] | None = None,
 ) -> None:
-    revision_value = report.get("implementation_revision")
+    revision_value = report.get(revision_field)
     bindings = report.get("source_bindings")
     if not isinstance(revision_value, str) or not REVISION_RE.fullmatch(revision_value) or not isinstance(bindings, dict):
         reject("E08_UPSTREAM_BINDING")
     revision = revision_value.removeprefix("git:")
     if set(bindings) != set(paths):
         reject("E08_UPSTREAM_BINDING")
-    for key, relative in paths.items():
+    selected = set(paths) if keys is None else keys
+    if not selected <= set(paths):
+        reject("E08_UPSTREAM_BINDING")
+    for key in sorted(selected):
+        relative = paths[key]
         result = subprocess.run(
             ["git", "show", f"{revision}:{relative}"], cwd=root,
             check=False, capture_output=True, timeout=20,
@@ -197,13 +202,13 @@ def _validate_historical_bindings(
 
 def _validate_current_bindings(
     root: Path, report: Mapping[str, object], paths: Mapping[str, str],
-    *, superseded_keys: set[str] = set(),
+    *, superseded_keys: set[str] = set(), historical_only_keys: set[str] = set(),
 ) -> None:
     bindings = report.get("source_bindings")
     if not isinstance(bindings, dict) or set(bindings) != set(paths):
         reject("E08_UPSTREAM_BINDING")
     for key, relative in paths.items():
-        if key in superseded_keys:
+        if key in superseded_keys or key in historical_only_keys:
             continue
         if sha256_file(root / relative) != bindings[key]:
             reject("E08_UPSTREAM_BINDING")
@@ -242,9 +247,20 @@ def validate_upstream_authority(phase_id: str, root: Path = ROOT) -> None:
             )
         else:
             module._validate_report(report, require_self_digest=True)
+            if phase_id == "phase-05":
+                verifier_keys = {"orchestrator_sha256", "mutation_tests_sha256"}
+                _validate_historical_bindings(
+                    root, report, module.SOURCE_BINDING_PATHS,
+                    keys=set(module.SOURCE_BINDING_PATHS) - verifier_keys,
+                )
+                _validate_historical_bindings(
+                    root, report, module.SOURCE_BINDING_PATHS,
+                    revision_field="verification_parent_revision", keys=verifier_keys,
+                )
             _validate_current_bindings(
                 root, report, module.SOURCE_BINDING_PATHS,
                 superseded_keys={"room_edit_model_sha256", "room_edit_view_sha256", "model_tests_sha256", "ui_tests_sha256"} if phase_id == "phase-05" else set(),
+                historical_only_keys={"orchestrator_sha256", "mutation_tests_sha256"} if phase_id == "phase-05" else set(),
             )
     elif phase_id == "phase-07":
         from tools.verify import verify_phase_07_b0

@@ -291,8 +291,8 @@ def _verify_replacement_source_contract(root: Path) -> bytes:
         "minimumTargetDirectionDot",
         "HYPOTHESIS: fixture evidence",
         "HYPOTHESIS: a bounded 0.75 m / ~35 degree demo envelope",
-        "replacementSupportedViewPolicy: .fixtureDemoHypothesis",
-        "replacementSupportedViewPolicy: .liveDemoHypothesis",
+        "supportProvider: { _ in .fixture },\n                targetSession: targetSession,\n                replacementSupportedViewPolicy: .fixtureDemoHypothesis",
+        "targetSession: targetSession,\n            replacementSupportedViewPolicy: .liveDemoHypothesis",
     )
     if any(token not in model for token in required_model):
         raise EvidenceError("replacement_source:model_fail_closed")
