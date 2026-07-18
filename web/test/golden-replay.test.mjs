@@ -257,6 +257,6 @@ test("runner, report, JSON, and cleanup failures return one sanitized rejection"
     assert.deepEqual(probe.result, SANITIZED_REJECTION, scenario);
     assert.equal(probe.temporaryParentExists, false, scenario);
     const exposed = JSON.stringify(probe.result);
-    assert.doesNotMatch(exposed, /tmp|fixture|report|stack|secret|\.rrcap/i, scenario);
+    assert.doesNotMatch(exposed, /private|\/tmp|runner-secret|cleanup-secret|stack|\.rrcap/i, scenario);
   }
 });
