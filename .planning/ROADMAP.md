@@ -317,11 +317,11 @@ Plans:
   4. OPS-GOLDEN-001 completes 5/5 consecutive signed base-device place/replace/remove/restore journeys plus matching B0 replay with all blocking gates green and controlled removal separately passing `GATE-006`.
   5. The rules checklist and evidence package are signed before the deadline; the public demo stays under the official limit, shows all four operations and B0 honestly, includes a representative Codex Session ID, and makes no unsupported performance or novelty claim.
 
-**Plans**: 2 plans
+**Plans**: 2/2 plans executed
 
 Plans:
-- [ ] 08-01-PLAN.md — Fail-closed readiness, composite integration/safety checks, and exact sprint BOM.
-- [ ] 08-02-PLAN.md — Sanitized evidence/status publication, representative rehearsal runbook, and human submission handoff.
+- [x] 08-01-PLAN.md — Fail-closed readiness, composite integration/safety checks, and exact sprint BOM.
+- [x] 08-02-PLAN.md — Sanitized evidence/status publication, representative rehearsal runbook, and human submission handoff.
 **UI hint**: yes
 
 ## Dependency and Scope Notes
@@ -346,4 +346,4 @@ Plans:
 | 5. Curated Replacement Vertical | 4/4 | Sprint implementation complete; human gates pending | 2026-07-18 |
 | 6. Controlled Multi-Surface Removal | 4/4 | Bounded sprint implementation complete; formal GATE-006 pending | 2026-07-18 |
 | 7. Separate Mode B0 Web Fallback | 3/3 | Fixed-golden sprint slice complete; canonical/browser/retention work pending | 2026-07-18 |
-| 8. P0 Hardening and Evidence | 0/2 | Planned; implementation prerequisites present, formal gates still pending | - |
+| 8. P0 Hardening and Evidence | 2/2 | Demo hardening implementation complete; human/license/formal gates pending | 2026-07-18 |
