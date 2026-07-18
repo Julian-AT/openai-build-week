@@ -4,6 +4,114 @@ import Testing
 
 @Suite("FR-TRANSACTION-001 native branch authority")
 struct TransactionAuthorityTests {
+    @Test("concurrent replace confirms publish one durable revision and survive restart")
+    func concurrentReplaceIsExactlyOnceAndRestartSafe() async throws {
+        let context = try AuthorityFixtures.context()
+        let preview = try await context.authority.previewReplace(
+            proposal: ReplaceFixtures.proposal,
+            candidate: ReplaceFixtures.candidate,
+            seed: ReplaceFixtures.seed
+        )
+
+        let receipts = try await withThrowingTaskGroup(of: TransactionReceipt.self) { group in
+            for _ in 0..<16 {
+                group.addTask {
+                    try await context.authority.commitReplace(
+                        preview,
+                        confirmation: ReplaceFixtures.confirmation,
+                        request: ReplaceFixtures.confirmationRequest,
+                        localUndoToken: AuthorityFixtures.replaceUndoToken
+                    )
+                }
+            }
+            var values = [TransactionReceipt]()
+            for try await receipt in group { values.append(receipt) }
+            return values
+        }
+
+        let receipt = try #require(receipts.first)
+        #expect(receipts.allSatisfy { $0 == receipt })
+        let committed = await context.authority.activeSnapshot()
+        #expect(committed.scene.sceneRevision == 9)
+        #expect(committed.transactions.count == 1)
+        #expect(committed.transactions[0].intent.operation == .replace)
+        #expect(committed.receipts == [receipt])
+
+        let restarted = try AuthorityFixtures.authority(fileSystem: context.fileSystem)
+        #expect(await restarted.activeSnapshot() == committed)
+        let durableBytes = context.fileSystem.snapshotFiles()
+        #expect(try await restarted.commitReplace(
+            preview,
+            confirmation: ReplaceFixtures.confirmation,
+            request: ReplaceFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.replaceUndoToken
+        ) == receipt)
+        #expect(context.fileSystem.snapshotFiles() == durableBytes)
+    }
+
+    @Test("replace conflicts invalid confirmation and activation fault publish no replacement")
+    func replaceFailuresAreNonPublishing() async throws {
+        let context = try AuthorityFixtures.context()
+        let preview = try await context.authority.previewReplace(
+            proposal: ReplaceFixtures.proposal,
+            candidate: ReplaceFixtures.candidate,
+            seed: ReplaceFixtures.seed
+        )
+        _ = try await context.authority.commitReplace(
+            preview,
+            confirmation: ReplaceFixtures.confirmation,
+            request: ReplaceFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.replaceUndoToken
+        )
+        let afterCommit = context.fileSystem.snapshotFiles()
+        let changed = ReplacePreviewReduction(
+            proposal: preview.proposal,
+            candidate: preview.candidate,
+            seed: preview.seed,
+            validation: preview.validation,
+            preview: preview.preview,
+            proposedOperations: [],
+            canonicalSceneRevision: preview.canonicalSceneRevision,
+            sourceProjection: preview.sourceProjection,
+            committedProjection: preview.committedProjection,
+            networkReads: preview.networkReads
+        )
+        await #expect(throws: TransactionAuthorityError.idempotencyConflict) {
+            try await context.authority.commitReplace(
+                changed,
+                confirmation: ReplaceFixtures.confirmation,
+                request: ReplaceFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.replaceUndoToken
+            )
+        }
+        #expect(context.fileSystem.snapshotFiles() == afterCommit)
+
+        let controller = TransactionStoreFaultController()
+        let faultedFileSystem = DurableMemoryCaptureFileSystem(
+            observe: controller.observeBefore,
+            afterOperation: controller.observeAfter
+        )
+        let faulted = try AuthorityFixtures.authority(fileSystem: faultedFileSystem)
+        let faultedPreview = try await faulted.previewReplace(
+            proposal: ReplaceFixtures.proposal,
+            candidate: ReplaceFixtures.candidate,
+            seed: ReplaceFixtures.seed
+        )
+        let beforeFault = await faulted.activeSnapshot()
+        controller.arm(.init(kind: .replace, phase: .before, pathSuffix: "active-generation.json"))
+        await #expect(throws: InjectedTransactionStoreFault.self) {
+            try await faulted.commitReplace(
+                faultedPreview,
+                confirmation: ReplaceFixtures.confirmation,
+                request: ReplaceFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.replaceUndoToken
+            )
+        }
+        #expect(await faulted.activeSnapshot() == beforeFault)
+        let recovered = try AuthorityFixtures.authority(fileSystem: faultedFileSystem.crashedCopy())
+        #expect(await recovered.activeSnapshot() == beforeFault)
+    }
+
     @Test("concurrent identical confirms serialize to one durable revision and one receipt")
     func concurrentIdenticalConfirmIsExactlyOnce() async throws {
         let context = try AuthorityFixtures.context()
@@ -258,6 +366,7 @@ struct TransactionAuthorityTests {
 
 enum AuthorityFixtures {
     static let placeUndoToken = "undo_40000000-0000-4000-8000-000000000010"
+    static let replaceUndoToken = "undo_40000000-0000-4000-8000-000000000017"
     static let restoreTransactionID = "tx_40000000-0000-4000-8000-000000000011"
     static let restoreIdempotencyKey = "txidem_40000000-0000-4000-8000-000000000012"
     static let restorePreviewID = "preview_40000000-0000-4000-8000-000000000013"
