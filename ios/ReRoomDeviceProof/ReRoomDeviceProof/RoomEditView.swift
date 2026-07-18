@@ -12,6 +12,7 @@ enum RoomEditLaunchConfiguration {
     static let missedTargetArgument = "--room-edit-target-miss"
     static let ambiguousTargetArgument = "--room-edit-target-ambiguous"
     static let trackingLossArgument = "--room-edit-target-tracking-loss"
+    static let proxyLoadFailureArgument = "--room-edit-proxy-load-fail"
 
     static func usesRoomEditSurface(arguments: [String]) -> Bool {
         arguments.contains(uiTestArgument)
@@ -30,10 +31,14 @@ enum RoomEditLaunchConfiguration {
 final class RoomEditAppOwner {
     let runtime: RoomEditRuntime?
     let setupMessage: String?
+    let replacementLoadForcedFailure: Bool
 
     var model: RoomEditModel? { runtime?.model }
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
+        replacementLoadForcedFailure = arguments.contains(
+            RoomEditLaunchConfiguration.proxyLoadFailureArgument
+        )
         do {
             runtime = try RoomEditFactory.runtime(
                 resetStore: arguments.contains(RoomEditLaunchConfiguration.resetArgument),
@@ -54,7 +59,10 @@ struct RoomEditContainer: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             if let runtime = owner.runtime {
-                RoomEditView(runtime: runtime)
+                RoomEditView(
+                    runtime: runtime,
+                    replacementLoadForcedFailure: owner.replacementLoadForcedFailure
+                )
             } else {
                 ContentUnavailableView(
                     "Local room state unavailable",
@@ -78,11 +86,13 @@ struct RoomEditContainer: View {
 struct RoomEditView: View {
     @Bindable var model: RoomEditModel
     let runtime: RoomEditRuntime
+    let replacementLoadForcedFailure: Bool
     @State private var lastTapPoint = CGPoint(x: 160, y: 180)
 
-    init(runtime: RoomEditRuntime) {
+    init(runtime: RoomEditRuntime, replacementLoadForcedFailure: Bool = false) {
         self.model = runtime.model
         self.runtime = runtime
+        self.replacementLoadForcedFailure = replacementLoadForcedFailure
     }
 
     var body: some View {
@@ -99,11 +109,14 @@ struct RoomEditView: View {
                         select: selectOperation
                     )
                     RoomEditStatePanel(snapshot: model.snapshot)
+                    RoomEditReplacementQualificationPanel(snapshot: model.snapshot)
                     RoomEditActionTray(snapshot: model.snapshot, model: model)
                     RoomEditCameraStage(
                         liveView: runtime.sharedSession?.view,
                         fixtureScenario: runtime.fixtureScenario,
                         snapshot: model.snapshot.render,
+                        replacementLoadForcedFailure: replacementLoadForcedFailure,
+                        replacementAssetStateChanged: updateReplacementAssetState,
                         tap: groundTarget
                     )
                     RoomEditTargetPanel(
@@ -141,6 +154,10 @@ struct RoomEditView: View {
     private func reseedTarget() {
         Task { await model.reseedTarget(at: lastTapPoint) }
     }
+
+    private func updateReplacementAssetState(_ state: RoomEditReplacementAssetState) {
+        Task { await model.updateReplacementAssetState(state) }
+    }
 }
 
 private struct RoomEditHeader: View {
@@ -163,6 +180,8 @@ private struct RoomEditCameraStage: View {
     let liveView: ARView?
     let fixtureScenario: RoomEditTargetFixtureScenario?
     let snapshot: RoomEditRenderSnapshot
+    let replacementLoadForcedFailure: Bool
+    let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
     let tap: (CGPoint) -> Void
 
     var body: some View {
@@ -171,6 +190,8 @@ private struct RoomEditCameraStage: View {
                 liveView: liveView,
                 fixtureScenario: fixtureScenario,
                 snapshot: snapshot,
+                replacementLoadForcedFailure: replacementLoadForcedFailure,
+                replacementAssetStateChanged: replacementAssetStateChanged,
                 tap: tap
             )
 
@@ -367,19 +388,58 @@ private struct RoomEditFallbackPanel: View {
     }
 }
 
+private struct RoomEditReplacementQualificationPanel: View {
+    let snapshot: RoomEditSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            switch snapshot.replacementAssetState {
+            case .loading:
+                Label("Loading exact local demo proxy", systemImage: "hourglass")
+                    .accessibilityIdentifier("roomedit.asset.proxy.loading")
+            case .available:
+                Label("Six-cube local demo proxy loaded", systemImage: "cube.fill")
+                    .foregroundStyle(.green)
+                    .accessibilityIdentifier("roomedit.asset.proxy.loaded")
+            case .unavailable:
+                Label("Exact local demo proxy failed to load", systemImage: "cube.transparent.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("roomedit.asset.proxy.failed")
+            }
+            Text("Replace: deterministic supported view only")
+                .accessibilityIdentifier("roomedit.replace.supported-view")
+            Text("GATE-003/005/009/011 + OPS-GOLDEN-001: PENDING")
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("roomedit.replace.gate.pending")
+        }
+        .font(.caption.weight(.semibold))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(.white.opacity(0.08))
+        .clipShape(.rect(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+    }
+}
+
 private struct RoomEditRenderSurface: UIViewRepresentable {
     let liveView: ARView?
     let fixtureScenario: RoomEditTargetFixtureScenario?
     let snapshot: RoomEditRenderSnapshot
+    let replacementLoadForcedFailure: Bool
+    let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
     let tap: (CGPoint) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(tap: tap)
+        Coordinator(
+            tap: tap,
+            forceReplacementLoadFailure: replacementLoadForcedFailure,
+            replacementAssetStateChanged: replacementAssetStateChanged
+        )
     }
 
     func makeUIView(context: Context) -> UIView {
         let view: UIView = liveView ?? RoomEditFixtureRenderView()
-        view.isAccessibilityElement = true
+        view.isAccessibilityElement = !(view is RoomEditFixtureRenderView)
         view.accessibilityLabel = "Manual target camera surface"
         view.accessibilityHint = "Tap to ground one chair or small table"
         view.accessibilityIdentifier = fixtureScenario == nil
@@ -390,6 +450,7 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
             action: #selector(Coordinator.handleTap(_:))
         )
         view.addGestureRecognizer(recognizer)
+        context.coordinator.publishReplacementAssetStateOnce()
         context.coordinator.apply(snapshot, to: view, fixtureScenario: fixtureScenario)
         return view
     }
@@ -403,10 +464,44 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
     final class Coordinator: NSObject {
         var tap: (CGPoint) -> Void
         private var lastSnapshot: RoomEditRenderSnapshot?
-        private var proxyAnchor: AnchorEntity?
+        private var targetAnchor: AnchorEntity?
+        private var replacementAnchor: AnchorEntity?
+        private let replacementTemplate: Entity?
+        private let replacementAssetState: RoomEditReplacementAssetState
+        private let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
+        private var didPublishReplacementAssetState = false
 
-        init(tap: @escaping (CGPoint) -> Void) {
+        init(
+            tap: @escaping (CGPoint) -> Void,
+            forceReplacementLoadFailure: Bool,
+            replacementAssetStateChanged: @escaping (RoomEditReplacementAssetState) -> Void
+        ) {
             self.tap = tap
+            self.replacementAssetStateChanged = replacementAssetStateChanged
+            if forceReplacementLoadFailure {
+                replacementTemplate = nil
+                replacementAssetState = .unavailable(.realityKitLoadFailed)
+            } else {
+                do {
+                    let loaded = try Entity.load(named: "proxy-chair.usda", in: .main)
+                    guard Self.modelEntityCount(in: loaded) == 6 else {
+                        replacementTemplate = nil
+                        replacementAssetState = .unavailable(.realityKitLoadFailed)
+                        return
+                    }
+                    replacementTemplate = loaded
+                    replacementAssetState = .available
+                } catch {
+                    replacementTemplate = nil
+                    replacementAssetState = .unavailable(.realityKitLoadFailed)
+                }
+            }
+        }
+
+        func publishReplacementAssetStateOnce() {
+            guard !didPublishReplacementAssetState else { return }
+            didPublishReplacementAssetState = true
+            replacementAssetStateChanged(replacementAssetState)
         }
 
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
@@ -427,23 +522,40 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
                 return
             }
             guard let arView = view as? ARView else { return }
-            proxyAnchor?.removeFromParent()
-            proxyAnchor = nil
-            guard let proxy = snapshot.targetProxy else { return }
+            targetAnchor?.removeFromParent()
+            replacementAnchor?.removeFromParent()
+            targetAnchor = nil
+            replacementAnchor = nil
 
-            let anchor = AnchorEntity(world: Self.matrix(proxy.worldFromProxy))
-            let mesh = MeshResource.generateBox(width: 0.72, height: 0.82, depth: 0.72)
-            let color: UIColor = proxy.kind == .committedPlace ? .systemGreen : .systemTeal
-            let material = SimpleMaterial(
-                color: color.withAlphaComponent(0.42),
-                roughness: 0.8,
-                isMetallic: false
-            )
-            let entity = ModelEntity(mesh: mesh, materials: [material])
-            entity.position.y = 0.41
-            anchor.addChild(entity)
-            arView.scene.addAnchor(anchor)
-            proxyAnchor = anchor
+            if let target = snapshot.targetProxy {
+                let anchor = AnchorEntity(world: Self.matrix(target.worldFromProxy))
+                let mesh = MeshResource.generateBox(width: 0.72, height: 0.82, depth: 0.72)
+                let material = SimpleMaterial(
+                    color: UIColor.systemTeal.withAlphaComponent(0.28),
+                    roughness: 0.8,
+                    isMetallic: false
+                )
+                let coverage = ModelEntity(mesh: mesh, materials: [material])
+                coverage.position.y = 0.41
+                anchor.addChild(coverage)
+                arView.scene.addAnchor(anchor)
+                targetAnchor = anchor
+            }
+
+            if let replacement = snapshot.replacementProxy,
+               let replacementTemplate {
+                let anchor = AnchorEntity(world: Self.matrix(replacement.worldFromProxy))
+                anchor.addChild(replacementTemplate.clone(recursive: true))
+                arView.scene.addAnchor(anchor)
+                replacementAnchor = anchor
+            }
+        }
+
+        private static func modelEntityCount(in entity: Entity) -> Int {
+            let ownCount = entity is ModelEntity ? 1 : 0
+            return ownCount + entity.children.reduce(0) { partial, child in
+                partial + modelEntityCount(in: child)
+            }
         }
 
         private static func matrix(_ value: Matrix4) -> simd_float4x4 {
@@ -462,18 +574,28 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
 @MainActor
 private final class RoomEditFixtureRenderView: UIView {
     private let statusLabel = UILabel()
-    private let proxyView = UIView()
+    private let targetCoverageView = UIView()
+    private let replacementView = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         backgroundColor = UIColor(red: 0.07, green: 0.1, blue: 0.14, alpha: 1)
-        proxyView.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.4)
-        proxyView.layer.cornerRadius = 12
+        targetCoverageView.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.28)
+        targetCoverageView.layer.cornerRadius = 12
+        targetCoverageView.isAccessibilityElement = true
+        targetCoverageView.accessibilityLabel = "Frozen target coverage"
+        targetCoverageView.accessibilityIdentifier = "roomedit.render.target.coverage"
+        replacementView.backgroundColor = UIColor.systemGreen.withAlphaComponent(0.72)
+        replacementView.layer.cornerRadius = 10
+        replacementView.isAccessibilityElement = true
+        replacementView.accessibilityLabel = "Exact bundled replacement"
+        replacementView.accessibilityIdentifier = "roomedit.render.replacement"
         statusLabel.textColor = .white
         statusLabel.font = .preferredFont(forTextStyle: .caption1)
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
-        addSubview(proxyView)
+        addSubview(targetCoverageView)
+        addSubview(replacementView)
         addSubview(statusLabel)
     }
 
@@ -483,17 +605,24 @@ private final class RoomEditFixtureRenderView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        proxyView.frame = CGRect(
+        targetCoverageView.frame = CGRect(
             x: bounds.midX - 52,
             y: bounds.midY - 54,
             width: 104,
             height: 108
         )
+        replacementView.frame = CGRect(
+            x: bounds.midX - 34,
+            y: bounds.midY - 46,
+            width: 68,
+            height: 92
+        )
         statusLabel.frame = CGRect(x: 16, y: 14, width: bounds.width - 32, height: 42)
     }
 
     func apply(_ snapshot: RoomEditRenderSnapshot, scenario: RoomEditTargetFixtureScenario?) {
-        proxyView.isHidden = snapshot.targetProxy == nil
+        targetCoverageView.isHidden = snapshot.targetProxy == nil
+        replacementView.isHidden = snapshot.replacementProxy == nil
         statusLabel.text = "Deterministic \((scenario ?? .healthy).rawValue) fixture"
     }
 }
@@ -576,7 +705,12 @@ private struct RoomEditStatePanel: View {
 
             if let preview = snapshot.preview {
                 VStack(alignment: .leading, spacing: 8) {
-                    Label("Provisional Phase 3 proxy", systemImage: "cube.transparent")
+                    Label(
+                        snapshot.selectedOperation == .replace
+                            ? "Replacement local demo preview"
+                            : "Provisional Phase 3 proxy",
+                        systemImage: "cube.transparent"
+                    )
                         .font(.title3.weight(.semibold))
                     Text(preview.proxyID)
                         .font(.caption.monospaced())
@@ -591,10 +725,19 @@ private struct RoomEditStatePanel: View {
                 .background(.orange.opacity(0.16))
                 .clipShape(.rect(cornerRadius: 14))
                 .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("roomedit.preview.proxy")
+                .accessibilityIdentifier(
+                    snapshot.selectedOperation == .replace
+                        ? "roomedit.preview.replacement"
+                        : "roomedit.preview.proxy"
+                )
             }
 
-            if snapshot.placedAssetVisible {
+            if snapshot.replacementAssetVisible {
+                Label("Exact bundled replacement is committed locally", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("roomedit.asset.replacement.committed")
+            } else if snapshot.placedAssetVisible {
                 Label("Committed proxy is active in local scene state", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
                     .fixedSize(horizontal: false, vertical: true)
@@ -665,7 +808,8 @@ private struct RoomEditActionTray: View {
     let model: RoomEditModel
 
     var body: some View {
-        if snapshot.preview != nil {
+        VStack(spacing: 10) {
+            if snapshot.preview != nil {
             HStack(spacing: 12) {
                 Button("Cancel") {
                     Task { await model.cancelPreview() }
@@ -674,13 +818,34 @@ private struct RoomEditActionTray: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityIdentifier("roomedit.action.cancel")
 
-                Button("Confirm placement") {
-                    Task { await model.confirmPlacementFromButton() }
+                Button(snapshot.selectedOperation == .replace ? "Confirm replacement" : "Confirm placement") {
+                    Task {
+                        if snapshot.selectedOperation == .replace {
+                            await model.confirmReplacementFromButton()
+                        } else {
+                            await model.confirmPlacementFromButton()
+                        }
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .disabled(!snapshot.canConfirm)
-                .accessibilityIdentifier("roomedit.action.confirm")
+                .accessibilityIdentifier(
+                    snapshot.selectedOperation == .replace
+                        ? "roomedit.action.confirm.replace"
+                        : "roomedit.action.confirm"
+                )
+            }
+            }
+
+            if snapshot.canRetryReplacement {
+                Button("Retry identical replacement") {
+                    Task { await model.retryReplacementFromButton() }
+                }
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityHint("Reuses the same idempotency key and cannot create another revision")
+                .accessibilityIdentifier("roomedit.action.retry.replace")
             }
         }
     }
