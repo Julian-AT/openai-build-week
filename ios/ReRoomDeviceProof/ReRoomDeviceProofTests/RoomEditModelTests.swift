@@ -360,6 +360,110 @@ struct RoomEditModelTests {
         #expect(await harness.authority.activeSnapshot() == before)
     }
 
+    @Test("remove is normal-unavailable and only exact compiled demo bytes open the degraded fixture")
+    func removeLaunchIsolationAndFixtureDecodingAreClosed() async throws {
+        let normal = try TestRoomEditHarness(
+            support: .healthyFixture,
+            removeLaunchMode: .normal
+        )
+        await normal.model.prepare()
+        await normal.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await normal.model.selectOperation(.remove)
+        #expect(normal.model.snapshot.blocker == .removeDeferred)
+        #expect(normal.model.snapshot.target.readiness.remove == .unavailable)
+        #expect(normal.model.snapshot.target.reasons.remove == [.revealQualityFailed])
+        #expect(normal.model.snapshot.removeDemo == nil)
+
+        for bytes in [Data(), Data("corrupt".utf8)] {
+            let invalid = try TestRoomEditHarness(
+                support: .healthyFixture,
+                removeLaunchMode: .degradedDemoFixture,
+                removeFixtureBytesProvider: { bytes }
+            )
+            await invalid.model.prepare()
+            await invalid.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+            await invalid.model.selectOperation(.remove)
+            #expect(invalid.model.snapshot.blocker == .removeFixtureUnavailable)
+            #expect(invalid.model.snapshot.removeDemo == nil)
+            #expect((await invalid.authority.activeSnapshot()).transactions.isEmpty)
+        }
+
+        let fixture = try RoomEditDemoRevealFixture.decodeExact(
+            bytes: RoomEditDemoRevealFixture.compiledBytes
+        )
+        #expect(fixture.classification == "degraded_demo_fixture")
+        #expect(fixture.envelopeID.hasPrefix("envelope_"))
+        #expect(fixture.surfaces.map(\.surfaceID) == [
+            "surface_63000000-0000-4000-8000-000000000041",
+            "surface_63000000-0000-4000-8000-000000000042",
+        ])
+        #expect(fixture.surfaces.count == 2)
+        #expect(fixture.assumptionStatus == "HYPOTHESIS")
+        #expect(fixture.gate006Status == "PENDING")
+    }
+
+    @Test("degraded remove preview confirm retry restart and restore stay exact")
+    func removeDemoJourneyIsBoundedAndExactlyOnce() async throws {
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            removeLaunchMode: .degradedDemoFixture
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await harness.model.selectOperation(.remove)
+
+        #expect(harness.model.snapshot.revision == 0)
+        #expect(harness.model.snapshot.canConfirm)
+        #expect(harness.model.snapshot.removeDemo?.classification == "degraded_demo_fixture")
+        #expect(harness.model.snapshot.render.revealProxySurfaces.count == 2)
+        #expect(harness.model.snapshot.render.targetProxy == nil)
+
+        await harness.model.confirmRemovalFromButton()
+        #expect(harness.model.snapshot.revision == 1)
+        #expect(harness.model.snapshot.canRetryRemove)
+        #expect(harness.model.snapshot.render.revealProxySurfaces.count == 2)
+        await harness.model.retryRemovalFromButton()
+        #expect(harness.model.snapshot.revision == 1)
+        #expect((await harness.authority.activeSnapshot()).transactions.count == 1)
+
+        let restarted = try harness.restarted(
+            support: .healthyFixture,
+            removeLaunchMode: .degradedDemoFixture
+        )
+        await restarted.model.prepare()
+        #expect(restarted.model.snapshot.revision == 1)
+        #expect(restarted.model.snapshot.render.revealProxySurfaces.count == 2)
+        await restarted.model.restoreFromButton()
+        #expect(restarted.model.snapshot.revision == 2)
+        #expect(restarted.model.snapshot.render.revealProxySurfaces.isEmpty)
+        #expect((await restarted.authority.activeSnapshot()).transactions.count == 2)
+    }
+
+    @Test("remove fixture pose, tracking, and world invalidation retain the safe original")
+    func removeDemoInvalidationFailsClosed() async throws {
+        let supportProbe = RoomEditSupportProbe(.outOfViewFixture)
+        let harness = try TestRoomEditHarness(
+            support: nil,
+            supportProvider: { _ in await supportProbe.value() },
+            removeLaunchMode: .degradedDemoFixture
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await harness.model.selectOperation(.remove)
+        #expect(harness.model.snapshot.blocker == .removeViewUnsupported)
+        #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
+        #expect(harness.model.snapshot.render.revealProxySurfaces.isEmpty)
+
+        await supportProbe.set(.healthyFixture)
+        await harness.model.selectOperation(.remove)
+        #expect(harness.model.snapshot.render.revealProxySurfaces.count == 2)
+        await harness.model.updateTargetTracking(.limited)
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
+        #expect(harness.model.snapshot.render.revealProxySurfaces.isEmpty)
+        #expect((await harness.authority.activeSnapshot()).scene.sceneRevision == 0)
+    }
+
     @Test("omitting a supported-view policy fails closed instead of authorizing replace")
     func omittedReplacementPolicyCannotMutate() async throws {
         let harness = try TestRoomEditHarness(
@@ -598,7 +702,11 @@ private struct TestRoomEditHarness {
         targetSession: (any RoomEditTargetSession)? = nil,
         preloadedCandidate: TransactionGenerationCandidate? = nil,
         replacementAssetState: RoomEditReplacementAssetState = .available,
-        replacementSupportedViewPolicy: RoomEditSupportedViewPolicy? = .fixtureDemoHypothesis
+        replacementSupportedViewPolicy: RoomEditSupportedViewPolicy? = .fixtureDemoHypothesis,
+        removeLaunchMode: RoomEditRemoveLaunchMode = .normal,
+        removeFixtureBytesProvider: @escaping RoomEditRemoveFixtureBytesProvider = {
+            RoomEditDemoRevealFixture.compiledBytes
+        }
     ) throws {
         let fileSystem = RoomEditMemoryFileSystem()
         let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
@@ -624,7 +732,9 @@ private struct TestRoomEditHarness {
                 supportProvider: supportProvider ?? { _ in support },
                 targetSession: targetSession,
                 replacementAssetState: replacementAssetState,
-                replacementSupportedViewPolicy: replacementSupportedViewPolicy
+                replacementSupportedViewPolicy: replacementSupportedViewPolicy,
+                removeLaunchMode: removeLaunchMode,
+                removeFixtureBytesProvider: removeFixtureBytesProvider
             )
         } else {
             self.model = RoomEditModel(
@@ -632,13 +742,18 @@ private struct TestRoomEditHarness {
                 manifest: manifest,
                 supportProvider: supportProvider ?? { _ in support },
                 targetSession: targetSession,
-                replacementAssetState: replacementAssetState
+                replacementAssetState: replacementAssetState,
+                removeLaunchMode: removeLaunchMode,
+                removeFixtureBytesProvider: removeFixtureBytesProvider
             )
         }
     }
 
     @MainActor
-    func restarted(support: RoomEditSupportContext?) throws -> (
+    func restarted(
+        support: RoomEditSupportContext?,
+        removeLaunchMode: RoomEditRemoveLaunchMode = .normal
+    ) throws -> (
         model: RoomEditModel,
         authority: NativeBranchAuthority
     ) {
@@ -655,7 +770,8 @@ private struct TestRoomEditHarness {
                 authority: recoveredAuthority,
                 manifest: manifest,
                 supportProvider: { _ in support },
-                replacementSupportedViewPolicy: .fixtureDemoHypothesis
+                replacementSupportedViewPolicy: .fixtureDemoHypothesis,
+                removeLaunchMode: removeLaunchMode
             ),
             authority: recoveredAuthority
         )
