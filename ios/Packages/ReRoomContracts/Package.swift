@@ -10,7 +10,11 @@ let package = Package(
     ],
     products: [
         .library(name: "ReRoomContracts", targets: ["ReRoomContracts"]),
-        .library(name: "ReRoomCaptureCore", targets: ["ReRoomCaptureCore"]),
+        .library(
+            name: "ReRoomCaptureCore",
+            type: .static,
+            targets: ["ReRoomCaptureCore"]
+        ),
         .executable(name: "ReRoomContractRunner", targets: ["ReRoomContractRunner"]),
         .executable(name: "ReRoomReplayRunner", targets: ["ReRoomReplayRunner"]),
     ],
