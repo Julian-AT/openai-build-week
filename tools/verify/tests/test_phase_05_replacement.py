@@ -40,7 +40,11 @@ class PhaseFiveReplacementContract(unittest.TestCase):
         ]
 
     def valid_bindings(self) -> dict[str, str]:
-        return self.module._source_bindings(REPO_ROOT)
+        bindings = self.module._source_bindings(REPO_ROOT)
+        # This fixture represents the immutable Phase 5 report, even after a
+        # compatible later phase extends shared product files.
+        bindings.update(self.module.BOUND_PRODUCT_DIGESTS)
+        return bindings
 
     def valid_report(self) -> dict:
         return self.module._evidence_template(
