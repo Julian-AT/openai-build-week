@@ -235,6 +235,7 @@ public actor CaptureArchiveStore {
                 timestamp: descriptor.startedAtMonotonicNanoseconds,
                 details: ["consent_granted": true]
             )
+            try persistOpenManifest()
             sessionState = .active
             return descriptor
         } catch {
@@ -282,6 +283,7 @@ public actor CaptureArchiveStore {
             )
             lifecycleByFrameID[candidate.frameID] = .selected
             selectedReasonByFrameID[candidate.frameID] = candidate.selectedReason
+            try persistOpenManifest()
             observeLifecycle(candidate: candidate, state: .selected)
 
             try publishFrameGeneration(
@@ -296,6 +298,7 @@ public actor CaptureArchiveStore {
                 timestamp: candidate.monotonicTimestampNanoseconds,
                 details: frameDetails(candidate)
             )
+            try persistOpenManifest()
             observeLifecycle(candidate: candidate, state: .imageAndMetadataDurable)
 
             try appendJournalEntry(
@@ -307,33 +310,7 @@ public actor CaptureArchiveStore {
                     contentSHA256: encoded.packetSHA256
                 )
             )
-            lifecycleByFrameID[candidate.frameID] = try lifecycleByFrameID[candidate.frameID]!
-                .advanced(to: .journaled)
-            _ = try persistEvent(
-                type: CaptureFrameLifecycleEvent.journaled.rawValue,
-                timestamp: candidate.monotonicTimestampNanoseconds,
-                details: frameDetails(candidate)
-            )
-            observeLifecycle(candidate: candidate, state: .journaled)
-            lifecycleByFrameID[candidate.frameID] = try lifecycleByFrameID[candidate.frameID]!
-                .advanced(to: .networkEligible)
-            _ = try persistEvent(
-                type: CaptureFrameLifecycleEvent.networkEligible.rawValue,
-                timestamp: candidate.monotonicTimestampNanoseconds,
-                details: frameDetails(candidate)
-            )
-
             let acceptedSequence = UInt64(acceptedFrames.count)
-            let receipt = try NetworkEligibleReceipt(
-                sessionID: descriptor.sessionID,
-                frameID: candidate.frameID,
-                idempotencyKey: candidate.idempotencyKey,
-                packetRelativePath: candidate.packetRelativePath,
-                packetSHA256: encoded.packetSHA256,
-                imageSHA256: encoded.imageSHA256,
-                acceptedSequence: acceptedSequence,
-                durableJournalSequence: frameJournalSequence
-            )
             acceptedFrames.append(
                 CaptureAcceptedFrame(
                     sequence: acceptedSequence,
@@ -344,7 +321,35 @@ public actor CaptureArchiveStore {
                     serverAcknowledged: false
                 )
             )
+            lifecycleByFrameID[candidate.frameID] = try lifecycleByFrameID[candidate.frameID]!
+                .advanced(to: .journaled)
+            _ = try persistEvent(
+                type: CaptureFrameLifecycleEvent.journaled.rawValue,
+                timestamp: candidate.monotonicTimestampNanoseconds,
+                details: frameDetails(candidate)
+            )
+            try persistOpenManifest()
+            observeLifecycle(candidate: candidate, state: .journaled)
+            lifecycleByFrameID[candidate.frameID] = try lifecycleByFrameID[candidate.frameID]!
+                .advanced(to: .networkEligible)
+            _ = try persistEvent(
+                type: CaptureFrameLifecycleEvent.networkEligible.rawValue,
+                timestamp: candidate.monotonicTimestampNanoseconds,
+                details: frameDetails(candidate)
+            )
+
+            let receipt = try NetworkEligibleReceipt(
+                sessionID: descriptor.sessionID,
+                frameID: candidate.frameID,
+                idempotencyKey: candidate.idempotencyKey,
+                packetRelativePath: candidate.packetRelativePath,
+                packetSHA256: encoded.packetSHA256,
+                imageSHA256: encoded.imageSHA256,
+                acceptedSequence: acceptedSequence,
+                durableJournalSequence: frameJournalSequence
+            )
             receipts.append(receipt)
+            try persistOpenManifest()
             observeLifecycle(candidate: candidate, state: .networkEligible)
             lastMonotonicTimestampNanoseconds = candidate.monotonicTimestampNanoseconds
             return receipt
@@ -392,6 +397,7 @@ public actor CaptureArchiveStore {
             lifecycleByFrameID[receipt.frameID] = try lifecycleByFrameID[receipt.frameID]!
                 .advanced(to: .serverAcknowledged)
             acceptedFrames[receiptIndex].serverAcknowledged = true
+            try persistOpenManifest()
             lifecycleObserver(
                 CaptureLifecycleObservation(
                     sessionID: receipt.sessionID,
@@ -431,7 +437,7 @@ public actor CaptureArchiveStore {
                     "finalization_state": CaptureFinalizationState.finalized.rawValue,
                 ]
             )
-            let completeManifest = try buildFinalizedManifest()
+            let completeManifest = try buildManifest(state: .finalized)
             guard encoder.validator.validate(
                 ContractValidationRequest(
                     schemaID: ContractSchemaIdentifier.rrcapManifest.rawValue,
@@ -635,7 +641,28 @@ private extension CaptureArchiveStore {
         journalEntries.append(entry)
     }
 
-    func buildFinalizedManifest() throws -> (data: Data, sha256: String) {
+    func persistOpenManifest() throws {
+        let openManifest = try buildManifest(state: .open)
+        guard encoder.validator.validate(
+            ContractValidationRequest(
+                schemaID: ContractSchemaIdentifier.rrcapManifest.rawValue,
+                schemaVersion: "1.0.0",
+                schemaSHA256: Self.manifestSchemaSHA256,
+                documentData: openManifest.data
+            )
+        ) == .accepted else {
+            throw CaptureArchiveError.contractRejected
+        }
+        let manifestPath = archivePath("manifest.json")
+        try fileSystem.replace(openManifest.data, at: manifestPath)
+        try fileSystem.synchronizeFile(at: manifestPath)
+        try fileSystem.synchronizeDirectory(at: descriptor.archivePath)
+        manifestData = openManifest.data
+    }
+
+    func buildManifest(
+        state: CaptureFinalizationState
+    ) throws -> (data: Data, sha256: String) {
         let tuples: [[Any]] = journalEntries.map {
             [$0.journalSequence, $0.entryType, $0.referenceID, $0.contentSHA256]
         }
@@ -684,7 +711,7 @@ private extension CaptureArchiveStore {
                 "share_access_state": "not_shared",
             ],
             "finalization": [
-                "state": CaptureFinalizationState.finalized.rawValue,
+                "state": state.rawValue,
                 "manifest_sha256_algorithm": "RR-JCS-SHA256-1",
                 "manifest_sha256_scope": Self.manifestDigestScope,
                 "last_durable_journal_sequence": journalEntries.count - 1,

@@ -221,12 +221,10 @@ public enum CaptureRecovery {
             accepted += 1
         }
 
-        if invalidOffset == nil, accepted < expected.count {
+        if invalidOffset == nil {
             invalidOffset = data.count
         }
-        guard let offset = invalidOffset else {
-            throw CaptureRecoveryError.invalidManifest
-        }
+        guard let offset = invalidOffset else { throw CaptureRecoveryError.invalidManifest }
         let suffix = data.subdata(in: offset..<data.count)
         return RecoveryJournalScan(
             acceptedCount: accepted,
