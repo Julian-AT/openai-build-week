@@ -1,4 +1,5 @@
 import Foundation
+import os
 import ReRoomContracts
 import ReRoomCaptureCore
 import Testing
@@ -7,6 +8,33 @@ import Testing
 
 @Suite("Capture session adapter")
 struct CaptureSessionAdapterTests {
+    @Test("armed termination matches one exact user-event lifecycle boundary only")
+    func gateTerminationIsExactAndOneShot() {
+        let terminationCount = OSAllocatedUnfairLock(initialState: 0)
+        let controller = Gate001TerminationController {
+            terminationCount.withLock { $0 += 1 }
+        }
+        controller.arm(.journaled)
+
+        controller.observe(
+            lifecycleObservation(reason: .cadence, state: .journaled)
+        )
+        controller.observe(
+            lifecycleObservation(reason: .userEvent, state: .selected)
+        )
+        #expect(terminationCount.withLock { $0 } == 0)
+        #expect(controller.armedState == .journaled)
+
+        controller.observe(
+            lifecycleObservation(reason: .userEvent, state: .journaled)
+        )
+        controller.observe(
+            lifecycleObservation(reason: .userEvent, state: .journaled)
+        )
+        #expect(terminationCount.withLock { $0 } == 1)
+        #expect(controller.armedState == nil)
+    }
+
     @MainActor
     @Test("denial writes nothing and each acceptance authorizes a fresh local-only session")
     func consentBoundaryAndFreshSessions() async throws {
@@ -476,6 +504,18 @@ struct CaptureSessionAdapterTests {
             imageBytes: onePixelPNG,
             selectedReason: .cadence,
             idempotencyKey: TestCaptureIDs.idempotency(ordinal)
+        )
+    }
+
+    private func lifecycleObservation(
+        reason: SelectedFrameReason,
+        state: CaptureFrameState
+    ) -> CaptureLifecycleObservation {
+        CaptureLifecycleObservation(
+            sessionID: TestCaptureIDs.session(1),
+            frameID: TestCaptureIDs.frame(1),
+            selectedReason: reason,
+            state: state
         )
     }
 
