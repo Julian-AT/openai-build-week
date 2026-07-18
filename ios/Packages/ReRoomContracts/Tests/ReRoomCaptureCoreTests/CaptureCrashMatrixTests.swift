@@ -117,6 +117,63 @@ struct CaptureCrashMatrixTests {
         #expect(result.recovered?.finalization.eventCount == testCase.eventCount)
     }
 
+    @Test("journaled recovery accepts the live JPEG capture profile")
+    private func journaledRecoveryAcceptsJPEG() async throws {
+        let sessionOrdinal = 206
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("reroom-lifecycle-recovery-tests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let sourceURL = root
+            .appendingPathComponent("archives", isDirectory: true)
+            .appendingPathComponent("\(CrashIDs.session(sessionOrdinal)).rrcap")
+        let probe = LifecycleRecoveryProbe(target: .journaled, sourceURL: sourceURL)
+        let faults = CaptureOperationFaultController()
+        let fileSystem = try FoundationCaptureFileSystem(
+            root: root,
+            observe: faults.observeBefore,
+            afterOperation: faults.observeAfter
+        )
+        let jpegProfile = try FramePacketEncodingProfile(
+            codec: "jpeg",
+            width: 1,
+            height: 1,
+            colorSpace: "srgb",
+            imageRange: "full",
+            cropInSensorPixels: [0, 0, 1, 1],
+            intrinsicsEncodedPixels: [1, 1, 0.5, 0.5],
+            encodedFromSensor: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+            worldFromCamera: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+            trackingState: "normal",
+            trackingReason: "none",
+            motionScore: 0,
+            blurScore: 1,
+            exposureScore: 1
+        )
+        let fixture = try CrashMatrixFixture(
+            sessionOrdinal: sessionOrdinal,
+            fileSystem: fileSystem,
+            faults: faults,
+            root: root,
+            lifecycleObserver: probe.observe,
+            encodingProfile: jpegProfile,
+            imageFileExtension: "jpg",
+            imageBytes: Data([0xff, 0xd8, 0xff, 0xd9])
+        )
+        defer { fixture.remove() }
+
+        _ = try await fixture.store.startSession(authorization: fixture.authorization)
+        _ = try await fixture.store.publishSelectedFrame(fixture.candidate(ordinal: 1))
+
+        let result = probe.snapshot()
+        #expect(result.didObserve)
+        #expect(result.failure == nil)
+        #expect(result.recovered?.finalization.state == .recoveredPrefix)
+        #expect(result.recovered?.acceptedJournalRecordCount == 5)
+        #expect(result.recovered?.finalization.acceptedFrameCount == 1)
+        #expect(result.recovered?.finalization.eventCount == 4)
+    }
+
     @Test("concurrent publishers receive unique monotonic actor-owned sequences")
     func concurrentPublishersAreSerializedByTheWriter() async throws {
         let fixture = try CrashMatrixFixture(sessionOrdinal: 80)
@@ -522,6 +579,8 @@ private struct CrashMatrixFixture: Sendable {
     let descriptor: CaptureSessionDescriptor
     let authorization: CaptureSessionAuthorization
     let store: CaptureArchiveStore
+    let imageFileExtension: String
+    let imageBytes: Data
 
     init(sessionOrdinal: Int) throws {
         let root = FileManager.default.temporaryDirectory
@@ -547,11 +606,16 @@ private struct CrashMatrixFixture: Sendable {
         fileSystem: any CaptureFileSystem,
         faults: CaptureOperationFaultController,
         root: URL? = nil,
-        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in }
+        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in },
+        encodingProfile: FramePacketEncodingProfile = .syntheticOnePixelPNG,
+        imageFileExtension: String = "png",
+        imageBytes: Data = CrashImages.onePixelPNG
     ) throws {
         self.root = root
         self.fileSystem = fileSystem
         self.faults = faults
+        self.imageFileExtension = imageFileExtension
+        self.imageBytes = imageBytes
         validator = try CrashSchemas.validator()
         descriptor = try CaptureSessionDescriptor(
             sessionID: CrashIDs.session(sessionOrdinal),
@@ -565,7 +629,7 @@ private struct CrashMatrixFixture: Sendable {
         )
         let encoder = FramePacketEncoder(
             validator: validator,
-            profile: .syntheticOnePixelPNG
+            profile: encodingProfile
         )
         store = CaptureArchiveStore(
             fileSystem: fileSystem,
@@ -593,9 +657,9 @@ private struct CrashMatrixFixture: Sendable {
             worldFrameVersion: 1,
             captureSequence: UInt64(ordinal - 1),
             monotonicTimestampNanoseconds: String(4_000_000_000 + ordinal),
-            imageRelativePath: "frames/\(frameID)/image.png",
+            imageRelativePath: "frames/\(frameID)/image.\(imageFileExtension)",
             packetRelativePath: "frames/\(frameID)/packet.json",
-            imageBytes: CrashImages.onePixelPNG,
+            imageBytes: imageBytes,
             selectedReason: .userEvent,
             idempotencyKey: idempotencyKey ?? CrashIDs.idempotency(ordinal)
         )
