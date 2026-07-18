@@ -7,6 +7,12 @@
 <decisions>
 ## Locked Decisions
 
+- **D-01 — Product slice:** Deliver one separate, fixed-golden-capture recorded B0 replay with persistent provider-independent/local-fixture/GATE-pending copy and honest absent scene/transaction inspection.
+- **D-02 — Verification and data flow:** Reuse the exact Phase 2 Node replay before projecting any serializable client DTO; fail closed with no partial trusted data.
+- **D-03 — Scope and degradation:** Keep this sprint local and memory-only with upload, sessions, sharing, auth, cloud, ordinary video, typed forks, providers, and deployment unavailable/deferred.
+- **D-04 — Evidence:** Automate the small slice but claim browser smoke only after a real browser run, keep the full matrix deferred, and leave FR-WEB-001, SEC-RETENTION-001, and GATE-008 pending.
+- **D-05 — Agent discretion:** Choose the smallest plain Next/React/CSS structure, DTO, cleanup, and test seams that preserve every locked boundary without speculative dependencies.
+
 ### Product slice
 - Build the smallest separate Next.js Mode B0 experience over one immutable, hash-bound repository golden `.rrcap`; it verifies, replays, scrubs, and inspects the recorded capture with every learned provider disabled.
 - This sprint slice is a recorded fallback/debugging experience, not Mode A in a browser. Persistently label it `MODE B0 — RECORDED REPLAY`, `PROVIDER-INDEPENDENT`, `LOCAL DEMO FIXTURE`, and `GATE-008 PENDING` or equivalently unambiguous copy.

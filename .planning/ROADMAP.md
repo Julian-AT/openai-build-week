@@ -280,8 +280,14 @@ Plans:
   3. Ordinary video provides deterministic decode/timeline replay and processing state without fabricating ARKit calibration, scale, pose, planes, trajectory, or geometry.
   4. Local-only is the default; server TTL and share state are explicit; deletion invalidates shares and queues source/derived deletion; audit logs retain stable IDs rather than room imagery.
 
-**Plans**: TBD
+**Plans**: 3 plans
 **UI hint**: yes
+
+Plans:
+
+- [ ] 07-01-PLAN.md — Scaffold the exact web package and expose a fail-closed verified replay DTO through the existing Phase 2 runner.
+- [ ] 07-02-PLAN.md — Deliver the honest local recorded-replay scrubber and inspection/degradation interface.
+- [ ] 07-03-PLAN.md — Publish independently verified automated and local-HTTP evidence while every full web/retention gate remains pending.
 
 ### Phase 8: P0 Hardening and Evidence
 

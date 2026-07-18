@@ -100,6 +100,18 @@ Pin exact versions; do not use floating `latest` during the sprint.
 
 Package-name legitimacy checks found the official repositories, very high weekly use, no deprecation, and no postinstall scripts. The checker marked the unversioned current `next`, `typescript`, and `@types/node` names `SUS` only for recent latest-package publication; the selected Next 16.2.9 and TypeScript 6.0.2 pins predate that threshold and were independently verified through npm metadata. [VERIFIED: GSD package-legitimacy output and npm registry metadata]
 
+## Package Legitimacy Audit
+
+| Exact package | Verdict | Registry/repository evidence | Install decision |
+|---|---|---|---|
+| `next@16.2.9` | `OK (exact pin)` | MIT, official `vercel/next.js`, Node `>=20.9.0`, published 2026-06-09, no postinstall. The name-level checker warning referred to the newer latest release, not this pin. [VERIFIED: npm metadata] | Allowed. |
+| `react@19.2.7` | `OK` | MIT, official `facebook/react`, published 2026-06-01, no postinstall. [VERIFIED: npm metadata and legitimacy check] | Allowed. |
+| `react-dom@19.2.7` | `OK` | MIT, official `facebook/react`, exact peer `react ^19.2.7`, published 2026-06-01, no postinstall. [VERIFIED: npm metadata and legitimacy check] | Allowed. |
+| `typescript@6.0.2` | `OK (exact pin)` | Apache-2.0, official `microsoft/TypeScript`, Node `>=14.17`, published 2026-03-23, no postinstall. The name-level checker warning referred to the newer latest release. [VERIFIED: npm metadata] | Allowed as development-only compiler. |
+| `@types/node@22.19.7` | `OK (exact pin)` | MIT, official DefinitelyTyped repository, exact Node-22 line published 2026-01-15, no postinstall. The name-level checker warning referred to the newer latest major. [VERIFIED: npm metadata] | Allowed as development-only types. |
+| `@types/react@19.2.17` | `OK` | MIT, official DefinitelyTyped repository, published 2026-06-05, no postinstall. [VERIFIED: npm metadata and legitimacy check] | Allowed as development-only types. |
+| `@types/react-dom@19.2.3` | `OK` | MIT, official DefinitelyTyped repository, published 2025-11-12, no postinstall. [VERIFIED: npm metadata and legitimacy check] | Allowed as development-only types. |
+
 Do not add Tailwind, shadcn, Three.js, Zustand, archive/upload packages, a database, Playwright, or cloud SDKs. Plain CSS, React state, Node filesystem/crypto/temp APIs, and the existing verifier cover this slice. [VERIFIED: approved scope; engineering inference]
 
 ## Recommended Project Shape
