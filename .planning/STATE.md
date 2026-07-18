@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 04
 current_phase_name: Target Grounding and Compositor Gate
-status: executing
-stopped_at: Completed 04-03-PLAN.md; physical compositor and formal Phase 4 gates remain pending
-last_updated: "2026-07-18T17:18:37.569Z"
+status: verifying
+stopped_at: Completed 04-04-PLAN.md; formal Phase 4 physical/provider/runtime gates remain pending
+last_updated: "2026-07-18T17:33:56.760Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 04 execution started
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 33
-  completed_plans: 32
+  completed_plans: 33
 ---
 
 # Project State
@@ -28,15 +28,15 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 ## Current Position
 
-Phase: 04 (Target Grounding and Compositor Gate) — EXECUTING
+Phase: 04 (Target Grounding and Compositor Gate) — VERIFYING
 
 Plan: 4 of 4
 
-Status: Ready to execute
+Status: Phase complete — ready for verification
 
 Last activity: 2026-07-18 — Phase 04 execution started
 
-Progress: [████████████████████] 21/21 planned tasks ([██████████] 97%)
+Progress: [████████████████████] 21/21 planned tasks ([██████████] 100%)
 
 ## Performance Metrics
 
@@ -91,6 +91,7 @@ Progress: [████████████████████] 21/21 p
 | Phase 04 P01 | 8min | 1 tasks | 2 files |
 | Phase 04 P02 | 9min | 2 tasks | 2 files |
 | Phase 04 P03 | 22min | 2 tasks | 4 files |
+| Phase 04 P04 | 18min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -154,6 +155,7 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 04]: Retain one live ARView/session/controller/device-proof/model graph; deterministic fixture graphs request no AR tracking.
 - [Phase 04]: Keep compositor order exactly camera, reveal, occluder, asset/proxy, debug, SwiftUI; reveal and occluder remain explicitly unavailable.
 - [Phase 04]: Expose only immutable render snapshots to SwiftUI and synchronize RealityKit entities by snapshot differences.
+- [Phase 04]: Automated evidence is bound to product commit 4d268ba and keeps GATE-003/004/005/007/012 PENDING.
 
 ### Pending Todos
 
@@ -184,9 +186,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T17:18:37.563Z
+Last session: 2026-07-18T17:33:56.755Z
 
-Stopped at: Completed 04-03-PLAN.md; physical compositor and formal Phase 4 gates remain pending
+Stopped at: Completed 04-04-PLAN.md; formal Phase 4 physical/provider/runtime gates remain pending
 
 Resume file: None
 
