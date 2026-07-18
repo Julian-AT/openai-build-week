@@ -79,12 +79,12 @@ FALLBACKS = {
     "runtime": "local demo only",
 }
 COMPOSITOR_DESCRIPTOR = (
-    {"layer_id": "camera", "availability": "available", "reason": "live camera background"},
-    {"layer_id": "reveal", "availability": "unavailable", "reason": "reveal artifact missing"},
-    {"layer_id": "occluder", "availability": "unavailable", "reason": "occluder artifact missing"},
-    {"layer_id": "asset/proxy", "availability": "available", "reason": "local conservative proxy"},
-    {"layer_id": "debug", "availability": "available", "reason": "local debug overlay"},
-    {"layer_id": "SwiftUI", "availability": "available", "reason": "native control overlay"},
+    {"layer_id": "camera", "availability": "available", "reason": "live_camera"},
+    {"layer_id": "reveal", "availability": "unavailable", "reason": "reveal_artifact_missing"},
+    {"layer_id": "occluder", "availability": "unavailable", "reason": "occluder_artifact_missing"},
+    {"layer_id": "asset/proxy", "availability": "available", "reason": "local_renderer"},
+    {"layer_id": "debug", "availability": "unavailable", "reason": "debug_overlay_disabled"},
+    {"layer_id": "SwiftUI", "availability": "available", "reason": "native_controls"},
 )
 COMMANDS = {
     "target_reducer_tests": "xcodebuild focused RoomEditModelTests",
@@ -223,6 +223,19 @@ def _verify_local_render_independence(root: Path) -> bytes:
 
 def _verify_compositor_source_contract(root: Path) -> bytes:
     _validate_compositor_descriptor(COMPOSITOR_DESCRIPTOR)
+    product_source = (root / SOURCE_BINDING_PATHS["room_edit_model_sha256"]).read_text(encoding="utf-8")
+    exact_product_layers = (
+        "RoomEditCompositorLayer(id: .camera, availability: .available(.liveCamera))",
+        "RoomEditCompositorLayer(id: .reveal, availability: .unavailable(.revealArtifactMissing))",
+        "RoomEditCompositorLayer(id: .occluder, availability: .unavailable(.occluderArtifactMissing))",
+        "RoomEditCompositorLayer(id: .assetProxy, availability: .available(.localRenderer))",
+        "RoomEditCompositorLayer(id: .debug, availability: .unavailable(.debugOverlayDisabled))",
+        "RoomEditCompositorLayer(id: .swiftUI, availability: .available(.nativeControls))",
+    )
+    product_positions = [product_source.find(token) for token in exact_product_layers]
+    if any(position < 0 for position in product_positions) or product_positions != sorted(product_positions):
+        raise EvidenceError("compositor:product_contract")
+
     source = (root / SOURCE_BINDING_PATHS["model_tests_sha256"]).read_text(encoding="utf-8")
     ordered = (".camera,", ".reveal,", ".occluder,", ".assetProxy,", ".debug,", ".swiftUI,")
     positions = [source.find(token) for token in ordered]
@@ -237,7 +250,7 @@ def _verify_compositor_source_contract(root: Path) -> bytes:
     )
     if any(position < 0 for position in positions) or positions != sorted(positions) or any(token not in source for token in required):
         raise EvidenceError("compositor:test_contract")
-    return _canonical_bytes({"layers": COMPOSITOR_DESCRIPTOR, "mutation_families": 6})
+    return _canonical_bytes({"layers": COMPOSITOR_DESCRIPTOR, "mutation_families": 7})
 
 
 def _scan_tracked_secrets(root: Path) -> bytes:

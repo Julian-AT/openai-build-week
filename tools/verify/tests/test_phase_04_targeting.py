@@ -74,6 +74,7 @@ class PhaseFourPreflightContract(unittest.TestCase):
             "omit": lambda value: value.pop(),
             "promote_reveal": lambda value: value[1].update(availability="available"),
             "promote_occluder": lambda value: value[2].update(availability="available"),
+            "promote_debug": lambda value: value[4].update(availability="available"),
             "rename_asset": lambda value: value[3].update(layer_id="asset"),
         }
         for label, mutation in mutations.items():
@@ -82,6 +83,26 @@ class PhaseFourPreflightContract(unittest.TestCase):
                 mutation(descriptor)
                 with self.assertRaises(self.module.EvidenceError):
                     self.module._validate_compositor_descriptor(descriptor)
+
+    def test_source_contract_rejects_product_availability_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for key in ("room_edit_model_sha256", "model_tests_sha256"):
+                relative = self.module.SOURCE_BINDING_PATHS[key]
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((REPO_ROOT / relative).read_bytes())
+
+            self.module._verify_compositor_source_contract(root)
+            model_path = root / self.module.SOURCE_BINDING_PATHS["room_edit_model_sha256"]
+            model_source = model_path.read_text(encoding="utf-8").replace(
+                "RoomEditCompositorLayer(id: .debug, availability: .unavailable(.debugOverlayDisabled))",
+                "RoomEditCompositorLayer(id: .debug, availability: .available(.debugOverlayDisabled))",
+                1,
+            )
+            model_path.write_text(model_source, encoding="utf-8")
+            with self.assertRaises(self.module.EvidenceError):
+                self.module._verify_compositor_source_contract(root)
 
     def test_static_boundary_audit_rejects_production_external_dependencies_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
