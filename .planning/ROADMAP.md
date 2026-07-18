@@ -226,10 +226,10 @@ Plans:
   3. The semantic benchmark produces no hero-target identity switch and records access/license/tier evidence; a tie or missed timebox selects SAM 2.1 Small with explicit reseeding rather than blocking the deterministic path.
   4. The dense-provider bake-off either qualifies a provider under `GATE-007` or records the no-dense fast path; dense output never rewrites ARKit authority, stable IDs, or committed history.
 
-**Plans**: 1/4 plans executed
+**Plans**: 2/4 plans executed
 
 - [x] 04-01-PLAN.md — Implement the deterministic manual target lifecycle and independent readiness reducer.
-- [ ] 04-02-PLAN.md — Add one shared-session AR event and bounded raycast adapter.
+- [x] 04-02-PLAN.md — Add one shared-session AR event and bounded raycast adapter.
 - [ ] 04-03-PLAN.md — Integrate the local RealityKit/SwiftUI target compositor and recovery UI.
 - [ ] 04-04-PLAN.md — Verify the sprint fallback slice and publish honest pending-gate automation.
 
@@ -318,7 +318,7 @@ Plans:
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
 | 2. Atomic Capture and Exact Replay | 7/7 | In Progress|  |
 | 3. Typed Place, Commit, and Offline Restore | 7/7 | Implementation complete; verification deferred |  |
-| 4. Target Grounding and Compositor Gate | 1/4 | In Progress|  |
+| 4. Target Grounding and Compositor Gate | 2/4 | In Progress|  |
 | 5. Curated Replacement Vertical | 0/TBD | Not started | - |
 | 6. Controlled Multi-Surface Removal | 0/TBD | Not started | - |
 | 7. Separate Mode B0 Web Fallback | 0/TBD | Not started | - |

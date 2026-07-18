@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 04
 current_phase_name: Target Grounding and Compositor Gate
 status: executing
-stopped_at: Completed 04-01-PLAN.md; formal Phase 4 gates remain pending
-last_updated: "2026-07-18T16:52:17.926Z"
+stopped_at: Completed 04-02-PLAN.md; formal Phase 4 gates remain pending
+last_updated: "2026-07-18T16:53:13.288Z"
 last_activity: 2026-07-18
 last_activity_desc: Phase 04 execution started
 progress:
@@ -30,7 +30,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 04 (Target Grounding and Compositor Gate) — EXECUTING
 
-Plan: 2 of 4
+Plan: 3 of 4
 
 Status: Ready to execute
 
@@ -89,6 +89,7 @@ Progress: [████████████████████] 21/21 p
 | Phase 03 P06 | 20min | 2 tasks | 8 files |
 | Phase 03 P07 | 22min | 2 tasks | 5 files |
 | Phase 04 P01 | 8min | 1 tasks | 2 files |
+| Phase 04 P02 | 9min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -146,6 +147,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 04]: Keep manual target selection and reseeding revision-neutral and outside NativeBranchAuthority.
 - [Phase 04]: Preserve stable semantic target identity across reseeds while replacing only exact-epoch spatial evidence.
 - [Phase 04]: Fail closed on invalid AR evidence and expose operation readiness independently while formal Phase 4 gates remain pending.
+- [Phase 04]: Preserve DeviceProofModel onEvent compatibility while additive ordered observers share one synchronous AR safety stream.
+- [Phase 04]: Prefer finite detected horizontal raycasts, then inspect a bounded estimated-plane fallback, returning no semantic identity.
+- [Phase 04]: Construct one auto-configuration-disabled RealityKit ARView and inject its own ARSession into the sole driver.
 
 ### Pending Todos
 
@@ -176,9 +180,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T16:52:17.916Z
+Last session: 2026-07-18T16:53:13.282Z
 
-Stopped at: Completed 04-01-PLAN.md; formal Phase 4 gates remain pending
+Stopped at: Completed 04-02-PLAN.md; formal Phase 4 gates remain pending
 
 Resume file: None
 
