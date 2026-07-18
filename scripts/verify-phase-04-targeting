@@ -1,0 +1,533 @@
+#!/usr/bin/env python3
+"""Run quick/full Phase 04 target verification and publish full evidence."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Sequence
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+BOUND_REVISION = "4d268ba88c1a8e10181bbd88faf306df1bd1d3d6"
+IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
+EVIDENCE_RELATIVE_PATH = "evidence/targeting/phase-04/automated-preflight.json"
+XCODE_PROJECT = "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
+XCODE_SCHEME = "ReRoomDeviceProof"
+SIMULATOR_NAME = "iPhone 17"
+COMMAND_TIMEOUT_SECONDS = 900
+
+SOURCE_BINDING_PATHS = {
+    "ar_session_controller_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift",
+    "room_edit_model_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift",
+    "room_edit_view_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
+    "model_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift",
+    "ar_policy_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/ARSessionPolicyTests.swift",
+    "ui_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/RoomEditJourneyTests.swift",
+    "orchestrator_sha256": "scripts/verify-phase-04-targeting",
+    "mutation_tests_sha256": "tools/verify/tests/test_phase_04_targeting.py",
+}
+PRODUCTION_BOUNDARY_PATHS = (
+    "ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift",
+    "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
+)
+FORBIDDEN_PRODUCTION_TOKENS = (
+    "URLSession",
+    "NWConnection",
+    "WKWebView",
+    "JavaScriptCore",
+    "PythonKit",
+    "Process(",
+    "MLModel",
+    "VNCoreMLRequest",
+    "MPSGraph",
+    "http://",
+    "https://",
+)
+EXPECTED_QUICK_CHECKS = (
+    "target_reducer_tests",
+    "ar_session_raycast_tests",
+    "compositor_descriptor",
+    "production_dependency_audit",
+    "local_render_independence",
+    "mutation_tests",
+)
+EXPECTED_FULL_CHECKS = EXPECTED_QUICK_CHECKS + (
+    "room_edit_ui_tests",
+    "debug_build",
+    "release_build",
+    "release_surface",
+    "tracked_secret_scan",
+    "whitespace_check",
+)
+PENDING_GATES = ("GATE-003", "GATE-004", "GATE-005", "GATE-007", "GATE-012")
+FALLBACKS = {
+    "target_selection": "manual tap and explicit reseed",
+    "geometry": "no-dense ARKit plane and conservative proxy",
+    "runtime": "local demo only",
+}
+COMPOSITOR_DESCRIPTOR = (
+    {"layer_id": "camera", "availability": "available", "reason": "live camera background"},
+    {"layer_id": "reveal", "availability": "unavailable", "reason": "reveal artifact missing"},
+    {"layer_id": "occluder", "availability": "unavailable", "reason": "occluder artifact missing"},
+    {"layer_id": "asset/proxy", "availability": "available", "reason": "local conservative proxy"},
+    {"layer_id": "debug", "availability": "available", "reason": "local debug overlay"},
+    {"layer_id": "SwiftUI", "availability": "available", "reason": "native control overlay"},
+)
+COMMANDS = {
+    "target_reducer_tests": "xcodebuild focused RoomEditModelTests",
+    "ar_session_raycast_tests": "xcodebuild focused ARSessionPolicyTests",
+    "compositor_descriptor": "closed six-layer descriptor assertion",
+    "production_dependency_audit": "static production dependency audit",
+    "local_render_independence": "static representable callback audit",
+    "mutation_tests": "python3 -m unittest tools.verify.tests.test_phase_04_targeting",
+    "room_edit_ui_tests": "xcodebuild focused RoomEditJourneyTests on isolated simulator",
+    "debug_build": "xcodebuild Debug simulator build",
+    "release_build": "xcodebuild Release simulator build",
+    "release_surface": "scripts/verify-reroom-release-surface",
+    "tracked_secret_scan": "tracked file credential pattern scan",
+    "whitespace_check": "git diff --check",
+}
+
+HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
+UTC_TIMESTAMP = re.compile(r"20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\Z")
+FORBIDDEN_VALUE = re.compile(
+    r"(?:/Users/|/home/|file://|[A-Za-z]:\\\\|api[_-]?key\s*[:=]|bearer\s+[A-Za-z0-9._-]{8,}|"
+    r"sk-[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|\b(?:fps|thermal|memory)\b.*\bmeasured\b|"
+    r"\bmeasured\b.*\b(?:fps|thermal|memory)\b|dense provider qualified|physical observation)",
+    re.IGNORECASE,
+)
+FORBIDDEN_KEY_PARTS = (
+    "raw_room", "user_text", "user_content", "device_id", "user_id", "credential",
+    "human_observation", "physical_observation", "target_transform", "camera_frame",
+)
+SECRET_PATTERNS = (
+    re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(rb"AKIA[0-9A-Z]{16}"),
+    re.compile(rb"gh[ps]_[A-Za-z0-9]{30,}"),
+    re.compile(rb"xox[baprs]-[A-Za-z0-9-]{20,}"),
+    re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+)
+
+
+class EvidenceError(RuntimeError):
+    """A stable verifier or evidence publication failure."""
+
+
+def _canonical_bytes(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _executable(name: str) -> str:
+    candidate = shutil.which(name)
+    if candidate is None:
+        raise EvidenceError(f"runtime:{name}:missing")
+    path = Path(candidate).resolve(strict=True)
+    if not stat.S_ISREG(path.stat().st_mode) or not os.access(path, os.X_OK):
+        raise EvidenceError(f"runtime:{name}:invalid")
+    return str(path)
+
+
+def _run(command: list[str], *, root: Path, label: str, timeout: int = COMMAND_TIMEOUT_SECONDS) -> bytes:
+    try:
+        completed = subprocess.run(command, cwd=root, check=False, capture_output=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise EvidenceError(f"check:{label}:execution") from error
+    output = completed.stdout + completed.stderr
+    if completed.returncode != 0:
+        lowered = output.lower()
+        if b"coresimulator" in lowered and (b"busy" in lowered or b"failed to launch" in lowered):
+            raise EvidenceError(f"check:{label}:coresimulator_busy")
+        raise EvidenceError(f"check:{label}:failed")
+    return output
+
+
+def _check_record(check_id: str, output: bytes) -> dict[str, str]:
+    if not output:
+        output = b"PASS"
+    semantic = _canonical_bytes({"check_id": check_id, "status": "PASS"})
+    return {"check_id": check_id, "command_id": check_id, "status": "PASS", "outcome_sha256": _sha256(semantic)}
+
+
+def _validate_complete_checks(check_ids: Sequence[str]) -> None:
+    if tuple(check_ids) != EXPECTED_FULL_CHECKS:
+        raise EvidenceError("evidence:incomplete_checks")
+
+
+def _validate_compositor_descriptor(descriptor: Sequence[dict[str, str]]) -> None:
+    if tuple(descriptor) != COMPOSITOR_DESCRIPTOR:
+        raise EvidenceError("compositor:descriptor")
+
+
+def _require_bound_sources(root: Path) -> None:
+    _run(["git", "cat-file", "-e", f"{BOUND_REVISION}^{{commit}}"], root=root, label="bound_revision", timeout=20)
+    product_paths = tuple(
+        path for key, path in SOURCE_BINDING_PATHS.items()
+        if key not in {"orchestrator_sha256", "mutation_tests_sha256"}
+    )
+    result = subprocess.run(
+        ["git", "diff", "--quiet", BOUND_REVISION, "--", *product_paths],
+        cwd=root, check=False, capture_output=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise EvidenceError("source_binding:product_drift")
+
+
+def _audit_production_boundaries(root: Path, paths: Sequence[str] = PRODUCTION_BOUNDARY_PATHS) -> bytes:
+    audited: dict[str, str] = {}
+    for relative in paths:
+        path = root / relative
+        try:
+            source = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            raise EvidenceError("production_audit:unreadable") from error
+        for token in FORBIDDEN_PRODUCTION_TOKENS:
+            if token in source:
+                raise EvidenceError("production_audit:external_dependency")
+        audited[relative] = _sha256(source.encode("utf-8"))
+    return _canonical_bytes(audited)
+
+
+def _verify_local_render_independence(root: Path) -> bytes:
+    source = (root / SOURCE_BINDING_PATHS["room_edit_view_sha256"]).read_text(encoding="utf-8")
+    try:
+        start = source.index("func updateUIView(_ view: UIView, context: Context)")
+        end = source.index("private static func matrix", start)
+    except ValueError as error:
+        raise EvidenceError("render_boundary:missing") from error
+    callback = source[start:end]
+    forbidden = (*FORBIDDEN_PRODUCTION_TOKENS, " await ", "Task {", "Data(contentsOf:", "FileManager", "TransactionStore")
+    if any(token in callback for token in forbidden):
+        raise EvidenceError("render_boundary:external_wait")
+    required = ("context.coordinator.apply(snapshot", "guard snapshot != lastSnapshot", "MeshResource.generateBox", "arView.scene.addAnchor")
+    if any(token not in callback for token in required):
+        raise EvidenceError("render_boundary:contract")
+    return _canonical_bytes({"callback_sha256": _sha256(callback.encode("utf-8")), "bounded_snapshot_diff": True})
+
+
+def _verify_compositor_source_contract(root: Path) -> bytes:
+    _validate_compositor_descriptor(COMPOSITOR_DESCRIPTOR)
+    source = (root / SOURCE_BINDING_PATHS["model_tests_sha256"]).read_text(encoding="utf-8")
+    ordered = (".camera,", ".reveal,", ".occluder,", ".assetProxy,", ".debug,", ".swiftUI,")
+    positions = [source.find(token) for token in ordered]
+    required = (
+        ".unavailable(.revealArtifactMissing)",
+        ".unavailable(.occluderArtifactMissing)",
+        "reordered.swapAt(0, 1)",
+        "dropLast()",
+        "canonical.layers + [canonical.layers[0]]",
+        "promotedReveal",
+        "promotedOccluder",
+    )
+    if any(position < 0 for position in positions) or positions != sorted(positions) or any(token not in source for token in required):
+        raise EvidenceError("compositor:test_contract")
+    return _canonical_bytes({"layers": COMPOSITOR_DESCRIPTOR, "mutation_families": 6})
+
+
+def _scan_tracked_secrets(root: Path) -> bytes:
+    listing = _run(["git", "ls-files", "-z"], root=root, label="tracked_file_listing", timeout=60)
+    checked = 0
+    for raw_relative in listing.split(b"\0"):
+        if not raw_relative:
+            continue
+        try:
+            relative = raw_relative.decode("utf-8")
+            path = root / relative
+            if path.is_symlink() or not path.is_file():
+                raise EvidenceError("secret_scan:non_regular")
+            data = path.read_bytes()
+        except (OSError, UnicodeError) as error:
+            raise EvidenceError("secret_scan:unreadable") from error
+        if any(pattern.search(data) for pattern in SECRET_PATTERNS):
+            raise EvidenceError("secret_scan:credential_pattern")
+        checked += 1
+    return _canonical_bytes({"tracked_files_checked": checked})
+
+
+def _working_tree_counts(root: Path) -> dict[str, int]:
+    status = _run(["git", "status", "--porcelain=v1", "-z"], root=root, label="working_tree_status", timeout=30)
+    records = [record for record in status.split(b"\0") if record]
+    return {
+        "tracked_modified": sum(not record.startswith(b"??") for record in records),
+        "untracked": sum(record.startswith(b"??") for record in records),
+    }
+
+
+def _isolated_simulator(root: Path) -> tuple[str, bytes]:
+    xcrun = _executable("xcrun")
+    listing = _run([xcrun, "simctl", "list", "devices", "available", "-j"], root=root, label="simulator_listing", timeout=30)
+    try:
+        document = json.loads(listing)
+        candidates = [
+            item for values in document["devices"].values() for item in values
+            if item.get("name") == SIMULATOR_NAME and item.get("isAvailable", True) is True
+        ]
+    except (KeyError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise EvidenceError("simulator:listing") from error
+    if len(candidates) != 1 or candidates[0].get("state") not in {"Booted", "Shutdown"}:
+        raise EvidenceError("simulator:unique_target")
+    identifier = candidates[0].get("udid")
+    if not isinstance(identifier, str) or not re.fullmatch(r"[0-9A-F-]{36}", identifier):
+        raise EvidenceError("simulator:identifier")
+    output = b""
+    if candidates[0]["state"] == "Booted":
+        output += _run([xcrun, "simctl", "shutdown", identifier], root=root, label="simulator_shutdown", timeout=60)
+    output += _run([xcrun, "simctl", "boot", identifier], root=root, label="simulator_boot", timeout=60)
+    output += _run([xcrun, "simctl", "bootstatus", identifier, "-b"], root=root, label="simulator_ready", timeout=180)
+    return identifier, output
+
+
+def _source_bindings(root: Path) -> dict[str, str]:
+    bindings = {key: _sha256((root / relative).read_bytes()) for key, relative in SOURCE_BINDING_PATHS.items()}
+    if set(bindings) != set(SOURCE_BINDING_PATHS) or any(not HEX_DIGEST.fullmatch(value) for value in bindings.values()):
+        raise EvidenceError("source_binding:digest")
+    return bindings
+
+
+def _walk_strings(value: Any, *, key: str = "root") -> None:
+    if isinstance(value, dict):
+        for child_key, child in value.items():
+            lowered = child_key.lower()
+            if child_key not in {
+                "raw_room_data_included", "user_content_included", "machine_paths_included",
+                "identifiers_included", "credentials_included", "human_observations_included",
+                "physical_observations_included", "target_transforms_included",
+            } and any(part in lowered for part in FORBIDDEN_KEY_PARTS):
+                raise EvidenceError("evidence:private_field")
+            _walk_strings(child, key=child_key)
+    elif isinstance(value, list):
+        for child in value:
+            _walk_strings(child, key=key)
+    elif isinstance(value, str) and FORBIDDEN_VALUE.search(value):
+        raise EvidenceError("evidence:private_value")
+
+
+def _evidence_template(
+    *, recorded_at_utc: str, checks: list[dict[str, str]], source_bindings: dict[str, str],
+    working_tree_counts: dict[str, int],
+) -> dict[str, Any]:
+    report: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "evidence_id": "evidence_phase_04_targeting_automated_preflight_rev_001",
+        "claim": "automated sprint fallback slice passed",
+        "value_classification": "HYPOTHESIS",
+        "recorded_at_utc": recorded_at_utc,
+        "implementation_revision": IMPLEMENTATION_REVISION,
+        "checks": checks,
+        "commands": COMMANDS,
+        "counts": {
+            "automated_check_count": len(EXPECTED_FULL_CHECKS),
+            "compositor_layer_count": 6,
+            "ui_journey_count": 3,
+            "build_configuration_count": 2,
+            "formal_gate_count": 5,
+        },
+        "fallbacks": FALLBACKS,
+        "compositor": {"layers": list(COMPOSITOR_DESCRIPTOR)},
+        "pending_gates": {gate: "PENDING" for gate in PENDING_GATES},
+        "pending_evidence": [
+            "signed-device eight-pose visual vote and four-minute runtime campaign",
+            "manual reseed recovery campaign",
+            "fast geometry measurement campaign",
+            "dense provider bake-off",
+            "runtime tier soak and operator review",
+        ],
+        "limitations": [
+            "Automation establishes deterministic fallback behavior and functional layer ordering only.",
+            "No physical-device, performance, thermal, provider, semantic-quality, geometry-quality, or human evidence is asserted.",
+            "This report does not establish full P0 completion.",
+        ],
+        "source_bindings": source_bindings,
+        "working_tree_counts": working_tree_counts,
+        "privacy": {
+            "raw_room_data_included": False,
+            "user_content_included": False,
+            "machine_paths_included": False,
+            "identifiers_included": False,
+            "credentials_included": False,
+            "human_observations_included": False,
+            "physical_observations_included": False,
+            "target_transforms_included": False,
+        },
+    }
+    report["preflight_sha256"] = _sha256(_canonical_bytes(report))
+    return report
+
+
+def validate_evidence(report: dict[str, Any]) -> None:
+    required = {
+        "schema_version", "evidence_id", "claim", "value_classification", "recorded_at_utc",
+        "implementation_revision", "checks", "commands", "counts", "fallbacks", "compositor",
+        "pending_gates", "pending_evidence", "limitations", "source_bindings", "working_tree_counts",
+        "privacy", "preflight_sha256",
+    }
+    if not isinstance(report, dict) or set(report) != required:
+        raise EvidenceError("evidence:root")
+    if report["schema_version"] != "1.0.0" or report["evidence_id"] != "evidence_phase_04_targeting_automated_preflight_rev_001":
+        raise EvidenceError("evidence:identity")
+    if report["claim"] != "automated sprint fallback slice passed" or report["value_classification"] != "HYPOTHESIS":
+        raise EvidenceError("evidence:claim")
+    if not isinstance(report["recorded_at_utc"], str) or not UTC_TIMESTAMP.fullmatch(report["recorded_at_utc"]):
+        raise EvidenceError("evidence:time")
+    if report["implementation_revision"] != IMPLEMENTATION_REVISION or not re.fullmatch(r"git:[0-9a-f]{40}", report["implementation_revision"]):
+        raise EvidenceError("evidence:implementation_revision")
+    if not isinstance(report["checks"], list):
+        raise EvidenceError("evidence:checks")
+    _validate_complete_checks([item.get("check_id", "") for item in report["checks"] if isinstance(item, dict)])
+    for item in report["checks"]:
+        if set(item) != {"check_id", "command_id", "status", "outcome_sha256"} or item["command_id"] != item["check_id"] or item["status"] != "PASS" or not HEX_DIGEST.fullmatch(item["outcome_sha256"]):
+            raise EvidenceError("evidence:check")
+    if report["commands"] != COMMANDS:
+        raise EvidenceError("evidence:commands")
+    expected_counts = {"automated_check_count": 12, "compositor_layer_count": 6, "ui_journey_count": 3, "build_configuration_count": 2, "formal_gate_count": 5}
+    if report["counts"] != expected_counts or report["fallbacks"] != FALLBACKS:
+        raise EvidenceError("evidence:counts_or_fallbacks")
+    if not isinstance(report["compositor"], dict) or set(report["compositor"]) != {"layers"}:
+        raise EvidenceError("evidence:compositor")
+    _validate_compositor_descriptor(report["compositor"]["layers"])
+    if report["pending_gates"] != {gate: "PENDING" for gate in PENDING_GATES}:
+        raise EvidenceError("evidence:pending_gates")
+    if not isinstance(report["pending_evidence"], list) or len(report["pending_evidence"]) != 5:
+        raise EvidenceError("evidence:pending_evidence")
+    if not isinstance(report["limitations"], list) or report["limitations"] != [
+        "Automation establishes deterministic fallback behavior and functional layer ordering only.",
+        "No physical-device, performance, thermal, provider, semantic-quality, geometry-quality, or human evidence is asserted.",
+        "This report does not establish full P0 completion.",
+    ]:
+        raise EvidenceError("evidence:limitations")
+    if set(report["source_bindings"]) != set(SOURCE_BINDING_PATHS) or any(not HEX_DIGEST.fullmatch(value) for value in report["source_bindings"].values()):
+        raise EvidenceError("evidence:source_bindings")
+    if set(report["working_tree_counts"]) != {"tracked_modified", "untracked"} or any(type(value) is not int or value < 0 for value in report["working_tree_counts"].values()):
+        raise EvidenceError("evidence:working_tree")
+    expected_privacy = {
+        "raw_room_data_included": False, "user_content_included": False,
+        "machine_paths_included": False, "identifiers_included": False,
+        "credentials_included": False, "human_observations_included": False,
+        "physical_observations_included": False, "target_transforms_included": False,
+    }
+    if report["privacy"] != expected_privacy:
+        raise EvidenceError("evidence:privacy")
+    _walk_strings(report)
+    digest = report["preflight_sha256"]
+    if not isinstance(digest, str) or not HEX_DIGEST.fullmatch(digest):
+        raise EvidenceError("evidence:digest")
+    unsigned = dict(report)
+    unsigned.pop("preflight_sha256")
+    if digest != _sha256(_canonical_bytes(unsigned)):
+        raise EvidenceError("evidence:digest")
+
+
+def _atomic_publish(target: Path, data: bytes) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=".automated-preflight.", suffix=".tmp", dir=target.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, target)
+    except OSError as error:
+        raise EvidenceError("evidence:atomic_publication") from error
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _xcode_common(identifier: str) -> list[str]:
+    return [
+        _executable("xcodebuild"), "-project", XCODE_PROJECT, "-scheme", XCODE_SCHEME,
+        "-destination", f"platform=iOS Simulator,id={identifier}",
+        "-parallel-testing-enabled", "NO", "-maximum-concurrent-test-simulator-destinations", "1",
+    ]
+
+
+def _quick(root: Path, identifier: str) -> list[dict[str, str]]:
+    checks: list[dict[str, str]] = []
+    focused = _run(
+        [*_xcode_common(identifier), "test", "-only-testing:ReRoomDeviceProofTests/RoomEditModelTests", "-only-testing:ReRoomDeviceProofTests/ARSessionPolicyTests"],
+        root=root, label="focused_target_tests",
+    )
+    checks.append(_check_record("target_reducer_tests", focused))
+    checks.append(_check_record("ar_session_raycast_tests", focused))
+    checks.append(_check_record("compositor_descriptor", _verify_compositor_source_contract(root)))
+    checks.append(_check_record("production_dependency_audit", _audit_production_boundaries(root)))
+    checks.append(_check_record("local_render_independence", _verify_local_render_independence(root)))
+    mutation = _run([_executable("python3"), "-m", "unittest", "tools.verify.tests.test_phase_04_targeting"], root=root, label="mutation_tests")
+    checks.append(_check_record("mutation_tests", mutation))
+    if tuple(item["check_id"] for item in checks) != EXPECTED_QUICK_CHECKS:
+        raise EvidenceError("evidence:incomplete_quick_checks")
+    return checks
+
+
+def _full(root: Path, identifier: str, checks: list[dict[str, str]]) -> list[dict[str, str]]:
+    _, boundary = _isolated_simulator(root)
+    ui = boundary + _run(
+        [*_xcode_common(identifier), "test", "-only-testing:ReRoomDeviceProofUITests/RoomEditJourneyTests"],
+        root=root, label="room_edit_ui_tests",
+    )
+    checks.append(_check_record("room_edit_ui_tests", ui))
+    debug = _run([*_xcode_common(identifier), "-configuration", "Debug", "build"], root=root, label="debug_build")
+    checks.append(_check_record("debug_build", debug))
+    release = _run([*_xcode_common(identifier), "-configuration", "Release", "build"], root=root, label="release_build")
+    checks.append(_check_record("release_build", release))
+    release_surface = _run(["scripts/verify-reroom-release-surface"], root=root, label="release_surface")
+    checks.append(_check_record("release_surface", release_surface))
+    checks.append(_check_record("tracked_secret_scan", _scan_tracked_secrets(root)))
+    whitespace = _run(["git", "diff", "--check"], root=root, label="whitespace_check", timeout=60)
+    checks.append(_check_record("whitespace_check", whitespace))
+    return checks
+
+
+def run(mode: str) -> None:
+    root = REPOSITORY_ROOT.resolve()
+    _require_bound_sources(root)
+    identifier, _ = _isolated_simulator(root)
+    checks = _quick(root, identifier)
+    if mode == "quick":
+        print("phase-04-targeting: PASS (quick; deterministic fallback checks passed; no evidence published)")
+        return
+    checks = _full(root, identifier, checks)
+    _validate_complete_checks([item["check_id"] for item in checks])
+    report = _evidence_template(
+        recorded_at_utc=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        checks=checks,
+        source_bindings=_source_bindings(root),
+        working_tree_counts=_working_tree_counts(root),
+    )
+    validate_evidence(report)
+    _atomic_publish(root / EVIDENCE_RELATIVE_PATH, _canonical_bytes(report) + b"\n")
+    print("phase-04-targeting: PASS (full; automated sprint fallback slice passed; GATE-003/004/005/007/012 PENDING)")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("quick", "full"))
+    arguments = parser.parse_args(argv)
+    try:
+        run(arguments.mode)
+    except (EvidenceError, json.JSONDecodeError) as error:
+        print(f"phase-04-targeting: FAIL ({error})", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

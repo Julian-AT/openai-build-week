@@ -66,7 +66,7 @@ class PhaseFourPreflightContract(unittest.TestCase):
             self.module._validate_complete_checks(reordered)
 
     def test_exact_six_layer_descriptor_rejects_all_mutation_families(self) -> None:
-        canonical = copy.deepcopy(self.module.COMPOSITOR_DESCRIPTOR)
+        canonical = list(copy.deepcopy(self.module.COMPOSITOR_DESCRIPTOR))
         self.module._validate_compositor_descriptor(canonical)
         mutations = {
             "reorder": lambda value: value.__setitem__(slice(0, 2), reversed(value[:2])),
