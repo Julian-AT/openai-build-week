@@ -352,7 +352,11 @@ struct ARSessionPolicyTests {
         #expect(resolver.requests == [.existingPlaneGeometry, .estimatedHorizontalPlane])
         #expect(candidates.count == ARSessionController.maximumTargetCandidateCount)
         #expect(candidates.allSatisfy { $0.source == .estimatedHorizontalPlane })
-        #expect(candidates.flatMap(\.worldFromCandidate.values).allSatisfy(\.isFinite))
+        #expect(
+            candidates
+                .flatMap { $0.worldFromCandidate.values }
+                .allSatisfy { $0.isFinite }
+        )
     }
 
     @MainActor
