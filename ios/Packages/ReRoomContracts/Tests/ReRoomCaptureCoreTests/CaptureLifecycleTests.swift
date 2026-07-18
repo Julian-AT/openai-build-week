@@ -1,5 +1,6 @@
 import Foundation
 import ReRoomContracts
+import Synchronization
 import Testing
 
 @testable import ReRoomCaptureCore
@@ -186,6 +187,34 @@ struct CaptureLifecycleTests {
         #expect(decoded.payload == image)
     }
 
+    @Test("a durable frame and acknowledgement expose every exact lifecycle boundary")
+    func lifecycleObserverExposesExactDurableBoundaries() async throws {
+        let observed = OSAllocatedUnfairLock(initialState: [CaptureLifecycleObservation]())
+        let fixture = try CaptureWriterFixture(
+            sessionOrdinal: 60,
+            lifecycleObserver: { observation in
+                observed.withLock { $0.append(observation) }
+            }
+        )
+        defer { fixture.remove() }
+        _ = try await fixture.store.startSession(authorization: fixture.authorization)
+        let candidate = try fixture.candidate(ordinal: 1)
+
+        let receipt = try await fixture.store.publishSelectedFrame(candidate)
+        try await fixture.store.recordAcknowledgement(fixture.acknowledgement(for: receipt))
+
+        #expect(
+            observed.withLock { $0 } == CaptureFrameState.allCases.map { state in
+                CaptureLifecycleObservation(
+                    sessionID: candidate.sessionID,
+                    frameID: candidate.frameID,
+                    selectedReason: .userEvent,
+                    state: state
+                )
+            }
+        )
+    }
+
     @Test("frame identity and idempotency collisions reject without mutation")
     func duplicateFrameAndIdempotencyReject() async throws {
         let fixture = try CaptureWriterFixture(sessionOrdinal: 7)
@@ -363,7 +392,10 @@ private struct CaptureWriterFixture: Sendable {
     let encoder: FramePacketEncoder
     let store: CaptureArchiveStore
 
-    init(sessionOrdinal: Int) throws {
+    init(
+        sessionOrdinal: Int,
+        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in }
+    ) throws {
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("reroom-capture-lifecycle-tests", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -395,7 +427,8 @@ private struct CaptureWriterFixture: Sendable {
                 buildID: "build_fixture_0001",
                 recordedAtUTC: "2026-07-17T00:00:00Z"
             ),
-            eventID: { sequence in TestIDs.event(sessionOrdinal * 100 + Int(sequence) + 1) }
+            eventID: { sequence in TestIDs.event(sessionOrdinal * 100 + Int(sequence) + 1) },
+            lifecycleObserver: lifecycleObserver
         )
     }
 
