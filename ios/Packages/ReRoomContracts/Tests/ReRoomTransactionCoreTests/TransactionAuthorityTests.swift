@@ -112,6 +112,61 @@ struct TransactionAuthorityTests {
         #expect(await recovered.activeSnapshot() == beforeFault)
     }
 
+    @Test("replace restore preserves newly tracked unrelated state and immutable history")
+    func replaceRestorePreservesUnrelatedState() async throws {
+        let context = try AuthorityFixtures.context()
+        let replacePreview = try await context.authority.previewReplace(
+            proposal: ReplaceFixtures.proposal,
+            candidate: ReplaceFixtures.candidate,
+            seed: ReplaceFixtures.seed
+        )
+        _ = try await context.authority.commitReplace(
+            replacePreview,
+            confirmation: ReplaceFixtures.confirmation,
+            request: ReplaceFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.replaceUndoToken
+        )
+        let replaced = await context.authority.activeSnapshot()
+        let immutableReplaceBytes = try AuthorityFixtures.encode(replaced.transactions[0])
+
+        let trackedScene = AuthorityFixtures.addingUnrelatedObject(to: replaced.scene)
+        let trackedCandidate = TransactionGenerationCandidate(
+            scene: trackedScene,
+            transactions: replaced.transactions,
+            requiredArtifacts: replaced.requiredArtifacts,
+            receipts: replaced.receipts,
+            idempotencyRecords: replaced.idempotencyRecords
+        )
+        _ = try TransactionPersistenceFixtures.store(fileSystem: context.fileSystem).activate(trackedCandidate)
+
+        let restarted = try AuthorityFixtures.authority(fileSystem: context.fileSystem)
+        let tracked = await restarted.activeSnapshot()
+        #expect(tracked.scene.objects.contains { $0.objectID == TransactionTestFixtures.newObjectID })
+        let restorePreview = try await restarted.previewRestore(
+            proposal: AuthorityFixtures.restoreProposal(scene: tracked.scene),
+            request: AuthorityFixtures.replaceRestoreRequest,
+            seed: AuthorityFixtures.replaceRestoreSeed
+        )
+        _ = try await restarted.commitRestore(
+            restorePreview,
+            confirmation: AuthorityFixtures.replaceRestoreConfirmation,
+            idempotencyKey: AuthorityFixtures.replaceRestoreIdempotencyKey,
+            localUndoToken: AuthorityFixtures.replaceRestoreUndoToken
+        )
+
+        let restored = await restarted.activeSnapshot()
+        #expect(restored.scene.sceneRevision == 10)
+        #expect(restored.scene.editHistory.map(\.operation) == [.replace, .restore])
+        #expect(restored.scene.objects.contains { $0.objectID == TransactionTestFixtures.newObjectID })
+        #expect(restored.scene.objects.first { $0.objectID == ReplaceFixtures.targetObjectID }?.editState.visible == true)
+        #expect(restored.scene.placedAssets.contains { $0.placedAssetID == ReplaceFixtures.assetInstanceID } == false)
+        #expect(restored.transactions.count == 2)
+        #expect(restored.transactions[1].compensatesTransactionID == replaced.transactions[0].transactionID)
+        #expect(try AuthorityFixtures.encode(restored.transactions[0]) == immutableReplaceBytes)
+        let restartedAgain = try AuthorityFixtures.authority(fileSystem: context.fileSystem)
+        #expect(await restartedAgain.activeSnapshot() == restored)
+    }
+
     @Test("concurrent identical confirms serialize to one durable revision and one receipt")
     func concurrentIdenticalConfirmIsExactlyOnce() async throws {
         let context = try AuthorityFixtures.context()
@@ -373,6 +428,11 @@ enum AuthorityFixtures {
     static let restoreEventID = "event_40000000-0000-4000-8000-000000000014"
     static let restoreUndoToken = "undo_40000000-0000-4000-8000-000000000015"
     static let quarantinedBranchID = "branch_40000000-0000-4000-8000-000000000016"
+    static let replaceRestoreTransactionID = "tx_40000000-0000-4000-8000-000000000018"
+    static let replaceRestoreIdempotencyKey = "txidem_40000000-0000-4000-8000-000000000019"
+    static let replaceRestorePreviewID = "preview_40000000-0000-4000-8000-00000000001a"
+    static let replaceRestoreEventID = "event_40000000-0000-4000-8000-00000000001b"
+    static let replaceRestoreUndoToken = "undo_40000000-0000-4000-8000-00000000001c"
 
     struct Context {
         let fileSystem: DurableMemoryCaptureFileSystem
@@ -414,6 +474,22 @@ enum AuthorityFixtures {
         confirmationEventID: restoreEventID,
         confirmedAtUTC: "2026-07-18T17:03:00Z"
     )
+    static let replaceRestoreRequest = RestoreRequest(
+        transactionID: replaceRestoreTransactionID,
+        compensatesTransactionID: ReplaceFixtures.transactionID,
+        updatedAtUTC: "2026-07-18T19:03:00Z"
+    )
+    static let replaceRestoreSeed = RestorePreviewSeed(
+        previewID: replaceRestorePreviewID,
+        expiresAtUTC: "2026-07-18T20:03:00Z"
+    )
+    static let replaceRestoreConfirmation = ExplicitConfirmation(
+        actorID: ReplaceFixtures.userID,
+        source: "native_ui",
+        previewID: replaceRestorePreviewID,
+        confirmationEventID: replaceRestoreEventID,
+        confirmedAtUTC: "2026-07-18T19:03:00Z"
+    )
 
     static func restoreProposal(scene: SceneState) -> BoundProposal {
         BoundProposal(
@@ -444,5 +520,27 @@ enum AuthorityFixtures {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(value)
+    }
+
+    static func addingUnrelatedObject(to scene: SceneState) -> SceneState {
+        let unrelated = TransactionTestFixtures.scene(
+            revision: scene.sceneRevision,
+            includeFirstAsset: false,
+            includeNewObject: true
+        ).objects.first { $0.objectID == TransactionTestFixtures.newObjectID }!
+        return SceneState(
+            contractSchemaVersion: scene.schemaVersion,
+            sessionID: scene.sessionID,
+            sceneID: scene.sceneID,
+            revisionAuthority: scene.revisionAuthority,
+            sceneRevision: scene.sceneRevision,
+            worldFrame: scene.worldFrame,
+            surfaces: scene.surfaces,
+            objects: scene.objects + [unrelated],
+            supportRelations: scene.supportRelations,
+            placedAssets: scene.placedAssets,
+            editHistory: scene.editHistory,
+            updatedAtUTC: scene.updatedAtUTC
+        )
     }
 }

@@ -404,7 +404,9 @@ public struct TransactionStore: Sendable {
             }
             guard scene.editHistory == expectedHistory,
                   transactions.last?.commit?.committedSceneRevision == scene.sceneRevision,
-                  transactions.last?.inverseOperations?.first?.restoreBeforeProjection == projection
+                  transactions.last?.inverseOperations?.first?.restoreBeforeProjection.map({
+                      currentProjectionPreservesCommittedEdit($0, current: projection)
+                  }) == true
             else { throw TransactionStoreError.semanticMismatch }
         }
 
@@ -412,6 +414,29 @@ public struct TransactionStore: Sendable {
         guard candidate.requiredArtifacts == exactArtifacts else {
             throw TransactionStoreError.semanticMismatch
         }
+    }
+
+    /// Semantic tracking may discover additional objects without allocating an edit
+    /// revision. The last committed inverse remains authoritative for every object it
+    /// knew about, while newly tracked object edit states are allowed as an additive
+    /// superset. Asset instances and their support relations remain transaction-only
+    /// and therefore must still match exactly.
+    private static func currentProjectionPreservesCommittedEdit(
+        _ committed: EditProjection,
+        current: EditProjection
+    ) -> Bool {
+        guard committed.sceneID == current.sceneID,
+              committed.revisionBranchID == current.revisionBranchID,
+              committed.worldFrameID == current.worldFrameID,
+              committed.worldFrameVersion == current.worldFrameVersion,
+              committed.placedAssets == current.placedAssets,
+              committed.assetSupportRelations == current.assetSupportRelations
+        else { return false }
+
+        let currentObjects = Dictionary(
+            uniqueKeysWithValues: current.objectEditStates.map { ($0.objectID, $0) }
+        )
+        return committed.objectEditStates.allSatisfy { currentObjects[$0.objectID] == $0 }
     }
 
     fileprivate static func requiredArtifactUnion(
