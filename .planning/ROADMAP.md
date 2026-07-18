@@ -271,14 +271,14 @@ Plans:
   3. Outside the measured view envelope, the interface coaches for another view or keeps remove unavailable; it never exposes unbounded or undisclosed synthesis.
   4. A missed reveal threshold or timebox is recorded as a P0 blocker rather than silently demoting controlled removal.
 
-**Plans**: 2/4 plans executed
+**Plans**: 4/4 plans executed
 
 Plans:
 
 - [x] 06-01-PLAN.md — Implement the exact degraded-fixture reveal-first remove reducer and inverse.
 - [x] 06-02-PLAN.md — Add sole-authority remove durability, retry, crash recovery, replay, and restore.
-- [ ] 06-03-PLAN.md — Deliver the explicit launch-gated two-surface demo fixture while normal removal remains unavailable.
-- [ ] 06-04-PLAN.md — Publish fail-closed automated removal-fixture evidence with GATE-006 pending.
+- [x] 06-03-PLAN.md — Deliver the explicit launch-gated two-surface demo fixture while normal removal remains unavailable.
+- [x] 06-04-PLAN.md — Publish fail-closed automated removal-fixture evidence with GATE-006 pending.
 **UI hint**: yes
 
 ### Phase 7: Separate Mode B0 Web Fallback
@@ -344,6 +344,6 @@ Plans:
 | 3. Typed Place, Commit, and Offline Restore | 7/7 | Implementation complete; verification deferred |  |
 | 4. Target Grounding and Compositor Gate | 4/4 | In Progress|  |
 | 5. Curated Replacement Vertical | 4/4 | Sprint implementation complete; human gates pending | 2026-07-18 |
-| 6. Controlled Multi-Surface Removal | 2/4 | In progress; formal GATE-006 pending |  |
+| 6. Controlled Multi-Surface Removal | 4/4 | Bounded sprint implementation complete; formal GATE-006 pending | 2026-07-18 |
 | 7. Separate Mode B0 Web Fallback | 3/3 | Fixed-golden sprint slice complete; canonical/browser/retention work pending | 2026-07-18 |
-| 8. P0 Hardening and Evidence | 0/2 | Planned; blocked on Phase 6 and final evidence inputs | - |
+| 8. P0 Hardening and Evidence | 0/2 | Planned; implementation prerequisites present, formal gates still pending | - |
