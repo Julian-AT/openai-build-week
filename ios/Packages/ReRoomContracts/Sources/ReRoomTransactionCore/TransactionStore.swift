@@ -135,6 +135,13 @@ public enum TransactionIntegrity {
         try digest(operations)
     }
 
+    public static func requiredArtifactUnion(
+        scene: SceneState,
+        transactions: [TransactionRecord]
+    ) throws -> [ArtifactReference] {
+        try TransactionStore.requiredArtifactUnion(scene: scene, transactions: transactions)
+    }
+
     private static func digest<Value: Encodable>(_ value: Value) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
@@ -156,6 +163,11 @@ public struct TransactionStore: Sendable {
 
     public static func generationSHA256(for candidate: TransactionGenerationCandidate) throws -> String {
         try makeEncodedGeneration(candidate).generationSHA256
+    }
+
+    public func validateCandidate(_ candidate: TransactionGenerationCandidate) throws {
+        let encoded = try Self.makeEncodedGeneration(candidate)
+        try validate(encoded: encoded, expectedCandidate: candidate)
     }
 
     @discardableResult
@@ -402,7 +414,7 @@ public struct TransactionStore: Sendable {
         }
     }
 
-    private static func requiredArtifactUnion(
+    fileprivate static func requiredArtifactUnion(
         scene: SceneState,
         transactions: [TransactionRecord]
     ) throws -> [ArtifactReference] {
@@ -670,7 +682,7 @@ private struct CommitResultScope: Codable {
     }
 }
 
-private extension TransactionOperation {
+extension TransactionOperation {
     var requiredArtifactReferences: [ArtifactReference] {
         switch self {
         case .createAssetInstance(_, _, _, let refs): refs

@@ -64,7 +64,7 @@ struct TransactionStoreCrashTests {
         let memoryResult = try memoryStore.activate(TransactionPersistenceFixtures.placed)
 
         #expect(foundationResult == memoryResult)
-        #expect(try foundationStore.recover() == memoryStore.recover())
+        #expect(foundationStore.recover() == memoryStore.recover())
         #expect(foundationRecorder.observations == memoryRecorder.observations)
         let foundationFiles = try recursiveRelativeFiles(root: root)
         let memoryFiles = memoryFS.snapshotFiles()

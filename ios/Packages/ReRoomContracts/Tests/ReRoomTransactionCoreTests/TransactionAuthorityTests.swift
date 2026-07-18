@@ -30,7 +30,7 @@ struct TransactionAuthorityTests {
         }
 
         let active = await context.authority.activeSnapshot()
-        #expect(Set(receipts).count == 1)
+        #expect(receipts.allSatisfy { $0 == receipts[0] })
         #expect(active.scene.sceneRevision == 9)
         #expect(active.transactions.count == 1)
         #expect(active.receipts == [receipts[0]])
@@ -112,6 +112,20 @@ struct TransactionAuthorityTests {
             )
         }
         #expect(fresh.fileSystem.snapshotFiles() == beforeWrongAuthority)
+
+        let wrongBranch = RevisionAuthority(
+            kind: .nativeDevice,
+            authorityID: TransactionTestFixtures.deviceID,
+            revisionBranchID: "branch_40000000-0000-4000-8000-000000000003"
+        )
+        await #expect(throws: PlaceRejection.authorityMismatch) {
+            try await fresh.authority.previewPlace(
+                proposal: PlaceFixtures.proposal(operation: .place, authority: wrongBranch),
+                candidate: PlaceFixtures.candidate,
+                seed: PlaceFixtures.seed
+            )
+        }
+        #expect(fresh.fileSystem.snapshotFiles() == beforeWrongAuthority)
     }
 
     @Test("place then explicit offline restore survives restart with exact immutable trace")
@@ -122,7 +136,7 @@ struct TransactionAuthorityTests {
             candidate: PlaceFixtures.candidate,
             seed: PlaceFixtures.seed
         )
-        _ = try await context.authority.commitPlace(
+        let placeReceipt = try await context.authority.commitPlace(
             placePreview,
             confirmation: PlaceFixtures.confirmation,
             request: PlaceFixtures.confirmationRequest,
@@ -133,17 +147,37 @@ struct TransactionAuthorityTests {
 
         let restarted = try AuthorityFixtures.authority(fileSystem: context.fileSystem)
         #expect(await restarted.activeSnapshot() == placeSnapshot)
+        let beforePlaceRetry = context.fileSystem.snapshotFiles()
+        #expect(try await restarted.commitPlace(
+            placePreview,
+            confirmation: PlaceFixtures.confirmation,
+            request: PlaceFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.placeUndoToken
+        ) == placeReceipt)
+        #expect(context.fileSystem.snapshotFiles() == beforePlaceRetry)
         let restorePreview = try await restarted.previewRestore(
             proposal: AuthorityFixtures.restoreProposal(scene: placeSnapshot.scene),
             request: AuthorityFixtures.restoreRequest,
             seed: AuthorityFixtures.restoreSeed
         )
-        let receipt = try await restarted.commitRestore(
-            restorePreview,
-            confirmation: AuthorityFixtures.restoreConfirmation,
-            idempotencyKey: AuthorityFixtures.restoreIdempotencyKey,
-            localUndoToken: AuthorityFixtures.restoreUndoToken
-        )
+        #expect(restorePreview.reduction.networkReads == 0)
+        let restoreReceipts = try await withThrowingTaskGroup(of: TransactionReceipt.self) { group in
+            for _ in 0..<16 {
+                group.addTask {
+                    try await restarted.commitRestore(
+                        restorePreview,
+                        confirmation: AuthorityFixtures.restoreConfirmation,
+                        idempotencyKey: AuthorityFixtures.restoreIdempotencyKey,
+                        localUndoToken: AuthorityFixtures.restoreUndoToken
+                    )
+                }
+            }
+            var values = [TransactionReceipt]()
+            for try await receipt in group { values.append(receipt) }
+            return values
+        }
+        let receipt = restoreReceipts[0]
+        #expect(restoreReceipts.allSatisfy { $0 == receipt })
 
         let restored = await restarted.activeSnapshot()
         #expect(receipt.committedSceneRevision == 10)
@@ -157,7 +191,14 @@ struct TransactionAuthorityTests {
 
         let restartedAgain = try AuthorityFixtures.authority(fileSystem: context.fileSystem)
         #expect(await restartedAgain.activeSnapshot() == restored)
-        #expect(context.networkReads == 0)
+        let beforeRestoreRetry = context.fileSystem.snapshotFiles()
+        #expect(try await restartedAgain.commitRestore(
+            restorePreview,
+            confirmation: AuthorityFixtures.restoreConfirmation,
+            idempotencyKey: AuthorityFixtures.restoreIdempotencyKey,
+            localUndoToken: AuthorityFixtures.restoreUndoToken
+        ) == receipt)
+        #expect(context.fileSystem.snapshotFiles() == beforeRestoreRetry)
     }
 
     @Test("same-branch divergence preserves both snapshots quarantines and freezes mutation")
@@ -224,26 +265,16 @@ enum AuthorityFixtures {
     static let restoreUndoToken = "undo_40000000-0000-4000-8000-000000000015"
     static let quarantinedBranchID = "branch_40000000-0000-4000-8000-000000000016"
 
-    final class NetworkCounter: @unchecked Sendable {
-        private let lock = NSLock()
-        private var value = 0
-        var count: Int { lock.withLock { value } }
-    }
-
     struct Context {
         let fileSystem: DurableMemoryCaptureFileSystem
         let authority: NativeBranchAuthority
-        let counter: NetworkCounter
-        var networkReads: Int { counter.count }
     }
 
     static func context() throws -> Context {
         let fileSystem = DurableMemoryCaptureFileSystem()
-        let counter = NetworkCounter()
         return Context(
             fileSystem: fileSystem,
-            authority: try authority(fileSystem: fileSystem),
-            counter: counter
+            authority: try authority(fileSystem: fileSystem)
         )
     }
 
