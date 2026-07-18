@@ -29,13 +29,15 @@ Human must recheck both official pages immediately before submission. The live p
 - Evidence links: `evidence/hardening/phase-08/evidence-index.json`, `evidence/hardening/phase-08/pending-gates.json`, and this repository's phase summaries.
 - State blockers: OPS-GOLDEN-001 remains PENDING until 5/5. Device/browser/license/submission remain pending or blocked.
 
+Normal signed-device removal remains unavailable; `remove` is only a bounded DEBUG demo fixture enabled by `--room-edit-demo-reveal`, and `GATE-006` remains PENDING.
+
 Do not assert formal completion, shipping license approval, performance measurements, novelty comparisons, or green gates beyond the canonical reports linked in the evidence index.
 
 ## Video shot list — target under 2:45
 
 1. `0:00–0:15` — Problem and controlled target: one chair or small table with visible floor.
 2. `0:15–0:35` — Explain how Codex and GPT-5.6 supported architecture, contract-first implementation, and verification.
-3. `0:35–1:35` — Signed native sequence: `place`, `replace`, `remove`, `restore`.
+3. `0:35–1:35` — Signed DEBUG native sequence: `place`, `replace`, bounded fixture `remove`, `restore`; keep the `DEMO REVEAL FIXTURE - GATE-006 PENDING` banner visible and describe the limitation aloud.
 4. `1:35–2:05` — Separate Mode B0 verified replay, timeline scrub, and inspection.
 5. `2:05–2:25` — Deterministic/offline fallback and evidence boundary.
 6. `2:25–2:45` — State the permitted demo-candidate claim and explicitly mention deferred gates.
@@ -69,7 +71,7 @@ Any failed command stops the handoff. No automated command performs an upload or
 
 ## Deferred Resume Order
 
-1. Finish the missing Phase 5–7 implementation/evidence plans and rerun their authoritative verifiers.
+1. Phase 5–7 automated implementation/evidence plans are complete; rerun their authoritative verifiers after any source change.
 2. Resume `$gsd-verify-work 2` for the full `GATE-001` signed-device termination matrix.
 3. Run formal `GATE-003`, `GATE-006`, `GATE-008`, `GATE-009`, and `GATE-011` campaigns against the frozen implementation.
 4. Benchmark `GATE-004`, `GATE-007`, and `GATE-012` only if replacing the activated manual/no-dense/local fallbacks.

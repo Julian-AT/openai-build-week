@@ -36,16 +36,26 @@ Expected automated result: both Phase 8 commands return `PASS`; shipping remains
 
 ## 2. Signed native rehearsal
 
-This procedure requires the existing Xcode signing configuration and connected iPhone. Do not edit PBX, signing, capabilities, bundle identity, or schemes.
+This procedure requires the existing Xcode signing configuration and connected iPhone. Do not edit PBX, signing, capabilities, or bundle identity. Normal signed-device removal remains unavailable; `remove` is only a bounded DEBUG demo fixture enabled by `--room-edit-demo-reveal`, and `GATE-006` remains PENDING.
 
 1. Open `ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj` in Xcode.
 2. Select the existing `ReRoomDeviceProof` scheme and the connected signed device.
 3. Build and run without changing project settings.
 4. Confirm the app opens as ReRoom Device Check and reaches the existing room-edit surface.
 5. Use the controlled hero target: one freestanding chair or small table with visible floor.
-6. Exercise exactly `place`, `replace`, `remove`, and compensating `restore` in that order.
+6. Exercise `place`, `replace`, and compensating `restore`; confirm that normal-mode `remove` remains unavailable instead of bypassing its gate.
 7. Confirm typed/tap fallback remains usable with network and learned providers absent.
 8. Record only an opaque external artifact ID, lowercase SHA-256, implementation revision, environment class, and operator procedure. Keep video, room imagery, signing details, device identifiers, and logs outside Git.
+
+### Optional four-operation DEBUG demo fixture
+
+Use this only for a separately classified rehearsal or video shot; it is not normal product behavior, `GATE-006` evidence, or an `OPS-GOLDEN-001` run.
+
+1. In the existing scheme's Run action, temporarily add `--room-edit-demo-reveal` under Arguments Passed On Launch. Do not commit the resulting user/scheme change.
+2. Build and run the DEBUG app on the connected device.
+3. Require the visible banner `DEMO REVEAL FIXTURE - GATE-006 PENDING`. If it is absent, stop.
+4. Exercise `place`, `replace`, bounded fixture `remove`, and compensating `restore` in that order.
+5. Remove the temporary launch argument after recording the rehearsal. Never label this sequence as normal removal or a green removal gate.
 
 Until that artifact is separately retained and validated, the result remains `device_smoke: PENDING`.
 
@@ -74,7 +84,7 @@ After the run, update no checked-in evidence unless the relevant classifier acce
 
 ## Deferred Resume Order
 
-1. Finish the missing Phase 5–7 implementation/evidence plans and rerun their authoritative verifiers.
+1. Phase 5–7 automated implementation/evidence plans are complete; rerun their authoritative verifiers after any source change.
 2. Resume `$gsd-verify-work 2` for the full `GATE-001` signed-device termination matrix.
 3. Run formal `GATE-003`, `GATE-006`, `GATE-008`, `GATE-009`, and `GATE-011` campaigns against the frozen implementation.
 4. Benchmark `GATE-004`, `GATE-007`, and `GATE-012` only if replacing the activated manual/no-dense/local fallbacks.

@@ -122,6 +122,19 @@ class Phase08EvidenceTests(unittest.TestCase):
             with self.assertRaises(evidence.EvidenceRejected):
                 evidence.validate_docs_text(changed_runbook, changed_handoff)
 
+    def test_docs_cannot_present_degraded_remove_as_normal_signed_device_behavior(self) -> None:
+        runbook, handoff = evidence.fixture_docs()
+        evidence.validate_docs_text(runbook, handoff)
+
+        for changed_runbook, changed_handoff in (
+            (runbook.replace(evidence.DEGRADED_REMOVE_NOTICE, "Remove is available in the normal signed build."), handoff),
+            (runbook, handoff.replace(evidence.DEGRADED_REMOVE_NOTICE, "The signed native sequence includes remove.")),
+            (runbook.replace(evidence.DEMO_REVEAL_ARGUMENT, "--room-edit-remove"), handoff),
+            (runbook, handoff.replace(evidence.DEMO_REVEAL_ARGUMENT, "--room-edit-remove")),
+        ):
+            with self.assertRaises(evidence.EvidenceRejected):
+                evidence.validate_docs_text(changed_runbook, changed_handoff)
+
     def test_docs_paths_are_locked_to_the_two_repository_files(self) -> None:
         runbook, handoff = evidence.fixture_docs()
         runbook_path = self.root / evidence.RUNBOOK_PATH

@@ -23,6 +23,11 @@ INDEX_PATH = "evidence/hardening/phase-08/evidence-index.json"
 GATES_PATH = "evidence/hardening/phase-08/pending-gates.json"
 PERMITTED_CLAIM = "ReRoom demo candidate: automated integration checks passed; representative device/browser smoke recorded where linked; deferred P0 gates remain pending."
 RULES_RETRIEVAL_DATE = "2026-07-18"
+DEMO_REVEAL_ARGUMENT = "--room-edit-demo-reveal"
+DEGRADED_REMOVE_NOTICE = (
+    "Normal signed-device removal remains unavailable; `remove` is only a bounded DEBUG demo fixture "
+    "enabled by `--room-edit-demo-reveal`, and `GATE-006` remains PENDING."
+)
 
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 REV_RE = re.compile(r"^git:[0-9a-f]{40}$")
@@ -55,7 +60,7 @@ REQUIREMENTS = (
 GATE_IDS = tuple(f"GATE-{number:03d}" for number in range(1, 15))
 
 DEFERRED_RESUME_ORDER = (
-    "1. Finish the missing Phase 5–7 implementation/evidence plans and rerun their authoritative verifiers.",
+    "1. Phase 5–7 automated implementation/evidence plans are complete; rerun their authoritative verifiers after any source change.",
     "2. Resume `$gsd-verify-work 2` for the full `GATE-001` signed-device termination matrix.",
     "3. Run formal `GATE-003`, `GATE-006`, `GATE-008`, `GATE-009`, and `GATE-011` campaigns against the frozen implementation.",
     "4. Benchmark `GATE-004`, `GATE-007`, and `GATE-012` only if replacing the activated manual/no-dense/local fallbacks.",
@@ -310,6 +315,7 @@ def fixture_docs() -> tuple[str, str]:
         "scripts/verify-phase-08-evidence full",
         "scripts/verify-phase-08-evidence --verify-evidence",
         "Operations: place, replace, remove, restore. Mode B0 replay is local HTTP evidence.",
+        DEGRADED_REMOVE_NOTICE,
         "Evidence classes: automated_check, device_smoke, browser_smoke, human_observation, external_submission.",
         "OPS-GOLDEN-001 remains PENDING until 5/5 after blocking gates are green.",
         "Device smoke PENDING. Browser smoke PENDING. License shipping BLOCKED. Submission PENDING.",
@@ -323,6 +329,7 @@ def fixture_docs() -> tuple[str, str]:
         "Human must recheck both official pages immediately before submission.",
         "Deadline observed: July 21, 2026 at 5:00 PM Pacific Time.",
         "Public YouTube demo must be under three minutes with audio explaining Codex and GPT-5.6.",
+        DEGRADED_REMOVE_NOTICE,
         "Include repository URL, category, project description, setup/testing guidance, and representative `/feedback` Session ID.",
         "- [ ] Human: recheck and sign off official rules",
         "- [ ] Human: approve public media",
@@ -343,6 +350,7 @@ def validate_docs_text(runbook: str, handoff: str) -> None:
         "scripts/verify-phase-08-evidence full",
         "scripts/verify-phase-08-evidence --verify-evidence",
         "place", "replace", "remove", "restore", "Mode B0",
+        DEGRADED_REMOVE_NOTICE, DEMO_REVEAL_ARGUMENT,
         "automated_check", "device_smoke", "browser_smoke", "human_observation", "external_submission",
         "OPS-GOLDEN-001 remains PENDING until 5/5", "Device smoke PENDING", "Browser smoke PENDING",
         "License shipping BLOCKED", "Submission PENDING", *DEFERRED_RESUME_ORDER,
@@ -352,6 +360,7 @@ def validate_docs_text(runbook: str, handoff: str) -> None:
         f"Retrieved: {RULES_RETRIEVAL_DATE}", "immediately before submission",
         "under three minutes", "audio", "Codex", "GPT-5.6", "repository", "category",
         "project description", "/feedback", "Session ID",
+        DEGRADED_REMOVE_NOTICE, DEMO_REVEAL_ARGUMENT,
         "- [ ] Human: recheck and sign off official rules",
         "- [ ] Human: approve public media",
         "- [ ] Human: upload public demo video",
