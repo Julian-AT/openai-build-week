@@ -1,22 +1,11 @@
 ---
 phase: 05-curated-replacement-vertical
-verified: 2026-07-18T19:02:34Z
-status: gaps_found
-score: 15/19 must-haves verified
+verified: 2026-07-18T19:17:54Z
+status: human_needed
+score: 16/19 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
-gaps:
-  - truth: "Outside validated observations, the interface coaches for another view or restores safe content instead of exposing an invalid replacement composite."
-    status: failed
-    reason: "The production live runtime does not provide a supported-view verdict and inherits replacementSupportedView=true; only the test harness injects false, so the guard cannot close Replace outside the deterministic fixture."
-    artifacts:
-      - path: ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift
-        issue: "RoomEditModel defaults replacementSupportedView to true, and RoomEditFactory.runtime constructs both fixture and live models without overriding it."
-      - path: ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift
-        issue: "The unsupported-view test proves only an explicitly injected false value; it does not exercise production runtime wiring."
-    missing:
-      - "Default replacement to unavailable outside a declared deterministic fixture, or inject a real current supported-view decision into the live runtime."
-      - "Add a production-wiring regression proving the live path coaches and retains the original until supported-view evidence is valid."
+gaps: []
 deferred:
   - truth: "Physical conservative masking/occlusion, support plausibility, and absence of a severe seam"
     addressed_in: "Phase 8 and canonical GATE-003/GATE-005 campaigns"
@@ -32,13 +21,13 @@ deferred:
 # Phase 5: Curated Replacement Vertical Verification Report
 
 **Phase Goal:** Users can replace the controlled target with a validated curated asset reliably inside supported observations.
-**Verified:** 2026-07-18T19:02:34Z
-**Status:** `gaps_found`
-**Re-verification:** No — initial verification
+**Verified:** 2026-07-18T19:17:54Z
+**Status:** `human_needed`
+**Re-verification:** Yes — supported-view implementation gap closed
 
 ## Goal Achievement
 
-The deterministic reducer, sole-writer authority, restart/restore path, exact local asset loader, simulator journeys, and honest evidence publication are substantive and tested. However, the production live runtime does not wire the supported-view policy that is supposed to bound access to Replace. The roadmap's physical visual, derivative/license, and complete golden criteria also remain intentionally pending under the approved sprint cut and cannot be promoted by simulator automation.
+The deterministic reducer, sole-writer authority, restart/restore path, exact local asset loader, simulator journeys, supported-view policy, and honest evidence publication are substantive and tested. Production now fails closed by default and derives the fixture/live verdict from the current revision, world epoch, frozen target, and camera pose at preview and confirmation. The roadmap's physical visual, derivative/license, and complete golden criteria remain intentionally pending under the approved sprint cut and require human/canonical evidence.
 
 ### Observable Truths
 
@@ -46,7 +35,7 @@ The deterministic reducer, sole-writer authority, restart/restore path, exact lo
 |---|---|---|---|
 | 1 | A ready target is replaced with stable identity, conservative masking/occlusion, support alignment, and one revision after retry. | ? HUMAN/DEFERRED | Stable identity, support fields, and exactly-once retry are automated; physical masking/contact/seam quality still requires GATE-003/GATE-005 evidence. |
 | 2 | Five consecutive runs have no wrong target, duplicate revision, severe seam, lost edit, or replay failure. | ? HUMAN/DEFERRED | Five simulator fixture iterations passed and local restart/restore is exact; severe-seam judgment, signed-device runs, and complete B0 golden replay remain OPS-GOLDEN-001 work. |
-| 3 | Outside validated observations, the UI coaches or restores safe content. | ✗ FAILED | `replacementSupportedView` defaults to `true` at `RoomEditModel.swift:860`; the live model construction at `RoomEditModel.swift:1793` does not override it. Only the test harness injects `false`. |
+| 3 | Outside validated observations, the UI coaches or restores safe content. | ✓ VERIFIED | The default policy is `.denyAll`; fixture/live factories explicitly inject named policies derived from current scene/world/frozen-target/camera evidence. Preview and confirmation revalidate, and omitted, stale, and out-of-view regressions retain the original at r0. |
 | 4 | One manifest binds native/web derivatives, dimensions, origin, collision, hashes, delivery, and license before hero use. | ? HUMAN/DEFERRED | The local USDA digest/provenance/HYPOTHESIS metadata is honest, but the manifest deliberately lacks validated web derivative parity and shipping license approval; GATE-011 is PENDING. |
 | 5 | Valid preview emits exactly visibility then asset creation without changing revision. | ✓ VERIFIED | Direct source trace shows `setObjectVisibility` then `createAssetInstance`; independent `ReplaceReducerTests.cancelAndConfirm` passed. |
 | 6 | Target/readiness/view/support/asset/world/revision/integrity failures reject before mutation. | ✓ VERIFIED | `ReplaceReducer.validateContext` and candidate guards are covered by the parameterized non-destructive reducer tests; mutation verifier passed. |
@@ -59,12 +48,12 @@ The deterministic reducer, sole-writer authority, restart/restore path, exact lo
 | 13 | Target coverage and replacement are distinct; load/commit failure retains safe display. | ✓ VERIFIED | Separate `targetAnchor`/`replacementAnchor` and snapshot fields; UI loader-failure test requires target coverage and no replacement at r0. |
 | 14 | Bundled USDA is exact, provenance-bound, local-demo labeled, and GATE-011 remains pending. | ✓ VERIFIED | Asset digest `afdd38…32379`, six-cube manifest, provenance, product copy, and evidence agree; no parity/license completion claim exists. |
 | 15 | RealityKit loads the exact USDA once outside `updateUIView`, retains/clones it, and fails closed. | ✓ VERIFIED | One `Entity.load(named: "proxy-chair.usda")` occurs in coordinator init; six entities required; retained template clones on render; failure publishes unavailable. |
-| 16 | One fail-closed verifier covers reducer/authority/model/UI/build/asset/render/security checks. | ✓ VERIFIED | Closed 16-check manifest exists; independent 9-test mutation suite passed and report self-validation succeeded. |
+| 16 | One fail-closed verifier covers reducer/authority/model/UI/build/asset/render/security checks. | ✓ VERIFIED | Closed 16-check manifest exists; independent 10-test mutation suite passed and report self-validation succeeded. |
 | 17 | Evidence claims only the automated sprint slice and leaves all named gates pending. | ✓ VERIFIED | Claim is exactly `automated sprint replacement slice passed`; GATE-003/005/009/011 and OPS-GOLDEN-001 are exactly `PENDING`. |
 | 18 | Evidence contains no private data, credentials, machine paths, fabricated measurements, or P0 claim. | ✓ VERIFIED | Closed privacy map is false, limitation text is explicit, and focused scan found no affirmative forbidden claim. |
-| 19 | Verification binds the exact retained loader and rejects box substitution/load-failure readiness. | ✓ VERIFIED | Current app/package/asset bytes match `ba04382`; mutation tests replace the exact asset, move loading, substitute a generated box, and promote failed loading, and each must reject. |
+| 19 | Verification binds all core sources and exact retained loader, rejecting implicit supported-view authorization, substitution, and load-failure readiness. | ✓ VERIFIED | Current reducer, authority, app, tests, and asset bytes match `f53ba72`; mutation tests reject default-true/omitted policy wiring, exact-asset drift, generated-box substitution, and failed-load promotion. |
 
-**Score:** 15/19 truths verified; 1 failed; 3 require deferred human/canonical evidence.
+**Score:** 16/19 truths verified; 0 failed; 3 require deferred human/canonical evidence.
 
 ## Required Artifacts
 
@@ -74,13 +63,13 @@ The deterministic reducer, sole-writer authority, restart/restore path, exact lo
 | `ReplaceReducerTests.swift` | Order/rejection/inverse/nonmutation tests | ✓ VERIFIED | Direct named reducer test passed independently. |
 | `TransactionAuthority.swift` | Sole durable replace authority | ✓ VERIFIED | Fingerprint/idempotency, confirmation, store activation, restore, and post-activation publication wired. |
 | `TransactionAuthorityTests.swift` | Retry/recovery/fault/restore coverage | ✓ VERIFIED | Independent concurrent retry/restart and restore-preservation tests passed. |
-| `RoomEditModel.swift` | App state/bootstrap/authority bridge | ⚠️ PARTIAL | Substantive and wired, but production supported-view state is a constant default rather than current evidence. |
+| `RoomEditModel.swift` | App state/bootstrap/authority bridge and supported-view policy | ✓ VERIFIED | Fail-closed default plus explicit fixture/live policies evaluate current scene/world/frozen target/camera evidence at preview and confirmation. |
 | `RoomEditView.swift` | Accessible bounded replacement UI | ✓ VERIFIED | Native controls, retained coordinator, exact loader, distinct anchors, and honest copy are wired. |
 | `RoomEditJourneyTests.swift` | Full/five-run/failure UI paths | ✓ VERIFIED | All three named cases are present and the full source-bound report records PASS. |
 | `asset-manifest.json` / `PROVENANCE.md` / `proxy-chair.usda` | Honest exact local demo asset | ✓ VERIFIED | Closed digest and HYPOTHESIS metadata; explicitly not CON-004 parity evidence. |
 | `verify-phase-05-replacement` | Quick/full verifier | ✓ VERIFIED | Executable, closed checks, source/asset contracts, atomic publication. |
-| `test_phase_05_replacement.py` | Mutation enforcement | ✓ VERIFIED | Nine tests passed independently. |
-| `automated-preflight.json` | Sanitized revision-bound evidence | ✓ VERIFIED | Canonical self-digest and source/asset checks validate; fixed app/asset bytes match `ba04382`. |
+| `test_phase_05_replacement.py` | Mutation enforcement | ✓ VERIFIED | Ten tests passed independently. |
+| `automated-preflight.json` | Sanitized revision-bound evidence | ✓ VERIFIED | Canonical self-digest and source/asset checks validate; all fixed product bytes match `f53ba72`. |
 
 ## Key Link Verification
 
@@ -98,14 +87,15 @@ The deterministic reducer, sole-writer authority, restart/restore path, exact lo
 |---|---|---|---|---|
 | Replace UI | immutable render snapshot | authority snapshot → `RoomEditModel.publish` → SwiftUI/RealityKit coordinator | Yes | ✓ FLOWING |
 | Replacement entity | retained `replacementTemplate` | exact bundled USDA → six-entity validation → model availability → clone | Yes | ✓ FLOWING |
-| Supported-view blocker | `replacementSupportedView` | constructor default | No live evidence/provider; always true in production construction | ✗ HOLLOW |
+| Supported-view blocker | `RoomEditSupportedViewPolicy` | current scene/world + frozen target + support camera pose | Yes; fail-closed at preview and revalidated before commit | ✓ FLOWING |
 | Preflight evidence | checks/source digests/counts | quick/full commands and static contracts → sealed report → atomic replace | Yes | ✓ FLOWING |
 
 ## Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Mutation enforcement | `python3 -m unittest tools.verify.tests.test_phase_05_replacement` | 9 tests passed | ✓ PASS |
+| Mutation enforcement | `python3 -m unittest tools.verify.tests.test_phase_05_replacement` | 10 tests passed | ✓ PASS |
+| Current model policy suite | `xcodebuild … -only-testing:ReRoomDeviceProofTests/RoomEditModelTests` | 22 tests passed | ✓ PASS |
 | Exact confirm/inverse | `swift test … --filter ReplaceReducerTests.cancelAndConfirm` | 1 Swift Testing test passed | ✓ PASS |
 | Concurrent retry/restart | `swift test … --filter TransactionAuthorityTests.concurrentReplaceIsExactlyOnceAndRestartSafe` | 1 Swift Testing test passed | ✓ PASS |
 | Restore/restart/unrelated state | `swift test … --filter TransactionAuthorityTests.replaceRestorePreservesUnrelatedState` | 1 Swift Testing test passed | ✓ PASS |
@@ -119,7 +109,7 @@ No phase-specific probe scripts were declared. The executable preflight is a ver
 
 | Requirement | Source Plans | Description | Status | Evidence |
 |---|---|---|---|---|
-| FR-REPLACE-001 | 05-01 through 05-04 | Replace the selected hero object with a curated asset only within supported observations. | ✗ PARTIAL / BLOCKED | Deterministic replacement mechanics pass, but production supported-view enforcement is not wired; physical quality and GATE-011 acceptance remain pending. |
+| FR-REPLACE-001 | 05-01 through 05-04 | Replace the selected hero object with a curated asset only within supported observations. | ? HUMAN NEEDED | Automated mechanics and production supported-view enforcement pass; physical composite quality, derivative/license evidence, and formal golden acceptance remain pending. |
 
 No additional requirement is mapped to Phase 5 in `REQUIREMENTS.md`, so there is no orphaned Phase 5 requirement.
 
@@ -127,16 +117,15 @@ No additional requirement is mapped to Phase 5 in `REQUIREMENTS.md`, so there is
 
 | File | Line | Finding | Severity | Impact |
 |---|---|---|---|---|
-| `RoomEditModel.swift` | 860, 1793 | Live runtime inherits `replacementSupportedView = true`. | 🛑 BLOCKER | Product copy and test seam imply a bounded supported view, but the production path never computes or injects one. |
-| `RoomEditModelTests.swift` | 342–355 | Unsupported-view test uses a harness-only `false` injection. | ⚠️ WARNING | Passing test does not prove production wiring. |
-| `verify-phase-05-replacement` | 56–69, 195–205, 570–574 | Fixed `BOUND_PRODUCT_DIGESTS` pins app/asset paths but not reducer/authority/test paths. | ⚠️ WARNING | The current report captures all core hashes and current files are byte-equal to `ba04382`, but a future core-only drift is not rejected against the claimed implementation revision unless it also breaks token contracts. |
+| `RoomEditModel.swift` | supported-view policy/runtime wiring | Bounded values are explicitly `HYPOTHESIS`, not measured thresholds. | ℹ️ DECLARED | Safe for the bounded sprint demo only; physical validation may tighten or replace them. |
+| `verify-phase-05-replacement` | product digest/source contract | Core reducer, authority, app, test, and asset paths are immutable-bound. | ✓ CLOSED | Core-only drift and default-true/omitted runtime injection are mutation-rejected. |
 
 No unreferenced `TBD`, `FIXME`, `XXX`, TODO placeholder, empty user-visible implementation, credential, private room data, or machine path was found in the Phase 5 files/report.
 
 ### Disconfirmation pass
 
-1. **Partially met requirement:** FR-REPLACE-001 has deterministic transaction/UI mechanics, but not production supported-view enforcement or formal visual/asset acceptance.
-2. **Misleading passing test:** `replacementViewUnsupported` passes only through harness injection; the live factory never supplies `false` or a measured verdict.
+1. **Remaining human boundary:** FR-REPLACE-001 has deterministic transaction/UI mechanics and production supported-view enforcement, but formal visual/asset acceptance remains pending.
+2. **Policy honesty:** The local pose envelope is labeled `HYPOTHESIS`; no measurement or formal gate acceptance is inferred from model/simulator tests.
 3. **Uncovered error path:** Missing/corrupt asset states have model tests and startup fail-closed behavior, but only RealityKit load failure has an end-to-end UI injection. This is non-blocking because startup failure prevents mutation, but it is not equivalent UI-path coverage.
 
 ## Human Verification Required
@@ -161,9 +150,9 @@ No unreferenced `TBD`, `FIXME`, `XXX`, TODO placeholder, empty user-visible impl
 
 ## Gaps Summary
 
-One implementation gap blocks Phase 5 goal acceptance: the live app does not wire a supported-view verdict, so it cannot guarantee that Replace is unavailable outside the deterministic supported observation. The deterministic reducer, authority, persistence/restore, exact retained asset loading, simulator automation, and evidence honesty otherwise verify successfully. Canonical physical, derivative/license, and complete golden evidence remain deferred and PENDING rather than failed or fabricated.
+No automated implementation gap remains. The supported-view verdict is now production-wired and fail-closed, its regression and mutation suites pass, and the evidence is rebound to `f53ba72`. Phase status is `human_needed` solely because canonical physical composite, derivative/license, and complete golden evidence remain PENDING rather than failed or fabricated.
 
 ---
 
-_Verified: 2026-07-18T19:02:34Z_
+_Verified: 2026-07-18T19:17:54Z_
 _Verifier: the agent (gsd-verifier)_

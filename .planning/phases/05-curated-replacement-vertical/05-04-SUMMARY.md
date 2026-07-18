@@ -10,7 +10,7 @@ requires:
     provides: fail-closed quick/full evidence publication pattern
 provides:
   - Mutation-tested quick/full Phase 5 replacement verifier
-  - Closed source binding to Phase 5 implementation revision ba04382
+  - Closed source binding to Phase 5 supported-view implementation revision f53ba72
   - Atomic sanitized automated replacement preflight evidence
   - Explicitly pending physical, parity, license, transaction-campaign, and golden gates
 affects: [phase-06-remove, phase-08-hardening, physical-device-uat, release-evidence]
@@ -24,7 +24,7 @@ key-files:
     - evidence/replacement/phase-05/automated-preflight.json
   modified: []
 key-decisions:
-  - "Phase 5 evidence binds product sources and exact asset metadata to ba04382 even when unrelated later commits advance repository HEAD."
+  - "Phase 5 evidence binds reducer, authority, app, tests, and exact asset metadata to f53ba72 even when unrelated later commits advance repository HEAD."
   - "The full report publishes only after every ordered check passes; simulator or publication failure preserves the prior report and returns failure."
   - "The only accepted claim is automated sprint replacement slice passed; every formal physical, license/parity, transaction, and golden gate remains PENDING."
 patterns-established:
@@ -69,7 +69,7 @@ status: complete
 
 # Phase 5 Plan 04: Replacement Evidence Summary
 
-**A mutation-tested fail-closed verifier now binds the complete automated replacement slice to `ba04382`, publishes one canonical report atomically, and prevents simulator success from promoting deferred physical or formal gates.**
+**A mutation-tested fail-closed verifier now binds the complete automated replacement slice to `f53ba72`, including production supported-view policy wiring, and prevents simulator success from promoting deferred physical or formal gates.**
 
 ## Performance
 
@@ -83,7 +83,7 @@ status: complete
 
 - Added quick verification for the replace reducer, sole branch authority/restore, native model, exact source contract, asset contract, production dependency boundary, render independence, and mutation suite.
 - Added full verification for the exact bundled replacement journey, five deterministic fixture iterations, injected loader failure, Debug/Release simulator builds, release surface, tracked secrets, and whitespace.
-- Bound the local proxy and Phase 5 app source set to `ba04382fbc03e0065ff9e943bc9b007b04318692`, including exact digest/provenance metadata and the six-entity retained RealityKit load contract.
+- Bound the reducer, authority, app, tests, local proxy, and metadata to `f53ba72c4d723871f37258be0cf8c3816331e7df`, including production fixture/live policy injection and the six-entity retained RealityKit load contract.
 - Published a sanitized canonical JSON report only after all 16 ordered checks passed, with a self-digest and atomic replacement protocol.
 
 ## Task Commits
@@ -94,7 +94,7 @@ status: complete
 
 ## Verification
 
-- `python3 -m unittest tools.verify.tests.test_phase_05_replacement`: **9 tests passed**.
+- `python3 -m unittest tools.verify.tests.test_phase_05_replacement`: **10 tests passed**.
 - `scripts/verify-phase-05-replacement quick`: **passed**.
 - `scripts/verify-phase-05-replacement full`: **passed and published**.
 - Full functional inventory: **16 checks**, **1** full replacement journey, **5** deterministic fixture runs, **1** injected load-failure run, **2** build configurations, **1** exact retained asset load per coordinator, **6** asset model entities, and **0** command-time network requests.
@@ -116,7 +116,7 @@ The suite rejects:
 
 ## Decisions Made
 
-- Kept the Phase 5 product revision immutable at `ba04382` and stored closed product digests in the verifier. Concurrent unrelated Phase 7/8 commits may advance repository HEAD but cannot redefine Phase 5 evidence.
+- Advanced the Phase 5 product revision to `f53ba72` after closing the supported-view gap and stored closed digests for every reducer, authority, app, test, and asset source. Later commits cannot redefine Phase 5 evidence.
 - Recorded both the fixed implementation revision and the exact repository parent observed at publication. The latter is provenance only; all acceptance semantics come from the fixed source bindings.
 - Treated simulator asset loading as local wiring evidence only. The report does not claim physical-device loading, visual quality, performance, thermal behavior, approved redistribution, or derivative parity.
 
@@ -145,7 +145,7 @@ The suite rejects:
 
 ## Issues Encountered
 
-- Repository HEAD advanced through unrelated concurrent Phase 7/8 commits during the full run. The report's implementation revision and seven product/asset digests remain fixed to `ba04382`; the separately recorded verification parent preserves the actual publication context without changing Phase 5 authority.
+- Repository HEAD advanced through unrelated concurrent work during verification. The republished report's implementation revision and eleven product/asset digests remain fixed to `f53ba72`; the separately recorded verification parent preserves publication context without changing Phase 5 authority.
 - CoreSimulator completed all three isolated Phase 5 UI cases on this full attempt. No simulator result was converted into physical-device evidence.
 
 ## Known Stubs
@@ -165,6 +165,13 @@ None.
 - Phase 6 app work can proceed without modifying or reinterpreting this revision-bound Phase 5 result.
 - `GATE-011`, `GATE-003`, `GATE-005`, `GATE-009`, and `OPS-GOLDEN-001` remain exactly `PENDING` and require their canonical future evidence.
 - `FR-REPLACE-001` has an automated sprint-slice pass but is not a full P0/release acceptance claim while those gates remain pending.
+
+## Supported-view gap closure addendum
+
+- `c0dbbd6` added RED regressions for omitted policy, stale/out-of-view evidence, and confirmation-time pose changes.
+- `d27fa29`, `1e3e421`, and `f53ba72` replaced the implicit Boolean with a fail-closed policy derived from current scene revision, world epoch, frozen target, and camera pose. Fixture and live runtime construction now inject named policies; the bounded values remain explicitly `HYPOTHESIS`, not measurements.
+- `270f9cf`, `2b7a74c`, `65741d6`, and `cf07781` expanded mutation enforcement and immutable digests to the reducer, authority, their tests, app sources, and exact runtime wiring. Default-true or omitted production injection is rejected.
+- `2163a8a` republished the sanitized report against `f53ba72`. The current focused model suite passed **22/22** and mutation coverage passed **10/10**. The previous full UI/build campaign is carried forward because its view, UI-test, asset, reducer, and authority bytes are unchanged; a later quick wrapper attempt hit CoreSimulator launch unavailability before changing any result.
 
 ## Self-Check: PASSED
 
