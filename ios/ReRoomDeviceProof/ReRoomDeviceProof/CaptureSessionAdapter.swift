@@ -1,9 +1,53 @@
 import ARKit
+import Darwin
 import Foundation
 import os
 import ReRoomContracts
 import ReRoomCaptureCore
 import UIKit
+
+final class Gate001TerminationController: @unchecked Sendable {
+    private let state = OSAllocatedUnfairLock<CaptureFrameState?>(initialState: nil)
+    private let terminate: @Sendable () -> Void
+
+    init(terminate: @escaping @Sendable () -> Void) {
+        self.terminate = terminate
+    }
+
+    static func live() -> Gate001TerminationController {
+        Gate001TerminationController {
+            _ = Darwin.kill(Darwin.getpid(), SIGKILL)
+        }
+    }
+
+    var armedState: CaptureFrameState? {
+        state.withLock { $0 }
+    }
+
+    @discardableResult
+    func arm(_ lifecycleState: CaptureFrameState) -> Bool {
+        state.withLock { armedState in
+            guard armedState == nil else { return false }
+            armedState = lifecycleState
+            return true
+        }
+    }
+
+    func disarm() {
+        state.withLock { $0 = nil }
+    }
+
+    func observe(_ observation: CaptureLifecycleObservation) {
+        let shouldTerminate = state.withLock { armedState in
+            guard observation.selectedReason == .userEvent,
+                  observation.state == armedState
+            else { return false }
+            armedState = nil
+            return true
+        }
+        if shouldTerminate { terminate() }
+    }
+}
 
 enum CaptureSessionPhase: String, Equatable, Sendable {
     case idle
