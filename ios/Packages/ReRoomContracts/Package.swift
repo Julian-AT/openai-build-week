@@ -15,6 +15,11 @@ let package = Package(
             type: .static,
             targets: ["ReRoomCaptureCore"]
         ),
+        .library(
+            name: "ReRoomTransactionCore",
+            type: .static,
+            targets: ["ReRoomTransactionCore"]
+        ),
         .executable(name: "ReRoomContractRunner", targets: ["ReRoomContractRunner"]),
         .executable(name: "ReRoomReplayRunner", targets: ["ReRoomReplayRunner"]),
     ],
@@ -39,6 +44,10 @@ let package = Package(
             name: "ReRoomCaptureCore",
             dependencies: ["ReRoomContracts"]
         ),
+        .target(
+            name: "ReRoomTransactionCore",
+            dependencies: ["ReRoomContracts", "ReRoomCaptureCore"]
+        ),
         .executableTarget(
             name: "ReRoomReplayRunner",
             dependencies: ["ReRoomCaptureCore"]
@@ -57,7 +66,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ReRoomTransactionCoreTests",
-            dependencies: ["ReRoomContracts"]
+            dependencies: ["ReRoomContracts", "ReRoomTransactionCore"]
         ),
     ],
     swiftLanguageModes: [.v6]

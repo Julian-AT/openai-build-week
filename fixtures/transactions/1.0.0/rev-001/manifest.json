@@ -32,8 +32,8 @@
     {
       "relative_path": "cases.json",
       "media_type": "application/json",
-      "byte_length": 3175,
-      "sha256": "f675688d02c8c73f16e26093a3e37d2a67c7f4f2927e4ebc9fc38e45f1ae6206"
+      "byte_length": 3272,
+      "sha256": "ab93381ddc9af5544501f2504c3d4a38f6b7d23d3115ee0fd78d99cc2286de62"
     },
     {
       "relative_path": "expected-traces.json",
