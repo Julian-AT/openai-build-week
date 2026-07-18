@@ -4,10 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
+import fcntl
 import hashlib
 import json
 import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -20,7 +24,9 @@ from jsonschema import Draft202012Validator
 from tools.verify.verify_evidence import (
     VerificationFailure,
     assert_privacy_safe,
+    load_validator,
     read_json,
+    verify_report,
     verify_files,
 )
 
@@ -52,6 +58,24 @@ FULL_CHECK_IDS = QUICK_CHECK_IDS + (
     "native_simulator_flow",
     "release_surface",
     "three_runtime_agreement",
+)
+
+PREFLIGHT_ENVIRONMENT_FIELDS = {
+    "runtime_tier",
+    "platform",
+    "python",
+    "swift",
+    "node",
+    "xcode",
+}
+PREFLIGHT_LIMITATIONS = (
+    "This automated preflight is not physical-device GATE-001 evidence.",
+    "The NFR-REPLAY-001 three-minute goal remains a hypothesis until separately measured with raw timing evidence.",
+)
+PREFLIGHT_FILENAMES = (
+    "automated-preflight.json",
+    "gate-001-report.json",
+    "gate-001-checklist.json",
 )
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -252,7 +276,7 @@ def sanitize_check_results(
     return sanitized
 
 
-def _validate_preflight(value: Any) -> None:
+def validate_automated_preflight(value: Any) -> None:
     _require(isinstance(value, dict), "automated preflight root is invalid")
     allowed = {
         "schema_version",
@@ -261,11 +285,15 @@ def _validate_preflight(value: Any) -> None:
         "decision_actor",
         "recorded_at_utc",
         "implementation_revision",
+        "source_tree_sha256",
         "fixture_refs",
         "environment",
         "value_classification",
         "checks",
         "synthetic_metrics",
+        "evidence_bindings",
+        "physical_evidence_state",
+        "limitations",
         "preflight_sha256",
     }
     _require(set(value) == allowed, "automated preflight contains an unknown or private field")
@@ -273,12 +301,37 @@ def _validate_preflight(value: Any) -> None:
     _require(value["gate_id"] == "GATE-001", "automated preflight gate identity is invalid")
     _require(value["gate_state"] in {"RUNNING", "RED"}, "automation cannot publish this gate state")
     _require(value["decision_actor"] == "automation", "automated preflight actor is invalid")
+    _require(
+        re.fullmatch(
+            r"[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z",
+            value["recorded_at_utc"],
+        )
+        is not None,
+        "automated preflight timestamp is invalid",
+    )
     _require(value["value_classification"] == "HYPOTHESIS", "synthetic preflight must remain HYPOTHESIS")
     _require(re.fullmatch(r"git:[0-9a-f]{40}", value["implementation_revision"]) is not None, "implementation revision is invalid")
+    _require(_SHA256.fullmatch(value["source_tree_sha256"]) is not None, "source-tree digest is invalid")
     fixture_ids = tuple(item.get("fixture_id") for item in value["fixture_refs"])
     _require(
         fixture_ids == ("FX-PREFLIGHT-CAPTURE-SHORT", "FX-PREFLIGHT-CAPTURE-LONG"),
         "automated preflight must use distinct synthetic fixture identities",
+    )
+    _require(
+        all(
+            isinstance(item, dict)
+            and set(item) == {"fixture_id", "fixture_revision", "sha256"}
+            and item["fixture_revision"] == "rev-001"
+            and _SHA256.fullmatch(item["sha256"]) is not None
+            for item in value["fixture_refs"]
+        ),
+        "synthetic fixture binding is invalid",
+    )
+    _require(
+        isinstance(value["environment"], dict)
+        and set(value["environment"]) == PREFLIGHT_ENVIRONMENT_FIELDS
+        and all(isinstance(item, str) and item for item in value["environment"].values()),
+        "automated preflight environment is not the closed sanitized shape",
     )
     checks = value["checks"]
     _require(tuple(item.get("check_id") for item in checks) == FULL_CHECK_IDS, "full preflight checks are incomplete")
@@ -292,6 +345,31 @@ def _validate_preflight(value: Any) -> None:
         all(item.get("value_classification") in {"HYPOTHESIS", "TARGET"} for item in value["synthetic_metrics"]),
         "synthetic metrics cannot be labeled MEASURED",
     )
+    _require(
+        all(
+            isinstance(item, dict)
+            and set(item) == {"metric_id", "value", "unit", "value_classification"}
+            for item in value["synthetic_metrics"]
+        ),
+        "synthetic metric shape is invalid",
+    )
+    bindings = value["evidence_bindings"]
+    _require(isinstance(bindings, list) and len(bindings) == 1, "replay agreement binding is missing")
+    binding = bindings[0]
+    _require(
+        isinstance(binding, dict)
+        and set(binding) == {"evidence_id", "sha256", "implementation_revision"}
+        and binding["evidence_id"] == "evidence_phase_02_replay_agreement_rev_001"
+        and _SHA256.fullmatch(binding["sha256"]) is not None
+        and re.fullmatch(r"git:[0-9a-f]{40}", binding["implementation_revision"]) is not None,
+        "replay agreement binding is invalid",
+    )
+    _require(value["physical_evidence_state"] == "pending", "automation cannot claim physical evidence")
+    _require(tuple(value["limitations"]) == PREFLIGHT_LIMITATIONS, "preflight limitations are missing or changed")
+    _require(
+        "FX-RRCAP-" not in canonical_json_bytes(value).decode("utf-8"),
+        "automated preflight consumed a physical fixture identity",
+    )
     payload = dict(value)
     recorded = payload.pop("preflight_sha256")
     _require(recorded == sha256_bytes(canonical_json_bytes(payload)), "automated preflight self-digest is stale")
@@ -299,6 +377,325 @@ def _validate_preflight(value: Any) -> None:
         assert_privacy_safe(value)
     except VerificationFailure as error:
         raise GateVerificationError(str(error)) from error
+
+
+def _validate_preflight(value: Any) -> None:
+    """Backward-local alias retained for the gate path."""
+    validate_automated_preflight(value)
+
+
+def _decode_json_bytes(data: bytes, label: str) -> dict[str, Any]:
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in result:
+                raise GateVerificationError(f"{label} contains duplicate object keys")
+            result[key] = item
+        return result
+
+    try:
+        value = json.loads(data, object_pairs_hook=reject_duplicates)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise GateVerificationError(f"{label} is malformed") from error
+    _require(isinstance(value, dict), f"{label} root is invalid")
+    return value
+
+
+def _replay_agreement_binding(data: bytes) -> dict[str, str]:
+    value = _decode_json_bytes(data, "replay agreement")
+    payload = dict(value)
+    recorded_digest = payload.pop("evidence_sha256", None)
+    _require(
+        recorded_digest == sha256_bytes(canonical_json_bytes(payload)),
+        "replay agreement self-digest is stale",
+    )
+    _require(value.get("schema_version") == "1.0.0", "replay agreement version is unsupported")
+    _require(
+        value.get("evidence_id") == "evidence_phase_02_replay_agreement_rev_001",
+        "replay agreement identity is invalid",
+    )
+    agreement = value.get("agreement")
+    _require(isinstance(agreement, dict), "replay agreement verdict is missing")
+    _require(
+        agreement.get("verdict") == "pass"
+        and agreement.get("runtime_count") == 3
+        and agreement.get("case_count") == 16
+        and all(
+            agreement.get(field) == 0
+            for field in (
+                "missing_cases",
+                "extra_cases",
+                "semantic_disagreements",
+                "runtime_identity_disagreements",
+                "report_digest_disagreements",
+                "fixture_integrity_disagreements",
+            )
+        ),
+        "replay agreement is not a complete three-runtime pass",
+    )
+    limitations = value.get("limitations")
+    _require(
+        isinstance(limitations, list)
+        and PREFLIGHT_LIMITATIONS[1] in limitations,
+        "replay agreement lost the pending three-minute limitation",
+    )
+    implementation = value.get("implementation")
+    _require(
+        isinstance(implementation, dict)
+        and re.fullmatch(r"git:[0-9a-f]{40}", implementation.get("revision", "")) is not None,
+        "replay agreement implementation binding is invalid",
+    )
+    return {
+        "evidence_id": value["evidence_id"],
+        "sha256": sha256_bytes(data),
+        "implementation_revision": implementation["revision"],
+    }
+
+
+def _validate_sanitized_checks(check_results: Sequence[dict[str, Any]]) -> list[dict[str, str]]:
+    _require(len(check_results) == len(FULL_CHECK_IDS), "a full deterministic check result is missing")
+    reconstructed: list[dict[str, str]] = []
+    for expected, item in zip(FULL_CHECK_IDS, check_results, strict=True):
+        _require(isinstance(item, dict), "deterministic check result is invalid")
+        _require(
+            set(item) == {"check_id", "status", "output_sha256"},
+            "deterministic check result contains an unknown or private fact",
+        )
+        _require(item["check_id"] == expected, "deterministic check identity is stale or reordered")
+        _require(item["status"] == "PASS", f"deterministic check failed: {expected}")
+        _require(_SHA256.fullmatch(item["output_sha256"]) is not None, "deterministic output digest is invalid")
+        reconstructed.append(
+            {"check_id": expected, "status": "PASS", "output_sha256": item["output_sha256"]}
+        )
+    return reconstructed
+
+
+def build_automated_preflight(
+    *,
+    check_results: Sequence[dict[str, Any]],
+    implementation_revision: str,
+    recorded_at_utc: str,
+    source_tree_sha256: str,
+    replay_agreement_bytes: bytes,
+    environment_facts: dict[str, Any],
+) -> dict[str, Any]:
+    """Reconstruct the checked-in preflight from an exact public allowlist."""
+    checks = _validate_sanitized_checks(check_results)
+    _require(re.fullmatch(r"git:[0-9a-f]{40}", implementation_revision) is not None, "implementation revision is invalid")
+    _require(_SHA256.fullmatch(source_tree_sha256) is not None, "source-tree digest is invalid")
+    _require(
+        isinstance(environment_facts, dict)
+        and set(environment_facts) == PREFLIGHT_ENVIRONMENT_FIELDS
+        and all(isinstance(item, str) and item for item in environment_facts.values()),
+        "environment facts contain an unknown, private, or missing field",
+    )
+    try:
+        assert_privacy_safe(environment_facts)
+    except VerificationFailure as error:
+        raise GateVerificationError(str(error)) from error
+    binding = _replay_agreement_binding(replay_agreement_bytes)
+    synthetic_short = {
+        "fixture_id": "FX-PREFLIGHT-CAPTURE-SHORT",
+        "fixture_revision": "rev-001",
+        "workload": "synthetic-10-second-equivalent-five-state-matrix",
+    }
+    synthetic_long = {
+        "fixture_id": "FX-PREFLIGHT-CAPTURE-LONG",
+        "fixture_revision": "rev-001",
+        "workload": "synthetic-60-second-equivalent-pressure-and-reordering-matrix",
+    }
+    value: dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "gate_id": "GATE-001",
+        "gate_state": "RUNNING",
+        "decision_actor": "automation",
+        "recorded_at_utc": recorded_at_utc,
+        "implementation_revision": implementation_revision,
+        "source_tree_sha256": source_tree_sha256,
+        "fixture_refs": [
+            {
+                "fixture_id": synthetic_short["fixture_id"],
+                "fixture_revision": synthetic_short["fixture_revision"],
+                "sha256": sha256_bytes(canonical_json_bytes(synthetic_short)),
+            },
+            {
+                "fixture_id": synthetic_long["fixture_id"],
+                "fixture_revision": synthetic_long["fixture_revision"],
+                "sha256": sha256_bytes(canonical_json_bytes(synthetic_long)),
+            },
+        ],
+        "environment": {key: environment_facts[key] for key in sorted(PREFLIGHT_ENVIRONMENT_FIELDS)},
+        "value_classification": "HYPOTHESIS",
+        "checks": checks,
+        "synthetic_metrics": [
+            {"metric_id": "short_workload_target", "value": 10, "unit": "seconds", "value_classification": "TARGET"},
+            {"metric_id": "long_workload_target", "value": 60, "unit": "seconds", "value_classification": "TARGET"},
+            {"metric_id": "selected_frame_cadence", "value": 2, "unit": "seconds", "value_classification": "HYPOTHESIS"},
+            {"metric_id": "bounded_queue_capacity", "value": 3, "unit": "items", "value_classification": "HYPOTHESIS"},
+            {"metric_id": "pressure_input_multiplier", "value": 2, "unit": "times_baseline", "value_classification": "HYPOTHESIS"},
+            {"metric_id": "nfr_replay_timing_goal", "value": 180, "unit": "seconds", "value_classification": "HYPOTHESIS"},
+        ],
+        "evidence_bindings": [binding],
+        "physical_evidence_state": "pending",
+        "limitations": list(PREFLIGHT_LIMITATIONS),
+    }
+    value["preflight_sha256"] = sha256_bytes(canonical_json_bytes(value))
+    validate_automated_preflight(value)
+    return value
+
+
+def _serialized_json(value: Any) -> bytes:
+    return canonical_json_bytes(value) + b"\n"
+
+
+def _pending_checklist_is_valid(value: Any, preflight_sha: str) -> bool:
+    return value == {
+        "schema_version": "1.0.0",
+        "gate_id": "GATE-001",
+        "checklist_state": "UNRUN",
+        "decision_actor": "human_required",
+        "automated_report_sha256": preflight_sha,
+        "physical_evidence_state": "pending",
+        "pending_reason": "physical_device_evidence_and_human_attestation_required",
+    }
+
+
+def build_pending_gate_bundle(preflight: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    validate_automated_preflight(preflight)
+    preflight_sha = sha256_bytes(_serialized_json(preflight))
+    environment = preflight["environment"]
+    report = {
+        "schema_version": "2.0.0",
+        "gate_id": "GATE-001",
+        "gate_state": "RUNNING",
+        "decision_actor": "automation",
+        "recorded_at_utc": preflight["recorded_at_utc"],
+        "implementation_revision": preflight["implementation_revision"],
+        "test_ids": ["TST-CAPTURE-001", "TST-REPLAY-001", "TST-QUEUE-001"],
+        "requirement_ids": ["FR-CAPTURE-001", "FR-B0-001", "NFR-REPLAY-001", "SEC-CONSENT-001"],
+        "adr_ids": ["ADR-004", "ADR-013", "ADR-014"],
+        "fixture_refs": preflight["fixture_refs"],
+        "environment": {
+            "device_model": None,
+            "os_version": environment["platform"],
+            "xcode_version": environment["xcode"],
+            "runtime_tier": environment["runtime_tier"],
+            "capability_flags": {
+                "camera_permission": "not_tested",
+                "arkit_world_tracking": "not_tested",
+                "plane_detection": "not_tested",
+                "lidar_required": False,
+            },
+            "signing_result": "not_tested",
+        },
+        "value_classification": "TARGET",
+        "evidence_artifacts": [
+            {
+                "opaque_artifact_id": "opaque-gate-001-automated-preflight",
+                "artifact_kind": "automated_report",
+                "artifact_role": "supporting_evidence",
+                "sha256": preflight_sha,
+                "external_retention": True,
+            }
+        ],
+        "automated_report_sha256": None,
+        "operator_checklist_sha256": None,
+        "locked_decision_change_id": None,
+        "prd_sha256": None,
+        "affected_adr_sha256": [],
+    }
+    try:
+        verify_report(report, load_validator("gate-report.schema.json"), "gate-001-report.json")
+    except VerificationFailure as error:
+        raise GateVerificationError(str(error)) from error
+    checklist = {
+        "schema_version": "1.0.0",
+        "gate_id": "GATE-001",
+        "checklist_state": "UNRUN",
+        "decision_actor": "human_required",
+        "automated_report_sha256": preflight_sha,
+        "physical_evidence_state": "pending",
+        "pending_reason": "physical_device_evidence_and_human_attestation_required",
+    }
+    return report, checklist
+
+
+def _fsync_directory(directory: Path) -> None:
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _write_durable(path: Path, data: bytes) -> None:
+    with path.open("xb") as handle:
+        handle.write(data)
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def publish_pending_gate_bundle(
+    preflight: dict[str, Any],
+    report: dict[str, Any],
+    checklist: dict[str, Any],
+    *,
+    directory: Path = DEFAULT_PREFLIGHT_PATH.parent,
+    fault_hook: Callable[[str], None] | None = None,
+) -> tuple[Path, Path, Path]:
+    """Publish the three pending files as one rollback-safe generation."""
+    validate_automated_preflight(preflight)
+    preflight_sha = sha256_bytes(_serialized_json(preflight))
+    expected_report, expected_checklist = build_pending_gate_bundle(preflight)
+    _require(report == expected_report, "pending report contains an unknown, private, or stale fact")
+    _require(checklist == expected_checklist, "pending checklist contains an unknown, private, or stale fact")
+    _require(_pending_checklist_is_valid(checklist, preflight_sha), "pending checklist binding is stale")
+    records = {
+        PREFLIGHT_FILENAMES[0]: _serialized_json(preflight),
+        PREFLIGHT_FILENAMES[1]: _serialized_json(report),
+        PREFLIGHT_FILENAMES[2]: _serialized_json(checklist),
+    }
+    directory.mkdir(parents=True, exist_ok=True)
+    lock_descriptor = os.open(directory, os.O_RDONLY)
+    stage = Path(tempfile.mkdtemp(prefix=".phase-02-gate-stage-", dir=directory))
+    targets = tuple(directory / name for name in PREFLIGHT_FILENAMES)
+    previous: dict[str, bytes | None] = {}
+    try:
+        fcntl.flock(lock_descriptor, fcntl.LOCK_EX)
+        for name in PREFLIGHT_FILENAMES:
+            target = directory / name
+            previous[name] = target.read_bytes() if target.exists() else None
+        for name, data in records.items():
+            _write_durable(stage / name, data)
+        _fsync_directory(stage)
+        if fault_hook is not None:
+            fault_hook("prepared")
+        for name in PREFLIGHT_FILENAMES:
+            os.replace(stage / name, directory / name)
+            _fsync_directory(directory)
+            if fault_hook is not None:
+                fault_hook(f"replaced:{name}")
+    except Exception as error:
+        try:
+            for name in PREFLIGHT_FILENAMES:
+                target = directory / name
+                old = previous.get(name)
+                if old is None:
+                    if target.exists():
+                        target.unlink()
+                    continue
+                restore = stage / f"restore-{name}"
+                _write_durable(restore, old)
+                os.replace(restore, target)
+            _fsync_directory(directory)
+        except Exception as rollback_error:
+            raise GateVerificationError("pending evidence publication failed and rollback is incomplete") from rollback_error
+        raise GateVerificationError("pending evidence publication failed; previous generation restored") from error
+    finally:
+        fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+        os.close(lock_descriptor)
+        shutil.rmtree(stage, ignore_errors=True)
+    return targets
 
 
 def _read(path: Path, label: str) -> tuple[bytes, Any]:
@@ -368,7 +765,17 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
     requested = declared_check_ids(mode)
     package = "ios/Packages/ReRoomContracts"
     definitions = {
-        "contract_package": (("python3", "-m", "unittest", "tools.verify.tests.test_phase_02_fixtures", "-v"),),
+        "contract_package": (
+            (
+                "python3",
+                "-m",
+                "unittest",
+                "tools.verify.tests.test_phase_02_fixtures",
+                "tools.verify.tests.test_phase_02_gate",
+                "-v",
+            ),
+            ("swift", "test", "--package-path", package),
+        ),
         "lifecycle_crash_matrix": (
             ("swift", "test", "--package-path", package, "--filter", "CaptureLifecycleTests"),
             ("swift", "test", "--package-path", package, "--filter", "CaptureCrashMatrixTests"),
@@ -393,16 +800,34 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
                 "ReRoomDeviceProof",
                 "-configuration",
                 "Debug",
-                "-sdk",
-                "iphonesimulator",
                 "-destination",
-                "platform=iOS Simulator,name=iPhone 17 Pro",
+                "platform=iOS Simulator,name=iPhone 17",
                 "-only-testing:ReRoomDeviceProofTests/CaptureSessionAdapterTests",
                 "-only-testing:ReRoomDeviceProofUITests/DiagnosticSurfaceTests",
+                "CODE_SIGNING_ALLOWED=NO",
             ),
         ),
-        "release_surface": (("scripts/verify-reroom-release-surface",),),
-        "three_runtime_agreement": (("scripts/run-three-runtime-agreement",),),
+        "release_surface": (
+            (
+                "xcodebuild",
+                "test",
+                "-project",
+                "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
+                "-scheme",
+                "ReRoomDeviceProof",
+                "-configuration",
+                "Release",
+                "-destination",
+                "platform=iOS Simulator,name=iPhone 17",
+                "-only-testing:ReRoomDeviceProofUITests/DiagnosticSurfaceTests",
+                "CODE_SIGNING_ALLOWED=NO",
+            ),
+            ("scripts/verify-reroom-release-surface",),
+        ),
+        "three_runtime_agreement": (
+            ("scripts/run-three-runtime-agreement",),
+            ("scripts/run-phase-02-replay-agreement",),
+        ),
     }
     return tuple(CommandSpec(check_id, definitions[check_id]) for check_id in requested)
 
@@ -440,6 +865,98 @@ def run_deterministic_checks(
     return sanitize_check_results(tuple(spec.check_id for spec in specs), raw)
 
 
+def _command_output(command: Sequence[str], label: str) -> str:
+    try:
+        completed = subprocess.run(
+            command,
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise GateVerificationError(f"{label} is unavailable") from error
+    _require(completed.returncode == 0, f"{label} is unavailable")
+    output = (completed.stdout or completed.stderr).strip().splitlines()
+    _require(bool(output), f"{label} is unavailable")
+    return " ".join(output[0].split())
+
+
+def _current_revision() -> str:
+    revision = _command_output(("git", "rev-parse", "HEAD"), "git revision")
+    _require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None, "git revision is invalid")
+    return f"git:{revision}"
+
+
+def _source_tree_digest() -> str:
+    scopes = (
+        "scripts/verify-phase-02-capture-replay",
+        "scripts/run-phase-02-replay-agreement",
+        "scripts/run-three-runtime-agreement",
+        "scripts/verify-reroom-release-surface",
+        "tools/verify",
+        "tools/javascript",
+        "tools/python",
+        "evidence/templates",
+        "ios/Packages/ReRoomContracts",
+        "ios/ReRoomDeviceProof",
+    )
+    try:
+        completed = subprocess.run(
+            ("git", "ls-files", "-z", "--", *scopes),
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise GateVerificationError("source-tree listing is unavailable") from error
+    paths = sorted(item.decode("utf-8") for item in completed.stdout.split(b"\0") if item)
+    _require(bool(paths), "source-tree listing is empty")
+    digest = hashlib.sha256()
+    for relative in paths:
+        path = ROOT / relative
+        try:
+            data = path.read_bytes()
+        except OSError as error:
+            raise GateVerificationError("a declared source-tree file is unavailable") from error
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(sha256_bytes(data).encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _environment_facts() -> dict[str, str]:
+    return {
+        "runtime_tier": "local-deterministic-preflight",
+        "platform": f"{platform.system()} {platform.release()} {platform.machine()}",
+        "python": _command_output(("python3", "--version"), "Python version"),
+        "swift": _command_output(("swift", "--version"), "Swift version"),
+        "node": _command_output(("node", "--version"), "Node version"),
+        "xcode": _command_output(("xcodebuild", "-version"), "Xcode version"),
+    }
+
+
+def publish_full_preflight(check_results: Sequence[dict[str, Any]]) -> tuple[Path, Path, Path]:
+    try:
+        replay_bytes = (ROOT / "evidence/compatibility/replay-agreement.json").read_bytes()
+    except OSError as error:
+        raise GateVerificationError("fresh replay agreement evidence is unavailable") from error
+    recorded_at = dt.datetime.now(dt.UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+    preflight = build_automated_preflight(
+        check_results=check_results,
+        implementation_revision=_current_revision(),
+        recorded_at_utc=recorded_at,
+        source_tree_sha256=_source_tree_digest(),
+        replay_agreement_bytes=replay_bytes,
+        environment_facts=_environment_facts(),
+    )
+    report, checklist = build_pending_gate_bundle(preflight)
+    return publish_pending_gate_bundle(preflight, report, checklist)
+
+
 def _parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("mode", choices=("quick", "full", "gate"))
@@ -454,6 +971,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
     try:
         if args.mode in {"quick", "full"}:
             results = run_deterministic_checks(args.mode)
+            if args.mode == "full":
+                publish_full_preflight(results)
             print(f"phase-02 {args.mode}: PASS ({len(results)} declared checks)")
             return 0
         observation_text = os.environ.get("REROOM_GATE_001_OBSERVATIONS_PATH")

@@ -185,7 +185,10 @@ def preflight() -> dict:
         "environment": {
             "runtime_tier": "local-deterministic-preflight",
             "platform": "macOS",
-            "toolchain": "declared-repository-toolchain",
+            "python": "Python 3.13.12",
+            "swift": "Apple Swift version 6.3",
+            "node": "v22.22.3",
+            "xcode": "Xcode 26.0",
         },
         "value_classification": "HYPOTHESIS",
         "checks": [

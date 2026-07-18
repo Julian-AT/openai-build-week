@@ -17,7 +17,7 @@ import tempfile
 from pathlib import Path
 
 
-BOUND_REVISION = "a5bff6896188dcac9397c48ce1a6820a7196011a"
+BOUND_REVISION = "3d7a1d22da768cbd2551b890a3c30f070d5340c5"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"

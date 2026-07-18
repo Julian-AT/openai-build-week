@@ -32,7 +32,7 @@ from tools.verify.compare_replay_reports import (
 )
 
 
-BOUND_REVISION = "0d371bc1de9a057cbf61b70142729f6cbe620eec"
+BOUND_REVISION = "3d7a1d22da768cbd2551b890a3c30f070d5340c5"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 PUBLISHER_RELATIVE_PATH = "scripts/run-phase-02-replay-agreement"
 COMPARATOR_RELATIVE_PATH = "tools/verify/compare_replay_reports.py"
