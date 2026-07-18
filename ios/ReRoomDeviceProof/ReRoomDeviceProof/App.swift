@@ -203,22 +203,29 @@ enum Gate001LaunchConfiguration {
 struct ReRoomDeviceProofApp: App {
 #if DEBUG
     @State private var diagnosticOwner = DiagnosticAppOwner()
+    @State private var roomEditOwner = RoomEditAppOwner()
 #else
-    @State private var model = DeviceProofModel()
     @State private var gateOwner = Gate001ReleaseDiagnosticOwner()
+    @State private var roomEditOwner = RoomEditAppOwner()
 #endif
 
     var body: some Scene {
         WindowGroup {
 #if DEBUG
-            DiagnosticChecklistView(owner: diagnosticOwner)
+            if RoomEditLaunchConfiguration.usesRoomEditSurface(
+                arguments: ProcessInfo.processInfo.arguments
+            ) {
+                RoomEditContainer(owner: roomEditOwner)
+            } else {
+                DiagnosticChecklistView(owner: diagnosticOwner)
+            }
 #else
             if Gate001LaunchConfiguration.controlsEnabled(
                 arguments: ProcessInfo.processInfo.arguments
             ) {
                 Gate001ReleaseDiagnosticView(owner: gateOwner)
             } else {
-                CandidateSeedView(model: model)
+                RoomEditContainer(owner: roomEditOwner)
             }
 #endif
         }
