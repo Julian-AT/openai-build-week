@@ -283,6 +283,109 @@ struct ARSessionPolicyTests {
         ])
     }
 
+    @MainActor
+    @Test("Manual raycast prefers detected horizontal geometry and preserves current-world values")
+    func targetRaycastPrefersDetectedGeometry() throws {
+        let detected = translatedTransform(x: 0.25, y: 0.5, z: -1.5)
+        let estimated = translatedTransform(x: 9, y: 9, z: 9)
+        let resolver = TestTargetRaycastResolver(results: [
+            .existingPlaneGeometry: [detected],
+            .estimatedHorizontalPlane: [estimated],
+        ])
+        let driver = TestARSessionDriver()
+        let controller = ARSessionController(driver: driver, raycastResolver: resolver)
+        controller.synchronize(cameraAuthorization: .granted)
+
+        let candidates = controller.targetCandidates(
+            at: CGPoint(x: 120, y: 240),
+            context: TargetRaycastContext(
+                worldFrameID: "world_40000000-0000-4000-8000-000000000001",
+                worldFrameVersion: 7,
+                capturedSceneRevision: 11
+            )
+        )
+
+        let candidate = try #require(candidates.first)
+        #expect(candidates.count == 1)
+        #expect(resolver.requests == [.existingPlaneGeometry])
+        #expect(candidate.source == .existingPlaneGeometry)
+        #expect(candidate.worldFrameID == "world_40000000-0000-4000-8000-000000000001")
+        #expect(candidate.worldFrameVersion == 7)
+        #expect(candidate.capturedSceneRevision == 11)
+        #expect(candidate.worldFromCandidate.layout == "row_major")
+        #expect(candidate.worldFromCandidate.mathConvention == "column_vector")
+        #expect(candidate.worldFromCandidate.units == "meters")
+        #expect(candidate.worldFromCandidate.values == [
+            1, 0, 0, 0.25,
+            0, 1, 0, 0.5,
+            0, 0, 1, -1.5,
+            0, 0, 0, 1,
+        ])
+    }
+
+    @MainActor
+    @Test("Manual raycast falls back explicitly, rejects nonfinite values, and caps candidates")
+    func targetRaycastUsesBoundedEstimatedFallback() {
+        var nonfinite = matrix_identity_float4x4
+        nonfinite.columns.3.x = .infinity
+        let resolver = TestTargetRaycastResolver(results: [
+            .existingPlaneGeometry: [nonfinite],
+            .estimatedHorizontalPlane: (0..<8).map {
+                translatedTransform(x: Float($0), y: 0, z: -1)
+            },
+        ])
+        let controller = ARSessionController(
+            driver: TestARSessionDriver(),
+            raycastResolver: resolver
+        )
+        controller.synchronize(cameraAuthorization: .granted)
+
+        let candidates = controller.targetCandidates(
+            at: CGPoint(x: 10, y: 20),
+            context: .init(
+                worldFrameID: "world_40000000-0000-4000-8000-000000000002",
+                worldFrameVersion: 1,
+                capturedSceneRevision: 0
+            )
+        )
+
+        #expect(resolver.requests == [.existingPlaneGeometry, .estimatedHorizontalPlane])
+        #expect(candidates.count == ARSessionController.maximumTargetCandidateCount)
+        #expect(candidates.allSatisfy { $0.source == .estimatedHorizontalPlane })
+        #expect(candidates.flatMap(\.worldFromCandidate.values).allSatisfy(\.isFinite))
+    }
+
+    @MainActor
+    @Test("Manual raycast miss and unavailable session return no candidates without hidden work")
+    func targetRaycastMissIsEmpty() {
+        let resolver = TestTargetRaycastResolver(results: [:])
+        let controller = ARSessionController(
+            driver: TestARSessionDriver(),
+            raycastResolver: resolver
+        )
+        let context = TargetRaycastContext(
+            worldFrameID: "world_40000000-0000-4000-8000-000000000003",
+            worldFrameVersion: 1,
+            capturedSceneRevision: 2
+        )
+
+        #expect(controller.targetCandidates(at: .zero, context: context).isEmpty)
+        #expect(resolver.requests.isEmpty)
+
+        controller.synchronize(cameraAuthorization: .granted)
+        #expect(controller.targetCandidates(at: .zero, context: context).isEmpty)
+        #expect(resolver.requests == [.existingPlaneGeometry, .estimatedHorizontalPlane])
+    }
+
+    @MainActor
+    @Test("System driver retains the injected AR session as the only world authority")
+    func systemDriverUsesInjectedSession() {
+        let session = ARSession()
+        let driver = SystemARSessionDriver(session: session)
+
+        #expect(driver.session === session)
+    }
+
     private func otherwiseReadyState(
         microphoneAuthorization: PermissionAuthorizationState
     ) -> DeviceProofState {
@@ -304,6 +407,28 @@ private struct TestSessionFailure: Error {}
 private struct ObservedDelivery: Equatable {
     let observer: String
     let event: ARSessionEvent
+}
+
+private func translatedTransform(x: Float, y: Float, z: Float) -> simd_float4x4 {
+    var transform = matrix_identity_float4x4
+    transform.columns.3 = SIMD4<Float>(x, y, z, 1)
+    return transform
+}
+
+@MainActor
+private final class TestTargetRaycastResolver: TargetRaycastResolving {
+    let results: [TargetRaycastSource: [simd_float4x4]]
+    private(set) var requests: [TargetRaycastSource] = []
+
+    init(results: [TargetRaycastSource: [simd_float4x4]]) {
+        self.results = results
+    }
+
+    func raycast(at point: CGPoint, source: TargetRaycastSource) -> [simd_float4x4] {
+        _ = point
+        requests.append(source)
+        return results[source, default: []]
+    }
 }
 
 @MainActor
