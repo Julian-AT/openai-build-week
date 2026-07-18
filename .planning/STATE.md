@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 03
-current_phase_name: Typed Place, Commit, and Offline Restore
-status: ready_for_next_phase
-stopped_at: Completed 03-07-PLAN.md; formal gates remain deferred
-last_updated: "2026-07-18T16:04:26.000Z"
+current_phase: 04
+current_phase_name: Target Grounding and Compositor Gate
+status: executing
+stopped_at: Completed 04-01-PLAN.md; formal Phase 4 gates remain pending
+last_updated: "2026-07-18T16:52:17.926Z"
 last_activity: 2026-07-18
-last_activity_desc: Completed Phase 03 automated transaction agreement and preflight; formal GATE-009/GATE-010/GATE-011 and physical/human evidence remain PENDING
+last_activity_desc: Phase 04 execution started
 progress:
-  total_phases: 3
-  completed_phases: 2
-  total_plans: 29
-  completed_plans: 29
+  total_phases: 4
+  completed_phases: 3
+  total_plans: 33
+  completed_plans: 31
 ---
 
 # Project State
@@ -24,19 +24,19 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** 36-hour demo sprint — deliver the four-operation native hero vertical and minimal B0 replay/inspection path while Phase 02 human verification remains explicitly deferred.
+**Current focus:** Phase 04 — Target Grounding and Compositor Gate
 
 ## Current Position
 
-Phase: 03 (Typed Place, Commit, and Offline Restore) — AUTOMATED IMPLEMENTATION COMPLETE; FORMAL VERIFICATION DEFERRED
+Phase: 04 (Target Grounding and Compositor Gate) — EXECUTING
 
-Plan: 7 of 7
+Plan: 2 of 4
 
-Status: Plan 03-07 complete; ready for the next sprint-critical phase while deferred gates remain pending
+Status: Ready to execute
 
-Last activity: 2026-07-18 — Completed exact two-run Swift/TypeScript/Python agreement, full native/Release preflight, and sanitized pending-gate evidence
+Last activity: 2026-07-18 — Phase 04 execution started
 
-Progress: [████████████████████] 21/21 planned tasks ([██████████] 100%)
+Progress: [████████████████████] 21/21 planned tasks ([█████████░] 94%)
 
 ## Performance Metrics
 
@@ -88,6 +88,7 @@ Progress: [████████████████████] 21/21 p
 | Phase 03 P05 | 25min | 2 tasks | 9 files |
 | Phase 03 P06 | 20min | 2 tasks | 8 files |
 | Phase 03 P07 | 22min | 2 tasks | 5 files |
+| Phase 04 P01 | 8min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -142,6 +143,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 03]: Use the frozen-contract-valid `arkit_plane` support method across all producers. — Shipping-core activation and independent references must hash the same contract-valid projection.
 - [Phase 03]: Validate every runtime's canonical raw result against the pinned closed schema and an independent fixture/pinned oracle before accepting cross-runtime equality. — Equal wrong outputs must fail rather than become a new oracle.
 - [Phase 03]: Publish Phase 3 evidence only after the complete full check inventory passes atomically. — Quick checks and partial full runs cannot replace prior evidence or promote deferred gates.
+- [Phase 04]: Keep manual target selection and reseeding revision-neutral and outside NativeBranchAuthority.
+- [Phase 04]: Preserve stable semantic target identity across reseeds while replacing only exact-epoch spatial evidence.
+- [Phase 04]: Fail closed on invalid AR evidence and expose operation readiness independently while formal Phase 4 gates remain pending.
 
 ### Pending Todos
 
@@ -172,9 +176,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T16:04:26.000Z
+Last session: 2026-07-18T16:52:17.916Z
 
-Stopped at: Completed 03-07-PLAN.md; all Phase 3 implementation plans complete, formal gates still pending
+Stopped at: Completed 04-01-PLAN.md; formal Phase 4 gates remain pending
 
 Resume file: None
 

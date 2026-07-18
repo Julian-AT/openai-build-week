@@ -105,7 +105,7 @@ Each P0 requirement maps to exactly one phase. Future/stretch requirements inten
 | FR-RESTORE-001 | Phase 3 | Complete |
 | FR-TRANSACTION-001 | Phase 3 | Complete |
 | FR-AGENT-001 | Phase 3 | Complete |
-| FR-TARGET-001 | Phase 4 | Pending |
+| FR-TARGET-001 | Phase 4 | Complete |
 | NFR-RENDER-001 | Phase 4 | Pending |
 | FR-REPLACE-001 | Phase 5 | Pending |
 | FR-REMOVE-001 | Phase 6 | Pending |
