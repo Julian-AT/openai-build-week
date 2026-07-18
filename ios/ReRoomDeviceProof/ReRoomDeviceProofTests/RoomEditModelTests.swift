@@ -400,6 +400,19 @@ struct RoomEditModelTests {
         #expect(fixture.surfaces.count == 2)
         #expect(fixture.assumptionStatus == "HYPOTHESIS")
         #expect(fixture.gate006Status == "PENDING")
+
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let auditBytes = try Data(contentsOf: projectRoot.appendingPathComponent(
+            "ReRoomDeviceProof/Resources/Phase6Reveal/demo-reveal-fixture.json"
+        ))
+        let pbxText = try String(contentsOf: projectRoot.appendingPathComponent(
+            "ReRoomDeviceProof.xcodeproj/project.pbxproj"
+        ), encoding: .utf8)
+        #expect(auditBytes == RoomEditDemoRevealFixture.compiledBytes)
+        #expect(CanonicalJSON.sha256Hex(auditBytes) == "5a7cb9efb312bef528c279b59bbec55bbd9c54c9d720a0a453b9c177c4c63783")
+        #expect(!pbxText.contains("Phase6Reveal"))
     }
 
     @Test("degraded remove preview confirm retry restart and restore stay exact")
@@ -462,6 +475,23 @@ struct RoomEditModelTests {
         #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
         #expect(harness.model.snapshot.render.revealProxySurfaces.isEmpty)
         #expect((await harness.authority.activeSnapshot()).scene.sceneRevision == 0)
+
+        let worldHarness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            removeLaunchMode: .degradedDemoFixture
+        )
+        await worldHarness.model.prepare()
+        await worldHarness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await worldHarness.model.selectOperation(.remove)
+        await worldHarness.model.noteTargetWorldReset(
+            worldFrameID: "world_63000000-0000-4000-8000-000000000099",
+            worldFrameVersion: 2,
+            tracking: .normal
+        )
+        #expect(worldHarness.model.snapshot.preview == nil)
+        #expect(worldHarness.model.snapshot.render.revealProxySurfaces.isEmpty)
+        #expect(worldHarness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
+        #expect((await worldHarness.authority.activeSnapshot()).scene.sceneRevision == 0)
     }
 
     @Test("omitting a supported-view policy fails closed instead of authorizing replace")

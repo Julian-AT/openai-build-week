@@ -62,10 +62,13 @@ struct RoomEditDemoRevealFixture: Codable, Equatable, Sendable {
     let gate006Status: String
     let surfaces: [RoomEditRevealProxySurface]
 
-    static let compiledBytes = Data(compiledJSON.utf8)
+    static let compiledBytes = Data((compiledJSON + "\n").utf8)
 
     static func decodeExact(bytes: Data?) throws -> Self {
-        guard let bytes, bytes == compiledBytes else {
+        guard let bytes,
+              bytes == compiledBytes,
+              CanonicalJSON.sha256Hex(bytes) == "5a7cb9efb312bef528c279b59bbec55bbd9c54c9d720a0a453b9c177c4c63783"
+        else {
             throw RoomEditSetupError.invalidDemoRevealFixture
         }
         let value = try JSONDecoder().decode(Self.self, from: bytes)
