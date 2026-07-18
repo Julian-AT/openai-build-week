@@ -155,6 +155,7 @@ protocol CaptureArchiveSessionWriting: Sendable {
         _ candidate: SelectedFrameCandidate,
         profile: FramePacketEncodingProfile
     ) async throws -> NetworkEligibleReceipt
+    func recordAcknowledgement(for receipt: NetworkEligibleReceipt) async throws
     func finalizeExplicitly() async throws -> CaptureFinalization
 }
 
@@ -251,6 +252,7 @@ final class UIApplicationCaptureBackgroundDriver: CaptureBackgroundDriving {
 
 struct CoreCaptureArchiveSession: CaptureArchiveSessionWriting, Sendable {
     let store: CaptureArchiveStore
+    let transport: CaptureTransport
 
     func startSession(authorization: CaptureSessionAuthorization) async throws {
         _ = try await store.startSession(authorization: authorization)
@@ -261,6 +263,10 @@ struct CoreCaptureArchiveSession: CaptureArchiveSessionWriting, Sendable {
         profile: FramePacketEncodingProfile
     ) async throws -> NetworkEligibleReceipt {
         try await store.publishSelectedFrame(candidate, profile: profile)
+    }
+
+    func recordAcknowledgement(for receipt: NetworkEligibleReceipt) async throws {
+        try await store.recordAcknowledgement(transport.acknowledgement(for: receipt))
     }
 
     func finalizeExplicitly() async throws -> CaptureFinalization {
@@ -286,7 +292,12 @@ struct CoreCaptureArchiveSessionFactory: CaptureArchiveSessionFactory, Sendable 
             descriptor: descriptor,
             source: source
         )
-        return CoreCaptureArchiveSession(store: store)
+        return CoreCaptureArchiveSession(
+            store: store,
+            transport: try CaptureTransport(
+                gatewayID: "gateway_00000000-0000-4000-8000-000000000001"
+            )
+        )
     }
 }
 
@@ -470,10 +481,11 @@ final class CaptureSessionAdapter {
                                 descriptor: nextDescriptor,
                                 submapID: nextSubmapID
                             )
-                            _ = try await nextArchive.publishSelectedFrame(
+                            let receipt = try await nextArchive.publishSelectedFrame(
                                 candidate,
                                 profile: payload.profile
                             )
+                            try await nextArchive.recordAcknowledgement(for: receipt)
                         },
                         onTerminal: { [weak self] result in
                             await self?.recordTerminal(result)
