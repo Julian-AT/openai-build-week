@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Typed Place, Commit, and Offline Restore
 status: ready_to_execute
-stopped_at: Completed 03-05-PLAN.md
-last_updated: "2026-07-18T15:14:24.000Z"
+stopped_at: Completed 03-06-PLAN.md
+last_updated: "2026-07-18T15:37:22.000Z"
 last_activity: 2026-07-18
-last_activity_desc: Completed 03-04 durable branch authority; physical and human gates remain PENDING under the approved sprint cut
+last_activity_desc: Completed 03-06 independent transaction trace producers; physical and human gates remain PENDING under the approved sprint cut
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 29
-  completed_plans: 27
+  completed_plans: 28
 ---
 
 # Project State
@@ -30,19 +30,19 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 03 (Typed Place, Commit, and Offline Restore) — READY TO EXECUTE
 
-Plan: 5 of 7
+Plan: 6 of 7
 
-Status: Plan 03-05 complete; ready to execute 03-06
+Status: Plan 03-06 complete; ready to execute 03-07
 
-Last activity: 2026-07-18 — Completed native four-operation place/restore surface with durable restart and offline restore; deferred gates remain PENDING
+Last activity: 2026-07-18 — Completed independent provenance-bound Swift, TypeScript, and Python transaction traces; deferred gates remain PENDING
 
-Progress: [████████████████████] 17/17 planned tasks ([█████████░] 93%)
+Progress: [████████████████████] 19/19 planned tasks ([██████████] 97%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 27
+- Total plans completed: 28
 - Average duration: N/A
 - Total execution time: 0 hours
 
@@ -86,6 +86,7 @@ Progress: [████████████████████] 17/17 p
 | Phase 03 P02 | 9min | 2 tasks | 5 files |
 | Phase 03 P04 | 17min | 2 tasks | 5 files |
 | Phase 03 P05 | 25min | 2 tasks | 9 files |
+| Phase 03 P06 | 20min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -136,6 +137,8 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 03]: Keep the native room-edit surface presentation-only and route every canonical preview, confirmation, restart, and restore decision through the sole NativeBranchAuthority. — SwiftUI state cannot edit scene arrays or allocate revisions.
 - [Phase 03]: Expose exactly place, replace, remove, and restore while keeping later replace/remove capabilities visible as typed nonmutating blockers. — The sprint demo remains honest without hiding the complete P0 vocabulary.
 - [Phase 03]: Bind the repository-owned generated chair through a closed digest/provenance manifest and label it local demo proxy only. — Implementation evidence cannot promote compositor, catalog, quality, or deferred human/device gates.
+- [Phase 03]: Keep transaction trace producers independent and compare semantics only after each runtime validates the immutable oracle and computes its own output. — Prevents one runtime or generated output from becoming another runtime's authority.
+- [Phase 03]: Use the frozen-contract-valid `arkit_plane` support method across all producers. — Shipping-core activation and independent references must hash the same contract-valid projection.
 
 ### Pending Todos
 
@@ -165,9 +168,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T15:14:24.000Z
+Last session: 2026-07-18T15:37:22.000Z
 
-Stopped at: Completed 03-05-PLAN.md
+Stopped at: Completed 03-06-PLAN.md
 
 Resume file: None
 
