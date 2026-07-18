@@ -19,7 +19,7 @@ from typing import Any, Sequence
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-BOUND_REVISION = "1e3e421c104fff70ef6c0664b6c544229ebe35f3"
+BOUND_REVISION = "f53ba72c4d723871f37258be0cf8c3816331e7df"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 REPORT_SCHEMA_REVISION = "1.0.0"
 EVIDENCE_RELATIVE_PATH = "evidence/replacement/phase-05/automated-preflight.json"
@@ -58,7 +58,7 @@ BOUND_PRODUCT_DIGESTS = {
     "transaction_authority_sha256": "8981c6402c2d96bdbb0fe4808d36b78f2791fee52384258339d2c9a2138b8e74",
     "replace_reducer_tests_sha256": "9fbd1f1ce8040c6d5ac83616f6ce6de9681a40d472586638f541c5a87d5cc57a",
     "authority_tests_sha256": "029543c76180a6e0d73613b3abc575babf21801e0987f98dcc16ef4cd51e1ac2",
-    "room_edit_model_sha256": "783ddc781417baa2a595d246d78b0dfbe189fd7a22d3e88d8ac0c12702440b5f",
+    "room_edit_model_sha256": "12f66afe6d105e2e75670b3b81304d7f44c4ff72ace163da09c66e6409e43a8d",
     "room_edit_view_sha256": "ac5b1bfa0522ff4af488b4b91e2498bf62070ed57297375bae85ea94f9711f3c",
     "model_tests_sha256": "690318f3f28645b471786bdb74208de9738f64f3da8e5b87f7586df1d15351b1",
     "ui_tests_sha256": "cdc4a05f70101e7766119a8e53ce4ac2debef7ce30509c8e35acc21843d185af",
