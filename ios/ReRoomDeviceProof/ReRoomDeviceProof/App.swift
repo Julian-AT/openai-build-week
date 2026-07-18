@@ -3,6 +3,21 @@ import ReRoomContracts
 import SwiftUI
 import UIKit
 
+enum Gate001LaunchConfiguration {
+    static let terminationControlsArgument = "--gate-001-termination-controls"
+
+    static func controlsEnabled(arguments: [String]) -> Bool {
+        arguments.contains(terminationControlsArgument)
+    }
+
+    static func usesDiagnosticSurface(
+        arguments: [String],
+        isDebugBuild: Bool
+    ) -> Bool {
+        isDebugBuild || controlsEnabled(arguments: arguments)
+    }
+}
+
 @main
 @MainActor
 struct ReRoomDeviceProofApp: App {
