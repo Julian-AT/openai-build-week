@@ -115,6 +115,28 @@ struct CaptureSessionAdapterTests {
     }
 
     @MainActor
+    @Test("a durable explicit frame receives one provider-independent local acknowledgement")
+    func explicitFrameReceivesLocalAcknowledgement() async throws {
+        let writer = TestCaptureArchiveSession()
+        let adapter = try makeAdapter(
+            identities: TestCaptureIdentities(sessionOrdinals: [1]),
+            factory: TestCaptureArchiveFactory(writers: [writer])
+        )
+        await adapter.acceptDisclosure()
+
+        #expect(
+            adapter.offerCapturedFrame(
+                snapshot(ordinal: 1, translationX: 0),
+                selectionInput: selectionInput(ordinal: 1, isUserEvent: true)
+            ).isAdmitted
+        )
+        await adapter.stop()
+
+        #expect(await writer.acknowledgedReceipts.map(\.frameID) == [TestCaptureIDs.frame(1)])
+        #expect(adapter.presentation.uploadLabel == "Upload not configured")
+    }
+
+    @MainActor
     @Test("background finalization drains when possible and expiration always releases assertion")
     func backgroundFinalizationAndExpiration() async throws {
         let successfulBackground = TestCaptureBackgroundDriver()
@@ -588,6 +610,7 @@ private actor TestCaptureArchiveSession: CaptureArchiveSessionWriting {
     private(set) var startAuthorizations = [CaptureSessionAuthorization]()
     private(set) var publishedCandidates = [SelectedFrameCandidate]()
     private(set) var encodingProfiles = [FramePacketEncodingProfile]()
+    private(set) var acknowledgedReceipts = [NetworkEligibleReceipt]()
     private(set) var publishEnteredCount = 0
     private(set) var maximumConcurrentPublishes = 0
 
@@ -627,6 +650,10 @@ private actor TestCaptureArchiveSession: CaptureArchiveSessionWriting {
             acceptedSequence: UInt64(publishedCandidates.count - 1),
             durableJournalSequence: UInt64(publishedCandidates.count * 5)
         )
+    }
+
+    func recordAcknowledgement(for receipt: NetworkEligibleReceipt) async throws {
+        acknowledgedReceipts.append(receipt)
     }
 
     func finalizeExplicitly() async throws -> CaptureFinalization {
