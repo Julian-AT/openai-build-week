@@ -444,7 +444,7 @@ struct RoomEditModelTests {
         let supportProbe = RoomEditSupportProbe(.outOfViewFixture)
         let harness = try TestRoomEditHarness(
             support: nil,
-            supportProvider: { _ in await supportProbe.value() },
+            supportProvider: { _ in supportProbe.value },
             removeLaunchMode: .degradedDemoFixture
         )
         await harness.model.prepare()
@@ -454,7 +454,7 @@ struct RoomEditModelTests {
         #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
         #expect(harness.model.snapshot.render.revealProxySurfaces.isEmpty)
 
-        await supportProbe.set(.healthyFixture)
+        supportProbe.value = .healthyFixture
         await harness.model.selectOperation(.remove)
         #expect(harness.model.snapshot.render.revealProxySurfaces.count == 2)
         await harness.model.updateTargetTracking(.limited)
