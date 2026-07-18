@@ -496,6 +496,7 @@
 				EXCLUDED_SOURCE_FILE_NAMES = (
 					ARSessionPolicyTests.swift,
 					CaptureAttemptTests.swift,
+					CaptureSessionAdapterTests.swift,
 					EvidenceExporterTests.swift,
 					WorldEpochTests.swift,
 				);
