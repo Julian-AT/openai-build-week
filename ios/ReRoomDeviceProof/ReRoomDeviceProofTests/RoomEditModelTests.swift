@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import ReRoomCaptureCore
 import ReRoomContracts
 import ReRoomTransactionCore
@@ -8,6 +9,92 @@ import Testing
 @Suite("Phase 3 room-edit presentation boundary")
 @MainActor
 struct RoomEditModelTests {
+    @Test("compositor descriptor is exactly ordered and unavailable layers cannot be promoted")
+    func compositorDescriptorIsClosedAndHonest() {
+        let canonical = RoomEditCompositorDescriptor.canonical
+
+        #expect(canonical.layers.map(\.id) == [
+            .camera,
+            .reveal,
+            .occluder,
+            .assetProxy,
+            .debug,
+            .swiftUI,
+        ])
+        #expect(canonical.layers.count == 6)
+        #expect(canonical.layers[1].availability == .unavailable(.revealArtifactMissing))
+        #expect(canonical.layers[2].availability == .unavailable(.occluderArtifactMissing))
+        #expect(RoomEditCompositorDescriptor.isCanonical(canonical.layers))
+
+        var reordered = canonical.layers
+        reordered.swapAt(0, 1)
+        #expect(!RoomEditCompositorDescriptor.isCanonical(reordered))
+        #expect(!RoomEditCompositorDescriptor.isCanonical(Array(canonical.layers.dropLast())))
+        #expect(!RoomEditCompositorDescriptor.isCanonical(canonical.layers + [canonical.layers[0]]))
+
+        var promotedReveal = canonical.layers
+        promotedReveal[1] = RoomEditCompositorLayer(
+            id: .reveal,
+            availability: .available(.localRenderer)
+        )
+        #expect(!RoomEditCompositorDescriptor.isCanonical(promotedReveal))
+
+        var promotedOccluder = canonical.layers
+        promotedOccluder[2] = RoomEditCompositorLayer(
+            id: .occluder,
+            availability: .available(.localRenderer)
+        )
+        #expect(!RoomEditCompositorDescriptor.isCanonical(promotedOccluder))
+    }
+
+    @Test("target session prepares once and tap plus loss publish immutable render snapshots")
+    func targetSessionWiringIsCoarsenedAndRevisionNeutral() async throws {
+        let targetSession = RoomEditFixtureTargetSession(scenario: .trackingLossAfterSeed)
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            targetSession: targetSession
+        )
+
+        await harness.model.prepare()
+        await harness.model.prepare()
+        #expect(targetSession.prepareCount == 1)
+
+        let before = await harness.authority.activeSnapshot()
+        await harness.model.groundTarget(at: CGPoint(x: 120, y: 240))
+        await Task.yield()
+
+        let after = harness.model.snapshot
+        #expect(after.revision == before.scene.sceneRevision)
+        #expect(after.render.layers == RoomEditCompositorDescriptor.canonical.layers)
+        #expect(after.render.targetProxy?.objectID == RoomEditIdentity.targetObjectID)
+        #expect(after.render.targetProxy?.worldFrameVersion == 1)
+        #expect(after.target.target?.lifecycle == .lost)
+        #expect(after.target.readiness.select == .unavailable)
+        #expect(after.target.readiness.replace == .unavailable)
+        #expect(await harness.authority.activeSnapshot() == before)
+    }
+
+    @Test("deterministic target fixtures cover healthy miss and ambiguity without AR tracking")
+    func targetFixturesAreDeterministic() async throws {
+        for (scenario, failure) in [
+            (RoomEditTargetFixtureScenario.healthy, nil),
+            (.miss, TargetGroundingFailure.targetMissed),
+            (.ambiguous, TargetGroundingFailure.targetAmbiguous),
+        ] {
+            let targetSession = RoomEditFixtureTargetSession(scenario: scenario)
+            let harness = try TestRoomEditHarness(
+                support: .healthyFixture,
+                targetSession: targetSession
+            )
+            await harness.model.prepare()
+            await harness.model.groundTarget(at: CGPoint(x: 160, y: 320))
+
+            #expect(harness.model.snapshot.target.failure == failure)
+            #expect(harness.model.snapshot.revision == 0)
+            #expect(targetSession.requestedPoints == [CGPoint(x: 160, y: 320)])
+        }
+    }
+
     @Test("bundled proxy has a closed identity and exact source digest")
     func proxyIdentityAndDigestAreBound() throws {
         let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
@@ -242,7 +329,10 @@ private struct TestRoomEditHarness {
     let model: RoomEditModel
 
     @MainActor
-    init(support: RoomEditSupportContext?) throws {
+    init(
+        support: RoomEditSupportContext?,
+        targetSession: (any RoomEditTargetSession)? = nil
+    ) throws {
         let fileSystem = RoomEditMemoryFileSystem()
         let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
         let store = TransactionStore(
@@ -260,7 +350,8 @@ private struct TestRoomEditHarness {
         self.model = RoomEditModel(
             authority: authority,
             manifest: manifest,
-            supportProvider: { _ in support }
+            supportProvider: { _ in support },
+            targetSession: targetSession
         )
     }
 
