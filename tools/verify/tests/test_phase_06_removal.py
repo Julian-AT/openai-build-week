@@ -88,7 +88,7 @@ class PhaseSixRemovalContract(unittest.TestCase):
             mutations = [
                 ("remove_reducer_sha256", ".setRevealBundle(", ".removedReveal("),
                 ("remove_reducer_sha256", "let inverse = TransactionOperation.restoreSnapshot(", "let inverse = TransactionOperation.removed("),
-                ("transaction_authority_sha256", "active.idempotencyRecords.first", "active.removedRecords.first"),
+                ("transaction_authority_sha256", "private func commitRemoveCritical(", "private func removedRemoveCritical("),
                 ("room_edit_model_sha256", "removeLaunchMode: RoomEditRemoveLaunchMode = .normal", "removeLaunchMode: RoomEditRemoveLaunchMode = .degradedDemoFixture"),
                 ("room_edit_model_sha256", "scene.revisionAuthority.revisionBranchID == fixture.branchID", "true"),
                 ("room_edit_model_sha256", ".unavailable(.occluderArtifactMissing)", ".available(.localRenderer)"),
