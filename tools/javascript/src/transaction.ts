@@ -195,7 +195,7 @@ function normalizedValues(casesFixture: JsonObject): JsonObject {
       subject_id: ids.assetInstance,
       surface_id: ids.surface,
       confidence: 1,
-      method: "fixture_support",
+      method: "arkit_plane",
     }],
   };
   const baseSHA = digest(baseProjection);
@@ -204,7 +204,7 @@ function normalizedValues(casesFixture: JsonObject): JsonObject {
     asset_id: ids.asset,
     manifest_artifact_ref: manifestRef,
     world_from_asset: matrix,
-    support_relation: { relation_id: ids.support, surface_id: ids.surface, confidence: 1, method: "fixture_support" },
+    support_relation: { relation_id: ids.support, surface_id: ids.surface, confidence: 1, method: "arkit_plane" },
   };
   const placeOperation = {
     kind: "create_asset_instance",

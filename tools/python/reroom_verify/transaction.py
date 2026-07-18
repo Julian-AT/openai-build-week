@@ -239,12 +239,12 @@ def _normalized_values(cases_fixture: dict[str, Any]) -> dict[str, Any]:
     }]
     placed_projection["asset_support_relations"] = [{
         "relation_id": IDS["support"], "subject_id": IDS["asset_instance"],
-        "surface_id": IDS["surface"], "confidence": 1, "method": "fixture_support",
+        "surface_id": IDS["surface"], "confidence": 1, "method": "arkit_plane",
     }]
     base_sha, placed_sha = _digest(base_projection), _digest(placed_projection)
     asset_snapshot = {
         "asset_id": IDS["asset"], "manifest_artifact_ref": manifest_ref, "world_from_asset": MATRIX,
-        "support_relation": {"relation_id": IDS["support"], "surface_id": IDS["surface"], "confidence": 1, "method": "fixture_support"},
+        "support_relation": {"relation_id": IDS["support"], "surface_id": IDS["surface"], "confidence": 1, "method": "arkit_plane"},
     }
     place_operation = {"kind": "create_asset_instance", "entity_id": IDS["asset_instance"], "before": None, "after": asset_snapshot, "required_artifact_refs": [manifest_ref]}
 

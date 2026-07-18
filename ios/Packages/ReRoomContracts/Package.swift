@@ -22,6 +22,7 @@ let package = Package(
         ),
         .executable(name: "ReRoomContractRunner", targets: ["ReRoomContractRunner"]),
         .executable(name: "ReRoomReplayRunner", targets: ["ReRoomReplayRunner"]),
+        .executable(name: "ReRoomTransactionTraceExporter", targets: ["ReRoomTransactionTraceExporter"]),
     ],
     dependencies: [
         .package(
@@ -51,6 +52,10 @@ let package = Package(
         .executableTarget(
             name: "ReRoomReplayRunner",
             dependencies: ["ReRoomCaptureCore"]
+        ),
+        .executableTarget(
+            name: "ReRoomTransactionTraceExporter",
+            dependencies: ["ReRoomContracts", "ReRoomCaptureCore", "ReRoomTransactionCore"]
         ),
         .testTarget(
             name: "ReRoomContractsTests",
