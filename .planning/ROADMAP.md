@@ -118,13 +118,13 @@ Plans:
   3. Finalized and recovered-prefix `.rrcap` inputs replay twice with matching global-journal digest, exact frame/event projections, and expected trace; corrupt-suffix recovery stops at the valid prefix without a learned provider or live network.
   4. Stress never exceeds configured live queue capacity, stale drops are measured, durable sequences stay monotonic, and replay order is independent of live completion order.
 
-**Plans**: 4/7 plans executed
+**Plans**: 5/7 plans executed
 
 - [x] 02-01-PLAN.md
 - [x] 02-02-PLAN.md
 - [x] 02-03-PLAN.md
 - [x] 02-04-PLAN.md
-- [ ] 02-05-PLAN.md
+- [x] 02-05-PLAN.md
 - [ ] 02-06-PLAN.md
 - [ ] 02-07-PLAN.md
 
@@ -139,11 +139,11 @@ Plans:
 
 **Wave 3**
 
-- [ ] 02-03 — Recover only the valid durable prefix and replay verified archives into exact reports and timelines.
+- [x] 02-03 — Recover only the valid durable prefix and replay verified archives into exact reports and timelines.
 
 **Wave 4**
 
-- [ ] 02-05 — Prove three-runtime replay agreement and publish revision-bound evidence atomically.
+- [x] 02-05 — Prove three-runtime replay agreement and publish revision-bound evidence atomically.
 - [ ] 02-06 — Connect the native seed to consent, lifecycle, truthful state, recovery, and the internal replay inspector.
 
 **Wave 5**
@@ -265,7 +265,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
-| 2. Atomic Capture and Exact Replay | 4/7 | In Progress|  |
+| 2. Atomic Capture and Exact Replay | 5/7 | In Progress|  |
 | 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
 | 5. Curated Replacement Vertical | 0/TBD | Not started | - |

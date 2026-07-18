@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: executing
-stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-07-17T23:39:45.665Z"
+stopped_at: Completed 02-05-PLAN.md
+last_updated: "2026-07-18T00:18:11.231Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 22
-  completed_plans: 19
+  completed_plans: 20
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 02 (Atomic Capture and Exact Replay) — EXECUTING
 
-Plan: 5 of 7
+Plan: 6 of 7
 
 Status: Ready to execute
 
 Last activity: 2026-07-17 — Phase 02 execution started
 
-Progress: [████████████████████] 15/15 planned tasks ([█████████░] 86%)
+Progress: [████████████████████] 15/15 planned tasks ([█████████░] 91%)
 
 ## Performance Metrics
 
@@ -79,6 +79,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 02 P02 | 28min | 2 tasks | 5 files |
 | Phase 02 P04 | 16 min | 2 tasks | 7 files |
 | Phase 02 P03 | 32min | 3 tasks | 9 files |
+| Phase 02 P05 | 32min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 02]: Publish interrupted capture recovery as a new immutable recovered-prefix sibling. — The original archive is never mutated or resumed and quarantine diagnostics remain outside accepted inventory.
 - [Phase 02]: Derive exact replay only from the verified authoritative global journal. — Frozen journal, frame, event, and revision digests make replay independent of filename order, renderer, provider, model, and network.
 - [Phase 02]: Execute the complete 16-case replay evidence set in the local Swift runner. — Atomic publication prevents partial evidence and keeps the shipping runner independent of Node and Python.
+- [Phase 02]: Bind all three replay runners to one exact implementation revision and closed source-tree digest. — Separate comparator and publisher content hashes keep the evidence reproducible without dynamic-HEAD or self-reference ambiguity.
+- [Phase 02]: Validate every report against its immutable oracle, closed schema, runtime identity, canonical bytes, and self-digest before semantic normalization. — No runtime output may define another runtime's replay authority or hide a mismatch through normalization.
+- [Phase 02]: Publish replay agreement through a recoverable prepared/committed transaction. — Replacement faults and interrupted restarts expose the complete prior or complete new evidence generation, never an accepted mixed state.
 
 ### Pending Todos
 
@@ -126,9 +130,9 @@ None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independen
 
 ## Session Continuity
 
-Last session: 2026-07-17T23:39:45.659Z
+Last session: 2026-07-18T00:18:11.226Z
 
-Stopped at: Completed 02-03-PLAN.md
+Stopped at: Completed 02-05-PLAN.md
 
 Resume file: None
 
