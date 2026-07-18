@@ -1,6 +1,6 @@
 import Foundation
+import os
 import ReRoomContracts
-import Synchronization
 import Testing
 
 @testable import ReRoomCaptureCore
