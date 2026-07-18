@@ -342,7 +342,7 @@ enum RemoveFixtures {
         includeFirstAsset: false,
         readiness: "unavailable"
     )
-    static let seed = PlacePreviewSeed(
+    static let seed = RemovePreviewSeed(
         transactionID: transactionID,
         previewID: previewID,
         expiresAtUTC: "2026-07-18T21:00:00Z"
