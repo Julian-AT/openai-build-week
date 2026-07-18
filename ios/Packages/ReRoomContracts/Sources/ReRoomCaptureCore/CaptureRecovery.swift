@@ -623,12 +623,14 @@ private struct RecoveryArchiveReader {
                   packet["coordinate_convention"] as? String == "RR-COORD-1",
                   packet["frame_id"] as? String == frameID,
                   let image = packet["image"] as? [String: Any],
-                  image["codec"] as? String == "png",
+                  let imageCodec = image["codec"] as? String,
+                  ["jpeg", "hevc_intra", "png"].contains(imageCodec),
                   let payload = image["payload"] as? [String: Any],
                   payload["kind"] as? String == "rrcap_file",
                   let imagePath = payload["relative_path"] as? String,
                   let imageDigest = payload["sha256"] as? String,
                   let imageBytes = uint(payload["byte_length"]),
+                  inventory[imagePath]?["codec"] as? String == imageCodec,
                   inventory[imagePath]?["sha256"] as? String == imageDigest,
                   uint(inventory[imagePath]?["byte_length"]) == imageBytes
             else { throw CaptureRecoveryError.projectionMismatch }
