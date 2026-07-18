@@ -1,0 +1,734 @@
+#!/usr/bin/env python3
+"""Run quick/full Phase 05 replacement verification and publish full evidence."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Sequence
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+BOUND_REVISION = "ba04382fbc03e0065ff9e943bc9b007b04318692"
+IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
+REPORT_SCHEMA_REVISION = "1.0.0"
+EVIDENCE_RELATIVE_PATH = "evidence/replacement/phase-05/automated-preflight.json"
+XCODE_PROJECT = "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
+XCODE_SCHEME = "ReRoomDeviceProof"
+SIMULATOR_NAME = "iPhone 17"
+COMMAND_TIMEOUT_SECONDS = 900
+
+SOURCE_BINDING_PATHS = {
+    "replace_reducer_sha256": "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore/ReplaceReducer.swift",
+    "transaction_authority_sha256": "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore/TransactionAuthority.swift",
+    "replace_reducer_tests_sha256": "ios/Packages/ReRoomContracts/Tests/ReRoomTransactionCoreTests/ReplaceReducerTests.swift",
+    "authority_tests_sha256": "ios/Packages/ReRoomContracts/Tests/ReRoomTransactionCoreTests/TransactionAuthorityTests.swift",
+    "room_edit_model_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift",
+    "room_edit_view_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
+    "model_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift",
+    "ui_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/RoomEditJourneyTests.swift",
+    "proxy_asset_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/proxy-chair.usda",
+    "asset_manifest_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/asset-manifest.json",
+    "asset_provenance_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/PROVENANCE.md",
+    "orchestrator_sha256": "scripts/verify-phase-05-replacement",
+    "mutation_tests_sha256": "tools/verify/tests/test_phase_05_replacement.py",
+}
+SOURCE_CONTRACT_PATH_KEYS = (
+    "replace_reducer_sha256",
+    "transaction_authority_sha256",
+    "replace_reducer_tests_sha256",
+    "authority_tests_sha256",
+    "room_edit_model_sha256",
+    "room_edit_view_sha256",
+    "model_tests_sha256",
+    "ui_tests_sha256",
+)
+BOUND_PRODUCT_DIGESTS = {
+    "room_edit_model_sha256": "6b7880a9c65a8abc68d471efbaa26923c983ed0b8008cb31ffb9a97b39f12ed9",
+    "room_edit_view_sha256": "ac5b1bfa0522ff4af488b4b91e2498bf62070ed57297375bae85ea94f9711f3c",
+    "model_tests_sha256": "14485f3472513780cddb5d2ab17a2613e535e4d1567ae27cdb1daaf2af81d944",
+    "ui_tests_sha256": "cdc4a05f70101e7766119a8e53ce4ac2debef7ce30509c8e35acc21843d185af",
+    "proxy_asset_sha256": "afdd38d8713f7e02fb91b15709094c9a0f990d91cedddf8812ea7e4ae5e32379",
+    "asset_manifest_sha256": "b1270514857f46c9d8c8b89ddeb72e505efbb887c9123fea5f894f6eab8f7551",
+    "asset_provenance_sha256": "df77b7b9a847765e97332a34996950adf4c798786e2b933440dcb6d36d3d88fd",
+}
+PRODUCTION_BOUNDARY_PATHS = (
+    SOURCE_BINDING_PATHS["replace_reducer_sha256"],
+    SOURCE_BINDING_PATHS["transaction_authority_sha256"],
+    SOURCE_BINDING_PATHS["room_edit_model_sha256"],
+    SOURCE_BINDING_PATHS["room_edit_view_sha256"],
+)
+FORBIDDEN_PRODUCTION_TOKENS = (
+    "URLSession", "NWConnection", "WKWebView", "JavaScriptCore", "PythonKit", "Process(",
+    "MLModel", "VNCoreMLRequest", "MPSGraph", "http://", "https://",
+)
+REPLACE_OPERATION_ORDER = ("set_object_visibility", "create_asset_instance")
+EXPECTED_QUICK_CHECKS = (
+    "replacement_reducer_tests",
+    "replacement_authority_tests",
+    "room_edit_model_tests",
+    "replacement_source_contract",
+    "asset_contract",
+    "production_dependency_audit",
+    "local_render_independence",
+    "mutation_tests",
+)
+EXPECTED_FULL_CHECKS = EXPECTED_QUICK_CHECKS + (
+    "replacement_ui_full_journey",
+    "replacement_ui_fixture_iterations",
+    "replacement_ui_load_failure",
+    "debug_build",
+    "release_build",
+    "release_surface",
+    "tracked_secret_scan",
+    "whitespace_check",
+)
+PENDING_GATES = ("GATE-011", "GATE-003", "GATE-005", "GATE-009", "OPS-GOLDEN-001")
+COMMANDS = {
+    "replacement_reducer_tests": "swift test focused ReplaceReducerTests",
+    "replacement_authority_tests": "swift test focused TransactionAuthorityTests and RestoreReducerTests",
+    "room_edit_model_tests": "xcodebuild focused RoomEditModelTests",
+    "replacement_source_contract": "closed Phase 5 source contract assertion",
+    "asset_contract": "exact local proxy digest and provenance assertion",
+    "production_dependency_audit": "static production dependency audit",
+    "local_render_independence": "static updateUIView callback audit",
+    "mutation_tests": "python3 -m unittest tools.verify.tests.test_phase_05_replacement",
+    "replacement_ui_full_journey": "xcodebuild exact bundled replacement full journey",
+    "replacement_ui_fixture_iterations": "xcodebuild five deterministic replacement fixture iterations",
+    "replacement_ui_load_failure": "xcodebuild injected replacement loader failure",
+    "debug_build": "xcodebuild Debug simulator build",
+    "release_build": "xcodebuild Release simulator build",
+    "release_surface": "scripts/verify-reroom-release-surface",
+    "tracked_secret_scan": "tracked file credential pattern scan",
+    "whitespace_check": "git diff --check",
+}
+REQUIRED_TEST_TOKENS = {
+    "replace_reducer_tests_sha256": "cancelAndConfirm",
+    "authority_tests_sha256": "concurrentReplaceIsExactlyOnceAndRestartSafe",
+    "model_tests_sha256": "replacementJourneyIsExactAndIdempotent",
+    "ui_tests_sha256": "testReplacementLoaderFailureRetainsSafeTarget",
+}
+HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z")
+UTC_TIMESTAMP = re.compile(r"20[0-9]{2}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\Z")
+FORBIDDEN_VALUE = re.compile(
+    r"(?:/Users/|/home/|file://|[A-Za-z]:\\\\|api[_-]?key\s*[:=]|bearer\s+[A-Za-z0-9._-]{8,}|"
+    r"sk-[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|physical device.*passed|"
+    r"native.?web parity.*passed|licensed (?:catalog|shipping|parity)|full P0 (?:passed|complete))",
+    re.IGNORECASE,
+)
+FORBIDDEN_KEY_PARTS = (
+    "raw_room", "user_text", "user_content", "device_id", "user_id", "credential",
+    "human_observation", "physical_observation", "target_transform", "camera_frame",
+)
+SECRET_PATTERNS = (
+    re.compile(rb"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(rb"AKIA[0-9A-Z]{16}"),
+    re.compile(rb"gh[ps]_[A-Za-z0-9]{30,}"),
+    re.compile(rb"xox[baprs]-[A-Za-z0-9-]{20,}"),
+    re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+)
+
+
+class EvidenceError(RuntimeError):
+    """A stable verifier or evidence-publication failure."""
+
+
+def _canonical_bytes(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _executable(name: str) -> str:
+    candidate = shutil.which(name)
+    if candidate is None:
+        raise EvidenceError(f"runtime:{name}:missing")
+    path = Path(candidate).resolve(strict=True)
+    if not stat.S_ISREG(path.stat().st_mode) or not os.access(path, os.X_OK):
+        raise EvidenceError(f"runtime:{name}:invalid")
+    return str(path)
+
+
+def _run(command: list[str], *, root: Path, label: str, timeout: int = COMMAND_TIMEOUT_SECONDS) -> bytes:
+    try:
+        completed = subprocess.run(command, cwd=root, check=False, capture_output=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise EvidenceError(f"check:{label}:execution") from error
+    output = completed.stdout + completed.stderr
+    if completed.returncode != 0:
+        lowered = output.lower()
+        if b"coresimulator" in lowered or b"fbsopenapplicationerrordomain" in lowered or b"failed to launch" in lowered:
+            raise EvidenceError(f"check:{label}:coresimulator_unavailable")
+        raise EvidenceError(f"check:{label}:failed")
+    return output
+
+
+def _check_record(check_id: str, output: bytes) -> dict[str, str]:
+    if not output:
+        output = b"PASS"
+    semantic = _canonical_bytes({"check_id": check_id, "status": "PASS"})
+    return {"check_id": check_id, "command_id": check_id, "status": "PASS", "outcome_sha256": _sha256(semantic)}
+
+
+def _validate_complete_checks(check_ids: Sequence[str]) -> None:
+    if tuple(check_ids) != EXPECTED_FULL_CHECKS:
+        raise EvidenceError("evidence:incomplete_checks")
+
+
+def _validate_operation_order(operation_order: Sequence[str]) -> None:
+    if tuple(operation_order) != REPLACE_OPERATION_ORDER:
+        raise EvidenceError("replace:operation_order")
+
+
+def _require_bound_sources(root: Path) -> None:
+    _run(["git", "cat-file", "-e", f"{BOUND_REVISION}^{{commit}}"], root=root, label="bound_revision", timeout=20)
+    paths = [SOURCE_BINDING_PATHS[key] for key in BOUND_PRODUCT_DIGESTS]
+    result = subprocess.run(
+        ["git", "diff", "--quiet", BOUND_REVISION, "--", *paths],
+        cwd=root, check=False, capture_output=True, timeout=30,
+    )
+    if result.returncode != 0:
+        raise EvidenceError("source_binding:product_drift")
+    actual = _source_bindings(root)
+    if any(actual[key] != digest for key, digest in BOUND_PRODUCT_DIGESTS.items()):
+        raise EvidenceError("source_binding:bound_digest_drift")
+
+
+def _read_text(root: Path, key: str) -> str:
+    try:
+        return (root / SOURCE_BINDING_PATHS[key]).read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as error:
+        raise EvidenceError(f"source_contract:{key}:unreadable") from error
+
+
+def _verify_replacement_source_contract(root: Path) -> bytes:
+    view = _read_text(root, "room_edit_view_sha256")
+    model = _read_text(root, "room_edit_model_sha256")
+    reducer = _read_text(root, "replace_reducer_sha256")
+    authority = _read_text(root, "transaction_authority_sha256")
+
+    load_token = 'Entity.load(named: "proxy-chair.usda", in: .main)'
+    if view.count(load_token) != 1:
+        raise EvidenceError("replacement_source:exact_load_count")
+    try:
+        update_start = view.index("func updateUIView(_ view: UIView, context: Context)")
+        coordinator_start = view.index("@MainActor\n    final class Coordinator", update_start)
+        init_start = view.index("init(", coordinator_start)
+        publish_start = view.index("func publishReplacementAssetStateOnce", init_start)
+    except ValueError as error:
+        raise EvidenceError("replacement_source:renderer_structure") from error
+    update_callback = view[update_start:coordinator_start]
+    coordinator_init = view[init_start:publish_start]
+    if load_token in update_callback or load_token not in coordinator_init:
+        raise EvidenceError("replacement_source:load_boundary")
+    forbidden_update = (*FORBIDDEN_PRODUCTION_TOKENS, "Entity.load", "Data(contentsOf:", "FileManager", "TransactionStore", "Task {", " await ")
+    if any(token in update_callback for token in forbidden_update):
+        raise EvidenceError("replacement_source:update_external_work")
+    if "context.coordinator.apply(snapshot" not in update_callback:
+        raise EvidenceError("replacement_source:update_contract")
+    required_view = (
+        "private let replacementTemplate: Entity?",
+        "replacementTemplate = loaded",
+        "replacementTemplate.clone(recursive: true)",
+        "Self.modelEntityCount(in: loaded) == 6",
+        "replacementAssetStateChanged(replacementAssetState)",
+        'static let proxyLoadFailureArgument = "--room-edit-proxy-load-fail"',
+        "ProcessInfo.processInfo.arguments",
+    )
+    if any(token not in view for token in required_view):
+        raise EvidenceError("replacement_source:retained_asset_contract")
+    if view.count("replacementAssetState = .unavailable(.realityKitLoadFailed)") != 3:
+        raise EvidenceError("replacement_source:load_failure_contract")
+    if "replacementAnchor" not in view or "targetAnchor" not in view:
+        raise EvidenceError("replacement_source:distinct_render_identity")
+    if "MeshResource.generateBox" not in view:
+        raise EvidenceError("replacement_source:target_proxy_missing")
+    try:
+        clone_section = view[
+            view.index("if let replacement = snapshot.replacementProxy"):
+            view.index("private static func modelEntityCount")
+        ]
+    except ValueError as error:
+        raise EvidenceError("replacement_source:replacement_render_structure") from error
+    if "MeshResource.generateBox" in clone_section or "replacementTemplate.clone(recursive: true)" not in clone_section:
+        raise EvidenceError("replacement_source:generated_replacement_substitution")
+
+    ordered_reducer_tokens = (".setObjectVisibility(", ".createAssetInstance(")
+    positions = [reducer.find(token) for token in ordered_reducer_tokens]
+    if any(position < 0 for position in positions) or positions != sorted(positions):
+        raise EvidenceError("replacement_source:reducer_order")
+    _validate_operation_order(REPLACE_OPERATION_ORDER)
+    required_model = (
+        "RoomEditReplacementAssetState",
+        ".replacementAssetUnavailable",
+        ".replacementViewUnsupported",
+        "guard isPreview || replacementAssetVisible else { return nil }",
+        "NativeBranchAuthority",
+    )
+    if any(token not in model for token in required_model):
+        raise EvidenceError("replacement_source:model_fail_closed")
+    required_authority = ("previewReplace", "commitReplace", "idempotencyRecords", "commitRestore")
+    if any(token not in authority for token in required_authority):
+        raise EvidenceError("replacement_source:authority_contract")
+    for key, token in REQUIRED_TEST_TOKENS.items():
+        if token not in _read_text(root, key):
+            raise EvidenceError(f"replacement_source:test_contract:{key}")
+    reducer_tests = _read_text(root, "replace_reducer_tests_sha256")
+    authority_tests = _read_text(root, "authority_tests_sha256")
+    model_tests = _read_text(root, "model_tests_sha256")
+    ui_tests = _read_text(root, "ui_tests_sha256")
+    required_tests = (
+        (reducer_tests, "previewIsOrderedStableAndNonmutating"),
+        (reducer_tests, 'projectionOrigin == "captured_exact"'),
+        (authority_tests, "concurrentReplaceIsExactlyOnceAndRestartSafe"),
+        (authority_tests, "replaceRestorePreservesUnrelatedState"),
+        (model_tests, "replacementAssetFailureIsActionableAndNonmutating"),
+        (model_tests, "replacementRevocationFailsClosed"),
+        (ui_tests, "testBundledReplacementLoadsAndFullJourneyIsExactlyOnce"),
+        (ui_tests, "testFiveDeterministicReplacementFixtureIterations"),
+        (ui_tests, "testReplacementLoaderFailureRetainsSafeTarget"),
+    )
+    if any(token not in source for source, token in required_tests):
+        raise EvidenceError("replacement_source:required_tests")
+    return _canonical_bytes({
+        "asset_load_count": 1,
+        "model_entity_count": 6,
+        "retained_template": True,
+        "load_failure_unavailable": True,
+        "generated_replacement_substitution": False,
+        "operation_order": list(REPLACE_OPERATION_ORDER),
+    })
+
+
+def _verify_asset_contract(root: Path) -> bytes:
+    asset = (root / SOURCE_BINDING_PATHS["proxy_asset_sha256"]).read_bytes()
+    if _sha256(asset) != BOUND_PRODUCT_DIGESTS["proxy_asset_sha256"]:
+        raise EvidenceError("asset:digest")
+    try:
+        manifest = json.loads(_read_text(root, "asset_manifest_sha256"))
+    except json.JSONDecodeError as error:
+        raise EvidenceError("asset:manifest_json") from error
+    expected_keys = {
+        "artifact_id", "artifact_revision", "artifact_type", "assumption_status", "bounds_m",
+        "contract_asset_id", "cube_count", "floor_contact_y_m", "gate_011_status",
+        "generation_recipe", "provenance_file", "proxy_id", "qualification", "schema_version",
+        "source_file", "source_sha256", "units", "up_axis",
+    }
+    if not isinstance(manifest, dict) or set(manifest) != expected_keys:
+        raise EvidenceError("asset:manifest_shape")
+    expected_values = {
+        "source_file": "proxy-chair.usda",
+        "source_sha256": BOUND_PRODUCT_DIGESTS["proxy_asset_sha256"],
+        "qualification": "phase3_local_demo_proxy_only",
+        "assumption_status": "HYPOTHESIS",
+        "gate_011_status": "PENDING",
+        "units": "metres",
+        "up_axis": "Y",
+        "floor_contact_y_m": 0,
+        "bounds_m": [0.6, 1.0, 0.6],
+        "cube_count": 6,
+    }
+    if any(manifest.get(key) != value for key, value in expected_values.items()):
+        raise EvidenceError("asset:manifest_contract")
+    provenance = _read_text(root, "asset_provenance_sha256")
+    required_provenance = (
+        "repository-owned text geometry", "six USD cubes", "HYPOTHESIS", "generated box is not an accepted substitute",
+        "GATE-003", "GATE-005", "GATE-009", "GATE-011", "OPS-GOLDEN-001", "remain `PENDING`",
+        "does not claim production compositor quality", "physical-device loading",
+    )
+    if any(token not in provenance for token in required_provenance):
+        raise EvidenceError("asset:provenance_contract")
+    return _canonical_bytes({
+        "source_sha256": _sha256(asset), "classification": "phase3_local_demo_proxy_only",
+        "assumption_status": "HYPOTHESIS", "gate_011_status": "PENDING", "cube_count": 6,
+    })
+
+
+def _audit_production_boundaries(root: Path) -> bytes:
+    audited: dict[str, str] = {}
+    for relative in PRODUCTION_BOUNDARY_PATHS:
+        try:
+            source = (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            raise EvidenceError("production_audit:unreadable") from error
+        if any(token in source for token in FORBIDDEN_PRODUCTION_TOKENS):
+            raise EvidenceError("production_audit:external_dependency")
+        audited[relative] = _sha256(source.encode("utf-8"))
+    return _canonical_bytes(audited)
+
+
+def _verify_local_render_independence(root: Path) -> bytes:
+    source = _read_text(root, "room_edit_view_sha256")
+    try:
+        start = source.index("func updateUIView(_ view: UIView, context: Context)")
+        end = source.index("@MainActor\n    final class Coordinator", start)
+    except ValueError as error:
+        raise EvidenceError("render_boundary:missing") from error
+    callback = source[start:end]
+    forbidden = (*FORBIDDEN_PRODUCTION_TOKENS, "Entity.load", "Data(contentsOf:", "FileManager", "Task {", " await ")
+    if any(token in callback for token in forbidden) or "context.coordinator.apply(snapshot" not in callback:
+        raise EvidenceError("render_boundary:external_wait")
+    return _canonical_bytes({"callback_sha256": _sha256(callback.encode("utf-8")), "command_time_network_requests": 0})
+
+
+def _scan_tracked_secrets(root: Path) -> bytes:
+    listing = _run(["git", "ls-files", "-z"], root=root, label="tracked_file_listing", timeout=60)
+    checked = 0
+    for raw_relative in listing.split(b"\0"):
+        if not raw_relative:
+            continue
+        try:
+            relative = raw_relative.decode("utf-8")
+            path = root / relative
+            if path.is_symlink() or not path.is_file():
+                raise EvidenceError("secret_scan:non_regular")
+            data = path.read_bytes()
+        except (OSError, UnicodeError) as error:
+            raise EvidenceError("secret_scan:unreadable") from error
+        if any(pattern.search(data) for pattern in SECRET_PATTERNS):
+            raise EvidenceError("secret_scan:credential_pattern")
+        checked += 1
+    return _canonical_bytes({"tracked_files_checked": checked})
+
+
+def _working_tree_counts(root: Path) -> dict[str, int]:
+    status = _run(["git", "status", "--porcelain=v1", "-z"], root=root, label="working_tree_status", timeout=30)
+    records = [record for record in status.split(b"\0") if record]
+    return {
+        "tracked_modified": sum(not record.startswith(b"??") for record in records),
+        "untracked": sum(record.startswith(b"??") for record in records),
+    }
+
+
+def _source_bindings(root: Path) -> dict[str, str]:
+    try:
+        bindings = {key: _sha256((root / relative).read_bytes()) for key, relative in SOURCE_BINDING_PATHS.items()}
+    except OSError as error:
+        raise EvidenceError("source_binding:unreadable") from error
+    if set(bindings) != set(SOURCE_BINDING_PATHS) or any(not HEX_DIGEST.fullmatch(value) for value in bindings.values()):
+        raise EvidenceError("source_binding:digest")
+    return bindings
+
+
+def _walk_strings(value: Any, *, key: str = "root") -> None:
+    if isinstance(value, dict):
+        for child_key, child in value.items():
+            lowered = child_key.lower()
+            if child_key not in {
+                "raw_room_data_included", "user_content_included", "machine_paths_included",
+                "identifiers_included", "credentials_included", "human_observations_included",
+                "physical_observations_included", "target_transforms_included",
+            } and any(part in lowered for part in FORBIDDEN_KEY_PARTS):
+                raise EvidenceError("evidence:private_field")
+            _walk_strings(child, key=child_key)
+    elif isinstance(value, list):
+        for child in value:
+            _walk_strings(child, key=key)
+    elif isinstance(value, str) and FORBIDDEN_VALUE.search(value):
+        raise EvidenceError("evidence:private_value")
+
+
+def _evidence_template(
+    *, recorded_at_utc: str, checks: list[dict[str, str]], source_bindings: dict[str, str],
+    working_tree_counts: dict[str, int], verification_parent_revision: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": REPORT_SCHEMA_REVISION,
+        "evidence_id": "evidence_phase_05_replacement_automated_preflight_rev_001",
+        "claim": "automated sprint replacement slice passed",
+        "value_classification": "HYPOTHESIS",
+        "recorded_at_utc": recorded_at_utc,
+        "implementation_revision": IMPLEMENTATION_REVISION,
+        "verification_parent_revision": verification_parent_revision or "git:" + ("f" * 40),
+        "checks": checks,
+        "commands": COMMANDS,
+        "functional_counts": {
+            "automated_check_count": len(EXPECTED_FULL_CHECKS),
+            "replace_operation_count": 2,
+            "full_ui_journeys": 1,
+            "automated_fixture_runs": 5,
+            "injected_load_failure_runs": 1,
+            "asset_load_count_per_renderer": 1,
+            "retained_asset_model_entity_count": 6,
+            "build_configuration_count": 2,
+            "command_time_network_requests": 0,
+        },
+        "replace_operation_order": list(REPLACE_OPERATION_ORDER),
+        "asset": {
+            "source_file": "proxy-chair.usda",
+            "source_sha256": BOUND_PRODUCT_DIGESTS["proxy_asset_sha256"],
+            "classification": "phase3_local_demo_proxy_only",
+            "assumption_status": "HYPOTHESIS",
+            "gate_011_status": "PENDING",
+            "simulator_load_scope": "exact bundled six-cube USDA retained once per renderer coordinator",
+        },
+        "deferred_gates": {gate: "PENDING" for gate in PENDING_GATES},
+        "pending_evidence": [
+            "physical-device exact asset load and four-minute compositor campaign",
+            "fast mask volume, OBB, support, and supported-view measurement",
+            "native/web derivative parity and approved redistribution evidence",
+            "reconnect and offline restore campaign",
+            "five complete place/replace/remove/restore plus B0 golden journeys after all gates are green",
+        ],
+        "limitations": [
+            "Simulator loading proves only the exact local iOS bundle and retained renderer wiring.",
+            "No physical-device load, visual quality, performance, thermal, license approval, or native/web parity is asserted.",
+            "This report does not establish full P0 completion or any formal gate acceptance.",
+        ],
+        "source_bindings": source_bindings,
+        "working_tree_counts": working_tree_counts,
+        "privacy": {
+            "raw_room_data_included": False,
+            "user_content_included": False,
+            "machine_paths_included": False,
+            "identifiers_included": False,
+            "credentials_included": False,
+            "human_observations_included": False,
+            "physical_observations_included": False,
+            "target_transforms_included": False,
+        },
+    }
+
+
+def _seal_report(report: dict[str, Any]) -> None:
+    report.pop("preflight_sha256", None)
+    report["preflight_sha256"] = _sha256(_canonical_bytes(report))
+
+
+def _validate_report(report: dict[str, Any], *, require_self_digest: bool = False) -> None:
+    required = {
+        "schema_version", "evidence_id", "claim", "value_classification", "recorded_at_utc",
+        "implementation_revision", "verification_parent_revision", "checks", "commands",
+        "functional_counts", "replace_operation_order", "asset", "deferred_gates",
+        "pending_evidence", "limitations", "source_bindings", "working_tree_counts", "privacy",
+    }
+    allowed = required | {"preflight_sha256"}
+    if not isinstance(report, dict) or not required.issubset(report) or not set(report).issubset(allowed):
+        raise EvidenceError("evidence:root")
+    if require_self_digest and "preflight_sha256" not in report:
+        raise EvidenceError("evidence:missing_digest")
+    if report["schema_version"] != REPORT_SCHEMA_REVISION or report["evidence_id"] != "evidence_phase_05_replacement_automated_preflight_rev_001":
+        raise EvidenceError("evidence:identity")
+    if report["claim"] != "automated sprint replacement slice passed" or report["value_classification"] != "HYPOTHESIS":
+        raise EvidenceError("evidence:claim")
+    if not isinstance(report["recorded_at_utc"], str) or not UTC_TIMESTAMP.fullmatch(report["recorded_at_utc"]):
+        raise EvidenceError("evidence:time")
+    if report["implementation_revision"] != IMPLEMENTATION_REVISION:
+        raise EvidenceError("evidence:implementation_revision")
+    if not re.fullmatch(r"git:[0-9a-f]{40}", report["verification_parent_revision"]):
+        raise EvidenceError("evidence:verification_parent_revision")
+    if not isinstance(report["checks"], list):
+        raise EvidenceError("evidence:checks")
+    _validate_complete_checks([item.get("check_id", "") for item in report["checks"] if isinstance(item, dict)])
+    for item in report["checks"]:
+        if set(item) != {"check_id", "command_id", "status", "outcome_sha256"} or item["command_id"] != item["check_id"] or item["status"] != "PASS" or not HEX_DIGEST.fullmatch(item["outcome_sha256"]):
+            raise EvidenceError("evidence:check")
+    if report["commands"] != COMMANDS:
+        raise EvidenceError("evidence:commands")
+    expected_counts = {
+        "automated_check_count": 16, "replace_operation_count": 2, "full_ui_journeys": 1,
+        "automated_fixture_runs": 5, "injected_load_failure_runs": 1,
+        "asset_load_count_per_renderer": 1, "retained_asset_model_entity_count": 6,
+        "build_configuration_count": 2, "command_time_network_requests": 0,
+    }
+    if report["functional_counts"] != expected_counts:
+        raise EvidenceError("evidence:functional_counts")
+    _validate_operation_order(report["replace_operation_order"])
+    expected_asset = {
+        "source_file": "proxy-chair.usda",
+        "source_sha256": BOUND_PRODUCT_DIGESTS["proxy_asset_sha256"],
+        "classification": "phase3_local_demo_proxy_only",
+        "assumption_status": "HYPOTHESIS",
+        "gate_011_status": "PENDING",
+        "simulator_load_scope": "exact bundled six-cube USDA retained once per renderer coordinator",
+    }
+    if report["asset"] != expected_asset:
+        raise EvidenceError("evidence:asset")
+    if report["deferred_gates"] != {gate: "PENDING" for gate in PENDING_GATES}:
+        raise EvidenceError("evidence:deferred_gates")
+    if not isinstance(report["pending_evidence"], list) or len(report["pending_evidence"]) != 5:
+        raise EvidenceError("evidence:pending_evidence")
+    expected_limitations = [
+        "Simulator loading proves only the exact local iOS bundle and retained renderer wiring.",
+        "No physical-device load, visual quality, performance, thermal, license approval, or native/web parity is asserted.",
+        "This report does not establish full P0 completion or any formal gate acceptance.",
+    ]
+    if report["limitations"] != expected_limitations:
+        raise EvidenceError("evidence:limitations")
+    bindings = report["source_bindings"]
+    if set(bindings) != set(SOURCE_BINDING_PATHS) or any(not HEX_DIGEST.fullmatch(value) for value in bindings.values()):
+        raise EvidenceError("evidence:source_bindings")
+    if any(bindings[key] != digest for key, digest in BOUND_PRODUCT_DIGESTS.items()):
+        raise EvidenceError("evidence:source_drift")
+    if set(report["working_tree_counts"]) != {"tracked_modified", "untracked"} or any(type(value) is not int or value < 0 for value in report["working_tree_counts"].values()):
+        raise EvidenceError("evidence:working_tree")
+    expected_privacy = {
+        "raw_room_data_included": False, "user_content_included": False,
+        "machine_paths_included": False, "identifiers_included": False,
+        "credentials_included": False, "human_observations_included": False,
+        "physical_observations_included": False, "target_transforms_included": False,
+    }
+    if report["privacy"] != expected_privacy:
+        raise EvidenceError("evidence:privacy")
+    _walk_strings(report)
+    if "preflight_sha256" in report:
+        digest = report["preflight_sha256"]
+        if not isinstance(digest, str) or not HEX_DIGEST.fullmatch(digest):
+            raise EvidenceError("evidence:digest")
+        unsigned = dict(report)
+        unsigned.pop("preflight_sha256")
+        if digest != _sha256(_canonical_bytes(unsigned)):
+            raise EvidenceError("evidence:digest")
+
+
+def _publish_atomic(root: Path, report: dict[str, Any]) -> None:
+    _validate_report(report, require_self_digest=True)
+    target = root / EVIDENCE_RELATIVE_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(prefix=".automated-preflight.", suffix=".tmp", dir=target.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(_canonical_bytes(report) + b"\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, target)
+    except OSError as error:
+        raise EvidenceError("evidence:atomic_publication") from error
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _isolated_simulator(root: Path) -> tuple[str, bytes]:
+    xcrun = _executable("xcrun")
+    listing = _run([xcrun, "simctl", "list", "devices", "available", "-j"], root=root, label="simulator_listing", timeout=30)
+    try:
+        document = json.loads(listing)
+        candidates = [
+            item for values in document["devices"].values() for item in values
+            if item.get("name") == SIMULATOR_NAME and item.get("isAvailable", True) is True
+        ]
+    except (KeyError, TypeError, json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise EvidenceError("simulator:listing") from error
+    if len(candidates) != 1 or candidates[0].get("state") not in {"Booted", "Shutdown"}:
+        raise EvidenceError("simulator:unique_target")
+    identifier = candidates[0].get("udid")
+    if not isinstance(identifier, str) or not re.fullmatch(r"[0-9A-F-]{36}", identifier):
+        raise EvidenceError("simulator:identifier")
+    output = b""
+    if candidates[0]["state"] == "Booted":
+        output += _run([xcrun, "simctl", "shutdown", identifier], root=root, label="simulator_shutdown", timeout=60)
+    output += _run([xcrun, "simctl", "boot", identifier], root=root, label="simulator_boot", timeout=60)
+    output += _run([xcrun, "simctl", "bootstatus", identifier, "-b"], root=root, label="simulator_ready", timeout=180)
+    return identifier, output
+
+
+def _xcode_common(identifier: str) -> list[str]:
+    return [
+        _executable("xcodebuild"), "-project", XCODE_PROJECT, "-scheme", XCODE_SCHEME,
+        "-destination", f"platform=iOS Simulator,id={identifier}",
+        "-parallel-testing-enabled", "NO", "-maximum-concurrent-test-simulator-destinations", "1",
+    ]
+
+
+def _quick(root: Path, identifier: str) -> list[dict[str, str]]:
+    checks: list[dict[str, str]] = []
+    swift = _executable("swift")
+    reducer = _run([swift, "test", "--package-path", "ios/Packages/ReRoomContracts", "--filter", "ReplaceReducerTests"], root=root, label="replacement_reducer_tests")
+    checks.append(_check_record("replacement_reducer_tests", reducer))
+    authority = _run([swift, "test", "--package-path", "ios/Packages/ReRoomContracts", "--filter", "TransactionAuthorityTests|RestoreReducerTests"], root=root, label="replacement_authority_tests")
+    checks.append(_check_record("replacement_authority_tests", authority))
+    model = _run([*_xcode_common(identifier), "test", "-only-testing:ReRoomDeviceProofTests/RoomEditModelTests"], root=root, label="room_edit_model_tests")
+    checks.append(_check_record("room_edit_model_tests", model))
+    checks.append(_check_record("replacement_source_contract", _verify_replacement_source_contract(root)))
+    checks.append(_check_record("asset_contract", _verify_asset_contract(root)))
+    checks.append(_check_record("production_dependency_audit", _audit_production_boundaries(root)))
+    checks.append(_check_record("local_render_independence", _verify_local_render_independence(root)))
+    mutation = _run([_executable("python3"), "-m", "unittest", "tools.verify.tests.test_phase_05_replacement"], root=root, label="mutation_tests")
+    checks.append(_check_record("mutation_tests", mutation))
+    if tuple(item["check_id"] for item in checks) != EXPECTED_QUICK_CHECKS:
+        raise EvidenceError("evidence:incomplete_quick_checks")
+    return checks
+
+
+def _run_ui_test(root: Path, identifier: str, test_name: str, label: str) -> bytes:
+    return _run(
+        [*_xcode_common(identifier), "test", f"-only-testing:ReRoomDeviceProofUITests/RoomEditJourneyTests/{test_name}"],
+        root=root, label=label,
+    )
+
+
+def _full(root: Path, identifier: str, checks: list[dict[str, str]]) -> list[dict[str, str]]:
+    _, boundary = _isolated_simulator(root)
+    full_journey = boundary + _run_ui_test(root, identifier, "testBundledReplacementLoadsAndFullJourneyIsExactlyOnce", "replacement_ui_full_journey")
+    checks.append(_check_record("replacement_ui_full_journey", full_journey))
+    fixture = _run_ui_test(root, identifier, "testFiveDeterministicReplacementFixtureIterations", "replacement_ui_fixture_iterations")
+    checks.append(_check_record("replacement_ui_fixture_iterations", fixture))
+    load_failure = _run_ui_test(root, identifier, "testReplacementLoaderFailureRetainsSafeTarget", "replacement_ui_load_failure")
+    checks.append(_check_record("replacement_ui_load_failure", load_failure))
+    debug = _run([*_xcode_common(identifier), "-configuration", "Debug", "build"], root=root, label="debug_build")
+    checks.append(_check_record("debug_build", debug))
+    release = _run([*_xcode_common(identifier), "-configuration", "Release", "build"], root=root, label="release_build")
+    checks.append(_check_record("release_build", release))
+    release_surface = _run(["scripts/verify-reroom-release-surface"], root=root, label="release_surface")
+    checks.append(_check_record("release_surface", release_surface))
+    checks.append(_check_record("tracked_secret_scan", _scan_tracked_secrets(root)))
+    whitespace = _run(["git", "diff", "--check"], root=root, label="whitespace_check", timeout=60)
+    checks.append(_check_record("whitespace_check", whitespace))
+    return checks
+
+
+def run(mode: str) -> None:
+    root = REPOSITORY_ROOT.resolve()
+    _require_bound_sources(root)
+    identifier, _ = _isolated_simulator(root)
+    checks = _quick(root, identifier)
+    if mode == "quick":
+        print("phase-05-replacement: PASS (quick; source-bound automated checks passed; no evidence published)")
+        return
+    checks = _full(root, identifier, checks)
+    _validate_complete_checks([item["check_id"] for item in checks])
+    parent_revision = _run(["git", "rev-parse", "HEAD"], root=root, label="verification_parent_revision", timeout=20).decode("ascii").strip()
+    report = _evidence_template(
+        recorded_at_utc=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        checks=checks,
+        source_bindings=_source_bindings(root),
+        working_tree_counts=_working_tree_counts(root),
+        verification_parent_revision=f"git:{parent_revision}",
+    )
+    _seal_report(report)
+    _validate_report(report, require_self_digest=True)
+    _publish_atomic(root, report)
+    print("phase-05-replacement: PASS (full; automated sprint replacement slice passed; GATE-011/003/005/009/OPS-GOLDEN-001 PENDING)")
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("quick", "full"))
+    arguments = parser.parse_args(argv)
+    try:
+        run(arguments.mode)
+    except (EvidenceError, json.JSONDecodeError) as error:
+        print(f"phase-05-replacement: FAIL ({error})", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -40,7 +40,7 @@ class PhaseFiveReplacementContract(unittest.TestCase):
         ]
 
     def valid_bindings(self) -> dict[str, str]:
-        return {key: f"{index:x}" * 64 for index, key in enumerate(self.module.SOURCE_BINDING_PATHS, 2)}
+        return self.module._source_bindings(REPO_ROOT)
 
     def valid_report(self) -> dict:
         return self.module._evidence_template(
@@ -80,7 +80,7 @@ class PhaseFiveReplacementContract(unittest.TestCase):
     def test_source_contract_binds_one_time_retained_exact_asset_and_fail_closed_seam(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for key in ("room_edit_view_sha256", "room_edit_model_sha256", "model_tests_sha256", "ui_tests_sha256"):
+            for key in self.module.SOURCE_CONTRACT_PATH_KEYS:
                 relative = self.module.SOURCE_BINDING_PATHS[key]
                 target = root / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -101,7 +101,7 @@ class PhaseFiveReplacementContract(unittest.TestCase):
                 ),
                 "wrong_asset": canonical.replace('Entity.load(named: "proxy-chair.usda"', 'Entity.load(named: "other.usda"', 1),
                 "generated_replacement": canonical.replace(
-                    "replacementTemplate?.clone(recursive: true)",
+                    "replacementTemplate.clone(recursive: true)",
                     "ModelEntity(mesh: .generateBox(size: 1))",
                     1,
                 ),
@@ -121,7 +121,7 @@ class PhaseFiveReplacementContract(unittest.TestCase):
     def test_source_contract_requires_inverse_idempotency_and_failure_tests(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for key in ("room_edit_view_sha256", "room_edit_model_sha256", "model_tests_sha256", "ui_tests_sha256"):
+            for key in self.module.SOURCE_CONTRACT_PATH_KEYS:
                 relative = self.module.SOURCE_BINDING_PATHS[key]
                 target = root / relative
                 target.parent.mkdir(parents=True, exist_ok=True)
