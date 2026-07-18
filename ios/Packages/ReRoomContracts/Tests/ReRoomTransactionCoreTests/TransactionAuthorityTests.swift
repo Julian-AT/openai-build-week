@@ -777,7 +777,7 @@ enum AuthorityFixtures {
         )
     }
 
-    private static var removeDurableScene: SceneState {
+    static var removeDurableScene: SceneState {
         let unavailableReason = ReadinessReason(
             contractCode: "unsupported_target_category",
             message: "Controlled degraded remove fixture"

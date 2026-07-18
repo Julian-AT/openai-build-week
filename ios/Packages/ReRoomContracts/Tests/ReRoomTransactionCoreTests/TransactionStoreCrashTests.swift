@@ -160,10 +160,20 @@ struct TransactionStoreFaultCase: Sendable, CustomTestStringConvertible {
     let expectsNewGeneration: Bool
     var testDescription: String { name }
 
-    static let cases: [Self] = {
+    static let cases: [Self] = makeCases(
+        for: TransactionPersistenceFixtures.placed
+    )
+
+    static let removeCases: [Self] = makeCases(
+        for: TransactionPersistenceFixtures.removed
+    )
+
+    private static func makeCases(
+        for candidate: TransactionGenerationCandidate
+    ) -> [Self] {
         var values = [Self]()
         let generationDigest = try! TransactionStore.generationSHA256(
-            for: TransactionPersistenceFixtures.placed
+            for: candidate
         )
         func add(_ label: String, _ kind: CaptureFileOperationKind, _ suffix: String) {
             values.append(Self(name: "\(label)/before", target: .init(kind: kind, phase: .before, pathSuffix: suffix), expectsNewGeneration: false))
@@ -183,11 +193,7 @@ struct TransactionStoreFaultCase: Sendable, CustomTestStringConvertible {
         add("active pointer file sync", .synchronizeFile, "active-generation.json")
         add("active root directory sync", .synchronizeDirectory, "transactions")
         return values
-    }()
-
-    static let removeCases: [Self] = makeCases(
-        for: TransactionPersistenceFixtures.removed
-    )
+    }
 }
 
 enum TransactionStoreFaultPhase: String, Sendable {
@@ -410,6 +416,16 @@ enum TransactionPersistenceFixtures {
 
     static let placed: TransactionGenerationCandidate = try! makePlaced()
 
+    static let removeBaseline = TransactionGenerationCandidate(
+        scene: AuthorityFixtures.removeDurableScene,
+        transactions: [],
+        requiredArtifacts: [TransactionTestFixtures.secondManifest],
+        receipts: [],
+        idempotencyRecords: []
+    )
+
+    static let removed: TransactionGenerationCandidate = try! makeRemoved()
+
     static func makePlaced() throws -> TransactionGenerationCandidate {
         let preview = try PlaceFixtures.preview()
         let confirmation = try PlaceReducer.confirm(
@@ -471,6 +487,85 @@ enum TransactionPersistenceFixtures {
             scene: confirmation.pendingScene,
             transactions: [transaction],
             requiredArtifacts: [TransactionTestFixtures.firstManifest, TransactionTestFixtures.secondManifest],
+            receipts: [receipt],
+            idempotencyRecords: [PersistentIdempotencyRecord(
+                idempotencyKey: transaction.idempotencyKey,
+                requestFingerprintSHA256: fingerprint,
+                transactionID: transaction.transactionID,
+                receipt: receipt
+            )]
+        )
+    }
+
+    static func makeRemoved() throws -> TransactionGenerationCandidate {
+        let preview = try RemoveReducer.preview(
+            proposal: RemoveFixtures.proposal,
+            currentScene: removeBaseline.scene,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        let confirmation = try RemoveReducer.confirm(
+            preview,
+            currentScene: removeBaseline.scene,
+            confirmation: RemoveFixtures.confirmation,
+            request: RemoveFixtures.confirmationRequest
+        )
+        let resultSHA256 = try TransactionIntegrity.commitResultSHA256(
+            authorityID: preview.proposal.revisionAuthority.authorityID,
+            revisionBranchID: preview.proposal.revisionAuthority.revisionBranchID,
+            compareAndSwapBaseRevision: preview.proposal.baseSceneRevision,
+            committedSceneRevision: confirmation.pendingSceneRevision,
+            confirmation: RemoveFixtures.confirmation,
+            committedAtUTC: RemoveFixtures.confirmationRequest.updatedAtUTC,
+            localDurableBeforeVisibleAck: true
+        )
+        let fingerprint = try TransactionFingerprint.digest(
+            proposal: preview.proposal,
+            proposedOperations: confirmation.proposedOperations
+        )
+        let transaction = TransactionRecord(
+            transactionID: RemoveFixtures.transactionID,
+            idempotencyKey: RemoveFixtures.idempotencyKey,
+            requestFingerprintSHA256: fingerprint,
+            sessionID: preview.proposal.sessionID,
+            revisionAuthority: preview.proposal.revisionAuthority,
+            baseSceneRevision: preview.proposal.baseSceneRevision,
+            targetContext: preview.proposal.targetContext,
+            intent: preview.proposal.intent,
+            proposedOperations: confirmation.proposedOperations,
+            validation: preview.validation,
+            preview: preview.preview,
+            commit: TransactionCommit(
+                contractAuthorityID: preview.proposal.revisionAuthority.authorityID,
+                revisionBranchID: preview.proposal.revisionAuthority.revisionBranchID,
+                compareAndSwapBaseRevision: preview.proposal.baseSceneRevision,
+                committedSceneRevision: confirmation.pendingSceneRevision,
+                confirmation: RemoveFixtures.confirmation,
+                committedAtUTC: RemoveFixtures.confirmationRequest.updatedAtUTC,
+                resultSHA256: resultSHA256
+            ),
+            inverseOperations: [confirmation.inverseOperation],
+            localUndoToken: AuthorityFixtures.removeUndoToken,
+            canonicalState: .committed,
+            syncState: .localOnly,
+            createdAtUTC: RemoveFixtures.confirmationRequest.updatedAtUTC
+        )
+        let receipt = TransactionReceipt(
+            contractTransactionID: transaction.transactionID,
+            idempotencyKey: transaction.idempotencyKey,
+            requestFingerprintSHA256: fingerprint,
+            revisionAuthority: transaction.revisionAuthority,
+            committedSceneRevision: confirmation.pendingSceneRevision,
+            resultSHA256: resultSHA256
+        )
+        let transactions = [transaction]
+        return TransactionGenerationCandidate(
+            scene: confirmation.pendingScene,
+            transactions: transactions,
+            requiredArtifacts: try TransactionIntegrity.requiredArtifactUnion(
+                scene: confirmation.pendingScene,
+                transactions: transactions
+            ),
             receipts: [receipt],
             idempotencyRecords: [PersistentIdempotencyRecord(
                 idempotencyKey: transaction.idempotencyKey,
