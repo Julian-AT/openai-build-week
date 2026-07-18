@@ -122,7 +122,7 @@
     "sha256": "333c09c531a6b24b98cb47459b297341661382b70fb484737f12e16436b4f8c5"
   },
   "evidence_id": "evidence_phase_02_replay_agreement_rev_001",
-  "evidence_sha256": "bed045664970b8b1f7c81805b894634ecdd5104d4a58f78fca38d53b474cdd2c",
+  "evidence_sha256": "58e203ffdaf6d13b63b3388bb348846c2c0f9925cfd42df85790d0f7cdcfd5d3",
   "fixture": {
     "fixture_id": "FX-CAPTURE-001",
     "fixture_revision": "rev-001",
@@ -132,7 +132,7 @@
     "rrcap_schema_sha256": "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"
   },
   "implementation": {
-    "revision": "git:5046c2bf0a6bb3082e84ef67c62b167d8558bf06",
+    "revision": "git:25fc3612c724252ce5bfce5939734425b443a6c9",
     "source_file_count": 57,
     "source_scopes": [
       "fixtures/capture/1.0.0/rev-001",
@@ -169,22 +169,22 @@
   ],
   "publisher": {
     "relative_path": "scripts/run-phase-02-replay-agreement",
-    "sha256": "b3e6428cceabc4fcdb432a992561602b71f89e70f9a0479a70e26c2dbb1961bd"
+    "sha256": "58358518c7e2f112c80d88394b7acb28b4e4e90cc8d99879c9f496afcb552e8e"
   },
   "raw_outputs": {
     "node": {
       "byte_length": 21429,
-      "directory_sha256": "f328889dc7a463c4acc587cf5f1028d577c4269345d306191ce806be7d5f44a0",
+      "directory_sha256": "e7c5650013019297ccaa0e77a098cc8f677a40f1bda0f6ac5741aee96b96e48d",
       "report_count": 16
     },
     "python": {
       "byte_length": 21445,
-      "directory_sha256": "560d9fea5c92a2dd819094f6919857577edfdf86e2692fb33acea99426e228b1",
+      "directory_sha256": "26c2f04d3f288d5fa81d867c9bb807d3af492b31fa0db49e1acfe831df815b8a",
       "report_count": 16
     },
     "swift": {
       "byte_length": 21221,
-      "directory_sha256": "06d2cf5f5c6bb9681c827fe669c3103bce23f0dd5368773493107aeda3f9476f",
+      "directory_sha256": "6f36bb28d7c18a1ee022acff8eb97dcf3add9b8f9dd0dd440535858fd8be3a57",
       "report_count": 16
     }
   },
