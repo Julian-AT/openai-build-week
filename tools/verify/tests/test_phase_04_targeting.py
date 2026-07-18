@@ -168,6 +168,15 @@ class PhaseFourPreflightContract(unittest.TestCase):
                 self.assertIn(token, source)
         self.assertTrue(path.stat().st_mode & 0o111)
 
+    def test_authoritative_full_report_is_revision_bound_sanitized_and_pending(self) -> None:
+        path = REPO_ROOT / "evidence/targeting/phase-04/automated-preflight.json"
+        report = __import__("json").loads(path.read_bytes())
+        self.module.validate_evidence(report)
+        self.assertEqual(self.module.IMPLEMENTATION_REVISION, report["implementation_revision"])
+        self.assertEqual(12, len(report["checks"]))
+        self.assertTrue(all(value == "PENDING" for value in report["pending_gates"].values()))
+        self.assertTrue(all(value is False for value in report["privacy"].values()))
+
 
 if __name__ == "__main__":
     unittest.main()
