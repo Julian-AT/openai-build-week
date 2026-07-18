@@ -1,30 +1,48 @@
 import Observation
+import ReRoomContracts
+import ReRoomTransactionCore
+import RealityKit
 import SwiftUI
+import UIKit
 
 enum RoomEditLaunchConfiguration {
     static let uiTestArgument = "--room-edit-ui-test"
     static let resetArgument = "--room-edit-reset"
+    static let healthyTargetArgument = "--room-edit-target-healthy"
+    static let missedTargetArgument = "--room-edit-target-miss"
+    static let ambiguousTargetArgument = "--room-edit-target-ambiguous"
+    static let trackingLossArgument = "--room-edit-target-tracking-loss"
 
     static func usesRoomEditSurface(arguments: [String]) -> Bool {
         arguments.contains(uiTestArgument)
+    }
+
+    static func targetFixtureScenario(arguments: [String]) -> RoomEditTargetFixtureScenario {
+        if arguments.contains(missedTargetArgument) { return .miss }
+        if arguments.contains(ambiguousTargetArgument) { return .ambiguous }
+        if arguments.contains(trackingLossArgument) { return .trackingLossAfterSeed }
+        return .healthy
     }
 }
 
 @MainActor
 @Observable
 final class RoomEditAppOwner {
-    let model: RoomEditModel?
+    let runtime: RoomEditRuntime?
     let setupMessage: String?
+
+    var model: RoomEditModel? { runtime?.model }
 
     init(arguments: [String] = ProcessInfo.processInfo.arguments) {
         do {
-            model = try RoomEditFactory.live(
+            runtime = try RoomEditFactory.runtime(
                 resetStore: arguments.contains(RoomEditLaunchConfiguration.resetArgument),
-                useFixtureSupport: arguments.contains(RoomEditLaunchConfiguration.uiTestArgument)
+                useFixtureSupport: arguments.contains(RoomEditLaunchConfiguration.uiTestArgument),
+                fixtureScenario: RoomEditLaunchConfiguration.targetFixtureScenario(arguments: arguments)
             )
             setupMessage = nil
         } catch {
-            model = nil
+            runtime = nil
             setupMessage = "The local room-edit store could not be opened."
         }
     }
@@ -35,8 +53,8 @@ struct RoomEditContainer: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            if let model = owner.model {
-                RoomEditView(model: model)
+            if let runtime = owner.runtime {
+                RoomEditView(runtime: runtime)
             } else {
                 ContentUnavailableView(
                     "Local room state unavailable",
@@ -59,6 +77,13 @@ struct RoomEditContainer: View {
 
 struct RoomEditView: View {
     @Bindable var model: RoomEditModel
+    let runtime: RoomEditRuntime
+    @State private var lastTapPoint = CGPoint(x: 160, y: 180)
+
+    init(runtime: RoomEditRuntime) {
+        self.model = runtime.model
+        self.runtime = runtime
+    }
 
     var body: some View {
         ZStack {
@@ -68,6 +93,16 @@ struct RoomEditView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     RoomEditHeader()
+                    RoomEditCameraStage(
+                        liveView: runtime.sharedSession?.view,
+                        fixtureScenario: runtime.fixtureScenario,
+                        snapshot: model.snapshot.render,
+                        tap: groundTarget
+                    )
+                    RoomEditTargetPanel(
+                        snapshot: model.snapshot,
+                        reseed: reseedTarget
+                    )
                     RoomEditRevisionPanel(snapshot: model.snapshot)
                     RoomEditOperationGrid(
                         snapshot: model.snapshot,
@@ -97,6 +132,15 @@ struct RoomEditView: View {
             }
         }
     }
+
+    private func groundTarget(_ point: CGPoint) {
+        lastTapPoint = point
+        Task { await model.groundTarget(at: point) }
+    }
+
+    private func reseedTarget() {
+        Task { await model.reseedTarget(at: lastTapPoint) }
+    }
 }
 
 private struct RoomEditHeader: View {
@@ -104,14 +148,338 @@ private struct RoomEditHeader: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("ReRoom device check")
                 .font(.title.weight(.semibold))
-            Text("Phase 3 local place + restore")
+            Text("Manual target + local compositor")
                 .font(.headline)
                 .foregroundStyle(.secondary)
-            Text("Deterministic demo proxy — physical and deferred gate verification remain pending.")
+            Text("Deterministic demo proxy — formal physical, provider, and compositor gates remain pending.")
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+private struct RoomEditCameraStage: View {
+    let liveView: ARView?
+    let fixtureScenario: RoomEditTargetFixtureScenario?
+    let snapshot: RoomEditRenderSnapshot
+    let tap: (CGPoint) -> Void
+
+    var body: some View {
+        ZStack {
+            RoomEditRenderSurface(
+                liveView: liveView,
+                fixtureScenario: fixtureScenario,
+                snapshot: snapshot,
+                tap: tap
+            )
+
+            Image(systemName: "plus")
+                .font(.title2.weight(.light))
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.35), in: Circle())
+                .accessibilityHidden(true)
+
+            VStack {
+                Spacer()
+                Text(fixtureScenario == nil
+                    ? "Aim at visible floor beside one chair or small table, then tap."
+                    : "Simulator fixture — no AR tracking or camera evidence.")
+                    .font(.callout.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(.black.opacity(0.68), in: Capsule())
+                    .padding(12)
+            }
+            .allowsHitTesting(false)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 280)
+        .compositingGroup()
+        .clipShape(.rect(cornerRadius: 18))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18)
+                .strokeBorder(.white.opacity(0.22), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+    }
+}
+
+private struct RoomEditTargetPanel: View {
+    let snapshot: RoomEditSnapshot
+    let reseed: () -> Void
+
+    private var readinessRows: [RoomEditReadinessRow] {
+        let readiness = snapshot.target.readiness
+        let reasons = snapshot.target.reasons
+        return [
+            RoomEditReadinessRow(id: .select, value: readiness.select, reasons: reasons.select),
+            RoomEditReadinessRow(id: .place, value: readiness.place, reasons: reasons.place),
+            RoomEditReadinessRow(id: .replace, value: readiness.replace, reasons: reasons.replace),
+            RoomEditReadinessRow(id: .remove, value: readiness.remove, reasons: reasons.remove),
+            RoomEditReadinessRow(id: .restore, value: readiness.restore, reasons: reasons.restore),
+        ]
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Target readiness")
+                    .font(.headline)
+                Spacer(minLength: 12)
+                Button("Reseed target", action: reseed)
+                    .buttonStyle(.bordered)
+                    .disabled(snapshot.target.target == nil)
+                    .accessibilityHint("Uses the last explicit tap in the current world epoch")
+                    .accessibilityIdentifier("roomedit.target.reseed")
+            }
+
+            targetIdentity
+            targetFailure
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(readinessRows) { row in
+                    Text(row.label)
+                        .font(.subheadline.monospaced())
+                        .foregroundStyle(row.value == .ready ? .green : .secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("roomedit.readiness.\(row.id.rawValue)")
+                }
+            }
+            .accessibilityElement(children: .contain)
+
+            RoomEditFallbackPanel()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(.black.opacity(0.62))
+        .clipShape(.rect(cornerRadius: 16))
+    }
+
+    @ViewBuilder
+    private var targetIdentity: some View {
+        if let target = snapshot.target.target {
+            VStack(alignment: .leading, spacing: 5) {
+                Text(target.objectID)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .accessibilityLabel("Target ID \(target.objectID)")
+                    .accessibilityIdentifier("roomedit.target.id")
+                Text("World epoch \(snapshot.target.worldFrameVersion)")
+                    .accessibilityIdentifier("roomedit.target.epoch")
+                Text("Frozen proxy v\(target.frozenProxy.version)")
+                    .accessibilityIdentifier("roomedit.target.proxy.version")
+                Text("Tracking: \(snapshot.target.tracking.rawValue)")
+                    .foregroundStyle(snapshot.target.tracking.isHealthy ? .green : .orange)
+                    .accessibilityIdentifier(
+                        snapshot.target.tracking.isHealthy
+                            ? "roomedit.target.tracking.normal"
+                            : "roomedit.target.tracking.unavailable"
+                    )
+            }
+            .accessibilityElement(children: .contain)
+        } else {
+            Text("No manual target selected")
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("roomedit.target.empty")
+        }
+    }
+
+    @ViewBuilder
+    private var targetFailure: some View {
+        switch snapshot.target.failure {
+        case .targetMissed:
+            Label("No target found. Keep visible floor in view and tap again.", systemImage: "scope")
+                .accessibilityIdentifier("roomedit.target.failure.miss")
+        case .targetAmbiguous:
+            Label("More than one target candidate. Isolate one chair or table and retry.", systemImage: "square.stack.3d.up")
+                .accessibilityIdentifier("roomedit.target.failure.ambiguous")
+        case .trackingNotNormal, .worldFrameMismatch:
+            Label("Tracking changed. Recover tracking, then reseed explicitly.", systemImage: "exclamationmark.triangle")
+                .accessibilityIdentifier("roomedit.target.failure.tracking")
+        case .staleSceneRevision, .unsupportedTargetCategory, .invalidSpatialEvidence:
+            Label(snapshot.status, systemImage: "exclamationmark.triangle")
+                .accessibilityIdentifier("roomedit.target.failure.other")
+        case nil:
+            EmptyView()
+        }
+    }
+}
+
+private enum RoomEditReadinessID: String, Identifiable {
+    case select
+    case place
+    case replace
+    case remove
+    case restore
+
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
+private struct RoomEditReadinessRow: Identifiable {
+    let id: RoomEditReadinessID
+    let value: TargetReadinessValue
+    let reasons: [TargetReadinessReasonCode]
+
+    var label: String {
+        let suffix = reasons.isEmpty ? "" : " — \(reasons.map(\.rawValue).joined(separator: ", "))"
+        return "\(id.title): \(value.rawValue)\(suffix)"
+    }
+}
+
+private struct RoomEditFallbackPanel: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Manual tap/reseed fallback", systemImage: "hand.tap")
+                .accessibilityIdentifier("roomedit.fallback.manual")
+            Label("No-dense ARKit plane/proxy fallback", systemImage: "cube.transparent")
+                .accessibilityIdentifier("roomedit.fallback.no-dense")
+            Label("Local renderer — no cloud/provider wait", systemImage: "iphone")
+                .accessibilityIdentifier("roomedit.fallback.local")
+            Label("Reveal unavailable: artifact missing", systemImage: "eye.slash")
+                .accessibilityIdentifier("roomedit.compositor.reveal.unavailable")
+            Label("Occluder unavailable: artifact missing", systemImage: "square.slash")
+                .accessibilityIdentifier("roomedit.compositor.occluder.unavailable")
+            Text("GATE-003/004/005/007/012 formal campaigns: PENDING")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("roomedit.gates.pending")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .accessibilityElement(children: .contain)
+    }
+}
+
+private struct RoomEditRenderSurface: UIViewRepresentable {
+    let liveView: ARView?
+    let fixtureScenario: RoomEditTargetFixtureScenario?
+    let snapshot: RoomEditRenderSnapshot
+    let tap: (CGPoint) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(tap: tap)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let view: UIView = liveView ?? RoomEditFixtureRenderView()
+        view.isAccessibilityElement = true
+        view.accessibilityLabel = "Manual target camera surface"
+        view.accessibilityHint = "Tap to ground one chair or small table"
+        view.accessibilityIdentifier = "roomedit.target.surface"
+        let recognizer = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap(_:))
+        )
+        view.addGestureRecognizer(recognizer)
+        context.coordinator.apply(snapshot, to: view, fixtureScenario: fixtureScenario)
+        return view
+    }
+
+    func updateUIView(_ view: UIView, context: Context) {
+        context.coordinator.tap = tap
+        context.coordinator.apply(snapshot, to: view, fixtureScenario: fixtureScenario)
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var tap: (CGPoint) -> Void
+        private var lastSnapshot: RoomEditRenderSnapshot?
+        private var proxyAnchor: AnchorEntity?
+
+        init(tap: @escaping (CGPoint) -> Void) {
+            self.tap = tap
+        }
+
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+            guard let view = recognizer.view else { return }
+            tap(recognizer.location(in: view))
+        }
+
+        func apply(
+            _ snapshot: RoomEditRenderSnapshot,
+            to view: UIView,
+            fixtureScenario: RoomEditTargetFixtureScenario?
+        ) {
+            guard snapshot != lastSnapshot else { return }
+            lastSnapshot = snapshot
+
+            if let fixtureView = view as? RoomEditFixtureRenderView {
+                fixtureView.apply(snapshot, scenario: fixtureScenario)
+                return
+            }
+            guard let arView = view as? ARView else { return }
+            proxyAnchor?.removeFromParent()
+            proxyAnchor = nil
+            guard let proxy = snapshot.targetProxy else { return }
+
+            let anchor = AnchorEntity(world: Self.matrix(proxy.worldFromProxy))
+            let mesh = MeshResource.generateBox(width: 0.72, height: 0.82, depth: 0.72)
+            let color: UIColor = proxy.kind == .committedPlace ? .systemGreen : .systemTeal
+            let material = SimpleMaterial(
+                color: color.withAlphaComponent(0.42),
+                roughness: 0.8,
+                isMetallic: false
+            )
+            let entity = ModelEntity(mesh: mesh, materials: [material])
+            entity.position.y = 0.41
+            anchor.addChild(entity)
+            arView.scene.addAnchor(anchor)
+            proxyAnchor = anchor
+        }
+
+        private static func matrix(_ value: Matrix4) -> simd_float4x4 {
+            let v = value.values.map(Float.init)
+            guard v.count == 16 else { return matrix_identity_float4x4 }
+            return simd_float4x4(
+                SIMD4(v[0], v[4], v[8], v[12]),
+                SIMD4(v[1], v[5], v[9], v[13]),
+                SIMD4(v[2], v[6], v[10], v[14]),
+                SIMD4(v[3], v[7], v[11], v[15])
+            )
+        }
+    }
+}
+
+@MainActor
+private final class RoomEditFixtureRenderView: UIView {
+    private let statusLabel = UILabel()
+    private let proxyView = UIView()
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = UIColor(red: 0.07, green: 0.1, blue: 0.14, alpha: 1)
+        proxyView.backgroundColor = UIColor.systemTeal.withAlphaComponent(0.4)
+        proxyView.layer.cornerRadius = 12
+        statusLabel.textColor = .white
+        statusLabel.font = .preferredFont(forTextStyle: .caption1)
+        statusLabel.textAlignment = .center
+        statusLabel.numberOfLines = 0
+        addSubview(proxyView)
+        addSubview(statusLabel)
+    }
+
+    required init?(coder: NSCoder) {
+        nil
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        proxyView.frame = CGRect(
+            x: bounds.midX - 52,
+            y: bounds.midY - 54,
+            width: 104,
+            height: 108
+        )
+        statusLabel.frame = CGRect(x: 16, y: 14, width: bounds.width - 32, height: 42)
+    }
+
+    func apply(_ snapshot: RoomEditRenderSnapshot, scenario: RoomEditTargetFixtureScenario?) {
+        proxyView.isHidden = snapshot.targetProxy == nil
+        statusLabel.text = "Deterministic \((scenario ?? .healthy).rawValue) fixture"
     }
 }
 

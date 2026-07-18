@@ -1070,6 +1070,15 @@ final class RoomEditModel {
     private func proposePlace() async {
         do {
             let active = await authority.activeSnapshot()
+            guard targetGrounding.tracking.isHealthy else {
+                publish(
+                    active,
+                    selected: .place,
+                    blocker: .healthySupportRequired,
+                    status: "Place needs normal tracking and a visible horizontal floor"
+                )
+                return
+            }
             guard let support = await supportProvider(active.scene),
                   support.surfaceID == RoomEditIdentity.surfaceID
             else {
