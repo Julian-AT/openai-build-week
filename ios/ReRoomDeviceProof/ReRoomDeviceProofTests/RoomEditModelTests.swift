@@ -9,6 +9,96 @@ import Testing
 @Suite("Phase 3 room-edit presentation boundary")
 @MainActor
 struct RoomEditModelTests {
+    @Test("Phase 5 bootstrap contains the exact visible controlled target with independent readiness")
+    func phase5BootstrapBindsCanonicalTarget() throws {
+        let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
+        let bootstrap = RoomEditFactory.bootstrap(manifest: manifest)
+        let target = try #require(bootstrap.scene.objects.first {
+            $0.objectID == RoomEditIdentity.targetObjectID
+        })
+
+        #expect(bootstrap.scene.objects.count == 1)
+        #expect(target.lifecycle == "tracked")
+        #expect(target.editState.visible)
+        #expect(target.readiness.select == "ready")
+        #expect(target.readiness.replace == "degraded")
+        #expect(target.readiness.remove == "unavailable")
+        #expect(target.readiness.restore == "unavailable")
+        #expect(bootstrap.scene.sceneRevision == 0)
+    }
+
+    @Test("replace proposal and local candidate bind the selected canonical target")
+    func replaceBindingIsDeterministic() throws {
+        let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
+        let scene = RoomEditFactory.bootstrap(manifest: manifest).scene
+        let target = TargetGroundingReducer.reduce(
+            TargetGroundingReducer.initial(environment: .fixture),
+            event: .select([.heroFixture]),
+            environment: .fixture
+        )
+        let context = try #require(target.targetContext)
+        let proposal = RoomEditFactory.replaceProposal(
+            scene: scene,
+            targetContext: context,
+            manifest: manifest
+        )
+        let candidate = try #require(RoomEditFactory.replaceCandidate(
+            scene: scene,
+            targetContext: context,
+            manifest: manifest,
+            support: .healthyFixture
+        ))
+
+        #expect(proposal.intent.operation == .replace)
+        #expect(proposal.intent.source == "tap")
+        #expect(proposal.intent.arguments.assetID == manifest.contractAssetID)
+        #expect(proposal.targetContext.selectedObjectID == RoomEditIdentity.targetObjectID)
+        #expect(candidate.targetObjectID == RoomEditIdentity.targetObjectID)
+        #expect(candidate.capabilityReadiness == "degraded")
+        #expect(candidate.readinessSource == "manual_proxy_fallback")
+        #expect(candidate.supportedView)
+        #expect(candidate.capturedSceneRevision == scene.sceneRevision)
+    }
+
+    @Test("recovered empty Phase 3 generation keeps replace unavailable with migration reason")
+    func recoveredEmptyGenerationFailsClosedForReplace() async throws {
+        let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
+        let phase5 = RoomEditFactory.bootstrap(manifest: manifest)
+        let emptyScene = SceneState(
+            contractSchemaVersion: phase5.scene.schemaVersion,
+            sessionID: phase5.scene.sessionID,
+            sceneID: phase5.scene.sceneID,
+            revisionAuthority: phase5.scene.revisionAuthority,
+            sceneRevision: phase5.scene.sceneRevision,
+            worldFrame: phase5.scene.worldFrame,
+            surfaces: phase5.scene.surfaces,
+            objects: [],
+            supportRelations: [],
+            placedAssets: [],
+            editHistory: [],
+            updatedAtUTC: phase5.scene.updatedAtUTC
+        )
+        let legacy = TransactionGenerationCandidate(
+            scene: emptyScene,
+            transactions: [],
+            requiredArtifacts: [],
+            receipts: [],
+            idempotencyRecords: []
+        )
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            preloadedCandidate: legacy
+        )
+
+        await harness.model.prepare()
+        #expect(harness.model.snapshot.blocker == .replaceMigrationRequired)
+        #expect(harness.model.snapshot.status.contains("fresh local room"))
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        #expect(harness.model.snapshot.target.readiness.replace == .unavailable)
+        #expect(harness.model.snapshot.target.reasons.replace == [.authorityConflict])
+        #expect((await harness.authority.activeSnapshot()).scene.objects.isEmpty)
+    }
+
     @Test("compositor descriptor is exactly ordered and unavailable layers cannot be promoted")
     func compositorDescriptorIsClosedAndHonest() {
         let canonical = RoomEditCompositorDescriptor.canonical
@@ -331,7 +421,8 @@ private struct TestRoomEditHarness {
     @MainActor
     init(
         support: RoomEditSupportContext?,
-        targetSession: (any RoomEditTargetSession)? = nil
+        targetSession: (any RoomEditTargetSession)? = nil,
+        preloadedCandidate: TransactionGenerationCandidate? = nil
     ) throws {
         let fileSystem = RoomEditMemoryFileSystem()
         let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
@@ -339,6 +430,9 @@ private struct TestRoomEditHarness {
             fileSystem: TransactionFileSystemAdapter(fileSystem: fileSystem, rootPath: "room-edit-test"),
             contracts: TransactionContractAdapter(validator: try DiagnosticAppOwner.makeContractValidator())
         )
+        if let preloadedCandidate {
+            _ = try store.activate(preloadedCandidate)
+        }
         let authority = try NativeBranchAuthority(
             store: store,
             bootstrap: RoomEditFactory.bootstrap(manifest: manifest),
