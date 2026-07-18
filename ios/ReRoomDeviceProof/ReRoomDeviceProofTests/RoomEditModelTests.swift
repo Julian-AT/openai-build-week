@@ -66,17 +66,17 @@ struct RoomEditModelTests {
         await harness.model.selectOperation(.place)
         await harness.model.confirmPlacementFromButton()
 
-        let restarted = try harness.restartedModel(support: nil)
-        await restarted.prepare()
-        #expect(restarted.snapshot.revision == 1)
-        #expect(restarted.snapshot.placedAssetVisible)
-        #expect(restarted.snapshot.canRestore)
+        let restarted = try harness.restarted(support: nil)
+        await restarted.model.prepare()
+        #expect(restarted.model.snapshot.revision == 1)
+        #expect(restarted.model.snapshot.placedAssetVisible)
+        #expect(restarted.model.snapshot.canRestore)
 
-        await restarted.restoreFromButton()
-        #expect(restarted.snapshot.revision == 2)
-        #expect(!restarted.snapshot.placedAssetVisible)
-        #expect(restarted.snapshot.localState == .durable)
-        let canonical = await harness.authority.activeSnapshot()
+        await restarted.model.restoreFromButton()
+        #expect(restarted.model.snapshot.revision == 2)
+        #expect(!restarted.model.snapshot.placedAssetVisible)
+        #expect(restarted.model.snapshot.localState == .durable)
+        let canonical = await restarted.authority.activeSnapshot()
         #expect(canonical.transactions.count == 2)
         #expect(canonical.transactions.last?.compensatesTransactionID == canonical.transactions.first?.transactionID)
     }
@@ -126,7 +126,10 @@ private struct TestRoomEditHarness {
     }
 
     @MainActor
-    func restartedModel(support: RoomEditSupportContext?) throws -> RoomEditModel {
+    func restarted(support: RoomEditSupportContext?) throws -> (
+        model: RoomEditModel,
+        authority: NativeBranchAuthority
+    ) {
         let recoveredAuthority = try NativeBranchAuthority(
             store: TransactionStore(
                 fileSystem: TransactionFileSystemAdapter(fileSystem: fileSystem, rootPath: "room-edit-test"),
@@ -135,10 +138,13 @@ private struct TestRoomEditHarness {
             bootstrap: RoomEditFactory.bootstrap(manifest: manifest),
             locallyAvailableArtifacts: [manifest.artifactReference]
         )
-        return RoomEditModel(
-            authority: recoveredAuthority,
-            manifest: manifest,
-            supportProvider: { _ in support }
+        return (
+            model: RoomEditModel(
+                authority: recoveredAuthority,
+                manifest: manifest,
+                supportProvider: { _ in support }
+            ),
+            authority: recoveredAuthority
         )
     }
 }
@@ -159,7 +165,7 @@ private extension RoomEditSupportContext {
     )
 }
 
-private final class RoomEditMemoryFileSystem: CaptureFileSystem, @unchecked Sendable {
+private final class RoomEditMemoryFileSystem: ReRoomCaptureCore.CaptureFileSystem, @unchecked Sendable {
     let limits = CaptureFileSystemLimits.production
     private let lock = NSLock()
     private var directories: Set<String> = []
