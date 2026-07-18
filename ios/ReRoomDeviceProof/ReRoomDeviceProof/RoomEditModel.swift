@@ -1070,7 +1070,7 @@ final class RoomEditModel {
     private func proposePlace() async {
         do {
             let active = await authority.activeSnapshot()
-            guard targetGrounding.tracking.isHealthy else {
+            guard targetSession == nil || targetGrounding.tracking.isHealthy else {
                 publish(
                     active,
                     selected: .place,
