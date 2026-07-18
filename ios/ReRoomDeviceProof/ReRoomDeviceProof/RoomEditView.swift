@@ -34,7 +34,7 @@ struct RoomEditContainer: View {
     let owner: RoomEditAppOwner
 
     var body: some View {
-        Group {
+        ZStack(alignment: .topLeading) {
             if let model = owner.model {
                 RoomEditView(model: model)
             } else {
@@ -46,8 +46,14 @@ struct RoomEditContainer: View {
                 .padding()
                 .accessibilityIdentifier("roomedit.setup.failure")
             }
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityLabel("ReRoom device check")
+                .accessibilityIdentifier("release.root.candidate")
+                .allowsHitTesting(false)
         }
-        .accessibilityIdentifier("release.root.candidate")
     }
 }
 
@@ -114,7 +120,9 @@ private struct RoomEditRevisionPanel: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            Label("Current revision r\(snapshot.revision)", systemImage: "point.3.connected.trianglepath.dotted")
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .accessibilityHidden(true)
+            Text("Current revision r\(snapshot.revision)")
                 .accessibilityIdentifier("roomedit.revision.current")
             Spacer(minLength: 8)
             Text(snapshot.localState.rawValue)
