@@ -258,14 +258,101 @@ struct RoomEditModelTests {
         #expect(canonical.transactions.last?.compensatesTransactionID == canonical.transactions.first?.transactionID)
     }
 
-    @Test("replace and remove stay visible as typed nonmutating blockers")
-    func deferredOperationsCannotMutate() async throws {
-        let harness = try TestRoomEditHarness(support: .healthyFixture)
+    @Test("replace preview, cancel, confirm, retry, and restore remain exact")
+    func replacementJourneyIsExactAndIdempotent() async throws {
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            replacementAssetState: .available
+        )
         await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+
+        await harness.model.selectOperation(.replace)
+        let preview = harness.model.snapshot
+        #expect(preview.revision == 0)
+        #expect(preview.canConfirm)
+        #expect(preview.preview?.proxyID == harness.manifest.proxyID)
+        #expect(preview.render.targetProxy?.kind == .frozenTarget)
+        #expect(preview.render.replacementProxy?.kind == .provisionalReplacement)
+        #expect(preview.render.targetProxy?.objectID == RoomEditIdentity.targetObjectID)
+        #expect(preview.render.replacementProxy?.objectID == RoomEditIdentity.replacementPlacedAssetID)
+
+        await harness.model.cancelPreview()
+        #expect(harness.model.snapshot.revision == 0)
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.render.replacementProxy == nil)
+
+        await harness.model.selectOperation(.replace)
+        await harness.model.confirmReplacementFromButton()
+        #expect(harness.model.snapshot.revision == 1)
+        #expect(harness.model.snapshot.render.replacementProxy?.kind == .committedReplacement)
+        #expect(harness.model.snapshot.canRetryReplacement)
+        #expect(harness.model.snapshot.canRestore)
+
+        await harness.model.retryReplacementFromButton()
+        #expect(harness.model.snapshot.revision == 1)
+        #expect((await harness.authority.activeSnapshot()).transactions.count == 1)
+
+        await harness.model.restoreFromButton()
+        #expect(harness.model.snapshot.revision == 2)
+        #expect(harness.model.snapshot.render.replacementProxy == nil)
+        #expect((await harness.authority.activeSnapshot()).transactions.count == 2)
+    }
+
+    @Test("tracking or supported-view revocation freezes the safe target without mutation")
+    func replacementRevocationFailsClosed() async throws {
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            replacementAssetState: .available
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await harness.model.selectOperation(.replace)
+        #expect(harness.model.snapshot.render.replacementProxy != nil)
+
+        await harness.model.updateTargetTracking(.limited)
+        #expect(harness.model.snapshot.revision == 0)
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
+        #expect(harness.model.snapshot.render.replacementProxy == nil)
+        #expect(!harness.model.snapshot.canConfirm)
+        #expect((await harness.authority.activeSnapshot()).transactions.isEmpty)
+    }
+
+    @Test("missing, corrupt, or unloadable replacement asset keeps replace closed")
+    func replacementAssetFailureIsActionableAndNonmutating() async throws {
+        for failure in RoomEditReplacementAssetFailure.allCases {
+            let harness = try TestRoomEditHarness(
+                support: .healthyFixture,
+                replacementAssetState: .unavailable(failure)
+            )
+            await harness.model.prepare()
+            await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+            await harness.model.selectOperation(.replace)
+
+            #expect(harness.model.snapshot.revision == 0)
+            #expect(harness.model.snapshot.preview == nil)
+            #expect(harness.model.snapshot.blocker == .replacementAssetUnavailable(failure))
+            #expect(harness.model.snapshot.status.contains("local demo proxy"))
+            #expect(harness.model.snapshot.render.replacementProxy == nil)
+            #expect((await harness.authority.activeSnapshot()).transactions.isEmpty)
+        }
+    }
+
+    @Test("replace stays supported-view only and remove remains deferred")
+    func unsupportedReplacementViewCannotMutate() async throws {
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            replacementAssetState: .available,
+            replacementSupportedView: false
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
         let before = await harness.authority.activeSnapshot()
 
         await harness.model.selectOperation(.replace)
-        #expect(harness.model.snapshot.blocker == .replaceDeferred)
+        #expect(harness.model.snapshot.blocker == .replacementViewUnsupported)
+        #expect(harness.model.snapshot.status.contains("supported view"))
         await harness.model.selectOperation(.remove)
         #expect(harness.model.snapshot.blocker == .removeDeferred)
         #expect(harness.model.snapshot.operations.count == 4)
@@ -422,7 +509,9 @@ private struct TestRoomEditHarness {
     init(
         support: RoomEditSupportContext?,
         targetSession: (any RoomEditTargetSession)? = nil,
-        preloadedCandidate: TransactionGenerationCandidate? = nil
+        preloadedCandidate: TransactionGenerationCandidate? = nil,
+        replacementAssetState: RoomEditReplacementAssetState = .available,
+        replacementSupportedView: Bool = true
     ) throws {
         let fileSystem = RoomEditMemoryFileSystem()
         let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
@@ -445,7 +534,9 @@ private struct TestRoomEditHarness {
             authority: authority,
             manifest: manifest,
             supportProvider: { _ in support },
-            targetSession: targetSession
+            targetSession: targetSession,
+            replacementAssetState: replacementAssetState,
+            replacementSupportedView: replacementSupportedView
         )
     }
 
