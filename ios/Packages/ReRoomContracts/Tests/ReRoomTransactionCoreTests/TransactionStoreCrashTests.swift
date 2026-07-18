@@ -66,7 +66,12 @@ struct TransactionStoreCrashTests {
         #expect(foundationResult == memoryResult)
         #expect(try foundationStore.recover() == memoryStore.recover())
         #expect(foundationRecorder.observations == memoryRecorder.observations)
-        #expect(try recursiveRelativeFiles(root: root) == memoryFS.snapshotFiles())
+        let foundationFiles = try recursiveRelativeFiles(root: root)
+        let memoryFiles = memoryFS.snapshotFiles()
+        #expect(Set(foundationFiles.keys) == Set(memoryFiles.keys))
+        for path in Set(foundationFiles.keys).union(memoryFiles.keys) {
+            #expect(foundationFiles[path] == memoryFiles[path], Comment(rawValue: path))
+        }
     }
 
     @Test("recovery follows only the active pointer and rejects corrupt active members with sanitized diagnostics")
@@ -120,11 +125,14 @@ struct TransactionStoreFaultCase: Sendable, CustomTestStringConvertible {
 
     static let cases: [Self] = {
         var values = [Self]()
+        let generationDigest = try! TransactionStore.generationSHA256(
+            for: TransactionPersistenceFixtures.placed
+        )
         func add(_ label: String, _ kind: CaptureFileOperationKind, _ suffix: String) {
             values.append(Self(name: "\(label)/before", target: .init(kind: kind, phase: .before, pathSuffix: suffix), expectsNewGeneration: false))
             values.append(Self(name: "\(label)/after", target: .init(kind: kind, phase: .after, pathSuffix: suffix), expectsNewGeneration: label == "active root directory sync"))
         }
-        add("generation directory create", .createDirectory, "/generations/")
+        add("generation directory create", .createDirectory, generationDigest)
         for member in [
             "scene.json", "transactions.json", "inverse-index.json", "artifacts.json",
             "receipts.json", "idempotency.json", "inventory.json",
@@ -132,7 +140,7 @@ struct TransactionStoreFaultCase: Sendable, CustomTestStringConvertible {
             add("\(member) write", .write, member)
             add("\(member) file sync", .synchronizeFile, member)
         }
-        add("generation directory sync", .synchronizeDirectory, "/generations/")
+        add("generation directory sync", .synchronizeDirectory, generationDigest)
         add("generations parent sync", .synchronizeDirectory, "/generations")
         add("active pointer replace", .replace, "active-generation.json")
         add("active pointer file sync", .synchronizeFile, "active-generation.json")
@@ -441,20 +449,21 @@ enum TransactionPersistenceFixtures {
 
     static func contractAdapter() throws -> TransactionContractAdapter {
         let root = try repositoryRoot()
-        let registrations = [
-            ContractSchemaRegistration(
-                identifier: .sceneState,
-                version: "1.0.0",
-                sha256: FrozenContractBinding.sceneStateV1.schemaSHA256,
-                schemaData: try Data(contentsOf: root.appendingPathComponent("docs/contracts/scene-state.schema.json"))
-            ),
-            ContractSchemaRegistration(
-                identifier: .transaction,
-                version: "1.0.0",
-                sha256: FrozenContractBinding.transactionV1.schemaSHA256,
-                schemaData: try Data(contentsOf: root.appendingPathComponent("docs/contracts/transaction.schema.json"))
-            ),
+        let bindings: [(ContractSchemaIdentifier, String, String)] = [
+            (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
+            (.rrcapManifest, "rrcap-manifest.schema.json", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
+            (.sceneState, "scene-state.schema.json", FrozenContractBinding.sceneStateV1.schemaSHA256),
+            (.editArtifacts, "edit-artifacts.schema.json", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
+            (.transaction, "transaction.schema.json", FrozenContractBinding.transactionV1.schemaSHA256),
         ]
+        let registrations = try bindings.map { identifier, name, digest in
+            ContractSchemaRegistration(
+                identifier: identifier,
+                version: "1.0.0",
+                sha256: digest,
+                schemaData: try Data(contentsOf: root.appendingPathComponent("docs/contracts/\(name)"))
+            )
+        }
         return TransactionContractAdapter(validator: try ContractValidator(registrations: registrations))
     }
 
@@ -478,13 +487,18 @@ private extension TransactionStoreRecovery {
 }
 
 private func recursiveRelativeFiles(root: URL) throws -> [String: Data] {
-    guard let enumerator = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey]) else {
+    let resolvedRoot = root.resolvingSymlinksInPath()
+    guard let enumerator = FileManager.default.enumerator(at: resolvedRoot, includingPropertiesForKeys: [.isRegularFileKey]) else {
         return [:]
     }
     var files = [String: Data]()
     for case let url as URL in enumerator {
         if try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true {
-            files[String(url.path.dropFirst(root.path.count + 1))] = try Data(contentsOf: url)
+            guard let transactionIndex = url.pathComponents.firstIndex(of: "transactions") else {
+                continue
+            }
+            let relativePath = url.pathComponents[transactionIndex...].joined(separator: "/")
+            files[relativePath] = try Data(contentsOf: url)
         }
     }
     return files
