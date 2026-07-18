@@ -8,6 +8,28 @@ import Testing
 
 @Suite("Capture session adapter")
 struct CaptureSessionAdapterTests {
+    @Test("the GATE-001 launch argument alone enables Release termination diagnostics")
+    func releaseLaunchArgumentIsExplicit() {
+        #expect(
+            Gate001LaunchConfiguration.usesDiagnosticSurface(
+                arguments: ["ReRoomDeviceProof"],
+                isDebugBuild: false
+            ) == false
+        )
+        #expect(
+            Gate001LaunchConfiguration.usesDiagnosticSurface(
+                arguments: ["ReRoomDeviceProof", "--gate-001-termination-controls"],
+                isDebugBuild: false
+            )
+        )
+        #expect(
+            Gate001LaunchConfiguration.usesDiagnosticSurface(
+                arguments: ["ReRoomDeviceProof"],
+                isDebugBuild: true
+            )
+        )
+    }
+
     @Test("armed termination matches one exact user-event lifecycle boundary only")
     func gateTerminationIsExactAndOneShot() {
         let terminationCount = OSAllocatedUnfairLock(initialState: 0)
