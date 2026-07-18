@@ -177,6 +177,7 @@ def preflight() -> dict:
         "decision_actor": "automation",
         "recorded_at_utc": "2026-07-18T09:00:00Z",
         "implementation_revision": REVISION,
+        "source_tree_sha256": SHA_B,
         "fixture_refs": [
             fixture("FX-PREFLIGHT-CAPTURE-SHORT", SHA_C),
             fixture("FX-PREFLIGHT-CAPTURE-LONG", SHA_D),
@@ -198,6 +199,18 @@ def preflight() -> dict:
                 "unit": "items",
                 "value_classification": "HYPOTHESIS",
             }
+        ],
+        "evidence_bindings": [
+            {
+                "evidence_id": "evidence_phase_02_replay_agreement_rev_001",
+                "sha256": SHA_C,
+                "implementation_revision": "git:0d371bc1de9a057cbf61b70142729f6cbe620eec",
+            }
+        ],
+        "physical_evidence_state": "pending",
+        "limitations": [
+            "This automated preflight is not physical-device GATE-001 evidence.",
+            "The NFR-REPLAY-001 three-minute goal remains a hypothesis until separately measured with raw timing evidence.",
         ],
     }
     value["preflight_sha256"] = digest(value)
@@ -535,6 +548,167 @@ class OperatorProcedureTests(unittest.TestCase):
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
+
+
+def replay_agreement_bytes() -> bytes:
+    value = {
+        "schema_version": "1.0.0",
+        "evidence_id": "evidence_phase_02_replay_agreement_rev_001",
+        "implementation": {
+            "revision": "git:0d371bc1de9a057cbf61b70142729f6cbe620eec",
+        },
+        "agreement": {
+            "verdict": "pass",
+            "runtime_count": 3,
+            "case_count": 16,
+            "missing_cases": 0,
+            "extra_cases": 0,
+            "semantic_disagreements": 0,
+            "runtime_identity_disagreements": 0,
+            "report_digest_disagreements": 0,
+            "fixture_integrity_disagreements": 0,
+        },
+        "limitations": [
+            "This host-runtime result is not physical-device, signing, ARKit, compositor, or thermal evidence.",
+            "The NFR-REPLAY-001 three-minute goal remains a hypothesis until separately measured with raw timing evidence.",
+        ],
+    }
+    value["evidence_sha256"] = digest(value)
+    return canonical_bytes(value) + b"\n"
+
+
+class PreflightPublicationTests(unittest.TestCase):
+    def results(self) -> list[dict]:
+        return [
+            {"check_id": check_id, "status": "PASS", "output_sha256": SHA_A}
+            for check_id in gate.FULL_CHECK_IDS
+        ]
+
+    def build(self, **overrides: object) -> dict:
+        arguments = {
+            "check_results": self.results(),
+            "implementation_revision": REVISION,
+            "recorded_at_utc": "2026-07-18T11:00:00Z",
+            "source_tree_sha256": SHA_B,
+            "replay_agreement_bytes": replay_agreement_bytes(),
+            "environment_facts": {
+                "runtime_tier": "local-deterministic-preflight",
+                "platform": "Darwin arm64",
+                "python": "Python 3.13.12",
+                "swift": "Apple Swift version 6.3",
+                "node": "v22.22.3",
+                "xcode": "Xcode 26.0",
+            },
+        }
+        arguments.update(overrides)
+        return gate.build_automated_preflight(**arguments)
+
+    def test_builder_rejects_missing_failed_unknown_or_private_facts(self) -> None:
+        invalid_results = self.results()[:-1]
+        with self.assertRaises(gate.GateVerificationError):
+            self.build(check_results=invalid_results)
+
+        failed_results = self.results()
+        failed_results[0]["status"] = "FAIL"
+        with self.assertRaises(gate.GateVerificationError):
+            self.build(check_results=failed_results)
+
+        unknown_results = self.results()
+        unknown_results[0]["raw_output"] = "private"
+        with self.assertRaises(gate.GateVerificationError):
+            self.build(check_results=unknown_results)
+
+        private_environment = {
+            "runtime_tier": "local-deterministic-preflight",
+            "platform": "Darwin arm64",
+            "python": "Python 3.13.12",
+            "swift": "Apple Swift version 6.3",
+            "node": "v22.22.3",
+            "xcode": "Xcode 26.0",
+            "device_uuid": "private-device-id",
+        }
+        with self.assertRaises(gate.GateVerificationError):
+            self.build(environment_facts=private_environment)
+
+    def test_builder_rejects_stale_replay_agreement_binding(self) -> None:
+        stale = json.loads(replay_agreement_bytes())
+        stale["agreement"]["semantic_disagreements"] = 1
+        with self.assertRaises(gate.GateVerificationError):
+            self.build(replay_agreement_bytes=canonical_bytes(stale) + b"\n")
+
+    def test_builder_records_only_synthetic_hypothesis_target_facts(self) -> None:
+        value = self.build()
+        self.assertEqual("automation", value["decision_actor"])
+        self.assertEqual("RUNNING", value["gate_state"])
+        self.assertEqual("pending", value["physical_evidence_state"])
+        self.assertTrue(
+            all(
+                item["value_classification"] in {"HYPOTHESIS", "TARGET"}
+                for item in value["synthetic_metrics"]
+            )
+        )
+        serialized = canonical_bytes(value).decode()
+        self.assertNotIn("FX-RRCAP-010S", serialized)
+        self.assertNotIn("FX-RRCAP-060S", serialized)
+        self.assertIn("three-minute goal remains a hypothesis", serialized)
+
+    def test_pending_bundle_has_no_human_or_physical_claim(self) -> None:
+        value = self.build()
+        report, checklist = gate.build_pending_gate_bundle(value)
+        self.assertEqual(("RUNNING", "automation", "TARGET"), (
+            report["gate_state"], report["decision_actor"], report["value_classification"]
+        ))
+        self.assertEqual(("UNRUN", "human_required"), (
+            checklist["checklist_state"], checklist["decision_actor"]
+        ))
+        serialized = canonical_bytes([value, report, checklist]).decode()
+        self.assertNotIn("FX-RRCAP-010S", serialized)
+        self.assertNotIn("FX-RRCAP-060S", serialized)
+        self.assertNotIn('"decision":"GREEN"', serialized)
+
+    def test_atomic_publication_fault_preserves_previous_generation(self) -> None:
+        value = self.build()
+        report, checklist = gate.build_pending_gate_bundle(value)
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            expected = {}
+            for name in (
+                "automated-preflight.json",
+                "gate-001-report.json",
+                "gate-001-checklist.json",
+            ):
+                target = directory / name
+                target.write_bytes(f"previous-{name}\n".encode())
+                expected[name] = target.read_bytes()
+
+            def fail_after_first_replace(point: str) -> None:
+                if point == "replaced:automated-preflight.json":
+                    raise RuntimeError("injected publication fault")
+
+            with self.assertRaises(gate.GateVerificationError):
+                gate.publish_pending_gate_bundle(
+                    value,
+                    report,
+                    checklist,
+                    directory=directory,
+                    fault_hook=fail_after_first_replace,
+                )
+            self.assertEqual(
+                expected,
+                {name: (directory / name).read_bytes() for name in expected},
+            )
+
+    def test_successful_publication_writes_valid_pending_generation(self) -> None:
+        value = self.build()
+        report, checklist = gate.build_pending_gate_bundle(value)
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            paths = gate.publish_pending_gate_bundle(value, report, checklist, directory=directory)
+            self.assertEqual(3, len(paths))
+            published_preflight = json.loads(paths[0].read_text())
+            gate.validate_automated_preflight(published_preflight)
+            with self.assertRaises(gate.GatePending):
+                gate.verify_gate_paths(paths[0], paths[1], paths[2], None)
 
 
 if __name__ == "__main__":
