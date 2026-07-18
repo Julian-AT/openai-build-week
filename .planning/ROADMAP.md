@@ -6,6 +6,15 @@ ReRoom advances through replayable dependency and risk slices: prove closed cont
 
 This approved high-level roadmap initializes planning only. It does not authorize product implementation; every phase still requires discussion, a reviewed detailed plan, and its own verification. `STR-VOICE-001` and `STR-B1-001` remain future/stretch scope and have no P0 phase.
 
+## 36-Hour Demo Sprint Overlay
+
+The human project owner approved a demo-first sprint cut on 2026-07-18. The
+authoritative scope, activated fallbacks, deferred evidence, and post-sprint
+resume order are recorded in
+[SPRINT-CUT-36H.md](SPRINT-CUT-36H.md). During this sprint, implementation and
+demo smoke status must remain distinct from full P0 gate status; deferred gates
+stay `PENDING` and their canonical definitions are unchanged.
+
 ## Phases
 
 **Phase numbering:** Sequential integer IDs established during ingest remain the durable phase identifiers. Decimal IDs are reserved for later urgent insertions.
@@ -151,6 +160,10 @@ Plans:
 - [ ] 02-07 — Run fail-closed verification and obtain or truthfully leave pending the human/device GATE-001 evidence.
 
 **UI hint**: yes
+
+**36-hour sprint note:** Close implementation after automated verification and
+one signed-device queue-pressure/recovery smoke. The repeated new-revision
+10-run physical `GATE-001` matrix is deferred to Phase 8 and remains `PENDING`.
 
 ### Phase 3: Typed Place, Commit, and Offline Restore
 

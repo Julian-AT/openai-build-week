@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Phase 02 — Atomic Capture and Exact Replay
+**Current focus:** 36-hour demo sprint — close Phase 02 honestly, then deliver the four-operation native hero vertical and minimal B0 replay/inspection path.
 
 ## Current Position
 
@@ -117,7 +117,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 02]: Resolve the pinned draft meta-schema resource bundle explicitly under iOS static linking and retain full fail-closed meta-schema validation. — The resource is embedded in the app but the dependency public bundle accessor cannot discover it in the iOS static-link host.
 ### Pending Todos
 
-None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independently re-verified; future physical or human gates remain pending until their own real evidence exists.
+- Execute one signed-device queue-pressure/recovery smoke on the finalized Phase 2 revision.
+- Drive the demo-critical delivery recorded in `.planning/SPRINT-CUT-36H.md`.
+- Preserve every deferred physical/human gate as `PENDING`; do not convert implementation or smoke evidence into a full P0 claim.
 
 ### Blockers/Concerns
 
@@ -130,6 +132,8 @@ None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independen
 |----------|------|--------|-------------|
 | Future/stretch | `STR-VOICE-001` optional Realtime/GPT semantic ingress | Nonblocking; not in P0 roadmap | Initial planning |
 | Future/stretch | `STR-B1-001` isolated offline refinement | Frozen until all P0 gates are green and human-approved | Initial planning |
+| 36-hour sprint | Full new-revision `GATE-001` consent plus 10-run physical matrix, videos, logs, and attestation | Deferred; one signed-device pressure/recovery smoke in sprint | Human-approved sprint cut, 2026-07-18 |
+| 36-hour sprint | Formal `GATE-003`, `GATE-004`, `GATE-005`, `GATE-006`, `GATE-007`, `GATE-008`, `GATE-009`, `GATE-011`, `GATE-012`, and `OPS-GOLDEN-001` campaigns | Deferred as itemized in `.planning/SPRINT-CUT-36H.md`; canonical fallbacks active where defined | Human-approved sprint cut, 2026-07-18 |
 
 ## Session Continuity
 
