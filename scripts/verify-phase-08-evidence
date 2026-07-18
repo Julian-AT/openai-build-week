@@ -146,8 +146,11 @@ def requirement_rows() -> list[dict[str, str]]:
     return [{"requirement_id": key, "trace_state": value[0], "resume_procedure": value[1]} for key, value in sorted(rows.items())]
 
 
-def build_documents() -> tuple[dict[str, object], dict[str, object]]:
-    revision, recorded_at = revision_and_time()
+def build_documents(
+    revision: str | None = None, recorded_at: str | None = None,
+) -> tuple[dict[str, object], dict[str, object]]:
+    if revision is None or recorded_at is None:
+        revision, recorded_at = revision_and_time()
     index = verifier.seal_index(verifier.build_index(
         implementation_revision=revision, recorded_at_utc=recorded_at, entries=build_entries(revision),
     ))
@@ -173,7 +176,24 @@ def verify_published() -> None:
     gates = json.loads(GATES.read_text(encoding="utf-8"))
     verifier.validate_index(index, root=ROOT, require_complete=True)
     verifier.validate_gate_report(gates, root=ROOT, require_complete=True)
-    expected_index, expected_gates = build_documents()
+    if index["implementation_revision"] != gates["implementation_revision"] or index["recorded_at_utc"] != gates["recorded_at_utc"]:
+        verifier.reject("E08I_REVISION_COHERENCE")
+    bound_revision = index["implementation_revision"].removeprefix("git:")
+    producer_inputs = [
+        "tools/verify/verify_phase_08_evidence.py",
+        "tools/verify/tests/test_phase_08_evidence.py",
+        "scripts/verify-phase-08-evidence",
+        verifier.RUNBOOK_PATH,
+        verifier.HANDOFF_PATH,
+        *[item[1] for item in AUTOMATED_INPUTS],
+        *[item[0] for item in FORMAL_REPORTS.values()],
+        *[item[1] for item in FORMAL_REPORTS.values() if item[1]],
+    ]
+    bound = subprocess.run(["git", "cat-file", "-e", f"{bound_revision}^{{commit}}"], cwd=ROOT, check=False)
+    drift = subprocess.run(["git", "diff", "--quiet", bound_revision, "HEAD", "--", *producer_inputs], cwd=ROOT, check=False)
+    if bound.returncode != 0 or drift.returncode != 0:
+        verifier.reject("E08I_PRODUCER_DRIFT")
+    expected_index, expected_gates = build_documents(index["implementation_revision"], index["recorded_at_utc"])
     if index != expected_index or gates != expected_gates:
         verifier.reject("E08I_EVIDENCE_DRIFT")
     print(json.dumps({"status": "PASS", "requirements_completed": [], "shipping": "BLOCKED", "submission": "PENDING"}, sort_keys=True))
