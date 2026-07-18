@@ -178,7 +178,7 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
   3. Retries with the same key and fingerprint return the prior result without another revision; changed content, stale bases, or wrong authority reject, and divergent branches quarantine without automatic merge.
   4. Typed/tap controls can propose all four operations with network and learned providers disabled, while malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit.
 
-**Plans**: 6/7 plans executed
+**Plans**: 7/7 plans executed
 
 Plans:
 
@@ -208,7 +208,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 03-07-PLAN.md — Compare two isolated runs per runtime, enforce quick/full verification, and publish honest pending-gate automated sprint evidence.
+- [x] 03-07-PLAN.md — Compare two isolated runs per runtime, enforce quick/full verification, and publish honest pending-gate automated sprint evidence.
 
 **Cross-cutting constraints**: Both evidence plans retain exact Node v22.22.3, immutable fixture/oracle inputs, exact implementation plus closed source-tree digest binding, and explicit accepted place/restore proposal, typed replace/remove blocker, four-operation order, and injection-rejection coverage. No runtime output is another runtime's oracle, and local automation cannot promote deferred gates.
 **UI hint**: yes
@@ -311,7 +311,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
 | 2. Atomic Capture and Exact Replay | 7/7 | In Progress|  |
-| 3. Typed Place, Commit, and Offline Restore | 6/7 | In Progress|  |
+| 3. Typed Place, Commit, and Offline Restore | 7/7 | Implementation complete; verification deferred |  |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
 | 5. Curated Replacement Vertical | 0/TBD | Not started | - |
 | 6. Controlled Multi-Surface Removal | 0/TBD | Not started | - |

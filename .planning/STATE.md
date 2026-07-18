@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 03
 current_phase_name: Typed Place, Commit, and Offline Restore
-status: ready_to_execute
-stopped_at: Completed 03-06-PLAN.md
-last_updated: "2026-07-18T15:37:22.000Z"
+status: ready_for_next_phase
+stopped_at: Completed 03-07-PLAN.md; formal gates remain deferred
+last_updated: "2026-07-18T16:04:26.000Z"
 last_activity: 2026-07-18
-last_activity_desc: Completed 03-06 independent transaction trace producers; physical and human gates remain PENDING under the approved sprint cut
+last_activity_desc: Completed Phase 03 automated transaction agreement and preflight; formal GATE-009/GATE-010/GATE-011 and physical/human evidence remain PENDING
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 29
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -28,15 +28,15 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 ## Current Position
 
-Phase: 03 (Typed Place, Commit, and Offline Restore) — READY TO EXECUTE
+Phase: 03 (Typed Place, Commit, and Offline Restore) — AUTOMATED IMPLEMENTATION COMPLETE; FORMAL VERIFICATION DEFERRED
 
-Plan: 6 of 7
+Plan: 7 of 7
 
-Status: Plan 03-06 complete; ready to execute 03-07
+Status: Plan 03-07 complete; ready for the next sprint-critical phase while deferred gates remain pending
 
-Last activity: 2026-07-18 — Completed independent provenance-bound Swift, TypeScript, and Python transaction traces; deferred gates remain PENDING
+Last activity: 2026-07-18 — Completed exact two-run Swift/TypeScript/Python agreement, full native/Release preflight, and sanitized pending-gate evidence
 
-Progress: [████████████████████] 19/19 planned tasks ([██████████] 97%)
+Progress: [████████████████████] 21/21 planned tasks ([██████████] 100%)
 
 ## Performance Metrics
 
@@ -87,6 +87,7 @@ Progress: [████████████████████] 19/19 p
 | Phase 03 P04 | 17min | 2 tasks | 5 files |
 | Phase 03 P05 | 25min | 2 tasks | 9 files |
 | Phase 03 P06 | 20min | 2 tasks | 8 files |
+| Phase 03 P07 | 22min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -139,6 +140,8 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 03]: Bind the repository-owned generated chair through a closed digest/provenance manifest and label it local demo proxy only. — Implementation evidence cannot promote compositor, catalog, quality, or deferred human/device gates.
 - [Phase 03]: Keep transaction trace producers independent and compare semantics only after each runtime validates the immutable oracle and computes its own output. — Prevents one runtime or generated output from becoming another runtime's authority.
 - [Phase 03]: Use the frozen-contract-valid `arkit_plane` support method across all producers. — Shipping-core activation and independent references must hash the same contract-valid projection.
+- [Phase 03]: Validate every runtime's canonical raw result against the pinned closed schema and an independent fixture/pinned oracle before accepting cross-runtime equality. — Equal wrong outputs must fail rather than become a new oracle.
+- [Phase 03]: Publish Phase 3 evidence only after the complete full check inventory passes atomically. — Quick checks and partial full runs cannot replace prior evidence or promote deferred gates.
 
 ### Pending Todos
 
@@ -165,12 +168,13 @@ Full locked and provisional decision blocks are in PROJECT.md.
 | Phase | State | Resume |
 |-------|-------|--------|
 | 02 | verification_deferred_human | `$gsd-verify-work 02` |
+| 03 | verification_deferred_canonical_campaigns | Resume formal GATE-009/GATE-010/GATE-011 and physical/human evidence in the sprint-cut resume order |
 
 ## Session Continuity
 
-Last session: 2026-07-18T15:37:22.000Z
+Last session: 2026-07-18T16:04:26.000Z
 
-Stopped at: Completed 03-06-PLAN.md
+Stopped at: Completed 03-07-PLAN.md; all Phase 3 implementation plans complete, formal gates still pending
 
 Resume file: None
 
