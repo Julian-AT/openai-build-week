@@ -2,6 +2,65 @@ import XCTest
 
 final class RoomEditJourneyTests: XCTestCase {
     @MainActor
+    func testNormalLaunchKeepsRemoveUnavailableWithoutDemoEnablement() {
+        let app = launch(reset: true)
+        element("roomedit.operation.remove", in: app).tap()
+        XCTAssertTrue(element("roomedit.blocker.remove", in: app).waitForExistence(timeout: 2))
+        XCTAssertFalse(element("roomedit.remove.demo.banner", in: app).exists)
+        XCTAssertFalse(element("roomedit.action.confirm.remove", in: app).exists)
+    }
+
+    @MainActor
+    func testDemoRevealCompleteJourneyIsExactlyOnceAndRestorable() {
+        var app = launch(reset: true, scenario: "healthy", demoReveal: true)
+        XCTAssertTrue(element("roomedit.remove.demo.banner", in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            element("roomedit.remove.demo.banner", in: app).label,
+            "DEMO REVEAL FIXTURE - GATE-006 PENDING"
+        )
+        tapTargetSurface(in: app)
+        element("roomedit.operation.remove", in: app).tap()
+        XCTAssertTrue(element("roomedit.preview.remove", in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(element("roomedit.render.reveal.floor", in: app).exists)
+        XCTAssertTrue(element("roomedit.render.reveal.wall", in: app).exists)
+        XCTAssertTrue(element("roomedit.compositor.occluder.unavailable", in: app).exists)
+        XCTAssertFalse(element("roomedit.render.target.coverage", in: app).exists)
+
+        element("roomedit.action.confirm.remove", in: app).tap()
+        XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
+        XCTAssertTrue(element("roomedit.remove.demo.committed", in: app).exists)
+        element("roomedit.action.retry.remove", in: app).tap()
+        XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r1")
+
+        app.terminate()
+        app = launch(reset: false, scenario: "healthy", demoReveal: true)
+        XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
+        XCTAssertTrue(element("roomedit.render.reveal.floor", in: app).exists)
+        element("roomedit.operation.restore", in: app).tap()
+        XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
+        XCTAssertFalse(element("roomedit.render.reveal.floor", in: app).exists)
+        XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists)
+    }
+
+    @MainActor
+    func testDemoRevealInvalidStatesRetainOriginal() {
+        for configuration in ["out-of-view", "load-fail", "tracking-loss"] {
+            let app = launch(
+                reset: true,
+                scenario: configuration == "tracking-loss" ? "tracking-loss" : "healthy",
+                demoReveal: true,
+                demoRevealFailure: configuration
+            )
+            tapTargetSurface(in: app)
+            element("roomedit.operation.remove", in: app).tap()
+            XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists, configuration)
+            XCTAssertFalse(element("roomedit.render.reveal.floor", in: app).exists, configuration)
+            XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r0")
+            app.terminate()
+        }
+    }
+
+    @MainActor
     func testBundledReplacementLoadsAndFullJourneyIsExactlyOnce() {
         var app = launch(reset: true, scenario: "healthy")
         XCTAssertTrue(element("roomedit.asset.proxy.loaded", in: app).waitForExistence(timeout: 5))
@@ -177,12 +236,36 @@ final class RoomEditJourneyTests: XCTestCase {
     private func launch(
         reset: Bool,
         scenario: String?,
-        failReplacementLoad: Bool
+        demoReveal: Bool,
+        demoRevealFailure: String? = nil
+    ) -> XCUIApplication {
+        launch(
+            reset: reset,
+            scenario: scenario,
+            failReplacementLoad: false,
+            demoReveal: demoReveal,
+            demoRevealFailure: demoRevealFailure
+        )
+    }
+
+    @MainActor
+    private func launch(
+        reset: Bool,
+        scenario: String?,
+        failReplacementLoad: Bool,
+        demoReveal: Bool = false,
+        demoRevealFailure: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--room-edit-ui-test"] + (reset ? ["--room-edit-reset"] : [])
         if failReplacementLoad {
             app.launchArguments.append("--room-edit-proxy-load-fail")
+        }
+        if demoReveal {
+            app.launchArguments.append("--room-edit-demo-reveal")
+        }
+        if let demoRevealFailure {
+            app.launchArguments.append("--room-edit-demo-reveal-\(demoRevealFailure)")
         }
         if let scenario {
             app.launchArguments.append("--room-edit-target-\(scenario)")
