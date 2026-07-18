@@ -17,9 +17,9 @@
   "commands": {
     "comparator": "python3 tools/verify/compare_results.py compare --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --result {swift_output} --result {javascript_output} --result {python_output} --require-runtime swift --require-runtime javascript --require-runtime python",
     "isolation": "exclusive temporary directory; output files must not pre-exist",
-    "javascript": "node tools/javascript/src/runner.mjs --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:a5bff6896188dcac9397c48ce1a6820a7196011a",
-    "python": ".venv/bin/python -m tools.python.reroom_verify.runner --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:a5bff6896188dcac9397c48ce1a6820a7196011a",
-    "swift": "ReRoomContractRunner --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:a5bff6896188dcac9397c48ce1a6820a7196011a"
+    "javascript": "node tools/javascript/src/runner.mjs --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3d7a1d22da768cbd2551b890a3c30f070d5340c5",
+    "python": ".venv/bin/python -m tools.python.reroom_verify.runner --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3d7a1d22da768cbd2551b890a3c30f070d5340c5",
+    "swift": "ReRoomContractRunner --manifest fixtures/policies/RR-COORD-1/rev-001/manifest.json --output {isolated_output} --repo-root {repository_root} --implementation-revision git:3d7a1d22da768cbd2551b890a3c30f070d5340c5"
   },
   "environment": {
     "architecture": "arm64",
@@ -82,9 +82,9 @@
     ]
   },
   "implementation": {
-    "revision": "git:a5bff6896188dcac9397c48ce1a6820a7196011a",
+    "revision": "git:3d7a1d22da768cbd2551b890a3c30f070d5340c5",
     "revision_scope": "exact bound git revision plus the recorded source-tree digest",
-    "source_file_count": 117,
+    "source_file_count": 143,
     "source_scopes": [
       "fixtures",
       "docs/contracts",
@@ -102,10 +102,10 @@
       "tools/verify/fixtures"
     ],
     "source_tree_digest_algorithm": "SHA-256 over sorted relative_path NUL sha256 LF records",
-    "source_tree_sha256": "7186a0a61c57d2073cdd475b8c8dc877647c1ce88b2e8bec5f87a73395d83ce7",
+    "source_tree_sha256": "b7c534768888b4d8db6947d0f7aa4d16dc7fd1644f57a316498b7e0ddfa7b42d",
     "swift_package_manifest": {
       "relative_path": "ios/Packages/ReRoomContracts/Package.swift",
-      "sha256": "74fedb27274716eb9d77d6ffe7c1026897a76816245613ad4df7649d01a6f7cb"
+      "sha256": "19652e486287a9346db9de52c71e299a60607285c20ee7ecb44cc413aa85a4da"
     }
   },
   "limitations": [
@@ -114,32 +114,32 @@
   ],
   "publisher": {
     "relative_path": "scripts/run-three-runtime-agreement",
-    "sha256": "e45e57d7318ecf2449e1a37b83172d138c75666cc4179927a9da9332d9656f2d"
+    "sha256": "2b20e6a1ea37335f65a77b82db56d929ba73bb876b1b6f5742514c0e3874378b"
   },
   "raw_results": {
     "javascript": {
       "byte_length": 3739,
-      "implementation_revision": "git:a5bff6896188dcac9397c48ce1a6820a7196011a",
-      "result_digest_sha256": "47a3ffd82fe5adbbe0bb43fcb44bac023e73946707f877b9029ba5cc93a7a389",
+      "implementation_revision": "git:3d7a1d22da768cbd2551b890a3c30f070d5340c5",
+      "result_digest_sha256": "645e842b6892747ea5e7b77dc52e619ecbb59198770f640e4aeb7e683349a01c",
       "runner_name": "reroom-javascript-reference",
       "runner_version": "1.0.0",
-      "sha256": "24265eb32651d11382e5d5cdaacd5f90c691a80a978df9b7c75d10cfe77ebf00"
+      "sha256": "7a17b63eeca90d82c91ab528499750ca1565ff99edc558642a87ee4833af51ff"
     },
     "python": {
       "byte_length": 3731,
-      "implementation_revision": "git:a5bff6896188dcac9397c48ce1a6820a7196011a",
-      "result_digest_sha256": "87d09d01d03ff252351143bc0d92d47de9ddee38668951937d11884466283335",
+      "implementation_revision": "git:3d7a1d22da768cbd2551b890a3c30f070d5340c5",
+      "result_digest_sha256": "0a4f04b6bb093ca3a811c4167b2336c8531dc483b0f062e433e43fe141af02d3",
       "runner_name": "reroom-python-reference",
       "runner_version": "1.0.0",
-      "sha256": "d72323b8fe51dbc5615fdfd581538eeadb19dfd9832e185762cd745f3c527373"
+      "sha256": "70436bcdbae7aaccb194f74e45e9899b1906f5295ec637bd09c9c63effd128cf"
     },
     "swift": {
       "byte_length": 3729,
-      "implementation_revision": "git:a5bff6896188dcac9397c48ce1a6820a7196011a",
-      "result_digest_sha256": "e8a858652b6150c94dc2a6ced25e49b7244ad312afb8284fd4f3fe8958ea42cc",
+      "implementation_revision": "git:3d7a1d22da768cbd2551b890a3c30f070d5340c5",
+      "result_digest_sha256": "3f117ef039ab6ca7e48fdb72f492640acf77b892b42cc831f8749c8d3c70116f",
       "runner_name": "reroom-swift-reference",
       "runner_version": "1.0.0",
-      "sha256": "3beaa28ccf6bb006f507b8695e835bb12fffcd4b4d98406ebb57d0014b5656c7"
+      "sha256": "698e265a5e48ca14dff8ee33ab9d407201e38716c7febfd142e1fce16e9cd963"
     }
   },
   "reproduction": {
