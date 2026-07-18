@@ -644,10 +644,12 @@
 /* Begin XCSwiftPackageProductDependency section */
 		A30000000000000000000001 /* ReRoomContracts */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = AD0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ReRoomContracts" */;
 			productName = ReRoomContracts;
 		};
 		E30000000000000000000001 /* ReRoomCaptureCore */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = AD0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ReRoomContracts" */;
 			productName = ReRoomCaptureCore;
 		};
 /* End XCSwiftPackageProductDependency section */

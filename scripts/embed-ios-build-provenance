@@ -18,9 +18,27 @@ if ! /usr/bin/git -C "$repository_root" diff --quiet HEAD -- \
   ios/Packages/ReRoomContracts/Package.swift \
   ios/Packages/ReRoomContracts/Sources \
   ios/ReRoomDeviceProof/ReRoomDeviceProof \
-  ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj \
   scripts/embed-ios-build-provenance
 then
+  exit 1
+fi
+
+project_relative="ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
+project_path="$repository_root/$project_relative"
+
+normalize_project() {
+  /usr/bin/plutil -convert json -o - "$1" |
+    /usr/bin/jq -S -c 'walk(if type == "object" then del(.DEVELOPMENT_TEAM) else . end)'
+}
+
+working_project=$(normalize_project "$project_path")
+committed_project=$(
+  /usr/bin/git -C "$repository_root" show "HEAD:$project_relative" |
+    /usr/bin/plutil -convert json -o - -- - |
+    /usr/bin/jq -S -c 'walk(if type == "object" then del(.DEVELOPMENT_TEAM) else . end)'
+)
+
+if [ "$working_project" != "$committed_project" ]; then
   exit 1
 fi
 
