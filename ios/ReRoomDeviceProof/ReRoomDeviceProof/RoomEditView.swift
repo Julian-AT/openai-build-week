@@ -13,6 +13,9 @@ enum RoomEditLaunchConfiguration {
     static let ambiguousTargetArgument = "--room-edit-target-ambiguous"
     static let trackingLossArgument = "--room-edit-target-tracking-loss"
     static let proxyLoadFailureArgument = "--room-edit-proxy-load-fail"
+    static let demoRevealArgument = "--room-edit-demo-reveal"
+    static let demoRevealLoadFailureArgument = "--room-edit-demo-reveal-load-fail"
+    static let demoRevealOutOfViewArgument = "--room-edit-demo-reveal-out-of-view"
 
     static func usesRoomEditSurface(arguments: [String]) -> Bool {
         arguments.contains(uiTestArgument)
@@ -23,6 +26,14 @@ enum RoomEditLaunchConfiguration {
         if arguments.contains(ambiguousTargetArgument) { return .ambiguous }
         if arguments.contains(trackingLossArgument) { return .trackingLossAfterSeed }
         return .healthy
+    }
+
+    static func removeLaunchMode(arguments: [String]) -> RoomEditRemoveLaunchMode {
+#if DEBUG
+        arguments.contains(demoRevealArgument) ? .degradedDemoFixture : .normal
+#else
+        .normal
+#endif
     }
 }
 
@@ -40,10 +51,21 @@ final class RoomEditAppOwner {
             RoomEditLaunchConfiguration.proxyLoadFailureArgument
         )
         do {
+            let removeLaunchMode = RoomEditLaunchConfiguration.removeLaunchMode(arguments: arguments)
+            let fixtureBytesProvider: RoomEditRemoveFixtureBytesProvider = {
+                arguments.contains(RoomEditLaunchConfiguration.demoRevealLoadFailureArgument)
+                    ? Data("corrupt".utf8)
+                    : RoomEditDemoRevealFixture.compiledBytes
+            }
             runtime = try RoomEditFactory.runtime(
                 resetStore: arguments.contains(RoomEditLaunchConfiguration.resetArgument),
                 useFixtureSupport: arguments.contains(RoomEditLaunchConfiguration.uiTestArgument),
-                fixtureScenario: RoomEditLaunchConfiguration.targetFixtureScenario(arguments: arguments)
+                fixtureScenario: RoomEditLaunchConfiguration.targetFixtureScenario(arguments: arguments),
+                removeLaunchMode: removeLaunchMode,
+                removeDemoOutOfView: arguments.contains(
+                    RoomEditLaunchConfiguration.demoRevealOutOfViewArgument
+                ),
+                removeFixtureBytesProvider: fixtureBytesProvider
             )
             setupMessage = nil
         } catch {
@@ -110,6 +132,9 @@ struct RoomEditView: View {
                     )
                     RoomEditStatePanel(snapshot: model.snapshot)
                     RoomEditReplacementQualificationPanel(snapshot: model.snapshot)
+                    if runtime.removeDemoEnabled {
+                        RoomEditRemoveDemoPanel(snapshot: model.snapshot)
+                    }
                     RoomEditActionTray(snapshot: model.snapshot, model: model)
                     RoomEditCameraStage(
                         liveView: runtime.sharedSession?.view,
@@ -443,6 +468,32 @@ private struct RoomEditReplacementQualificationPanel: View {
     }
 }
 
+private struct RoomEditRemoveDemoPanel: View {
+    let snapshot: RoomEditSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text("DEMO REVEAL FIXTURE - GATE-006 PENDING")
+                .font(.headline)
+                .foregroundStyle(.orange)
+                .accessibilityIdentifier("roomedit.remove.demo.banner")
+            Text("degraded_demo_fixture · deterministic HYPOTHESIS pose bound")
+                .font(.caption.monospaced())
+                .accessibilityIdentifier("roomedit.remove.demo.classification")
+            Text(snapshot.blocker == .removeViewUnsupported
+                ? "Move back to the frozen seed view. The original stays visible."
+                : "Preview only inside the frozen seed view; no quality or coverage claim.")
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("roomedit.remove.demo.coaching")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(.orange.opacity(0.14))
+        .clipShape(.rect(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
+    }
+}
+
 private struct RoomEditRenderSurface: UIViewRepresentable {
     let liveView: ARView?
     let fixtureScenario: RoomEditTargetFixtureScenario?
@@ -488,6 +539,7 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
         private var lastSnapshot: RoomEditRenderSnapshot?
         private var targetAnchor: AnchorEntity?
         private var replacementAnchor: AnchorEntity?
+        private let revealAnchors: [String: AnchorEntity]
         private let replacementTemplate: Entity?
         private let replacementAssetState: RoomEditReplacementAssetState
         private let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
@@ -500,6 +552,23 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
         ) {
             self.tap = tap
             self.replacementAssetStateChanged = replacementAssetStateChanged
+            var revealAnchors: [String: AnchorEntity] = [:]
+            for (id, color) in [
+                ("surface_63000000-0000-4000-8000-000000000041", UIColor.systemIndigo),
+                ("surface_63000000-0000-4000-8000-000000000042", UIColor.systemPurple),
+            ] {
+                let anchor = AnchorEntity()
+                let mesh = MeshResource.generatePlane(width: 1.4, depth: 1.1)
+                let material = SimpleMaterial(
+                    color: color.withAlphaComponent(0.82),
+                    roughness: 1,
+                    isMetallic: false
+                )
+                anchor.addChild(ModelEntity(mesh: mesh, materials: [material]))
+                anchor.isEnabled = false
+                revealAnchors[id] = anchor
+            }
+            self.revealAnchors = revealAnchors
             if forceReplacementLoadFailure {
                 replacementTemplate = nil
                 replacementAssetState = .unavailable(.realityKitLoadFailed)
@@ -548,6 +617,19 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
             replacementAnchor?.removeFromParent()
             targetAnchor = nil
             replacementAnchor = nil
+
+            let visibleRevealIDs = Set(snapshot.revealProxySurfaces.map(\.surfaceID))
+            for surface in snapshot.revealProxySurfaces {
+                guard let anchor = revealAnchors[surface.surfaceID] else { continue }
+                anchor.transform.matrix = Self.matrix(surface.worldFromSurface)
+                if anchor.parent == nil {
+                    arView.scene.addAnchor(anchor)
+                }
+                anchor.isEnabled = true
+            }
+            for (id, anchor) in revealAnchors where !visibleRevealIDs.contains(id) {
+                anchor.isEnabled = false
+            }
 
             if let target = snapshot.targetProxy {
                 let anchor = AnchorEntity(world: Self.matrix(target.worldFromProxy))
@@ -598,6 +680,8 @@ private final class RoomEditFixtureRenderView: UIView {
     private let statusLabel = UILabel()
     private let targetCoverageView = UIView()
     private let replacementView = UIView()
+    private let floorRevealView = UIView()
+    private let wallRevealView = UIView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -612,12 +696,22 @@ private final class RoomEditFixtureRenderView: UIView {
         replacementView.isAccessibilityElement = true
         replacementView.accessibilityLabel = "Exact bundled replacement"
         replacementView.accessibilityIdentifier = "roomedit.render.replacement"
+        floorRevealView.backgroundColor = UIColor.systemIndigo.withAlphaComponent(0.82)
+        floorRevealView.isAccessibilityElement = true
+        floorRevealView.accessibilityLabel = "Local floor reveal proxy"
+        floorRevealView.accessibilityIdentifier = "roomedit.render.reveal.floor"
+        wallRevealView.backgroundColor = UIColor.systemPurple.withAlphaComponent(0.82)
+        wallRevealView.isAccessibilityElement = true
+        wallRevealView.accessibilityLabel = "Local wall reveal proxy"
+        wallRevealView.accessibilityIdentifier = "roomedit.render.reveal.wall"
         statusLabel.textColor = .white
         statusLabel.font = .preferredFont(forTextStyle: .caption1)
         statusLabel.textAlignment = .center
         statusLabel.numberOfLines = 0
         addSubview(targetCoverageView)
         addSubview(replacementView)
+        addSubview(floorRevealView)
+        addSubview(wallRevealView)
         addSubview(statusLabel)
     }
 
@@ -639,12 +733,17 @@ private final class RoomEditFixtureRenderView: UIView {
             width: 68,
             height: 92
         )
+        floorRevealView.frame = CGRect(x: bounds.midX - 72, y: bounds.midY + 8, width: 144, height: 66)
+        wallRevealView.frame = CGRect(x: bounds.midX - 72, y: bounds.midY - 68, width: 144, height: 76)
         statusLabel.frame = CGRect(x: 16, y: 14, width: bounds.width - 32, height: 42)
     }
 
     func apply(_ snapshot: RoomEditRenderSnapshot, scenario: RoomEditTargetFixtureScenario?) {
         targetCoverageView.isHidden = snapshot.targetProxy == nil
         replacementView.isHidden = snapshot.replacementProxy == nil
+        let roles = Set(snapshot.revealProxySurfaces.map(\.role))
+        floorRevealView.isHidden = !roles.contains("floor_proxy")
+        wallRevealView.isHidden = !roles.contains("wall_proxy")
         statusLabel.text = "Deterministic \((scenario ?? .healthy).rawValue) fixture"
     }
 }
@@ -728,9 +827,11 @@ private struct RoomEditStatePanel: View {
             if let preview = snapshot.preview {
                 VStack(alignment: .leading, spacing: 8) {
                     Label(
-                        snapshot.selectedOperation == .replace
-                            ? "Replacement local demo preview"
-                            : "Provisional Phase 3 proxy",
+                        snapshot.selectedOperation == .remove
+                            ? "Degraded demo reveal preview"
+                            : (snapshot.selectedOperation == .replace
+                                ? "Replacement local demo preview"
+                                : "Provisional Phase 3 proxy"),
                         systemImage: "cube.transparent"
                     )
                         .font(.title3.weight(.semibold))
@@ -748,10 +849,18 @@ private struct RoomEditStatePanel: View {
                 .clipShape(.rect(cornerRadius: 14))
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier(
-                    snapshot.selectedOperation == .replace
-                        ? "roomedit.preview.replacement"
-                        : "roomedit.preview.proxy"
+                    snapshot.selectedOperation == .remove
+                        ? "roomedit.preview.remove"
+                        : (snapshot.selectedOperation == .replace
+                            ? "roomedit.preview.replacement"
+                            : "roomedit.preview.proxy")
                 )
+            }
+
+            if snapshot.removeDemo?.committed == true {
+                Label("Degraded demo removal committed locally", systemImage: "eye.slash.fill")
+                    .foregroundStyle(.orange)
+                    .accessibilityIdentifier("roomedit.remove.demo.committed")
             }
 
             if snapshot.replacementAssetVisible {
@@ -846,9 +955,13 @@ private struct RoomEditActionTray: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityIdentifier("roomedit.action.cancel")
 
-                Button(snapshot.selectedOperation == .replace ? "Confirm replacement" : "Confirm placement") {
+                Button(snapshot.selectedOperation == .remove
+                    ? "Confirm demo removal"
+                    : (snapshot.selectedOperation == .replace ? "Confirm replacement" : "Confirm placement")) {
                     Task {
-                        if snapshot.selectedOperation == .replace {
+                        if snapshot.selectedOperation == .remove {
+                            await model.confirmRemovalFromButton()
+                        } else if snapshot.selectedOperation == .replace {
                             await model.confirmReplacementFromButton()
                         } else {
                             await model.confirmPlacementFromButton()
@@ -859,9 +972,11 @@ private struct RoomEditActionTray: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .disabled(!snapshot.canConfirm)
                 .accessibilityIdentifier(
-                    snapshot.selectedOperation == .replace
-                        ? "roomedit.action.confirm.replace"
-                        : "roomedit.action.confirm"
+                    snapshot.selectedOperation == .remove
+                        ? "roomedit.action.confirm.remove"
+                        : (snapshot.selectedOperation == .replace
+                            ? "roomedit.action.confirm.replace"
+                            : "roomedit.action.confirm")
                 )
             }
             }
@@ -874,6 +989,17 @@ private struct RoomEditActionTray: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .accessibilityHint("Reuses the same idempotency key and cannot create another revision")
                 .accessibilityIdentifier("roomedit.action.retry.replace")
+            }
+
+
+            if snapshot.canRetryRemove {
+                Button("Retry identical demo removal") {
+                    Task { await model.retryRemovalFromButton() }
+                }
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityHint("Reuses the same idempotency key and cannot create another revision")
+                .accessibilityIdentifier("roomedit.action.retry.remove")
             }
         }
     }

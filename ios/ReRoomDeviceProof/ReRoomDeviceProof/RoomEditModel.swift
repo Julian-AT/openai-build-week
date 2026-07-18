@@ -623,6 +623,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
     let targetContext: TargetContext?
     let status: String
     var removeDemo: RoomEditRemoveDemoSnapshot? = nil
+    var removeOriginalVisible: Bool = false
 
     var render: RoomEditRenderSnapshot {
         let proxy: RoomEditRenderProxySnapshot?
@@ -631,6 +632,13 @@ struct RoomEditSnapshot: Equatable, Sendable {
                 objectID: target.objectID,
                 worldFrameVersion: target.frozenProxy.worldFrameVersion,
                 worldFromProxy: target.frozenProxy.worldFromTarget,
+                kind: .frozenTarget
+            )
+        } else if removeOriginalVisible {
+            proxy = RoomEditRenderProxySnapshot(
+                objectID: RoomEditIdentity.targetObjectID,
+                worldFrameVersion: target.worldFrameVersion,
+                worldFromProxy: .phase3ProxyPlacement,
                 kind: .frozenTarget
             )
         } else if preview != nil || placedAssetVisible {
@@ -962,17 +970,20 @@ final class RoomEditRuntime {
     let sharedSession: SharedRealityKitSession?
     let deviceProof: DeviceProofModel?
     let fixtureScenario: RoomEditTargetFixtureScenario?
+    let removeDemoEnabled: Bool
 
     init(
         model: RoomEditModel,
         sharedSession: SharedRealityKitSession?,
         deviceProof: DeviceProofModel?,
-        fixtureScenario: RoomEditTargetFixtureScenario?
+        fixtureScenario: RoomEditTargetFixtureScenario?,
+        removeDemoEnabled: Bool = false
     ) {
         self.model = model
         self.sharedSession = sharedSession
         self.deviceProof = deviceProof
         self.fixtureScenario = fixtureScenario
+        self.removeDemoEnabled = removeDemoEnabled
     }
 }
 
@@ -1911,7 +1922,12 @@ final class RoomEditModel {
             target: targetGrounding,
             targetContext: targetGrounding.targetContext,
             status: status,
-            removeDemo: demo
+            removeDemo: demo,
+            removeOriginalVisible: removeLaunchMode == .degradedDemoFixture
+                && active.transactions.contains { $0.intent.operation == .remove }
+                && active.scene.objects.contains {
+                    $0.objectID == RoomEditIdentity.targetObjectID && $0.editState.visible
+                }
         ))
     }
 
@@ -2238,6 +2254,7 @@ enum RoomEditFactory {
         useFixtureSupport: Bool = false,
         fixtureScenario: RoomEditTargetFixtureScenario = .healthy,
         removeLaunchMode: RoomEditRemoveLaunchMode = .normal,
+        removeDemoOutOfView: Bool = false,
         removeFixtureBytesProvider: @escaping RoomEditRemoveFixtureBytesProvider = {
             RoomEditDemoRevealFixture.compiledBytes
         }
@@ -2274,7 +2291,21 @@ enum RoomEditFactory {
             let model = RoomEditModel(
                 authority: authority,
                 manifest: manifest,
-                supportProvider: { _ in .fixture },
+                supportProvider: { _ in
+                    if removeDemoOutOfView {
+                        var pose = Matrix4.identity.values
+                        pose[3] = 1
+                        return RoomEditSupportContext(
+                            capturedFrameID: RoomEditIdentity.frameID,
+                            surfaceID: RoomEditIdentity.surfaceID,
+                            cameraPose: Matrix4(values: pose),
+                            worldFromAsset: .phase3ProxyPlacement,
+                            confidence: 0.95,
+                            method: "arkit_plane"
+                        )
+                    }
+                    return .fixture
+                },
                 targetSession: targetSession,
                 replacementSupportedViewPolicy: .fixtureDemoHypothesis,
                 removeLaunchMode: removeLaunchMode,
@@ -2284,7 +2315,8 @@ enum RoomEditFactory {
                 model: model,
                 sharedSession: nil,
                 deviceProof: nil,
-                fixtureScenario: fixtureScenario
+                fixtureScenario: fixtureScenario,
+                removeDemoEnabled: removeLaunchMode == .degradedDemoFixture
             )
         }
 
