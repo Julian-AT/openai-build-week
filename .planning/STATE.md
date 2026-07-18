@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Typed Place, Commit, and Offline Restore
 status: ready_to_execute
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-07-18T14:47:26.267Z"
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-07-18T15:14:24.000Z"
 last_activity: 2026-07-18
 last_activity_desc: Completed 03-04 durable branch authority; physical and human gates remain PENDING under the approved sprint cut
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 29
-  completed_plans: 26
+  completed_plans: 27
 ---
 
 # Project State
@@ -30,19 +30,19 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 03 (Typed Place, Commit, and Offline Restore) — READY TO EXECUTE
 
-Plan: 4 of 7
+Plan: 5 of 7
 
-Status: Plan 03-04 complete; ready to execute 03-05
+Status: Plan 03-05 complete; ready to execute 03-06
 
-Last activity: 2026-07-18 — Completed pointer-last transaction generations and the sole native branch authority; deferred gates remain PENDING
+Last activity: 2026-07-18 — Completed native four-operation place/restore surface with durable restart and offline restore; deferred gates remain PENDING
 
-Progress: [████████████████████] 15/15 planned tasks ([█████████░] 90%)
+Progress: [████████████████████] 17/17 planned tasks ([█████████░] 93%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 26
+- Total plans completed: 27
 - Average duration: N/A
 - Total execution time: 0 hours
 
@@ -85,6 +85,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 03 P03 | 11min | 2 tasks | 4 files |
 | Phase 03 P02 | 9min | 2 tasks | 5 files |
 | Phase 03 P04 | 17min | 2 tasks | 5 files |
+| Phase 03 P05 | 25min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -132,6 +133,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 03]: Keep CAS, fingerprint/idempotency decisions, pure reduction, store activation, and actor state publication in synchronous actor-isolated critical functions with no suspension point. — Prevents actor reentrancy from admitting a second revision writer inside the canonical transaction.
 - [Phase 03]: Return an existing durable receipt before current-revision validation for an exact same-key/same-fingerprint retry. — Exactly-once retries remain stable after the original base revision has advanced; changed fingerprints still conflict.
 - [Phase 03]: Represent unexpected same-branch divergence as two preserved typed snapshots plus explicit manual quarantine. — Future mutation freezes and neither history is automatically merged or overwritten.
+- [Phase 03]: Keep the native room-edit surface presentation-only and route every canonical preview, confirmation, restart, and restore decision through the sole NativeBranchAuthority. — SwiftUI state cannot edit scene arrays or allocate revisions.
+- [Phase 03]: Expose exactly place, replace, remove, and restore while keeping later replace/remove capabilities visible as typed nonmutating blockers. — The sprint demo remains honest without hiding the complete P0 vocabulary.
+- [Phase 03]: Bind the repository-owned generated chair through a closed digest/provenance manifest and label it local demo proxy only. — Implementation evidence cannot promote compositor, catalog, quality, or deferred human/device gates.
 
 ### Pending Todos
 
@@ -161,9 +165,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T14:47:10.647Z
+Last session: 2026-07-18T15:14:24.000Z
 
-Stopped at: Completed 03-04-PLAN.md
+Stopped at: Completed 03-05-PLAN.md
 
 Resume file: None
 

@@ -164,6 +164,7 @@ Each behavior-bearing task began with failing tests before implementation:
 - Focused `RoomEditModelTests` — 5 tests passed.
 - Focused `RoomEditJourneyTests` — 1 complete UI journey passed twice; latest run 22.781 seconds.
 - Complete app unit target — passed (`Test-ReRoomDeviceProof-2026.07.18_17-12-40-+0200.xcresult`).
+- Existing Debug `DiagnosticSurfaceTests` regression — 1 journey passed in 26.016 seconds.
 - `swift test --package-path ios/Packages/ReRoomContracts` — 129 tests in 21 suites passed.
 - Debug iPhone 17 simulator build — passed.
 - Release iPhone 17 simulator build — passed.
