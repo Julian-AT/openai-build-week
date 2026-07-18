@@ -46,7 +46,8 @@ struct RoomEditModelTests {
             scene: scene,
             targetContext: context,
             manifest: manifest,
-            support: .healthyFixture
+            support: .healthyFixture,
+            supportedView: true
         ))
 
         #expect(proposal.intent.operation == .replace)
@@ -344,7 +345,7 @@ struct RoomEditModelTests {
         let harness = try TestRoomEditHarness(
             support: .healthyFixture,
             replacementAssetState: .available,
-            replacementSupportedView: false
+            replacementSupportedViewPolicy: .denyAll
         )
         await harness.model.prepare()
         await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
@@ -357,6 +358,91 @@ struct RoomEditModelTests {
         #expect(harness.model.snapshot.blocker == .removeDeferred)
         #expect(harness.model.snapshot.operations.count == 4)
         #expect(await harness.authority.activeSnapshot() == before)
+    }
+
+    @Test("omitting a supported-view policy fails closed instead of authorizing replace")
+    func omittedReplacementPolicyCannotMutate() async throws {
+        let harness = try TestRoomEditHarness(
+            support: .healthyFixture,
+            replacementAssetState: .available,
+            replacementSupportedViewPolicy: nil
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+
+        await harness.model.selectOperation(.replace)
+
+        #expect(harness.model.snapshot.blocker == .replacementViewUnsupported)
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
+        #expect(harness.model.snapshot.render.replacementProxy == nil)
+        #expect((await harness.authority.activeSnapshot()).transactions.isEmpty)
+    }
+
+    @Test("live demo policy binds the current epoch and a bounded camera pose")
+    func liveReplacementPolicyRejectsStaleOrOutOfViewEvidence() throws {
+        let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
+        let scene = RoomEditFactory.bootstrap(manifest: manifest).scene
+        let currentTarget = TargetGroundingReducer.reduce(
+            TargetGroundingReducer.initial(environment: .fixture),
+            event: .select([.heroFixture]),
+            environment: .fixture
+        )
+        let staleEnvironment = TargetGroundingEnvironment(
+            sceneRevision: 1,
+            worldFrameID: RoomEditIdentity.worldFrameID,
+            worldFrameVersion: 1,
+            tracking: .normal,
+            supportReady: true,
+            restoreEligible: false,
+            replaceTargetCanonical: true
+        )
+        let staleTarget = TargetGroundingReducer.reduce(
+            TargetGroundingReducer.initial(environment: staleEnvironment),
+            event: .select([.heroFixture(capturedSceneRevision: 1)]),
+            environment: staleEnvironment
+        )
+
+        #expect(RoomEditSupportedViewPolicy.liveDemoHypothesis.allows(
+            scene: scene,
+            target: currentTarget,
+            support: .healthyFixture
+        ))
+        #expect(!RoomEditSupportedViewPolicy.liveDemoHypothesis.allows(
+            scene: scene,
+            target: staleTarget,
+            support: .healthyFixture
+        ))
+        #expect(!RoomEditSupportedViewPolicy.liveDemoHypothesis.allows(
+            scene: scene,
+            target: currentTarget,
+            support: .outOfViewFixture
+        ))
+    }
+
+    @Test("moving outside the supported view after preview revokes confirmation")
+    func replacementConfirmationRevalidatesCurrentPose() async throws {
+        let supportProbe = RoomEditSupportProbe(.healthyFixture)
+        let harness = try TestRoomEditHarness(
+            support: nil,
+            supportProvider: { _ in supportProbe.value },
+            replacementAssetState: .available,
+            replacementSupportedViewPolicy: .liveDemoHypothesis
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await harness.model.selectOperation(.replace)
+        #expect(harness.model.snapshot.preview != nil)
+
+        supportProbe.value = .outOfViewFixture
+        await harness.model.confirmReplacementFromButton()
+
+        #expect(harness.model.snapshot.revision == 0)
+        #expect(harness.model.snapshot.blocker == .replacementViewUnsupported)
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.render.targetProxy?.kind == .frozenTarget)
+        #expect(harness.model.snapshot.render.replacementProxy == nil)
+        #expect((await harness.authority.activeSnapshot()).transactions.isEmpty)
     }
 
     @Test("manual target seed is epoch-bound, revision-neutral, and proposal-ready")
@@ -508,10 +594,11 @@ private struct TestRoomEditHarness {
     @MainActor
     init(
         support: RoomEditSupportContext?,
+        supportProvider: RoomEditSupportProvider? = nil,
         targetSession: (any RoomEditTargetSession)? = nil,
         preloadedCandidate: TransactionGenerationCandidate? = nil,
         replacementAssetState: RoomEditReplacementAssetState = .available,
-        replacementSupportedView: Bool = true
+        replacementSupportedViewPolicy: RoomEditSupportedViewPolicy? = .fixtureDemoHypothesis
     ) throws {
         let fileSystem = RoomEditMemoryFileSystem()
         let manifest = try Phase3ProxyManifest.load(bundle: Bundle(for: RoomEditModel.self))
@@ -530,14 +617,24 @@ private struct TestRoomEditHarness {
         self.fileSystem = fileSystem
         self.manifest = manifest
         self.authority = authority
-        self.model = RoomEditModel(
-            authority: authority,
-            manifest: manifest,
-            supportProvider: { _ in support },
-            targetSession: targetSession,
-            replacementAssetState: replacementAssetState,
-            replacementSupportedView: replacementSupportedView
-        )
+        if let replacementSupportedViewPolicy {
+            self.model = RoomEditModel(
+                authority: authority,
+                manifest: manifest,
+                supportProvider: supportProvider ?? { _ in support },
+                targetSession: targetSession,
+                replacementAssetState: replacementAssetState,
+                replacementSupportedViewPolicy: replacementSupportedViewPolicy
+            )
+        } else {
+            self.model = RoomEditModel(
+                authority: authority,
+                manifest: manifest,
+                supportProvider: supportProvider ?? { _ in support },
+                targetSession: targetSession,
+                replacementAssetState: replacementAssetState
+            )
+        }
     }
 
     @MainActor
@@ -557,7 +654,8 @@ private struct TestRoomEditHarness {
             model: RoomEditModel(
                 authority: recoveredAuthority,
                 manifest: manifest,
-                supportProvider: { _ in support }
+                supportProvider: { _ in support },
+                replacementSupportedViewPolicy: .fixtureDemoHypothesis
             ),
             authority: recoveredAuthority
         )
@@ -578,6 +676,34 @@ private extension RoomEditSupportContext {
         confidence: 0.95,
         method: "arkit_plane"
     )
+
+    static let outOfViewFixture = RoomEditSupportContext(
+        capturedFrameID: RoomEditIdentity.frameID,
+        surfaceID: RoomEditIdentity.surfaceID,
+        cameraPose: Matrix4(values: [
+            1, 0, 0, 1.0,
+            0, 1, 0, 0,
+            0, 0, 1, 0,
+            0, 0, 0, 1,
+        ]),
+        worldFromAsset: Matrix4(values: [
+            1, 0, 0, 1.0,
+            0, 1, 0, 0,
+            0, 0, 1, -1.2,
+            0, 0, 0, 1,
+        ]),
+        confidence: 0.95,
+        method: "arkit_plane"
+    )
+}
+
+@MainActor
+private final class RoomEditSupportProbe {
+    var value: RoomEditSupportContext?
+
+    init(_ value: RoomEditSupportContext?) {
+        self.value = value
+    }
 }
 
 private extension ManualTargetCandidate {
