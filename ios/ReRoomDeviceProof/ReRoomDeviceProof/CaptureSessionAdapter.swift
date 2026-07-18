@@ -297,6 +297,7 @@ final class UIApplicationCaptureBackgroundDriver: CaptureBackgroundDriving {
 struct CoreCaptureArchiveSession: CaptureArchiveSessionWriting, Sendable {
     let store: CaptureArchiveStore
     let transport: CaptureTransport
+    let pressureHarness: Gate001PressureHarness?
 
     func startSession(authorization: CaptureSessionAuthorization) async throws {
         _ = try await store.startSession(authorization: authorization)
@@ -306,7 +307,8 @@ struct CoreCaptureArchiveSession: CaptureArchiveSessionWriting, Sendable {
         _ candidate: SelectedFrameCandidate,
         profile: FramePacketEncodingProfile
     ) async throws -> NetworkEligibleReceipt {
-        try await store.publishSelectedFrame(candidate, profile: profile)
+        await pressureHarness?.beforePublish(selectedReason: candidate.selectedReason)
+        return try await store.publishSelectedFrame(candidate, profile: profile)
     }
 
     func recordAcknowledgement(for receipt: NetworkEligibleReceipt) async throws {
@@ -323,17 +325,20 @@ struct CoreCaptureArchiveSessionFactory: CaptureArchiveSessionFactory, Sendable 
     let validator: ContractValidator
     let source: CaptureArchiveSource
     let lifecycleObserver: CaptureLifecycleObserver
+    let pressureHarness: Gate001PressureHarness?
 
     init(
         root: URL,
         validator: ContractValidator,
         source: CaptureArchiveSource,
-        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in }
+        lifecycleObserver: @escaping CaptureLifecycleObserver = { _ in },
+        pressureHarness: Gate001PressureHarness? = nil
     ) {
         self.root = root
         self.validator = validator
         self.source = source
         self.lifecycleObserver = lifecycleObserver
+        self.pressureHarness = pressureHarness
     }
 
     func makeSession(
@@ -354,7 +359,8 @@ struct CoreCaptureArchiveSessionFactory: CaptureArchiveSessionFactory, Sendable 
             store: store,
             transport: try CaptureTransport(
                 gatewayID: "gateway_00000000-0000-4000-8000-000000000001"
-            )
+            ),
+            pressureHarness: pressureHarness
         )
     }
 }

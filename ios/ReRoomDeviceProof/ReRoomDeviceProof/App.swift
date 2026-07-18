@@ -1,9 +1,187 @@
 import Combine
+import Darwin
 import Observation
 import ReRoomContracts
 import ReRoomCaptureCore
 import SwiftUI
 import UIKit
+
+actor Gate001PressureHarness {
+    private var armed = false
+    private var blocking = false
+    private var blockedWaiters: [CheckedContinuation<Void, Never>] = []
+    private var releaseWaiter: CheckedContinuation<Void, Never>?
+
+    var isBlocking: Bool { blocking }
+
+    func arm() {
+        precondition(blocking == false)
+        armed = true
+    }
+
+    func beforePublish(selectedReason: SelectedFrameReason) async {
+        guard armed, selectedReason != .userEvent, blocking == false else { return }
+        armed = false
+        blocking = true
+        let waiters = blockedWaiters
+        blockedWaiters.removeAll(keepingCapacity: false)
+        for waiter in waiters { waiter.resume() }
+        await withCheckedContinuation { continuation in
+            releaseWaiter = continuation
+        }
+        blocking = false
+    }
+
+    func waitUntilBlocked() async {
+        guard blocking == false else { return }
+        await withCheckedContinuation { continuation in
+            blockedWaiters.append(continuation)
+        }
+    }
+
+    func release() {
+        armed = false
+        let waiter = releaseWaiter
+        releaseWaiter = nil
+        waiter?.resume()
+    }
+}
+
+struct Gate001PressureMeasurement: Codable, Equatable, Sendable {
+    let capacity: Int
+    let maximumDepth: Int
+    let staleDropCount: Int
+    let capacityDropCount: Int
+    let pressureApplied: Bool
+    let networkBlackholed: Bool
+    let uploadPausedFirst: Bool
+
+    init(
+        capacity: Int,
+        maximumDepth: Int,
+        staleDropCount: Int,
+        capacityDropCount: Int,
+        pressureApplied: Bool,
+        networkBlackholed: Bool,
+        uploadPausedFirst: Bool
+    ) {
+        self.capacity = capacity
+        self.maximumDepth = maximumDepth
+        self.staleDropCount = staleDropCount
+        self.capacityDropCount = capacityDropCount
+        self.pressureApplied = pressureApplied
+        self.networkBlackholed = networkBlackholed
+        self.uploadPausedFirst = uploadPausedFirst
+    }
+
+    init?(capacity: Int, snapshot: CaptureAdmissionSnapshot) {
+        guard capacity > 0,
+              snapshot.maximumOutstanding >= capacity,
+              snapshot.uploadPaused,
+              snapshot.rejectedOrdinaryCapacity > 0,
+              snapshot.writerFailed == 0,
+              snapshot.cancelledBeforeSelection == 0,
+              snapshot.storageUnavailableBeforeSelection == 0,
+              let capacityDropCount = Int(exactly: snapshot.rejectedOrdinaryCapacity)
+        else { return nil }
+        self.init(
+            capacity: capacity,
+            maximumDepth: snapshot.maximumOutstanding,
+            staleDropCount: 0,
+            capacityDropCount: capacityDropCount,
+            pressureApplied: true,
+            networkBlackholed: true,
+            uploadPausedFirst: true
+        )
+    }
+}
+
+struct Gate001PressureEvidence: Codable, Equatable, Sendable {
+    let schemaVersion = "gate001-pressure-observation/1"
+    let sessionID: String
+    let implementationRevision: String
+    let recordedAtUTC: String
+    let capacity: Int
+    let maximumDepth: Int
+    let staleDropCount: Int
+    let capacityDropCount: Int
+    let pressureApplied: Bool
+    let networkBlackholed: Bool
+    let uploadPausedFirst: Bool
+
+    init(
+        sessionID: String,
+        implementationRevision: String,
+        recordedAtUTC: String,
+        measurement: Gate001PressureMeasurement
+    ) {
+        self.sessionID = sessionID
+        self.implementationRevision = implementationRevision
+        self.recordedAtUTC = recordedAtUTC
+        capacity = measurement.capacity
+        maximumDepth = measurement.maximumDepth
+        staleDropCount = measurement.staleDropCount
+        capacityDropCount = measurement.capacityDropCount
+        pressureApplied = measurement.pressureApplied
+        networkBlackholed = measurement.networkBlackholed
+        uploadPausedFirst = measurement.uploadPausedFirst
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case sessionID = "session_id"
+        case implementationRevision = "implementation_revision"
+        case recordedAtUTC = "recorded_at_utc"
+        case capacity
+        case maximumDepth = "maximum_depth"
+        case staleDropCount = "stale_drop_count"
+        case capacityDropCount = "capacity_drop_count"
+        case pressureApplied = "pressure_applied"
+        case networkBlackholed = "network_blackholed"
+        case uploadPausedFirst = "upload_paused_first"
+    }
+}
+
+struct Gate001PressureEvidenceRecorder: Sendable {
+    let root: URL
+
+    func record(_ evidence: Gate001PressureEvidence) throws -> URL {
+        guard evidence.sessionID.range(
+            of: #"^session_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#,
+            options: .regularExpression
+        ) != nil else { throw Gate001PressureEvidenceError.invalidSessionID }
+        let directory = root.appendingPathComponent(
+            "gate001-pressure-observations",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        let url = directory.appendingPathComponent("\(evidence.sessionID).json")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(evidence).write(to: url, options: .atomic)
+        let handle = try FileHandle(forWritingTo: url)
+        try handle.synchronize()
+        try handle.close()
+        try directory.withUnsafeFileSystemRepresentation { path in
+            guard let path else { throw Gate001PressureEvidenceError.invalidDirectory }
+            let descriptor = Darwin.open(path, O_RDONLY)
+            guard descriptor >= 0 else { throw POSIXError(.init(rawValue: errno) ?? .EIO) }
+            defer { Darwin.close(descriptor) }
+            guard Darwin.fsync(descriptor) == 0 else {
+                throw POSIXError(.init(rawValue: errno) ?? .EIO)
+            }
+        }
+        return url
+    }
+}
+
+private enum Gate001PressureEvidenceError: Error {
+    case invalidSessionID
+    case invalidDirectory
+}
 
 enum Gate001LaunchConfiguration {
     static let terminationControlsArgument = "--gate-001-termination-controls"
@@ -54,13 +232,21 @@ final class Gate001ReleaseDiagnosticOwner {
     let model: DeviceProofModel
     private(set) var armedTerminationState: CaptureFrameState?
     private(set) var statusMessage: String?
+    private(set) var pressureMeasurement: Gate001PressureMeasurement?
+    private(set) var pressureInProgress = false
 
     @ObservationIgnored private let terminationController: Gate001TerminationController
+    @ObservationIgnored private let pressureHarness: Gate001PressureHarness
 
     init(terminationController: Gate001TerminationController = .live()) {
         self.terminationController = terminationController
+        let pressureHarness = Gate001PressureHarness()
+        self.pressureHarness = pressureHarness
         do {
-            model = try Self.makeModel(terminationController: terminationController)
+            model = try Self.makeModel(
+                terminationController: terminationController,
+                pressureHarness: pressureHarness
+            )
         } catch {
             model = DeviceProofModel()
             statusMessage = "GATE-001 local capture could not initialize."
@@ -73,6 +259,9 @@ final class Gate001ReleaseDiagnosticOwner {
     }
 
     func grantCaptureConsent() async {
+        disarmTermination()
+        pressureMeasurement = nil
+        pressureInProgress = false
         statusMessage = nil
         await model.acceptRoomCaptureDisclosure()
     }
@@ -85,6 +274,7 @@ final class Gate001ReleaseDiagnosticOwner {
     func armTermination(at state: CaptureFrameState) {
         guard model.capturePresentation.phase == .recording,
               model.capturePresentation.explicitCaptureBusy == false,
+              pressureMeasurement != nil,
               terminationController.arm(state)
         else { return }
         armedTerminationState = state
@@ -96,6 +286,10 @@ final class Gate001ReleaseDiagnosticOwner {
     }
 
     func saveExplicitFrame() {
+        guard pressureMeasurement != nil else {
+            statusMessage = "Verify bounded queue pressure before saving the termination frame."
+            return
+        }
         switch model.offerCurrentFrameForCapture(isUserEvent: true) {
         case .admission(.admitted):
             statusMessage = "Explicit frame admitted to local durable capture."
@@ -110,19 +304,69 @@ final class Gate001ReleaseDiagnosticOwner {
 
     func stopCapture() async {
         disarmTermination()
+        pressureMeasurement = nil
         await model.stopRoomCapture()
     }
 
+    func applyQueuePressure() async {
+        guard model.capturePresentation.phase == .recording,
+              model.capturePresentation.explicitCaptureBusy == false,
+              pressureMeasurement == nil,
+              pressureInProgress == false
+        else { return }
+        pressureInProgress = true
+        statusMessage = "Applying bounded queue pressure…"
+        await pressureHarness.arm()
+
+        guard case .admission(.admitted) = model.offerCurrentFrameForCapture(
+            isUserEvent: false
+        ) else {
+            await pressureHarness.release()
+            pressureInProgress = false
+            statusMessage = "Pressure check needs a healthy current camera frame. Try again."
+            return
+        }
+        await pressureHarness.waitUntilBlocked()
+        for _ in 0..<3 {
+            _ = model.offerCurrentFrameForCapture(isUserEvent: false)
+        }
+
+        guard let snapshot = model.capturePresentation.admission,
+              let measurement = Gate001PressureMeasurement(capacity: 3, snapshot: snapshot),
+              let sessionID = model.capturePresentation.sessionID
+        else {
+            await pressureHarness.release()
+            pressureInProgress = false
+            statusMessage = "Bounded pressure was not proven. Keep the app open and try again."
+            return
+        }
+
+        do {
+            let provenance = try Self.provenance()
+            let recorder = Gate001PressureEvidenceRecorder(root: try Self.documentsRoot())
+            _ = try recorder.record(
+                Gate001PressureEvidence(
+                    sessionID: sessionID,
+                    implementationRevision: provenance.revision,
+                    recordedAtUTC: ISO8601DateFormatter().string(from: Date()),
+                    measurement: measurement
+                )
+            )
+            pressureMeasurement = measurement
+            statusMessage = nil
+        } catch {
+            statusMessage = "Pressure log could not be made durable. Do not terminate this run."
+        }
+        await pressureHarness.release()
+        pressureInProgress = false
+    }
+
     private static func makeModel(
-        terminationController: Gate001TerminationController
+        terminationController: Gate001TerminationController,
+        pressureHarness: Gate001PressureHarness
     ) throws -> DeviceProofModel {
         let provenance = try provenance()
-        let documents = try FileManager.default.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
+        let documents = try documentsRoot()
         let source = CaptureArchiveSource(
             deviceModel: UIDevice.current.model,
             osVersion: "\(UIDevice.current.systemName) \(UIDevice.current.systemVersion)",
@@ -140,7 +384,8 @@ final class Gate001ReleaseDiagnosticOwner {
                 source: source,
                 lifecycleObserver: { observation in
                     terminationController.observe(observation)
-                }
+                },
+                pressureHarness: pressureHarness
             ),
             recoveryDriver: FoundationCaptureRecoveryDriver(
                 root: documents,
@@ -168,6 +413,15 @@ final class Gate001ReleaseDiagnosticOwner {
             )
         )
         return DeviceProofModel(captureSessionAdapter: adapter)
+    }
+
+    private static func documentsRoot() throws -> URL {
+        try FileManager.default.url(
+            for: .documentDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
     }
 
     private static func provenance() throws -> (revision: String, fixtureSHA256: String) {
@@ -310,9 +564,36 @@ struct Gate001ReleaseDiagnosticView: View {
                 .font(.caption)
                 .fixedSize(horizontal: false, vertical: true)
             if owner.model.capturePresentation.phase == .recording {
+                Button("Apply queue pressure") {
+                    Task { await owner.applyQueuePressure() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(
+                    owner.pressureInProgress
+                        || owner.pressureMeasurement != nil
+                        || owner.model.capturePresentation.explicitCaptureBusy
+                )
+                .accessibilityIdentifier("gate001.pressure.apply")
+                if let pressure = owner.pressureMeasurement {
+                    Text(
+                        "Pressure verified: depth \(pressure.maximumDepth)/\(pressure.capacity); "
+                            + "upload paused first."
+                    )
+                    .foregroundStyle(.green)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("gate001.pressure.status")
+                } else if owner.pressureInProgress {
+                    Text("Applying bounded pressure and making the observation durable…")
+                        .foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("gate001.pressure.status")
+                }
                 Button("Save explicit capture frame") { owner.saveExplicitFrame() }
                     .buttonStyle(.bordered)
-                    .disabled(owner.model.capturePresentation.explicitCaptureBusy)
+                    .disabled(
+                        owner.model.capturePresentation.explicitCaptureBusy
+                            || owner.pressureMeasurement == nil
+                    )
                     .accessibilityIdentifier("gate001.capture.explicit")
                 Button("Stop room capture", role: .destructive) {
                     Task { await owner.stopCapture() }
@@ -354,6 +635,7 @@ struct Gate001ReleaseDiagnosticView: View {
                 .disabled(
                     owner.model.capturePresentation.phase != .recording
                         || owner.model.capturePresentation.explicitCaptureBusy
+                        || owner.pressureMeasurement == nil
                 )
                 .accessibilityIdentifier("gate001.termination.arm")
             }
