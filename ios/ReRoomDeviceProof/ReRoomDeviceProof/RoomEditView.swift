@@ -395,16 +395,25 @@ private struct RoomEditReplacementQualificationPanel: View {
         VStack(alignment: .leading, spacing: 7) {
             switch snapshot.replacementAssetState {
             case .loading:
-                Label("Loading exact local demo proxy", systemImage: "hourglass")
-                    .accessibilityIdentifier("roomedit.asset.proxy.loading")
+                replacementStatus(
+                    "Loading exact local demo proxy",
+                    systemImage: "hourglass",
+                    identifier: "roomedit.asset.proxy.loading"
+                )
             case .available:
-                Label("Six-cube local demo proxy loaded", systemImage: "cube.fill")
+                replacementStatus(
+                    "Six-cube local demo proxy loaded",
+                    systemImage: "cube.fill",
+                    identifier: "roomedit.asset.proxy.loaded"
+                )
                     .foregroundStyle(.green)
-                    .accessibilityIdentifier("roomedit.asset.proxy.loaded")
             case .unavailable:
-                Label("Exact local demo proxy failed to load", systemImage: "cube.transparent.fill")
+                replacementStatus(
+                    "Exact local demo proxy failed to load",
+                    systemImage: "cube.transparent.fill",
+                    identifier: "roomedit.asset.proxy.failed"
+                )
                     .foregroundStyle(.orange)
-                    .accessibilityIdentifier("roomedit.asset.proxy.failed")
             }
             Text("Replace: deterministic supported view only")
                 .accessibilityIdentifier("roomedit.replace.supported-view")
@@ -418,6 +427,19 @@ private struct RoomEditReplacementQualificationPanel: View {
         .background(.white.opacity(0.08))
         .clipShape(.rect(cornerRadius: 14))
         .accessibilityElement(children: .contain)
+    }
+
+    private func replacementStatus(
+        _ text: String,
+        systemImage: String,
+        identifier: String
+    ) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .accessibilityHidden(true)
+            Text(text)
+                .accessibilityIdentifier(identifier)
+        }
     }
 }
 
