@@ -182,12 +182,29 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
 
 Plans:
 
-- [ ] 03-01-PLAN.md — Freeze exact transaction models, schema/JCS adapter, and immutable Phase 3 oracle.
-- [ ] 03-02-PLAN.md — Implement strict typed/tap intent, exact fingerprinting, and pure place preview/confirm reduction.
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Freeze the immutable oracle and implement its exact transaction contract in one final-passing TDD task.
+
+**Wave 2** *(blocked on Wave 1)*
+
 - [ ] 03-03-PLAN.md — Implement RR-EDIT-PROJECTION-1 and offline RR-RESTORE-REBASE-1 compensation.
+
+**Wave 3** *(blocked on Waves 1–2)*
+
+- [ ] 03-02-PLAN.md — Implement strict typed/tap intent, exact fingerprinting, and place reduction through the shared projection engine.
+
+**Wave 4** *(blocked on Wave 3)*
+
 - [ ] 03-04-PLAN.md — Add pointer-last durable generations and one non-reentrant native branch authority.
+
+**Wave 5** *(blocked on Wave 4)*
+
 - [ ] 03-05-PLAN.md — Deliver the compact native four-operation place/restore proof surface.
-- [ ] 03-06-PLAN.md — Prove three-runtime agreement and publish honest automated sprint evidence.
+
+**Wave 6** *(blocked on Waves 4–5)*
+
+- [ ] 03-06-PLAN.md — Prove Swift/JavaScript/Python agreement with an executable Swift trace exporter and publish honest automated sprint evidence.
 **UI hint**: yes
 
 ### Phase 4: Target Grounding and Compositor Gate

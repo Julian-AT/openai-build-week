@@ -370,6 +370,24 @@ Source: existing duplicate/Unicode/depth-safe canonicalizer plus ADR-011 exact a
 5. **Native proof surface:** existing release routing plus room edit owner/view, proxy asset labeling, explicit confirmation/cancel, revision/local status, restart recovery, restore, accessibility/UI tests.
 6. **Verification/evidence:** one Phase 3 script running transaction-core tests, relevant contract/JCS regressions, Debug/Release app tests/build, deterministic rerun comparison, secret scan/diff check, and an honest report that full GATE-009/010 campaigns and device evidence remain pending.
 
+## Multi-Source Coverage Audit
+
+| Source | ID | Feature / requirement | Plan | Status | Notes |
+|--------|----|-----------------------|------|--------|-------|
+| GOAL | — | Deterministic typed/tap place and offline restore with exact revisions, inverses, and replay | 03-01–03-06 | COVERED | Contract → projection/reducers → authority/store → native journey → independent evidence. |
+| REQ | FR-PLACE-001 | Supported preview at unchanged revision, explicit commit, interruption/replay | 03-02, 03-04, 03-05, 03-06 | COVERED | Place consumes the shared projection module from 03-03. |
+| REQ | FR-RESTORE-001 | Latest-eligible captured-exact offline compensation preserving newer/unaffected state | 03-03, 03-04, 03-05, 03-06 | COVERED | Fresh transaction/history and touched-ID rebase are explicit. |
+| REQ | FR-TRANSACTION-001 | Exact schema/JCS, CAS, idempotency, durability, divergence, and replay | 03-01, 03-02, 03-03, 03-04, 03-06 | COVERED | Includes pointer-last fault matrix and three-runtime traces. |
+| REQ | FR-AGENT-001 | Four typed/tap proposals; authority/transform/confirmation/injection rejection | 03-01, 03-02, 03-05, 03-06 | COVERED | Cross-runtime corpus includes proposal, blocker, ordering, and injection cases. |
+| RESEARCH | — | Complete RR-EDIT-PROJECTION-1 must exist before PlaceReducer consumes it | 03-03 → 03-02 | COVERED | Explicit dependency and key link; no duplicated projection logic. |
+| RESEARCH | — | Transaction-named adapter over `any CaptureFileSystem`, no generalized extraction | 03-01, 03-04 | COVERED | Target dependency and store adapter are both explicit. |
+| RESEARCH | — | Repository-owned labeled proxy with stable asset/manifest/provenance identity | 03-05 | COVERED | Reviewable source text, no third-party binary, no GATE-011 claim. |
+| RESEARCH | — | Independent Swift/JavaScript/Python normalized trace emission and comparison | 03-06 | COVERED | Swift executable product is invoked twice and wired into the comparator. |
+| CONTEXT | Native journey | Exactly four controls; place/restore usable, replace/remove truthfully blocked | 03-02, 03-05, 03-06 | COVERED | No fifth undo operation. |
+| CONTEXT | Authority/durability | One branch authority, explicit confirmation, durable activation before acknowledgement | 03-04, 03-05 | COVERED | No UI-owned canonical revision. |
+| CONTEXT | Idempotency/restore | Fingerprint-bound retries and fresh captured-exact compensation | 03-02, 03-03, 03-04, 03-06 | COVERED | No history rewind or automatic merge. |
+| CONTEXT | Sprint evidence boundary | Publish only `automated sprint slice passed`; gates remain RUNNING/PENDING | 03-06 | COVERED | Full campaigns/physical evidence remain explicitly out of scope, not missing. |
+
 ## State of the Art in This Repository
 
 | Existing Approach | Phase 3 Use | Impact |
@@ -388,19 +406,16 @@ Source: existing duplicate/Unicode/depth-safe canonicalizer plus ADR-011 exact a
 |---|-------|---------|---------------|
 | — | None. Recommendations are derived from locked context, canonical local authority, measured repository evidence, and the inspected toolchain/code. | — | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Where should the single demo proxy asset live?**
-   - What we know: Phase 3 requires one bundled allowlisted identity; full derivative/license/device-load evidence remains deferred under the sprint cut. [VERIFIED: context; sprint cut]
-   - Recommendation: use the smallest repository-owned generated geometric proxy (for example a labeled box/chair proxy) with an explicit provenance note and stable `asset_…`/manifest reference. Do not import a third-party binary or mark `GATE-011` green.
+1. **Resolved — demo proxy identity and provenance.**
+   - Decision: use the smallest repository-owned generated labeled chair geometry proxy, stored as reviewable source text beside an explicit provenance record and closed manifest with stable `asset_proxy-chair-phase3` plus manifest identity. Import no third-party binary. This proves only the Phase 3 deterministic interaction and makes no GATE-011, derivative-license parity, production-renderer, or device-load claim. [VERIFIED: context; sprint cut]
 
-2. **Should the transaction module depend directly on `ReRoomCaptureCore` for its filesystem protocol?**
-   - What we know: the needed path/durability/fault seam is public there, and extracting a new general storage module would expand the sprint. [VERIFIED: `CaptureFileSystem.swift`; sprint cut]
-   - Recommendation: for Phase 3, depend on `ReRoomCaptureCore` or provide a transaction-named adapter over `any CaptureFileSystem`; defer a generalized durability-core extraction until there are two stable consumers and no deadline pressure.
+2. **Resolved — transaction filesystem seam.**
+   - Decision: `ReRoomTransactionCore` depends on the existing `ReRoomCaptureCore` target and its store talks through a transaction-named adapter over `any CaptureFileSystem`. Do not extract a generalized storage/durability module this sprint. [VERIFIED: `CaptureFileSystem.swift`; sprint cut]
 
-3. **How much of GATE-009/GATE-010 is claimed now?**
-   - What we know: the owner-approved overlay requires demo-critical deterministic automation now but defers the complete campaign and physical/human proof. [VERIFIED: `.planning/SPRINT-CUT-36H.md`]
-   - Recommendation: implement and report exact automated place/restore/idempotency/injection/fault fixtures, label the result “automated sprint slice passed,” and retain both gates as `RUNNING`/`PENDING` until their canonical evidence records are complete.
+3. **Resolved — Phase 3 evidence claim boundary.**
+   - Decision: publish only the exact label `automated sprint slice passed` after deterministic place/restore/idempotency/injection/fault automation passes. GATE-009 and GATE-010 remain `RUNNING`/`PENDING` until their canonical campaigns and physical/human evidence records are complete; no local automated result promotes either gate or full P0. [VERIFIED: `.planning/SPRINT-CUT-36H.md`]
 
 ## Environment Availability
 
