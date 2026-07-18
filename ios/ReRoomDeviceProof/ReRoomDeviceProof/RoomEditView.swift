@@ -93,6 +93,10 @@ struct RoomEditView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     RoomEditHeader()
+                    RoomEditOperationGrid(
+                        snapshot: model.snapshot,
+                        select: selectOperation
+                    )
                     RoomEditCameraStage(
                         liveView: runtime.sharedSession?.view,
                         fixtureScenario: runtime.fixtureScenario,
@@ -104,10 +108,6 @@ struct RoomEditView: View {
                         reseed: reseedTarget
                     )
                     RoomEditRevisionPanel(snapshot: model.snapshot)
-                    RoomEditOperationGrid(
-                        snapshot: model.snapshot,
-                        select: selectOperation
-                    )
                     RoomEditStatePanel(snapshot: model.snapshot)
                     RoomEditActionTray(snapshot: model.snapshot, model: model)
                 }
@@ -194,6 +194,19 @@ private struct RoomEditCameraStage: View {
                     .padding(12)
             }
             .allowsHitTesting(false)
+
+            if fixtureScenario != nil {
+                Button {
+                    tap(CGPoint(x: 160, y: 140))
+                } label: {
+                    Color.clear
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Manual target camera surface")
+                .accessibilityHint("Tap to ground one chair or small table")
+                .accessibilityIdentifier("roomedit.target.surface")
+            }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 280)
@@ -369,7 +382,9 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
         view.isAccessibilityElement = true
         view.accessibilityLabel = "Manual target camera surface"
         view.accessibilityHint = "Tap to ground one chair or small table"
-        view.accessibilityIdentifier = "roomedit.target.surface"
+        view.accessibilityIdentifier = fixtureScenario == nil
+            ? "roomedit.target.surface"
+            : "roomedit.target.fixture.render"
         let recognizer = UITapGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handleTap(_:))
