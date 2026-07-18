@@ -36,6 +36,43 @@ struct TransactionStoreCrashTests {
         #expect(recovered.scene.sceneRevision == (testCase.expectsNewGeneration ? 9 : 8))
     }
 
+    @Test(
+        "remove generation faults recover the complete visible or hidden state",
+        arguments: TransactionStoreFaultCase.removeCases
+    )
+    func removeFaultMatrix(testCase: TransactionStoreFaultCase) throws {
+        let controller = TransactionStoreFaultController()
+        let fileSystem = DurableMemoryCaptureFileSystem(
+            observe: controller.observeBefore,
+            afterOperation: controller.observeAfter
+        )
+        let store = try TransactionPersistenceFixtures.store(fileSystem: fileSystem)
+        let old = try store.activate(TransactionPersistenceFixtures.removeBaseline)
+        controller.arm(testCase.target)
+
+        #expect(throws: InjectedTransactionStoreFault.self) {
+            _ = try store.activate(TransactionPersistenceFixtures.removed)
+        }
+        #expect(controller.didFire)
+
+        let restarted = try TransactionPersistenceFixtures.store(fileSystem: fileSystem.crashedCopy())
+        let recovered = try #require(restarted.recover().activeSnapshot)
+        let expected = testCase.expectsNewGeneration
+            ? TransactionPersistenceFixtures.removed
+            : TransactionPersistenceFixtures.removeBaseline
+        #expect(recovered.scene == expected.scene)
+        #expect(recovered.transactions == expected.transactions)
+        #expect(recovered.requiredArtifacts == expected.requiredArtifacts)
+        #expect(recovered.generationSHA256 == (testCase.expectsNewGeneration
+            ? try TransactionStore.generationSHA256(for: TransactionPersistenceFixtures.removed)
+            : old.generationSHA256))
+        let target = try #require(recovered.scene.objects.first {
+            $0.objectID == RemoveFixtures.targetObjectID
+        })
+        #expect(target.editState.visible == !testCase.expectsNewGeneration)
+        #expect(target.editState.activeReveal == (testCase.expectsNewGeneration ? RemoveFixtures.reveal : nil))
+    }
+
     @Test("Foundation and in-memory filesystems publish byte-identical generations and operation order")
     func foundationParity() throws {
         let root = FileManager.default.temporaryDirectory
@@ -147,6 +184,10 @@ struct TransactionStoreFaultCase: Sendable, CustomTestStringConvertible {
         add("active root directory sync", .synchronizeDirectory, "transactions")
         return values
     }()
+
+    static let removeCases: [Self] = makeCases(
+        for: TransactionPersistenceFixtures.removed
+    )
 }
 
 enum TransactionStoreFaultPhase: String, Sendable {
