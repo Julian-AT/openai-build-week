@@ -4,6 +4,292 @@ import Testing
 
 @Suite("FR-TRANSACTION-001 native branch authority")
 struct TransactionAuthorityTests {
+    @Test("concurrent remove confirms publish one durable revision and exact retry survives restart")
+    func concurrentRemoveIsExactlyOnceAndRestartSafe() async throws {
+        let context = try AuthorityFixtures.removeContext()
+        let preview = try await context.authority.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+
+        let receipts = try await withThrowingTaskGroup(of: TransactionReceipt.self) { group in
+            for _ in 0..<16 {
+                group.addTask {
+                    try await context.authority.commitRemove(
+                        preview,
+                        confirmation: RemoveFixtures.confirmation,
+                        request: RemoveFixtures.confirmationRequest,
+                        localUndoToken: AuthorityFixtures.removeUndoToken
+                    )
+                }
+            }
+            var values = [TransactionReceipt]()
+            for try await receipt in group { values.append(receipt) }
+            return values
+        }
+
+        let receipt = try #require(receipts.first)
+        #expect(receipts.allSatisfy { $0 == receipt })
+        let committed = await context.authority.activeSnapshot()
+        #expect(committed.scene.sceneRevision == 13)
+        #expect(committed.transactions.count == 1)
+        #expect(committed.transactions[0].intent.operation == .remove)
+        #expect(committed.transactions[0].proposedOperations == preview.proposedOperations)
+        #expect(committed.receipts == [receipt])
+        #expect(committed.requiredArtifacts.contains(RemoveFixtures.reveal))
+        let target = try #require(committed.scene.objects.first {
+            $0.objectID == RemoveFixtures.targetObjectID
+        })
+        #expect(!target.editState.visible)
+        #expect(target.editState.activeReveal == RemoveFixtures.reveal)
+        let inverseOperation = try #require(committed.transactions[0].inverseOperations?.first)
+        guard case .restoreSnapshot(_, let inverseBefore, _, _) = inverseOperation else {
+            Issue.record("remove inverse must be restore_snapshot")
+            return
+        }
+        #expect(inverseBefore.projectionSHA256 == (try EditProjectionEngine.digest(
+            EditProjectionEngine.build(from: committed.scene)
+        )))
+
+        let restarted = try AuthorityFixtures.removeAuthority(fileSystem: context.fileSystem)
+        #expect(await restarted.activeSnapshot() == committed)
+        let durableBytes = context.fileSystem.snapshotFiles()
+        let wrongConfirmation = ExplicitConfirmation(
+            actorID: RemoveFixtures.userID,
+            source: "native_ui",
+            previewID: "preview_61000000-0000-4000-8000-000000000001",
+            confirmationEventID: RemoveFixtures.eventID,
+            confirmedAtUTC: RemoveFixtures.confirmation.confirmedAtUTC
+        )
+        #expect(try await restarted.commitRemove(
+            preview,
+            confirmation: wrongConfirmation,
+            request: RemoveFixtures.confirmationRequest,
+            localUndoToken: "invalid"
+        ) == receipt)
+        #expect(context.fileSystem.snapshotFiles() == durableBytes)
+    }
+
+    @Test("remove conflicts confirmation inventory freeze and activation faults publish no hidden state")
+    func removeFailuresAreNonPublishing() async throws {
+        let fresh = try AuthorityFixtures.removeContext()
+        let freshPreview = try await fresh.authority.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        let freshSnapshot = await fresh.authority.activeSnapshot()
+        let freshBytes = fresh.fileSystem.snapshotFiles()
+        let wrongConfirmation = ExplicitConfirmation(
+            actorID: RemoveFixtures.userID,
+            source: "native_ui",
+            previewID: "preview_61000000-0000-4000-8000-000000000002",
+            confirmationEventID: RemoveFixtures.eventID,
+            confirmedAtUTC: RemoveFixtures.confirmation.confirmedAtUTC
+        )
+        await #expect(throws: RemoveRejection.confirmationMismatch) {
+            try await fresh.authority.commitRemove(
+                freshPreview,
+                confirmation: wrongConfirmation,
+                request: RemoveFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.removeUndoToken
+            )
+        }
+        await #expect(throws: TransactionAuthorityError.invalidLocalUndoToken) {
+            try await fresh.authority.commitRemove(
+                freshPreview,
+                confirmation: RemoveFixtures.confirmation,
+                request: RemoveFixtures.confirmationRequest,
+                localUndoToken: "invalid"
+            )
+        }
+        #expect(await fresh.authority.activeSnapshot() == freshSnapshot)
+        #expect(fresh.fileSystem.snapshotFiles() == freshBytes)
+
+        let missingArtifact = try AuthorityFixtures.removeContext(includeReveal: false)
+        let missingPreview = try await missingArtifact.authority.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        let beforeMissing = await missingArtifact.authority.activeSnapshot()
+        let missingBytes = missingArtifact.fileSystem.snapshotFiles()
+        await #expect(throws: TransactionAuthorityError.missingRequiredArtifact) {
+            try await missingArtifact.authority.commitRemove(
+                missingPreview,
+                confirmation: RemoveFixtures.confirmation,
+                request: RemoveFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.removeUndoToken
+            )
+        }
+        #expect(await missingArtifact.authority.activeSnapshot() == beforeMissing)
+        #expect(missingArtifact.fileSystem.snapshotFiles() == missingBytes)
+
+        let committedContext = try AuthorityFixtures.removeContext()
+        let committedPreview = try await committedContext.authority.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        _ = try await committedContext.authority.commitRemove(
+            committedPreview,
+            confirmation: RemoveFixtures.confirmation,
+            request: RemoveFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.removeUndoToken
+        )
+        let afterCommit = committedContext.fileSystem.snapshotFiles()
+        let changed = RemovePreviewReduction(
+            proposal: committedPreview.proposal,
+            candidate: committedPreview.candidate,
+            seed: committedPreview.seed,
+            validation: committedPreview.validation,
+            preview: committedPreview.preview,
+            proposedOperations: [],
+            canonicalSceneRevision: committedPreview.canonicalSceneRevision,
+            sourceProjection: committedPreview.sourceProjection,
+            committedProjection: committedPreview.committedProjection,
+            networkReads: committedPreview.networkReads
+        )
+        await #expect(throws: TransactionAuthorityError.idempotencyConflict) {
+            try await committedContext.authority.commitRemove(
+                changed,
+                confirmation: RemoveFixtures.confirmation,
+                request: RemoveFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.removeUndoToken
+            )
+        }
+        let newKey = PlaceConfirmationRequest(
+            transactionID: RemoveFixtures.transactionID,
+            idempotencyKey: "txidem_61000000-0000-4000-8000-000000000003",
+            updatedAtUTC: RemoveFixtures.confirmationRequest.updatedAtUTC
+        )
+        await #expect(throws: RemoveRejection.staleBaseRevision) {
+            try await committedContext.authority.commitRemove(
+                committedPreview,
+                confirmation: RemoveFixtures.confirmation,
+                request: newKey,
+                localUndoToken: AuthorityFixtures.removeUndoToken
+            )
+        }
+        #expect(committedContext.fileSystem.snapshotFiles() == afterCommit)
+
+        let faultController = TransactionStoreFaultController()
+        let faultedFileSystem = DurableMemoryCaptureFileSystem(
+            observe: faultController.observeBefore,
+            afterOperation: faultController.observeAfter
+        )
+        let faulted = try AuthorityFixtures.removeAuthority(fileSystem: faultedFileSystem)
+        let faultedPreview = try await faulted.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        let beforeFault = await faulted.activeSnapshot()
+        faultController.arm(.init(kind: .replace, phase: .before, pathSuffix: "active-generation.json"))
+        await #expect(throws: InjectedTransactionStoreFault.self) {
+            try await faulted.commitRemove(
+                faultedPreview,
+                confirmation: RemoveFixtures.confirmation,
+                request: RemoveFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.removeUndoToken
+            )
+        }
+        #expect(await faulted.activeSnapshot() == beforeFault)
+        let recovered = try AuthorityFixtures.removeAuthority(fileSystem: faultedFileSystem.crashedCopy())
+        #expect(await recovered.activeSnapshot() == beforeFault)
+
+        let frozen = try AuthorityFixtures.removeContext()
+        let frozenPreview = try await frozen.authority.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        let divergent = try AuthorityFixtures.snapshot(
+            candidate: TransactionPersistenceFixtures.placed
+        )
+        _ = try await frozen.authority.reportUnexpectedSameBranchDivergence(
+            divergent,
+            quarantinedBranchID: AuthorityFixtures.quarantinedBranchID,
+            lastKnownGatewayRevision: divergent.scene.sceneRevision
+        )
+        let frozenBytes = frozen.fileSystem.snapshotFiles()
+        await #expect(throws: TransactionAuthorityError.authorityFrozen) {
+            try await frozen.authority.commitRemove(
+                frozenPreview,
+                confirmation: RemoveFixtures.confirmation,
+                request: RemoveFixtures.confirmationRequest,
+                localUndoToken: AuthorityFixtures.removeUndoToken
+            )
+        }
+        #expect(frozen.fileSystem.snapshotFiles() == frozenBytes)
+    }
+
+    @Test("remove restart and restore preserve unrelated state and immutable source record")
+    func removeRestorePreservesUnrelatedState() async throws {
+        let context = try AuthorityFixtures.removeContext()
+        let preview = try await context.authority.previewRemove(
+            proposal: RemoveFixtures.proposal,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        let removeReceipt = try await context.authority.commitRemove(
+            preview,
+            confirmation: RemoveFixtures.confirmation,
+            request: RemoveFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.removeUndoToken
+        )
+        let removed = await context.authority.activeSnapshot()
+        let immutableRemoveBytes = try AuthorityFixtures.encode(removed.transactions[0])
+
+        let trackedScene = AuthorityFixtures.addingUnrelatedObject(to: removed.scene)
+        _ = try TransactionPersistenceFixtures.store(fileSystem: context.fileSystem).activate(
+            TransactionGenerationCandidate(
+                scene: trackedScene,
+                transactions: removed.transactions,
+                requiredArtifacts: removed.requiredArtifacts,
+                receipts: removed.receipts,
+                idempotencyRecords: removed.idempotencyRecords
+            )
+        )
+
+        let restarted = try AuthorityFixtures.removeAuthority(fileSystem: context.fileSystem)
+        let tracked = await restarted.activeSnapshot()
+        #expect(tracked.scene.objects.contains { $0.objectID == TransactionTestFixtures.newObjectID })
+        #expect(try await restarted.commitRemove(
+            preview,
+            confirmation: RemoveFixtures.confirmation,
+            request: RemoveFixtures.confirmationRequest,
+            localUndoToken: AuthorityFixtures.removeUndoToken
+        ) == removeReceipt)
+        let restorePreview = try await restarted.previewRestore(
+            proposal: AuthorityFixtures.restoreProposal(scene: tracked.scene),
+            request: AuthorityFixtures.removeRestoreRequest,
+            seed: AuthorityFixtures.removeRestoreSeed
+        )
+        _ = try await restarted.commitRestore(
+            restorePreview,
+            confirmation: AuthorityFixtures.removeRestoreConfirmation,
+            idempotencyKey: AuthorityFixtures.removeRestoreIdempotencyKey,
+            localUndoToken: AuthorityFixtures.removeRestoreUndoToken
+        )
+
+        let restored = await restarted.activeSnapshot()
+        #expect(restored.scene.sceneRevision == 14)
+        #expect(restored.scene.editHistory.map(\.operation) == [.remove, .restore])
+        #expect(restored.scene.objects.contains { $0.objectID == TransactionTestFixtures.newObjectID })
+        let target = try #require(restored.scene.objects.first {
+            $0.objectID == RemoveFixtures.targetObjectID
+        })
+        #expect(target.editState.visible)
+        #expect(target.editState.activeReveal == nil)
+        #expect(restored.transactions.count == 2)
+        #expect(restored.transactions[1].compensatesTransactionID == removed.transactions[0].transactionID)
+        #expect(try AuthorityFixtures.encode(restored.transactions[0]) == immutableRemoveBytes)
+        let restartedAgain = try AuthorityFixtures.removeAuthority(fileSystem: context.fileSystem)
+        #expect(await restartedAgain.activeSnapshot() == restored)
+    }
+
     @Test("concurrent replace confirms publish one durable revision and survive restart")
     func concurrentReplaceIsExactlyOnceAndRestartSafe() async throws {
         let context = try AuthorityFixtures.context()
@@ -433,6 +719,12 @@ enum AuthorityFixtures {
     static let replaceRestorePreviewID = "preview_40000000-0000-4000-8000-00000000001a"
     static let replaceRestoreEventID = "event_40000000-0000-4000-8000-00000000001b"
     static let replaceRestoreUndoToken = "undo_40000000-0000-4000-8000-00000000001c"
+    static let removeUndoToken = "undo_61000000-0000-4000-8000-000000000010"
+    static let removeRestoreTransactionID = "tx_61000000-0000-4000-8000-000000000011"
+    static let removeRestoreIdempotencyKey = "txidem_61000000-0000-4000-8000-000000000012"
+    static let removeRestorePreviewID = "preview_61000000-0000-4000-8000-000000000013"
+    static let removeRestoreEventID = "event_61000000-0000-4000-8000-000000000014"
+    static let removeRestoreUndoToken = "undo_61000000-0000-4000-8000-000000000015"
 
     struct Context {
         let fileSystem: DurableMemoryCaptureFileSystem
@@ -447,6 +739,14 @@ enum AuthorityFixtures {
         )
     }
 
+    static func removeContext(includeReveal: Bool = true) throws -> Context {
+        let fileSystem = DurableMemoryCaptureFileSystem()
+        return Context(
+            fileSystem: fileSystem,
+            authority: try removeAuthority(fileSystem: fileSystem, includeReveal: includeReveal)
+        )
+    }
+
     static func authority(fileSystem: DurableMemoryCaptureFileSystem) throws -> NativeBranchAuthority {
         try NativeBranchAuthority(
             store: TransactionPersistenceFixtures.store(fileSystem: fileSystem),
@@ -455,6 +755,25 @@ enum AuthorityFixtures {
                 TransactionTestFixtures.firstManifest,
                 TransactionTestFixtures.secondManifest,
             ]
+        )
+    }
+
+    static func removeAuthority(
+        fileSystem: DurableMemoryCaptureFileSystem,
+        includeReveal: Bool = true
+    ) throws -> NativeBranchAuthority {
+        var artifacts = [TransactionTestFixtures.secondManifest]
+        if includeReveal { artifacts.append(RemoveFixtures.reveal) }
+        return try NativeBranchAuthority(
+            store: TransactionPersistenceFixtures.store(fileSystem: fileSystem),
+            bootstrap: TransactionGenerationCandidate(
+                scene: RemoveFixtures.scene,
+                transactions: [],
+                requiredArtifacts: [TransactionTestFixtures.secondManifest],
+                receipts: [],
+                idempotencyRecords: []
+            ),
+            locallyAvailableArtifacts: artifacts
         )
     }
 
@@ -490,6 +809,33 @@ enum AuthorityFixtures {
         confirmationEventID: replaceRestoreEventID,
         confirmedAtUTC: "2026-07-18T19:03:00Z"
     )
+    static let removeRestoreRequest = RestoreRequest(
+        transactionID: removeRestoreTransactionID,
+        compensatesTransactionID: RemoveFixtures.transactionID,
+        updatedAtUTC: "2026-07-18T20:03:00Z"
+    )
+    static let removeRestoreSeed = RestorePreviewSeed(
+        previewID: removeRestorePreviewID,
+        expiresAtUTC: "2026-07-18T21:03:00Z"
+    )
+    static let removeRestoreConfirmation = ExplicitConfirmation(
+        actorID: RemoveFixtures.userID,
+        source: "native_ui",
+        previewID: removeRestorePreviewID,
+        confirmationEventID: removeRestoreEventID,
+        confirmedAtUTC: "2026-07-18T20:03:00Z"
+    )
+
+    static func snapshot(candidate: TransactionGenerationCandidate) throws -> TransactionGenerationSnapshot {
+        TransactionGenerationSnapshot(
+            generationSHA256: try TransactionStore.generationSHA256(for: candidate),
+            scene: candidate.scene,
+            transactions: candidate.transactions,
+            requiredArtifacts: candidate.requiredArtifacts,
+            receipts: candidate.receipts,
+            idempotencyRecords: candidate.idempotencyRecords
+        )
+    }
 
     static func restoreProposal(scene: SceneState) -> BoundProposal {
         BoundProposal(
