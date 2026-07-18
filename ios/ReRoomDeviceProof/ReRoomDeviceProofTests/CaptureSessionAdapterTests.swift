@@ -155,7 +155,7 @@ struct CaptureSessionAdapterTests {
             discovered: [recovered],
             recoveredAfterFailure: recovered
         )
-        let failingWriter = TestCaptureArchiveSession(failsWrites: true)
+        let failingWriter = TestCaptureArchiveSession(stallsWrites: true, failsWrites: true)
         let factory = TestCaptureArchiveFactory(writers: [failingWriter])
         let adapter = try makeAdapter(
             identities: TestCaptureIdentities(sessionOrdinals: [1]),
@@ -179,6 +179,11 @@ struct CaptureSessionAdapterTests {
                 selectionInput: selectionInput(ordinal: 1)
             ).isAdmitted
         )
+        await failingWriter.waitUntilPublishEntered(1)
+        await failingWriter.releaseWrites()
+        while adapter.presentation.phase == .recording {
+            await Task.yield()
+        }
         await adapter.stop()
 
         #expect(adapter.presentation.phase == .recovered)
@@ -357,7 +362,7 @@ struct CaptureSessionAdapterTests {
         let digest = String(repeating: "a", count: 64)
         let finalization = try CaptureFinalization(
             sessionID: TestCaptureIDs.session(sessionOrdinal),
-            archivePath: "archives/\(TestCaptureIDs.session(sessionOrdinal)).recovered-prefix.rrcap",
+            archivePath: "\(TestCaptureIDs.session(sessionOrdinal)).recovered-prefix.rrcap",
             state: .recoveredPrefix,
             manifestSHA256: digest,
             lastDurableJournalSequence: 0,
@@ -423,6 +428,9 @@ struct CaptureSessionAdapterTests {
         let schemas: [(ContractSchemaIdentifier, String, String)] = [
             (.framePacket, "frame-packet", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
             (.rrcapManifest, "rrcap-manifest", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
+            (.sceneState, "scene-state", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
+            (.editArtifacts, "edit-artifacts", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
+            (.transaction, "transaction", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
         ]
         return try ContractValidator(registrations: schemas.map { identifier, name, digest in
             let url = try #require(Bundle.main.url(forResource: name, withExtension: "schema.json"))
@@ -458,7 +466,10 @@ private final class TestCaptureIdentities: CaptureIdentityDriving {
 
     func makeWorldFrameID() -> String { TestCaptureIDs.world(currentSessionOrdinal) }
     func makeSubmapID() -> String { TestCaptureIDs.submap(currentSessionOrdinal) }
-    func makeFrameID(candidateID: String) -> String { candidateID }
+    func makeFrameID(candidateID: String) -> String {
+        let ordinal = (Int(candidateID) ?? 1_000_000_001) - 1_000_000_000
+        return TestCaptureIDs.frame(ordinal)
+    }
     func makeIdempotencyKey(candidateID: String) -> String {
         let suffix = candidateID.replacingOccurrences(of: "frame_", with: "")
         return "frameidem_\(suffix)"

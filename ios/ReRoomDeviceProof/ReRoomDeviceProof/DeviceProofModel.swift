@@ -135,6 +135,7 @@ enum CandidatePrimaryAction: Equatable, Sendable {
 final class DeviceProofModel {
     private(set) var state: DeviceProofState
     private(set) var isPerformingPermissionRequest = false
+    private(set) var capturePresentation: CapturePresentationSnapshot
 
     @ObservationIgnored
     private let permissionController: any PermissionControlling
@@ -142,16 +143,22 @@ final class DeviceProofModel {
     @ObservationIgnored
     private let arSessionController: ARSessionController
 
+    @ObservationIgnored
+    private let captureSessionAdapter: CaptureSessionAdapter?
+
     var currentARFrame: ARFrame? { arSessionController.currentFrame }
 
     init(
         state: DeviceProofState = DeviceProofState(),
         permissionController: (any PermissionControlling)? = nil,
-        arSessionController: ARSessionController? = nil
+        arSessionController: ARSessionController? = nil,
+        captureSessionAdapter: CaptureSessionAdapter? = nil
     ) {
         self.state = state
+        self.capturePresentation = captureSessionAdapter?.presentation ?? .idle
         self.permissionController = permissionController ?? PermissionController()
         self.arSessionController = arSessionController ?? ARSessionController()
+        self.captureSessionAdapter = captureSessionAdapter
         self.arSessionController.onEvent = { [weak self] event in
             self?.state.apply(event)
         }
@@ -243,6 +250,62 @@ final class DeviceProofModel {
         state.microphoneAuthorization = permissionController.authorizationState(for: .microphone)
         refreshPhysicalOrientation()
         arSessionController.synchronize(cameraAuthorization: state.cameraAuthorization)
+    }
+
+    func declineRoomCaptureDisclosure() {
+        captureSessionAdapter?.declineDisclosure()
+        refreshCapturePresentation()
+    }
+
+    func acceptRoomCaptureDisclosure() async {
+        await captureSessionAdapter?.acceptDisclosure()
+        refreshCapturePresentation()
+    }
+
+    @discardableResult
+    func offerCurrentFrameForCapture(isUserEvent: Bool) -> CaptureFrameOfferResult {
+        guard let captureSessionAdapter,
+              let frame = currentARFrame
+        else { return .notRecording }
+        let orientation: CaptureInterfaceOrientation = state.physicalOrientation == .portrait
+            ? .portrait
+            : .landscapeLeft
+        let result = captureSessionAdapter.offerARFrame(
+            frame,
+            orientation: orientation,
+            motionScore: 0,
+            blurScore: 1,
+            exposureScore: 1,
+            viewNovelty: 1,
+            isKeyframe: false,
+            isUserEvent: isUserEvent
+        )
+        refreshCapturePresentation()
+        return result
+    }
+
+    func stopRoomCapture() async {
+        await captureSessionAdapter?.stop()
+        refreshCapturePresentation()
+    }
+
+    func finalizeRoomCaptureForBackground() async {
+        await captureSessionAdapter?.finalizeForBackground()
+        refreshCapturePresentation()
+    }
+
+    func discoverInterruptedRoomCaptures() async {
+        await captureSessionAdapter?.discoverInterruptedArchives()
+        refreshCapturePresentation()
+    }
+
+    func setCaptureOffline(_ offline: Bool) {
+        captureSessionAdapter?.setOffline(offline)
+        refreshCapturePresentation()
+    }
+
+    private func refreshCapturePresentation() {
+        capturePresentation = captureSessionAdapter?.presentation ?? .idle
     }
 
     func performPrimaryAction() async {

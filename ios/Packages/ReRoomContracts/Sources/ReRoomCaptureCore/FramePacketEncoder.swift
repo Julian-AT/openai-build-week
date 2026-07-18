@@ -137,8 +137,10 @@ public struct FramePacketEncoder: Sendable {
 
     public func encode(
         _ candidate: SelectedFrameCandidate,
-        durableJournalSequence: UInt64
+        durableJournalSequence: UInt64,
+        profile overrideProfile: FramePacketEncodingProfile? = nil
     ) throws -> EncodedFramePacket {
+        let profile = overrideProfile ?? self.profile
         guard candidate.captureSequence <= 9_007_199_254_740_991,
               durableJournalSequence <= 9_007_199_254_740_991,
               candidate.worldFrameVersion <= 9_007_199_254_740_991,

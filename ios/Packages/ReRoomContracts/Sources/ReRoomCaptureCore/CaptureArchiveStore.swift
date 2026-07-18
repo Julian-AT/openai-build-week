@@ -219,7 +219,8 @@ public actor CaptureArchiveStore {
     }
 
     public func publishSelectedFrame(
-        _ candidate: SelectedFrameCandidate
+        _ candidate: SelectedFrameCandidate,
+        profile: FramePacketEncodingProfile? = nil
     ) throws -> NetworkEligibleReceipt {
         try requireActiveSession()
         guard candidate.sessionID == descriptor.sessionID,
@@ -244,7 +245,8 @@ public actor CaptureArchiveStore {
         let frameJournalSequence = UInt64(journalEntries.count + 2)
         let encoded = try encoder.encode(
             candidate,
-            durableJournalSequence: frameJournalSequence
+            durableJournalSequence: frameJournalSequence,
+            profile: profile
         )
 
         do {

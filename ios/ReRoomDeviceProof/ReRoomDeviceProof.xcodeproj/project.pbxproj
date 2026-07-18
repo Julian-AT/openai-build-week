@@ -37,6 +37,7 @@
 		D10000000000000000000001 /* ReleaseSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ReleaseSmokeTests.swift */; };
 		E10000000000000000000001 /* CaptureSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* CaptureSessionAdapterTests.swift */; };
 		E10000000000000000000002 /* ReRoomCaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = E30000000000000000000001 /* ReRoomCaptureCore */; };
+		E10000000000000000000004 /* CaptureSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000002 /* CaptureSessionAdapter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,7 @@
 		C20000000000000000000002 /* ReRoomDeviceProofUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ReRoomDeviceProofUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D20000000000000000000001 /* ReleaseSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseSmokeTests.swift; sourceTree = "<group>"; };
 		E20000000000000000000001 /* CaptureSessionAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionAdapterTests.swift; sourceTree = "<group>"; };
+		E20000000000000000000002 /* CaptureSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionAdapter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -128,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000001 /* App.swift */,
+				E20000000000000000000002 /* CaptureSessionAdapter.swift */,
 				A20000000000000000000002 /* DeviceProofModel.swift */,
 				A20000000000000000000003 /* PermissionController.swift */,
 				A20000000000000000000004 /* ARSessionController.swift */,
@@ -357,6 +360,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* App.swift in Sources */,
+				E10000000000000000000004 /* CaptureSessionAdapter.swift in Sources */,
 				A10000000000000000000002 /* DeviceProofModel.swift in Sources */,
 				A10000000000000000000005 /* PermissionController.swift in Sources */,
 				A10000000000000000000006 /* ARSessionController.swift in Sources */,
