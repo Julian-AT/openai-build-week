@@ -44,7 +44,7 @@ for required in 'release.root.candidate' 'ReRoom device check'; do
   /usr/bin/grep -Fq "$required" "$scan_file" || fail "shipping surface marker is absent: $required"
 done
 
-prohibited_pattern='debug\.root\.diagnostics|debug\.action\.exportEvidence|debug\.permission\.microphone|debug\.check\.|DiagnosticChecklistView|EvidenceExporter|EvidenceExportRequest|Export Sanitized Evidence|gate-report\.schema\.json|operator-checklist\.schema\.json'
+prohibited_pattern='debug\.root\.diagnostics|debug\.action\.exportEvidence|debug\.permission\.microphone|debug\.check\.|diagnostic\.capture\.|DiagnosticChecklistView|EvidenceExporter|EvidenceExportRequest|Export Sanitized Evidence|gate-report\.schema\.json|operator-checklist\.schema\.json'
 if /usr/bin/grep -E "$prohibited_pattern" "$scan_file" >/dev/null; then
   fail "diagnostic or evidence-export surface leaked into the Release app"
 fi

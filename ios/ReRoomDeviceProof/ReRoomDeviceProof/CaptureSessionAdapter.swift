@@ -357,7 +357,6 @@ struct EmptyCaptureRecoveryDriver: CaptureRecoveryDriving, Sendable {
 @MainActor
 final class CaptureSessionAdapter {
     static let userEventBusyMessage = "Saving this capture frame — try again when ready."
-    static let userEventBusyAccessibilityIdentifier = "diagnostic.capture.user-event-busy"
 
     private let identities: any CaptureIdentityDriving
     private let archiveFactory: any CaptureArchiveSessionFactory

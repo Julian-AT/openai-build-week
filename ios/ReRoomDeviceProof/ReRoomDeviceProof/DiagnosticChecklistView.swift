@@ -6,6 +6,10 @@ import UIKit
 
 private final class DiagnosticAppBundleToken {}
 
+enum DiagnosticCaptureAccessibility {
+    static let userEventBusy = "diagnostic.capture.user-event-busy"
+}
+
 enum DiagnosticChecklistRowID: String, CaseIterable, Identifiable, Sendable {
     case camera = "debug.check.camera"
     case microphone = "debug.check.microphone"
@@ -711,7 +715,7 @@ struct DiagnosticChecklistView: View {
                         .foregroundStyle(.orange)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier(
-                            CaptureSessionAdapter.userEventBusyAccessibilityIdentifier
+                            DiagnosticCaptureAccessibility.userEventBusy
                         )
                 }
 

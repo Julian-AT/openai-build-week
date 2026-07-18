@@ -287,7 +287,7 @@ struct CaptureSessionAdapterTests {
         )
         await writer.waitUntilPublishEntered(1)
         #expect(adapter.presentation.explicitCaptureBusy)
-        #expect(CaptureSessionAdapter.userEventBusyAccessibilityIdentifier == "diagnostic.capture.user-event-busy")
+        #expect(DiagnosticCaptureAccessibility.userEventBusy == "diagnostic.capture.user-event-busy")
 
         await writer.releaseWrites()
         await adapter.stop()
