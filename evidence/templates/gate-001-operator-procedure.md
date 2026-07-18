@@ -8,6 +8,8 @@ This procedure is the human/device boundary for `GATE-001`. Automated, simulator
 2. Confirm the build does not require rear LiDAR and exposes instrumented termination controls for the exact lifecycle states below.
 3. Retain the `.rrcap`, crash/termination logs, replay outputs, screen recordings, and evaluator ballot outside Git. Give each retained artifact an opaque ID and lowercase SHA-256; never copy raw room bytes or private traces into this repository.
 4. Hash the sanitized environment object exactly as canonical sorted compact UTF-8 JSON. Every state/run record must repeat the same build revision, evaluator ID, and environment digest.
+5. In the Xcode Run scheme for this signed Release candidate, add the exact argument `--gate-001-termination-controls` under **Arguments Passed On Launch**. Do not add an environment value, device identifier, account identifier, or filesystem path. Without this argument the Release app must remain on the normal Candidate screen.
+6. Run the signed Release candidate on the phone and confirm the root says **GATE-001 termination diagnostics**. Confirm the five-state picker and **Arm abrupt termination** control are visible, while the upload label truthfully says no live upload is configured.
 
 ## 2. Prove the consent boundary
 
@@ -26,6 +28,16 @@ For each lifecycle state, run both `FX-RRCAP-010S` for TARGET 10 seconds and `FX
 5. `server_acknowledged`
 
 This is ten physical termination runs: two durations after each of the five exact canonical states. Do not infer a state from elapsed time, reuse one termination for two states, substitute backgrounding for termination, or substitute simulator/synthetic output. Where the app supports background/foreground observation, record it separately without changing the named termination point. Stop capture explicitly when a control run calls for a normal stop.
+
+For each of those ten runs, perform this exact phone sequence:
+
+1. Launch the signed Release app with `--gate-001-termination-controls`, tap **Start room capture**, review the local-only disclosure, and tap **Accept and Start**. Confirm **Recording locally** and **Upload not configured** are visible.
+2. Keep the session active for the fixture duration—10 seconds for `FX-RRCAP-010S` or 60 seconds for `FX-RRCAP-060S`—while applying the separately recorded pressure exercise. The deterministic acknowledgement is an internal fixture event only; it is not a live upload. The network remains blackholed because no live transport is configured.
+3. Choose exactly one required state in the **Exact lifecycle state** picker. Tap **Arm abrupt termination**, review the destructive confirmation, then confirm the button labeled with that exact state.
+4. Confirm the UI says it is armed for that state. Tap **Save explicit capture frame** exactly once. Do not press Stop, background the app, swipe it away, or reuse this run for another state.
+5. The app must disappear immediately because the one-shot control delivers `SIGKILL` only after the selected durable boundary. If it remains open, terminates before the explicit tap, or terminates for a cadence/keyframe observation, retain the failure externally and mark the attempted run invalid/RED.
+6. Use Xcode to relaunch the same signed candidate with the same launch argument. Let launch recovery finish, then record whether the UI exposes a hash-verified recovered replay or an archive-verification failure. Never treat the failure card as an accepted replay.
+7. Inspect the recovered prefix and externally retain the `.rrcap`, termination log, replay outputs, and screen recording. Enter only the opaque IDs, digests, expected/actual sequences, and other schema-allowed sanitized facts. Start a fresh capture for the next run; do not delete or overwrite the prior raw evidence.
 
 For every duration/state run, record the following sanitized facts and retain the raw source outside Git:
 
