@@ -2,6 +2,57 @@ import XCTest
 
 final class RoomEditJourneyTests: XCTestCase {
     @MainActor
+    func testManualTargetSeedReseedReadinessAndTrackingRevocation() {
+        var app = launch(reset: true, scenario: "healthy")
+        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
+        element("roomedit.target.surface", in: app).tap()
+
+        XCTAssertTrue(element("roomedit.target.id", in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(element("roomedit.target.epoch", in: app).exists)
+        XCTAssertTrue(element("roomedit.readiness.select", in: app).exists)
+        XCTAssertTrue(element("roomedit.readiness.place", in: app).exists)
+        XCTAssertTrue(element("roomedit.readiness.replace", in: app).exists)
+        XCTAssertTrue(element("roomedit.readiness.remove", in: app).exists)
+        XCTAssertTrue(element("roomedit.readiness.restore", in: app).exists)
+        XCTAssertTrue(element("roomedit.fallback.manual", in: app).exists)
+        XCTAssertTrue(element("roomedit.fallback.no-dense", in: app).exists)
+        XCTAssertTrue(element("roomedit.fallback.local", in: app).exists)
+        XCTAssertTrue(element("roomedit.compositor.reveal.unavailable", in: app).exists)
+        XCTAssertTrue(element("roomedit.compositor.occluder.unavailable", in: app).exists)
+        XCTAssertTrue(element("roomedit.gates.pending", in: app).exists)
+
+        element("roomedit.target.reseed", in: app).tap()
+        XCTAssertTrue(waitForLabel(
+            "Frozen proxy v2",
+            on: element("roomedit.target.proxy.version", in: app)
+        ))
+
+        app.terminate()
+        app = launch(reset: true, scenario: "tracking-loss")
+        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
+        element("roomedit.target.surface", in: app).tap()
+        XCTAssertTrue(element("roomedit.target.tracking.unavailable", in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(waitForLabel(
+            "Select: unavailable — tracking_not_normal",
+            on: element("roomedit.readiness.select", in: app)
+        ))
+    }
+
+    @MainActor
+    func testTargetMissAndAmbiguityAreExplicit() {
+        var app = launch(reset: true, scenario: "miss")
+        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
+        element("roomedit.target.surface", in: app).tap()
+        XCTAssertTrue(element("roomedit.target.failure.miss", in: app).waitForExistence(timeout: 2))
+
+        app.terminate()
+        app = launch(reset: true, scenario: "ambiguous")
+        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
+        element("roomedit.target.surface", in: app).tap()
+        XCTAssertTrue(element("roomedit.target.failure.ambiguous", in: app).waitForExistence(timeout: 2))
+    }
+
+    @MainActor
     func testPlaceCancelConfirmRelaunchAndOfflineRestore() {
         var app = launch(reset: true)
         XCTAssertTrue(element("roomedit.root", in: app).waitForExistence(timeout: 5))
@@ -47,8 +98,16 @@ final class RoomEditJourneyTests: XCTestCase {
 
     @MainActor
     private func launch(reset: Bool) -> XCUIApplication {
+        launch(reset: reset, scenario: nil)
+    }
+
+    @MainActor
+    private func launch(reset: Bool, scenario: String?) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--room-edit-ui-test"] + (reset ? ["--room-edit-reset"] : [])
+        if let scenario {
+            app.launchArguments.append("--room-edit-target-\(scenario)")
+        }
         app.launchEnvironment["REROOM_IMPLEMENTATION_REVISION"] =
             "git:" + String(repeating: "1", count: 40)
         app.launchEnvironment["REROOM_FIXTURE_SHA256"] = String(repeating: "a", count: 64)
