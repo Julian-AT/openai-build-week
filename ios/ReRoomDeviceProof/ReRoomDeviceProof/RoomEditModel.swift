@@ -585,6 +585,112 @@ struct RoomEditSupportContext: Equatable, Sendable {
 
 typealias RoomEditSupportProvider = @MainActor @Sendable (SceneState) async -> RoomEditSupportContext?
 
+/// Local P0 demo policy only. The bounds are explicit HYPOTHESIS values, not measured claims.
+enum RoomEditSupportedViewPolicy: Equatable, Sendable {
+    case denyAll
+    case fixtureDemoHypothesis
+    case liveDemoHypothesis
+
+    func allows(
+        scene: SceneState,
+        target: TargetGroundingSnapshot,
+        support: RoomEditSupportContext
+    ) -> Bool {
+        guard self != .denyAll,
+              let groundedTarget = target.target,
+              let targetContext = target.targetContext,
+              target.sceneRevision == scene.sceneRevision,
+              target.worldFrameID == scene.worldFrame.worldFrameID,
+              target.worldFrameVersion == scene.worldFrame.worldFrameVersion,
+              groundedTarget.objectID == RoomEditIdentity.targetObjectID,
+              groundedTarget.lifecycle == .tracked,
+              targetContext.capturedSceneRevision == scene.sceneRevision,
+              targetContext.worldFrameID == scene.worldFrame.worldFrameID,
+              targetContext.worldFrameVersion == scene.worldFrame.worldFrameVersion,
+              support.capturedFrameID.hasPrefix("frame_"),
+              isFinitePose(support.cameraPose),
+              isFinitePose(support.worldFromAsset),
+              isFinitePose(groundedTarget.frozenProxy.cameraPose),
+              isFinitePose(groundedTarget.frozenProxy.worldFromTarget)
+        else { return false }
+
+        let limits = hypothesisLimits
+        guard distance(
+            support.cameraPose,
+            groundedTarget.frozenProxy.cameraPose
+        ) <= limits.maximumCameraTranslationMeters,
+        directionDot(
+            support.cameraPose,
+            groundedTarget.frozenProxy.cameraPose
+        ) >= limits.minimumCameraDirectionDot,
+        distance(
+            support.worldFromAsset,
+            groundedTarget.frozenProxy.worldFromTarget
+        ) <= limits.maximumTargetAlignmentMeters,
+        targetDirectionDot(
+            cameraPose: support.cameraPose,
+            worldFromTarget: groundedTarget.frozenProxy.worldFromTarget
+        ) >= limits.minimumTargetDirectionDot
+        else { return false }
+
+        return true
+    }
+
+    private var hypothesisLimits: (
+        maximumCameraTranslationMeters: Double,
+        minimumCameraDirectionDot: Double,
+        maximumTargetAlignmentMeters: Double,
+        minimumTargetDirectionDot: Double
+    ) {
+        switch self {
+        case .denyAll:
+            (0, 1, 0, 1)
+        case .fixtureDemoHypothesis:
+            // HYPOTHESIS: fixture evidence must reproduce the frozen view almost exactly.
+            (0.05, 0.996, 0.05, 0.996)
+        case .liveDemoHypothesis:
+            // HYPOTHESIS: a bounded 0.75 m / ~35 degree demo envelope is safe enough for P0 coaching.
+            (0.75, 0.819, 0.45, 0.819)
+        }
+    }
+
+    private func isFinitePose(_ matrix: Matrix4) -> Bool {
+        matrix.values.count == 16 && matrix.values.allSatisfy(\.isFinite)
+    }
+
+    private func distance(_ lhs: Matrix4, _ rhs: Matrix4) -> Double {
+        let dx = lhs.values[3] - rhs.values[3]
+        let dy = lhs.values[7] - rhs.values[7]
+        let dz = lhs.values[11] - rhs.values[11]
+        return (dx * dx + dy * dy + dz * dz).squareRoot()
+    }
+
+    private func directionDot(_ lhs: Matrix4, _ rhs: Matrix4) -> Double {
+        normalizedDot(
+            [lhs.values[2], lhs.values[6], lhs.values[10]],
+            [rhs.values[2], rhs.values[6], rhs.values[10]]
+        )
+    }
+
+    private func targetDirectionDot(cameraPose: Matrix4, worldFromTarget: Matrix4) -> Double {
+        normalizedDot(
+            [-cameraPose.values[2], -cameraPose.values[6], -cameraPose.values[10]],
+            [
+                worldFromTarget.values[3] - cameraPose.values[3],
+                worldFromTarget.values[7] - cameraPose.values[7],
+                worldFromTarget.values[11] - cameraPose.values[11],
+            ]
+        )
+    }
+
+    private func normalizedDot(_ lhs: [Double], _ rhs: [Double]) -> Double {
+        let lhsMagnitude = lhs.reduce(0) { $0 + $1 * $1 }.squareRoot()
+        let rhsMagnitude = rhs.reduce(0) { $0 + $1 * $1 }.squareRoot()
+        guard lhsMagnitude > 0, rhsMagnitude > 0 else { return -1 }
+        return zip(lhs, rhs).reduce(0) { $0 + $1.0 * $1.1 } / (lhsMagnitude * rhsMagnitude)
+    }
+}
+
 enum RoomEditTargetSessionEvent: Equatable, Sendable {
     case tracking(TargetTrackingHealth)
     case worldReset
@@ -849,7 +955,7 @@ final class RoomEditModel {
     @ObservationIgnored private var currentWorldFrameVersion: UInt64 = 1
     @ObservationIgnored private var replaceStoreCompatible = false
     @ObservationIgnored private var replacementAssetState: RoomEditReplacementAssetState
-    @ObservationIgnored private let replacementSupportedView: Bool
+    @ObservationIgnored private let replacementSupportedViewPolicy: RoomEditSupportedViewPolicy
 
     init(
         authority: NativeBranchAuthority,
@@ -857,14 +963,14 @@ final class RoomEditModel {
         supportProvider: @escaping RoomEditSupportProvider,
         targetSession: (any RoomEditTargetSession)? = nil,
         replacementAssetState: RoomEditReplacementAssetState = .loading,
-        replacementSupportedView: Bool = true
+        replacementSupportedViewPolicy: RoomEditSupportedViewPolicy = .denyAll
     ) {
         self.authority = authority
         self.manifest = manifest
         self.supportProvider = supportProvider
         self.targetSession = targetSession
         self.replacementAssetState = replacementAssetState
-        self.replacementSupportedView = replacementSupportedView
+        self.replacementSupportedViewPolicy = replacementSupportedViewPolicy
         targetSession?.setEventHandler { [weak self] event in
             Task { @MainActor [weak self] in
                 await self?.consumeTargetSessionEvent(event)
@@ -1101,6 +1207,23 @@ final class RoomEditModel {
     func confirmReplacementFromButton() async {
         guard let preview = replacePreview else { return }
         do {
+            let active = await authority.activeSnapshot()
+            guard let support = await supportProvider(active.scene),
+                  replacementSupportedViewPolicy.allows(
+                      scene: active.scene,
+                      target: targetGrounding,
+                      support: support
+                  )
+            else {
+                replacePreview = nil
+                publish(
+                    active,
+                    selected: .replace,
+                    blocker: .replacementViewUnsupported,
+                    status: "HYPOTHESIS demo view changed; reposition and preview again. Original retained"
+                )
+                return
+            }
             _ = try await authority.commitReplace(
                 preview,
                 confirmation: replacementConfirmation(previewID: preview.preview.previewID),
@@ -1314,24 +1437,37 @@ final class RoomEditModel {
                 )
                 return
             }
-            guard replacementSupportedView else {
+            guard targetGrounding.readiness.replace == .degraded,
+                  let targetContext = targetGrounding.targetContext,
+                  let support = await supportProvider(active.scene)
+            else {
+                publish(
+                    active,
+                    selected: .replace,
+                    blocker: .replaceDeferred,
+                    status: "Replace needs a healthy grounded target and supported floor view"
+                )
+                return
+            }
+            guard replacementSupportedViewPolicy.allows(
+                scene: active.scene,
+                target: targetGrounding,
+                support: support
+            ) else {
                 publish(
                     active,
                     selected: .replace,
                     blocker: .replacementViewUnsupported,
-                    status: "Replace is limited to the deterministic supported view; reposition and retry"
+                    status: "Replace is outside the HYPOTHESIS demo view; reposition and retry"
                 )
                 return
             }
-            guard targetGrounding.readiness.replace == .degraded,
-                  let targetContext = targetGrounding.targetContext,
-                  let support = await supportProvider(active.scene),
-                  let candidate = RoomEditFactory.replaceCandidate(
+            guard let candidate = RoomEditFactory.replaceCandidate(
                       scene: active.scene,
                       targetContext: targetContext,
                       manifest: manifest,
                       support: support,
-                      supportedView: replacementSupportedView
+                      supportedView: true
                   )
             else {
                 publish(
@@ -1364,7 +1500,7 @@ final class RoomEditModel {
                     proxyID: manifest.proxyID,
                     baseRevision: reduction.preview.baseSceneRevision,
                     currentRevision: active.scene.sceneRevision,
-                    supportStatus: "Deterministic supported-view floor relation"
+                    supportStatus: "HYPOTHESIS demo supported-view floor relation"
                 ),
                 blocker: nil,
                 localState: active.receipts.isEmpty ? .ready : .durable,
@@ -1694,7 +1830,7 @@ enum RoomEditFactory {
         targetContext: TargetContext,
         manifest: Phase3ProxyManifest,
         support: RoomEditSupportContext,
-        supportedView: Bool = true
+        supportedView: Bool
     ) -> DeterministicReplaceCandidate? {
         guard targetContext.selectedObjectID == RoomEditIdentity.targetObjectID,
               targetContext.candidateObjectIDs == [RoomEditIdentity.targetObjectID],
@@ -1774,7 +1910,8 @@ enum RoomEditFactory {
                 authority: authority,
                 manifest: manifest,
                 supportProvider: { _ in .fixture },
-                targetSession: targetSession
+                targetSession: targetSession,
+                replacementSupportedViewPolicy: .fixtureDemoHypothesis
             )
             return RoomEditRuntime(
                 model: model,
@@ -1812,7 +1949,8 @@ enum RoomEditFactory {
                     method: "arkit_plane"
                 )
             },
-            targetSession: targetSession
+            targetSession: targetSession,
+            replacementSupportedViewPolicy: .liveDemoHypothesis
         )
         return RoomEditRuntime(
             model: model,
