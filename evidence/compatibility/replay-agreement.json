@@ -122,7 +122,7 @@
     "sha256": "333c09c531a6b24b98cb47459b297341661382b70fb484737f12e16436b4f8c5"
   },
   "evidence_id": "evidence_phase_02_replay_agreement_rev_001",
-  "evidence_sha256": "b894b9d85ab7059b43aa5b182520524d09903e32cf34fec2a524645960e72a2b",
+  "evidence_sha256": "bed045664970b8b1f7c81805b894634ecdd5104d4a58f78fca38d53b474cdd2c",
   "fixture": {
     "fixture_id": "FX-CAPTURE-001",
     "fixture_revision": "rev-001",
@@ -132,7 +132,7 @@
     "rrcap_schema_sha256": "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"
   },
   "implementation": {
-    "revision": "git:d15738f5b600f1ece64c4042487633afe78c6322",
+    "revision": "git:5046c2bf0a6bb3082e84ef67c62b167d8558bf06",
     "source_file_count": 57,
     "source_scopes": [
       "fixtures/capture/1.0.0/rev-001",
@@ -157,7 +157,7 @@
       "tools/python/reroom_verify/replay.py"
     ],
     "source_tree_digest_algorithm": "SHA-256 over sorted relative_path NUL sha256 LF records",
-    "source_tree_sha256": "f9b919a2fc35b601ea05446a6b91a5a40b36b63cb298fe96b352e477dd768f5e",
+    "source_tree_sha256": "36c98451662d44a90f8e26223e852e0b8a8936704726e74c02613a23acdc1632",
     "swift_package_manifest": {
       "relative_path": "ios/Packages/ReRoomContracts/Package.swift",
       "sha256": "19652e486287a9346db9de52c71e299a60607285c20ee7ecb44cc413aa85a4da"
@@ -169,22 +169,22 @@
   ],
   "publisher": {
     "relative_path": "scripts/run-phase-02-replay-agreement",
-    "sha256": "0dc8eef8c47f77776c578d40e88f91e65031809e6e77243e1626f4ff924401f9"
+    "sha256": "b3e6428cceabc4fcdb432a992561602b71f89e70f9a0479a70e26c2dbb1961bd"
   },
   "raw_outputs": {
     "node": {
       "byte_length": 21429,
-      "directory_sha256": "126973d28d9f57a1c4cd527982dca21287429c6cdb5baa35d83957676adf602c",
+      "directory_sha256": "f328889dc7a463c4acc587cf5f1028d577c4269345d306191ce806be7d5f44a0",
       "report_count": 16
     },
     "python": {
       "byte_length": 21445,
-      "directory_sha256": "de05bcd260ceb27190adee8fc0e3bd5cbe278311e6a062624ce32af7cbd6edc0",
+      "directory_sha256": "560d9fea5c92a2dd819094f6919857577edfdf86e2692fb33acea99426e228b1",
       "report_count": 16
     },
     "swift": {
       "byte_length": 21221,
-      "directory_sha256": "0d2dd703a0e220b2af6797fe8e0a44d65ad5412d4d599e62b4c8b59d0036bca0",
+      "directory_sha256": "06d2cf5f5c6bb9681c827fe669c3103bce23f0dd5368773493107aeda3f9476f",
       "report_count": 16
     }
   },
