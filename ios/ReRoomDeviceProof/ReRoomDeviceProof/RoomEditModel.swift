@@ -19,9 +19,23 @@ enum RoomEditOperation: String, CaseIterable, Identifiable, Sendable {
 enum RoomEditBlocker: Equatable, Sendable {
     case healthySupportRequired
     case replaceDeferred
+    case replacementAssetUnavailable(RoomEditReplacementAssetFailure)
+    case replacementViewUnsupported
     case removeDeferred
     case restoreSourceRequired
     case transactionRejected(String)
+}
+
+enum RoomEditReplacementAssetFailure: String, CaseIterable, Equatable, Sendable {
+    case missingResource = "missing_resource"
+    case digestMismatch = "digest_mismatch"
+    case realityKitLoadFailed = "realitykit_load_failed"
+}
+
+enum RoomEditReplacementAssetState: Equatable, Sendable {
+    case loading
+    case available
+    case unavailable(RoomEditReplacementAssetFailure)
 }
 
 enum RoomEditLocalState: String, Equatable, Sendable {
@@ -459,6 +473,8 @@ enum RoomEditRenderProxyKind: String, Equatable, Sendable {
     case frozenTarget = "frozen_target"
     case provisionalPlace = "provisional_place"
     case committedPlace = "committed_place"
+    case provisionalReplacement = "provisional_replacement"
+    case committedReplacement = "committed_replacement"
 }
 
 struct RoomEditRenderProxySnapshot: Equatable, Sendable {
@@ -472,6 +488,7 @@ struct RoomEditRenderSnapshot: Equatable, Sendable {
     let revision: UInt64
     let layers: [RoomEditCompositorLayer]
     let targetProxy: RoomEditRenderProxySnapshot?
+    let replacementProxy: RoomEditRenderProxySnapshot?
 }
 
 struct RoomEditSnapshot: Equatable, Sendable {
@@ -482,7 +499,10 @@ struct RoomEditSnapshot: Equatable, Sendable {
     let blocker: RoomEditBlocker?
     let localState: RoomEditLocalState
     let placedAssetVisible: Bool
+    let replacementAssetVisible: Bool
+    let replacementAssetState: RoomEditReplacementAssetState
     let canConfirm: Bool
+    let canRetryReplacement: Bool
     let canRestore: Bool
     let target: TargetGroundingSnapshot
     let targetContext: TargetContext?
@@ -510,7 +530,19 @@ struct RoomEditSnapshot: Equatable, Sendable {
         return RoomEditRenderSnapshot(
             revision: revision,
             layers: RoomEditCompositorDescriptor.canonical.layers,
-            targetProxy: proxy
+            targetProxy: proxy,
+            replacementProxy: replacementRenderProxy
+        )
+    }
+
+    private var replacementRenderProxy: RoomEditRenderProxySnapshot? {
+        let isPreview = selectedOperation == .replace && preview != nil
+        guard isPreview || replacementAssetVisible else { return nil }
+        return RoomEditRenderProxySnapshot(
+            objectID: RoomEditIdentity.replacementPlacedAssetID,
+            worldFrameVersion: target.worldFrameVersion,
+            worldFromProxy: .phase3ProxyPlacement,
+            kind: replacementAssetVisible ? .committedReplacement : .provisionalReplacement
         )
     }
 
@@ -522,7 +554,10 @@ struct RoomEditSnapshot: Equatable, Sendable {
         blocker: nil,
         localState: .ready,
         placedAssetVisible: false,
+        replacementAssetVisible: false,
+        replacementAssetState: .loading,
         canConfirm: false,
+        canRetryReplacement: false,
         canRestore: false,
         target: .loading,
         targetContext: nil,
@@ -727,6 +762,13 @@ struct Phase3ProxyManifest: Codable, Equatable, Sendable {
     let provenanceFile: String
     let generationRecipe: String
     let qualification: String
+    let units: String
+    let upAxis: String
+    let floorContactYM: Double
+    let boundsM: [Double]
+    let cubeCount: UInt64
+    let assumptionStatus: String
+    let gate011Status: String
 
     var artifactReference: ArtifactReference {
         ArtifactReference(
@@ -753,6 +795,13 @@ struct Phase3ProxyManifest: Codable, Equatable, Sendable {
               manifest.sourceFile == "proxy-chair.usda",
               manifest.provenanceFile == "PROVENANCE.md",
               manifest.qualification == "phase3_local_demo_proxy_only",
+              manifest.units == "metres",
+              manifest.upAxis == "Y",
+              manifest.floorContactYM == 0,
+              manifest.boundsM == [0.6, 1.0, 0.6],
+              manifest.cubeCount == 6,
+              manifest.assumptionStatus == "HYPOTHESIS",
+              manifest.gate011Status == "PENDING",
               manifest.contractAssetID.hasPrefix("asset_"),
               manifest.artifactID.hasPrefix("artifact_"),
               manifest.sourceSHA256 == CanonicalJSON.sha256Hex(try Data(contentsOf: sourceURL))
@@ -772,6 +821,13 @@ struct Phase3ProxyManifest: Codable, Equatable, Sendable {
         case provenanceFile = "provenance_file"
         case generationRecipe = "generation_recipe"
         case qualification
+        case units
+        case upAxis = "up_axis"
+        case floorContactYM = "floor_contact_y_m"
+        case boundsM = "bounds_m"
+        case cubeCount = "cube_count"
+        case assumptionStatus = "assumption_status"
+        case gate011Status = "gate_011_status"
     }
 }
 
@@ -785,22 +841,30 @@ final class RoomEditModel {
     @ObservationIgnored private let supportProvider: RoomEditSupportProvider
     @ObservationIgnored private let targetSession: (any RoomEditTargetSession)?
     @ObservationIgnored private var placePreview: PlacePreviewReduction?
+    @ObservationIgnored private var replacePreview: ReplacePreviewReduction?
+    @ObservationIgnored private var lastCommittedReplacePreview: ReplacePreviewReduction?
     @ObservationIgnored private var targetGrounding: TargetGroundingSnapshot = .loading
     @ObservationIgnored private var hasPrepared = false
     @ObservationIgnored private var currentWorldFrameID = RoomEditIdentity.worldFrameID
     @ObservationIgnored private var currentWorldFrameVersion: UInt64 = 1
     @ObservationIgnored private var replaceStoreCompatible = false
+    @ObservationIgnored private var replacementAssetState: RoomEditReplacementAssetState
+    @ObservationIgnored private let replacementSupportedView: Bool
 
     init(
         authority: NativeBranchAuthority,
         manifest: Phase3ProxyManifest,
         supportProvider: @escaping RoomEditSupportProvider,
-        targetSession: (any RoomEditTargetSession)? = nil
+        targetSession: (any RoomEditTargetSession)? = nil,
+        replacementAssetState: RoomEditReplacementAssetState = .loading,
+        replacementSupportedView: Bool = true
     ) {
         self.authority = authority
         self.manifest = manifest
         self.supportProvider = supportProvider
         self.targetSession = targetSession
+        self.replacementAssetState = replacementAssetState
+        self.replacementSupportedView = replacementSupportedView
         targetSession?.setEventHandler { [weak self] event in
             Task { @MainActor [weak self] in
                 await self?.consumeTargetSessionEvent(event)
@@ -813,6 +877,7 @@ final class RoomEditModel {
         hasPrepared = true
         await targetSession?.prepare()
         placePreview = nil
+        replacePreview = nil
         let active = await authority.activeSnapshot()
         currentWorldFrameID = active.scene.worldFrame.worldFrameID
         currentWorldFrameVersion = active.scene.worldFrame.worldFrameVersion
@@ -924,6 +989,7 @@ final class RoomEditModel {
     }
 
     func updateTargetTracking(_ tracking: TargetTrackingHealth) async {
+        replacePreview = nil
         let active = await authority.activeSnapshot()
         targetGrounding = TargetGroundingReducer.reduce(
             targetGrounding,
@@ -943,6 +1009,7 @@ final class RoomEditModel {
         worldFrameVersion: UInt64,
         tracking: TargetTrackingHealth
     ) async {
+        replacePreview = nil
         currentWorldFrameID = worldFrameID
         currentWorldFrameVersion = worldFrameVersion
         let active = await authority.activeSnapshot()
@@ -977,15 +1044,12 @@ final class RoomEditModel {
 
     func selectOperation(_ operation: RoomEditOperation) async {
         placePreview = nil
+        replacePreview = nil
         switch operation {
         case .place:
             await proposePlace()
         case .replace:
-            await refresh(
-                selected: operation,
-                blocker: .replaceDeferred,
-                status: "Replace needs the later target-and-reveal capability"
-            )
+            await proposeReplace()
         case .remove:
             await refresh(
                 selected: operation,
@@ -1006,12 +1070,62 @@ final class RoomEditModel {
     }
 
     func cancelPreview() async {
-        guard let preview = placePreview else { return }
         do {
             let active = await authority.activeSnapshot()
-            _ = try PlaceReducer.cancel(preview, currentScene: active.scene)
-            placePreview = nil
-            publish(active, selected: .place, status: "Provisional placement cancelled; revision unchanged")
+            if let preview = placePreview {
+                _ = try PlaceReducer.cancel(preview, currentScene: active.scene)
+                placePreview = nil
+                publish(active, selected: .place, status: "Provisional placement cancelled; revision unchanged")
+            } else if let preview = replacePreview {
+                _ = try ReplaceReducer.cancel(preview, currentScene: active.scene)
+                replacePreview = nil
+                publish(active, selected: .replace, status: "Replacement preview cancelled; revision unchanged")
+            }
+        } catch {
+            await fail(error)
+        }
+    }
+
+    func updateReplacementAssetState(_ state: RoomEditReplacementAssetState) async {
+        guard state != replacementAssetState else { return }
+        replacementAssetState = state
+        if case .available = state {
+            await refresh(status: "Local demo proxy loaded; GATE-011 remains PENDING")
+        } else {
+            replacePreview = nil
+            await refresh(status: "Replacement local demo proxy unavailable; original display retained")
+        }
+    }
+
+    /// Sole native replacement confirmation ingress.
+    func confirmReplacementFromButton() async {
+        guard let preview = replacePreview else { return }
+        do {
+            _ = try await authority.commitReplace(
+                preview,
+                confirmation: replacementConfirmation(previewID: preview.preview.previewID),
+                request: replacementRequest,
+                localUndoToken: RoomEditIdentity.replaceUndoToken
+            )
+            lastCommittedReplacePreview = preview
+            replacePreview = nil
+            await refresh(selected: .replace, status: "Replacement committed once and saved locally")
+        } catch {
+            await fail(error)
+        }
+    }
+
+    /// Replays the identical request; authority idempotency must return the prior receipt.
+    func retryReplacementFromButton() async {
+        guard let preview = lastCommittedReplacePreview else { return }
+        do {
+            _ = try await authority.commitReplace(
+                preview,
+                confirmation: replacementConfirmation(previewID: preview.preview.previewID),
+                request: replacementRequest,
+                localUndoToken: RoomEditIdentity.replaceUndoToken
+            )
+            await refresh(selected: .replace, status: "Identical replacement retry resolved without a new revision")
         } catch {
             await fail(error)
         }
@@ -1159,11 +1273,110 @@ final class RoomEditModel {
                 blocker: nil,
                 localState: active.receipts.isEmpty ? .ready : .durable,
                 placedAssetVisible: active.scene.placedAssets.isEmpty == false,
+                replacementAssetVisible: replacementVisible(in: active),
+                replacementAssetState: replacementAssetState,
                 canConfirm: true,
+                canRetryReplacement: lastCommittedReplacePreview != nil,
                 canRestore: hasEligibleRestore(in: active),
                 target: targetGrounding,
                 targetContext: targetGrounding.targetContext,
                 status: "Provisional Phase 3 proxy; confirm or cancel"
+            ))
+        } catch {
+            await fail(error)
+        }
+    }
+
+    private func proposeReplace() async {
+        do {
+            let active = await authority.activeSnapshot()
+            guard replaceStoreCompatible else {
+                publish(
+                    active,
+                    selected: .replace,
+                    blocker: .replaceDeferred,
+                    status: "Replace needs a fresh local room with the canonical target"
+                )
+                return
+            }
+            guard case .available = replacementAssetState else {
+                let failure: RoomEditReplacementAssetFailure
+                if case let .unavailable(value) = replacementAssetState {
+                    failure = value
+                } else {
+                    failure = .realityKitLoadFailed
+                }
+                publish(
+                    active,
+                    selected: .replace,
+                    blocker: .replacementAssetUnavailable(failure),
+                    status: "Replacement local demo proxy is not loaded; original remains visible"
+                )
+                return
+            }
+            guard replacementSupportedView else {
+                publish(
+                    active,
+                    selected: .replace,
+                    blocker: .replacementViewUnsupported,
+                    status: "Replace is limited to the deterministic supported view; reposition and retry"
+                )
+                return
+            }
+            guard targetGrounding.readiness.replace == .degraded,
+                  let targetContext = targetGrounding.targetContext,
+                  let support = await supportProvider(active.scene),
+                  let candidate = RoomEditFactory.replaceCandidate(
+                      scene: active.scene,
+                      targetContext: targetContext,
+                      manifest: manifest,
+                      support: support,
+                      supportedView: replacementSupportedView
+                  )
+            else {
+                publish(
+                    active,
+                    selected: .replace,
+                    blocker: .replaceDeferred,
+                    status: "Replace needs a healthy grounded target and supported floor view"
+                )
+                return
+            }
+            let reduction = try await authority.previewReplace(
+                proposal: RoomEditFactory.replaceProposal(
+                    scene: active.scene,
+                    targetContext: targetContext,
+                    manifest: manifest
+                ),
+                candidate: candidate,
+                seed: PlacePreviewSeed(
+                    transactionID: RoomEditIdentity.replaceTransactionID,
+                    previewID: RoomEditIdentity.replacePreviewID,
+                    expiresAtUTC: RoomEditIdentity.previewExpiry
+                )
+            )
+            replacePreview = reduction
+            assignSnapshot(RoomEditSnapshot(
+                operations: RoomEditOperation.allCases,
+                selectedOperation: .replace,
+                revision: active.scene.sceneRevision,
+                preview: RoomEditPreviewSnapshot(
+                    proxyID: manifest.proxyID,
+                    baseRevision: reduction.preview.baseSceneRevision,
+                    currentRevision: active.scene.sceneRevision,
+                    supportStatus: "Deterministic supported-view floor relation"
+                ),
+                blocker: nil,
+                localState: active.receipts.isEmpty ? .ready : .durable,
+                placedAssetVisible: active.scene.placedAssets.isEmpty == false,
+                replacementAssetVisible: replacementVisible(in: active),
+                replacementAssetState: replacementAssetState,
+                canConfirm: true,
+                canRetryReplacement: lastCommittedReplacePreview != nil,
+                canRestore: hasEligibleRestore(in: active),
+                target: targetGrounding,
+                targetContext: targetContext,
+                status: "Local six-cube demo proxy preview; Confirm or Cancel. GATE-011 PENDING"
             ))
         } catch {
             await fail(error)
@@ -1241,7 +1454,10 @@ final class RoomEditModel {
             blocker: blocker,
             localState: active.receipts.isEmpty ? .ready : .durable,
             placedAssetVisible: active.scene.placedAssets.isEmpty == false,
+            replacementAssetVisible: replacementVisible(in: active),
+            replacementAssetState: replacementAssetState,
             canConfirm: false,
+            canRetryReplacement: lastCommittedReplacePreview != nil,
             canRestore: hasEligibleRestore(in: active),
             target: targetGrounding,
             targetContext: targetGrounding.targetContext,
@@ -1296,6 +1512,7 @@ final class RoomEditModel {
 
     private func fail(_ error: any Error) async {
         placePreview = nil
+        replacePreview = nil
         await refresh(
             blocker: .transactionRejected(String(describing: error)),
             status: "Local transaction rejected safely"
@@ -1309,10 +1526,34 @@ final class RoomEditModel {
     private func eligibleRestoreSource(in active: TransactionGenerationSnapshot) -> TransactionRecord? {
         let compensated = Set(active.transactions.compactMap(\.compensatesTransactionID))
         return active.transactions.reversed().first {
-            $0.intent.operation == .place
+            [.place, .replace].contains($0.intent.operation)
                 && $0.canonicalState == .committed
                 && $0.inverseOperations?.isEmpty == false
                 && !compensated.contains($0.transactionID)
+        }
+    }
+
+    private var replacementRequest: PlaceConfirmationRequest {
+        PlaceConfirmationRequest(
+            transactionID: RoomEditIdentity.replaceTransactionID,
+            idempotencyKey: RoomEditIdentity.replaceIdempotencyKey,
+            updatedAtUTC: RoomEditIdentity.replaceTimestamp
+        )
+    }
+
+    private func replacementConfirmation(previewID: String) -> ExplicitConfirmation {
+        ExplicitConfirmation(
+            actorID: RoomEditIdentity.userID,
+            source: "native_ui",
+            previewID: previewID,
+            confirmationEventID: RoomEditIdentity.replaceEventID,
+            confirmedAtUTC: RoomEditIdentity.replaceTimestamp
+        )
+    }
+
+    private func replacementVisible(in active: TransactionGenerationSnapshot) -> Bool {
+        active.scene.placedAssets.contains {
+            $0.placedAssetID == RoomEditIdentity.replacementPlacedAssetID
         }
     }
 }
@@ -1330,6 +1571,11 @@ enum RoomEditIdentity {
     static let replacementPlacedAssetID = "assetinst_53000000-0000-4000-8000-000000000031"
     static let replacementSupportRelationID = "support_53000000-0000-4000-8000-000000000032"
     static let supportedViewFixtureID = "envelope_53000000-0000-4000-8000-000000000033"
+    static let replaceTransactionID = "tx_53000000-0000-4000-8000-000000000034"
+    static let replacePreviewID = "preview_53000000-0000-4000-8000-000000000035"
+    static let replaceIdempotencyKey = "txidem_53000000-0000-4000-8000-000000000036"
+    static let replaceUndoToken = "undo_53000000-0000-4000-8000-000000000037"
+    static let replaceEventID = "event_53000000-0000-4000-8000-000000000038"
     static let placedAssetID = "assetinst_53000000-0000-4000-8000-000000000017"
     static let supportRelationID = "support_53000000-0000-4000-8000-000000000018"
     static let userID = "user_53000000-0000-4000-8000-000000000019"
@@ -1345,7 +1591,8 @@ enum RoomEditIdentity {
     static let restoreEventID = "event_53000000-0000-4000-8000-000000000029"
     static let bootstrapTimestamp = "2026-07-18T12:00:00Z"
     static let placeTimestamp = "2026-07-18T12:01:00Z"
-    static let restoreTimestamp = "2026-07-18T12:02:00Z"
+    static let replaceTimestamp = "2026-07-18T12:02:00Z"
+    static let restoreTimestamp = "2026-07-18T12:03:00Z"
     static let previewExpiry = "2027-07-18T12:00:00Z"
 }
 
@@ -1446,7 +1693,8 @@ enum RoomEditFactory {
         scene: SceneState,
         targetContext: TargetContext,
         manifest: Phase3ProxyManifest,
-        support: RoomEditSupportContext
+        support: RoomEditSupportContext,
+        supportedView: Bool = true
     ) -> DeterministicReplaceCandidate? {
         guard targetContext.selectedObjectID == RoomEditIdentity.targetObjectID,
               targetContext.candidateObjectIDs == [RoomEditIdentity.targetObjectID],
@@ -1483,7 +1731,7 @@ enum RoomEditFactory {
             capabilityReadiness: "degraded",
             readinessSource: "manual_proxy_fallback",
             supportedViewFixtureID: RoomEditIdentity.supportedViewFixtureID,
-            supportedView: true,
+            supportedView: supportedView,
             capturedSceneRevision: scene.sceneRevision,
             worldFrameID: scene.worldFrame.worldFrameID,
             worldFrameVersion: scene.worldFrame.worldFrameVersion

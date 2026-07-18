@@ -627,6 +627,16 @@ private struct RoomEditStatePanel: View {
                 "Replace is visible but blocked until target authorization and reveal artifacts are implemented.",
                 identifier: "roomedit.blocker.replace"
             )
+        case .replacementAssetUnavailable:
+            blocker(
+                "The exact local demo proxy is unavailable; the original display is retained.",
+                identifier: "roomedit.blocker.replace.asset"
+            )
+        case .replacementViewUnsupported:
+            blocker(
+                "Replace is available only in the deterministic supported view.",
+                identifier: "roomedit.blocker.replace.view"
+            )
         case .removeDeferred:
             blocker(
                 "Remove is visible but blocked until target authorization and reveal artifacts are implemented.",

@@ -7,5 +7,8 @@
 - Qualification: `phase3_local_demo_proxy_only`
 - License: repository project license; no external asset license is asserted.
 - Scope: deterministic transaction and presentation proof only.
+- Geometry assumptions: `HYPOTHESIS` only — metres, Y-up, floor contact at `y=0`, and nominal bounds `[0.6, 1.0, 0.6]` metres.
+- Renderer qualification: the exact digest-bound six-cube USDA must load; a generated box is not an accepted substitute.
+- Gate status: `GATE-003`, `GATE-005`, `GATE-009`, `GATE-011`, and `OPS-GOLDEN-001` remain `PENDING`.
 
-This artifact does not claim production compositor quality, licensed catalog parity, measured device quality, or completion of GATE-003, GATE-009, GATE-010, or GATE-011.
+This artifact does not claim production compositor quality, licensed catalog parity, measured device quality, physical-device loading, or completion of any pending gate.
