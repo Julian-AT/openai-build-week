@@ -817,7 +817,7 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
                 "-configuration",
                 "Release",
                 "-destination",
-                "platform=iOS Simulator,name=iPhone 17",
+                "platform=iOS Simulator,name=iPhone 17 Pro",
                 "-only-testing:ReRoomDeviceProofUITests/DiagnosticSurfaceTests",
                 "CODE_SIGNING_ALLOWED=NO",
             ),
