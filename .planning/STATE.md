@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Typed Place, Commit, and Offline Restore
 status: ready_to_execute
-stopped_at: Completed 03-02-PLAN.md
-last_updated: "2026-07-18T14:22:36.150Z"
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-07-18T14:47:26.267Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 03 planning verified; GATE-001 remains PENDING under the approved sprint cut
+last_activity_desc: Completed 03-04 durable branch authority; physical and human gates remain PENDING under the approved sprint cut
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 29
-  completed_plans: 25
+  completed_plans: 26
 ---
 
 # Project State
@@ -30,19 +30,19 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 03 (Typed Place, Commit, and Offline Restore) — READY TO EXECUTE
 
-Plan: 3 of 7
+Plan: 4 of 7
 
-Status: Seven Phase 03 plans passed the independent GSD plan checker with zero blockers or warnings
+Status: Plan 03-04 complete; ready to execute 03-05
 
-Last activity: 2026-07-18 — Phase 03 planning verified; GATE-001 remains PENDING under the approved sprint cut
+Last activity: 2026-07-18 — Completed pointer-last transaction generations and the sole native branch authority; deferred gates remain PENDING
 
-Progress: [████████████████████] 15/15 planned tasks ([█████████░] 86%)
+Progress: [████████████████████] 15/15 planned tasks ([█████████░] 90%)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 15
+- Total plans completed: 26
 - Average duration: N/A
 - Total execution time: 0 hours
 
@@ -84,6 +84,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 03 P01 | 15min | 1 tasks | 7 files |
 | Phase 03 P03 | 11min | 2 tasks | 4 files |
 | Phase 03 P02 | 9min | 2 tasks | 5 files |
+| Phase 03 P04 | 17min | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -127,6 +128,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 03]: Parse only semantic operation, arguments, and ordered typed constraints from untrusted bytes; attach identity, revision, target, and world values from trusted native context. — Prevents typed, tap, voice, model, or replay input from acquiring deterministic mutation authority.
 - [Phase 03]: Represent the request fingerprint as a dedicated seven-member Codable value. — Prevents lifecycle, result, transaction ID, idempotency ID, or generic dictionary drift from changing the frozen RR-JCS scope.
 - [Phase 03]: Replay immutable deterministic preview inputs before cancel or confirm and return pending r+1 content only. — Keeps preview revision-neutral and leaves persistence plus canonical CAS activation to the later sole-writer plan.
+- [Phase 03]: Publish every canonical generation member and inventory durably before atomically replacing and synchronizing the sole active-generation pointer. — Prevents partial multi-file state from becoming visible or recoverable as active.
+- [Phase 03]: Keep CAS, fingerprint/idempotency decisions, pure reduction, store activation, and actor state publication in synchronous actor-isolated critical functions with no suspension point. — Prevents actor reentrancy from admitting a second revision writer inside the canonical transaction.
+- [Phase 03]: Return an existing durable receipt before current-revision validation for an exact same-key/same-fingerprint retry. — Exactly-once retries remain stable after the original base revision has advanced; changed fingerprints still conflict.
+- [Phase 03]: Represent unexpected same-branch divergence as two preserved typed snapshots plus explicit manual quarantine. — Future mutation freezes and neither history is automatically merged or overwritten.
 
 ### Pending Todos
 
@@ -156,9 +161,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T14:22:24.132Z
+Last session: 2026-07-18T14:47:10.647Z
 
-Stopped at: Completed 03-02-PLAN.md
+Stopped at: Completed 03-04-PLAN.md
 
 Resume file: None
 
