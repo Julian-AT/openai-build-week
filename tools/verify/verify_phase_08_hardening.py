@@ -176,6 +176,47 @@ def _load_script(path: Path, name: str) -> Any:
     return module
 
 
+def _validate_historical_bindings(
+    root: Path, report: Mapping[str, object], paths: Mapping[str, str],
+) -> None:
+    revision_value = report.get("implementation_revision")
+    bindings = report.get("source_bindings")
+    if not isinstance(revision_value, str) or not REVISION_RE.fullmatch(revision_value) or not isinstance(bindings, dict):
+        reject("E08_UPSTREAM_BINDING")
+    revision = revision_value.removeprefix("git:")
+    if set(bindings) != set(paths):
+        reject("E08_UPSTREAM_BINDING")
+    for key, relative in paths.items():
+        result = subprocess.run(
+            ["git", "show", f"{revision}:{relative}"], cwd=root,
+            check=False, capture_output=True, timeout=20,
+        )
+        if result.returncode != 0 or hashlib.sha256(result.stdout).hexdigest() != bindings[key]:
+            reject("E08_UPSTREAM_BINDING")
+
+
+def _validate_current_bindings(
+    root: Path, report: Mapping[str, object], paths: Mapping[str, str],
+    *, superseded_keys: set[str] = set(),
+) -> None:
+    bindings = report.get("source_bindings")
+    if not isinstance(bindings, dict) or set(bindings) != set(paths):
+        reject("E08_UPSTREAM_BINDING")
+    for key, relative in paths.items():
+        if key in superseded_keys:
+            continue
+        if sha256_file(root / relative) != bindings[key]:
+            reject("E08_UPSTREAM_BINDING")
+    if superseded_keys:
+        phase06 = json.loads((root / "evidence/removal/phase-06/automated-preflight.json").read_text(encoding="utf-8"))
+        later = phase06.get("source_bindings")
+        if not isinstance(later, dict):
+            reject("E08_UPSTREAM_BINDING")
+        for key in superseded_keys:
+            if key not in later or sha256_file(root / paths[key]) != later[key]:
+                reject("E08_UPSTREAM_BINDING")
+
+
 def validate_upstream_authority(phase_id: str, root: Path = ROOT) -> None:
     item = next((value for value in UPSTREAMS if value["phase_id"] == phase_id), None)
     if item is None:
@@ -187,14 +228,24 @@ def validate_upstream_authority(phase_id: str, root: Path = ROOT) -> None:
     elif phase_id in {"phase-03", "phase-04", "phase-05", "phase-06"}:
         module = _load_script(root / item["verifier"], "phase08_" + phase_id.replace("-", "_"))
         if phase_id == "phase-03":
-            module._require_bound_producer_sources(root)
             module.validate_evidence(report)
+            _validate_current_bindings(root, report, {
+                "comparator_sha256": module.COMPARATOR_RELATIVE_PATH,
+                "orchestrator_sha256": module.ORCHESTRATOR_RELATIVE_PATH,
+                "result_schema_sha256": module.RESULT_SCHEMA_RELATIVE_PATH,
+            })
         elif phase_id == "phase-04":
-            module._require_bound_sources(root)
             module.validate_evidence(report)
+            _validate_current_bindings(
+                root, report, module.SOURCE_BINDING_PATHS,
+                superseded_keys={"room_edit_model_sha256", "room_edit_view_sha256", "model_tests_sha256", "ui_tests_sha256"},
+            )
         else:
-            module._require_bound_sources(root)
             module._validate_report(report, require_self_digest=True)
+            _validate_current_bindings(
+                root, report, module.SOURCE_BINDING_PATHS,
+                superseded_keys={"room_edit_model_sha256", "room_edit_view_sha256", "model_tests_sha256", "ui_tests_sha256"} if phase_id == "phase-05" else set(),
+            )
     elif phase_id == "phase-07":
         from tools.verify import verify_phase_07_b0
         verify_phase_07_b0.validate_source(root)
@@ -479,4 +530,3 @@ def exact_bom_members(root: Path = ROOT) -> list[dict[str, str]]:
             "shipping_surface": "ios_demo", "decision": "BLOCKED",
         })
     return sorted(members, key=lambda item: item["member_id"])
-

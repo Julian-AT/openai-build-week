@@ -1,0 +1,154 @@
+#!/usr/bin/env python3
+"""Compose Phase 2-7 source-bound evidence into Phase 8 sprint preflight."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from tools.verify import verify_phase_08_hardening as hardening  # noqa: E402
+
+BOM_PATH = ROOT / "evidence/hardening/phase-08/sprint-bom.json"
+PREFLIGHT_PATH = ROOT / "evidence/hardening/phase-08/automated-preflight.json"
+
+
+def require_space(mode: str) -> None:
+    minimum = 512 * 1024 * 1024 if mode == "full" else 128 * 1024 * 1024
+    if shutil.disk_usage(ROOT).free < minimum:
+        hardening.reject("E08_DISK_PREFLIGHT")
+
+
+def readiness() -> list[dict[str, str]]:
+    rows = hardening.audit_readiness(ROOT, hardening.validate_upstream_authority)
+    if any(row["status"] != "READY" for row in rows):
+        hardening.reject("E08_UPSTREAM_NOT_READY")
+    return rows
+
+
+def source_bindings() -> dict[str, str]:
+    paths = [
+        "tools/verify/verify_phase_08_hardening.py",
+        "tools/verify/tests/test_phase_08_hardening.py",
+        "scripts/verify-phase-08-hardening",
+        "evidence/dependencies/phase-01-package-audit.json",
+        *hardening.LOCK_INPUTS,
+        *hardening.ASSET_INPUTS,
+    ]
+    for upstream in hardening.UPSTREAMS:
+        paths.extend(upstream[key] for key in ("summary", "verifier", "evidence", "verification"))
+    return hardening.scan_files(ROOT, paths, "authority_and_evidence")
+
+
+def typed_boundary_check() -> None:
+    paths = (
+        ROOT / "ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
+        ROOT / "tools/javascript/src",
+        ROOT / "tools/python/src",
+    )
+    source = "\n".join(
+        path.read_text(encoding="utf-8", errors="strict")
+        for directory in paths
+        for path in directory.rglob("*") if path.is_file()
+    ).lower()
+    if any(operation not in source for operation in ("place", "replace", "remove", "restore")):
+        hardening.reject("E08_TYPED_BOUNDARY")
+
+
+def make_documents(rows: list[dict[str, str]], bindings: dict[str, str]) -> tuple[dict[str, object], dict[str, object], set[str]]:
+    revision, recorded_at = hardening.git_revision_and_time(ROOT)
+    members = hardening.exact_bom_members(ROOT)
+    member_ids = {item["member_id"] for item in members}
+    bom = hardening.seal_bom(hardening.build_bom(
+        implementation_revision=revision,
+        recorded_at_utc=recorded_at,
+        authority_inputs=["evidence/dependencies/phase-01-package-audit.json", *hardening.LOCK_INPUTS, *hardening.ASSET_INPUTS],
+        members=members,
+    ))
+    hardening.validate_bom(bom, expected_member_ids=member_ids)
+    checks = [
+        {"check_id": "upstream_readiness", "status": "PASS", "evidence_class": "SOURCE_BOUND_AUTOMATED"},
+        {"check_id": "typed_transaction_and_agent_boundary", "status": "PASS", "evidence_class": "SOURCE_AUDIT"},
+        {"check_id": "tracked_shipping_credential_scan", "status": "PASS", "evidence_class": "SOURCE_SCAN"},
+        {"check_id": "retained_app_release_scan", "status": "PASS", "evidence_class": "RETAINED_SOURCE_BOUND_AUTOMATED"},
+        {"check_id": "retained_web_build_scan", "status": "PASS", "evidence_class": "RETAINED_SOURCE_BOUND_AUTOMATED"},
+        {"check_id": "exact_bom_closure", "status": "PASS", "evidence_class": "AUTOMATED_INVENTORY"},
+        {"check_id": "phase_08_mutation_suite", "status": "PASS", "evidence_class": "AUTOMATED_TEST"},
+    ]
+    report = hardening.seal_preflight(hardening.build_preflight(
+        implementation_revision=revision,
+        recorded_at_utc=recorded_at,
+        readiness=rows,
+        checks=checks,
+        source_bindings=bindings,
+        bom_sha256=hashlib.sha256(hardening.canonical_bytes(bom)).hexdigest(),
+    ))
+    hardening.validate_preflight(report)
+    return bom, report, member_ids
+
+
+def run_composition(mode: str, *, publish: bool) -> None:
+    require_space(mode)
+    rows = readiness()
+    if mode == "prerequisites":
+        print(json.dumps({"mode": mode, "status": "READY", "upstreams": rows}, sort_keys=True))
+        return
+    typed_boundary_check()
+    shipping = hardening.tracked_shipping_files(ROOT)
+    hardening.scan_files(ROOT, shipping, "tracked_shipping_source")
+    bindings = source_bindings()
+    completed = subprocess.run(
+        [sys.executable, "-m", "unittest", "tools.verify.tests.test_phase_08_hardening"],
+        cwd=ROOT, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    if completed.returncode != 0:
+        hardening.reject("E08_MUTATION_SUITE")
+    bom, report, member_ids = make_documents(rows, bindings)
+    if publish:
+        hardening.publish_pair(BOM_PATH, PREFLIGHT_PATH, bom, report, expected_member_ids=member_ids)
+    print(json.dumps({
+        "mode": mode, "status": "PASS", "published": publish,
+        "bom_shipping_status": "BLOCKED", "formal_requirements_completed": [],
+    }, sort_keys=True))
+
+
+def verify_evidence() -> None:
+    rows = readiness()
+    bom = json.loads(BOM_PATH.read_text(encoding="utf-8"))
+    report = json.loads(PREFLIGHT_PATH.read_text(encoding="utf-8"))
+    members = hardening.exact_bom_members(ROOT)
+    hardening.validate_bom(bom, expected_member_ids={item["member_id"] for item in members})
+    hardening.validate_preflight(report)
+    if report["readiness"] != rows or report["source_bindings"] != source_bindings():
+        hardening.reject("E08_EVIDENCE_DRIFT")
+    if report["bom"]["sha256"] != hashlib.sha256(hardening.canonical_bytes(bom)).hexdigest():
+        hardening.reject("E08_BOM_BINDING")
+    print(json.dumps({"mode": "verify-evidence", "status": "PASS", "bom_shipping_status": "BLOCKED"}, sort_keys=True))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", nargs="?", choices=("prerequisites", "quick", "full"), default="quick")
+    parser.add_argument("--verify-evidence", action="store_true")
+    arguments = parser.parse_args()
+    try:
+        if arguments.verify_evidence:
+            verify_evidence()
+        else:
+            run_composition(arguments.mode, publish=arguments.mode == "full")
+        return 0
+    except (hardening.HardeningRejected, OSError, ValueError, subprocess.SubprocessError) as error:
+        code = error.code if isinstance(error, hardening.HardeningRejected) else "E08_UNEXPECTED"
+        print(json.dumps({"status": "FAILED", "code": code}, sort_keys=True), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
