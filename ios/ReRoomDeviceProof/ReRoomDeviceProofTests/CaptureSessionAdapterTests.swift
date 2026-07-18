@@ -124,6 +124,43 @@ struct CaptureSessionAdapterTests {
         await harness.release()
     }
 
+    @Test("GATE-001 pressure evidence is durable and machine-readable")
+    func gatePressureEvidenceIsExact() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let recorder = Gate001PressureEvidenceRecorder(root: root)
+        let evidence = Gate001PressureEvidence(
+            sessionID: "session_00000000-0000-4000-8000-000000000001",
+            implementationRevision: "git:" + String(repeating: "a", count: 40),
+            recordedAtUTC: "2026-07-18T12:00:00Z",
+            measurement: Gate001PressureMeasurement(
+                capacity: 3,
+                maximumDepth: 3,
+                staleDropCount: 0,
+                capacityDropCount: 1,
+                pressureApplied: true,
+                networkBlackholed: true,
+                uploadPausedFirst: true
+            )
+        )
+
+        let url = try recorder.record(evidence)
+        #expect(url.lastPathComponent == "session_00000000-0000-4000-8000-000000000001.json")
+        let object = try #require(
+            JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        )
+        #expect(Set(object.keys) == [
+            "schema_version", "session_id", "implementation_revision", "recorded_at_utc",
+            "capacity", "maximum_depth", "stale_drop_count", "capacity_drop_count",
+            "pressure_applied", "network_blackholed", "upload_paused_first",
+        ])
+        #expect(object["schema_version"] as? String == "gate001-pressure-observation/1")
+        #expect(object["maximum_depth"] as? Int == 3)
+        #expect(object["capacity_drop_count"] as? Int == 1)
+        #expect(object["upload_paused_first"] as? Bool == true)
+    }
+
     @MainActor
     @Test("denial writes nothing and each acceptance authorizes a fresh local-only session")
     func consentBoundaryAndFreshSessions() async throws {
