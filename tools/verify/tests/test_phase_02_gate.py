@@ -537,6 +537,11 @@ class OperatorProcedureTests(unittest.TestCase):
         text = (TEMPLATES / "gate-001-operator-procedure.md").read_text()
         for phrase in (
             "base iPhone 17",
+            "--gate-001-termination-controls",
+            "Arm abrupt termination",
+            "Save explicit capture frame",
+            "SIGKILL",
+            "relaunch",
             "10 seconds",
             "60 seconds",
             *gate.CANONICAL_TERMINATION_STATES,
