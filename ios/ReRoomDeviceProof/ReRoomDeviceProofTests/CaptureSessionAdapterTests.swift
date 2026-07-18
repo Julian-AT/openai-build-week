@@ -57,6 +57,73 @@ struct CaptureSessionAdapterTests {
         #expect(controller.armedState == nil)
     }
 
+    @Test("GATE-001 pressure measurement requires a bounded upload-paused burst")
+    func gatePressureMeasurementIsExact() throws {
+        let policy = try CapturePressurePolicy(
+            policyID: "policy_pressure_hypothesis_device_1",
+            classification: .hypothesis,
+            ordinaryCapacity: 3,
+            optionalComputeDropDepth: 1,
+            uploadPauseDepth: 2,
+            cadenceReductionDepth: 3
+        )
+        let gate = CaptureAdmissionGate(pressurePolicy: policy)
+        for ordinal in 1...3 {
+            #expect(
+                gate.offer(
+                    CaptureAdmissionCandidate(
+                        candidateID: TestCaptureIDs.frame(ordinal),
+                        monotonicTimestampNanoseconds: UInt64(ordinal),
+                        selectedReason: .viewNovelty,
+                        selectorPolicyID: "policy_selection_hypothesis_device_1",
+                        selectorClassification: .hypothesis
+                    )
+                ).isAdmitted
+            )
+        }
+        #expect(
+            gate.offer(
+                CaptureAdmissionCandidate(
+                    candidateID: TestCaptureIDs.frame(4),
+                    monotonicTimestampNanoseconds: 4,
+                    selectedReason: .viewNovelty,
+                    selectorPolicyID: "policy_selection_hypothesis_device_1",
+                    selectorClassification: .hypothesis
+                )
+            ) == .rejected(.ordinaryCapacity)
+        )
+
+        let measurement = try #require(
+            Gate001PressureMeasurement(capacity: 3, snapshot: gate.snapshot())
+        )
+        #expect(measurement.capacity == 3)
+        #expect(measurement.maximumDepth == 3)
+        #expect(measurement.staleDropCount == 0)
+        #expect(measurement.capacityDropCount == 1)
+        #expect(measurement.pressureApplied)
+        #expect(measurement.networkBlackholed)
+        #expect(measurement.uploadPausedFirst)
+    }
+
+    @Test("GATE-001 pressure harness stalls one ordinary write and never a user event")
+    func gatePressureHarnessIsScoped() async {
+        let harness = Gate001PressureHarness()
+        await harness.arm()
+        let blocked = Task {
+            await harness.beforePublish(selectedReason: .viewNovelty)
+        }
+        await harness.waitUntilBlocked()
+        #expect(await harness.isBlocking)
+        await harness.release()
+        await blocked.value
+        #expect(await harness.isBlocking == false)
+
+        await harness.arm()
+        await harness.beforePublish(selectedReason: .userEvent)
+        #expect(await harness.isBlocking == false)
+        await harness.release()
+    }
+
     @MainActor
     @Test("denial writes nothing and each acceptance authorizes a fresh local-only session")
     func consentBoundaryAndFreshSessions() async throws {
