@@ -1458,7 +1458,7 @@ final class RoomEditModel {
                     active,
                     selected: .replace,
                     blocker: .replacementViewUnsupported,
-                    status: "Replace is outside the HYPOTHESIS demo view; reposition and retry"
+                    status: "Replace is outside the supported HYPOTHESIS demo view; reposition and retry"
                 )
                 return
             }
