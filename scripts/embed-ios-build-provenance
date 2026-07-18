@@ -4,11 +4,6 @@ set -eu
 
 product_provenance="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/ReRoomBuildProvenance.plist"
 
-if [ "${CONFIGURATION:-}" != "Debug" ]; then
-  rm -f "$product_provenance"
-  exit 0
-fi
-
 repository_root=$(/usr/bin/git -C "$SRCROOT" rev-parse --show-toplevel)
 
 if ! /usr/bin/git -C "$repository_root" diff --quiet HEAD -- \
