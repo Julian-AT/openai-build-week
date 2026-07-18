@@ -91,7 +91,7 @@ struct RoomEditModelTests {
         )
 
         await harness.model.prepare()
-        #expect(harness.model.snapshot.blocker == .replaceMigrationRequired)
+        #expect(harness.model.snapshot.blocker == .replaceDeferred)
         #expect(harness.model.snapshot.status.contains("fresh local room"))
         await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
         #expect(harness.model.snapshot.target.readiness.replace == .unavailable)
@@ -523,7 +523,8 @@ private extension TargetGroundingEnvironment {
         worldFrameVersion: 1,
         tracking: .normal,
         supportReady: true,
-        restoreEligible: false
+        restoreEligible: false,
+        replaceTargetCanonical: true
     )
 
     func with(
@@ -537,7 +538,8 @@ private extension TargetGroundingEnvironment {
             worldFrameVersion: worldFrameVersion ?? self.worldFrameVersion,
             tracking: tracking ?? self.tracking,
             supportReady: supportReady,
-            restoreEligible: restoreEligible ?? self.restoreEligible
+            restoreEligible: restoreEligible ?? self.restoreEligible,
+            replaceTargetCanonical: replaceTargetCanonical
         )
     }
 }

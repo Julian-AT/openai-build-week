@@ -190,6 +190,7 @@ struct TargetGroundingEnvironment: Equatable, Sendable {
     let tracking: TargetTrackingHealth
     let supportReady: Bool
     let restoreEligible: Bool
+    let replaceTargetCanonical: Bool
 }
 
 enum TargetGroundingEvent: Equatable, Sendable {
@@ -380,6 +381,7 @@ enum TargetGroundingReducer {
             && target?.frozenProxy.capturedSceneRevision == environment.sceneRevision
             && target?.frozenProxy.worldFrameID == environment.worldFrameID
             && target?.frozenProxy.worldFrameVersion == environment.worldFrameVersion
+            && environment.replaceTargetCanonical
         let trackingFailure: TargetReadinessValue = environment.tracking == .failed ? .failed : .unavailable
 
         let select: TargetReadinessValue = environment.tracking.isHealthy ? .ready : trackingFailure
@@ -410,6 +412,8 @@ enum TargetGroundingReducer {
             replaceReasons = [.trackingNotNormal]
         } else if hasCurrentTarget {
             replaceReasons = [.providerUnavailable]
+        } else if target != nil, !environment.replaceTargetCanonical {
+            replaceReasons = [.authorityConflict]
         } else if target != nil {
             replaceReasons = target?.frozenProxy.worldFrameID == environment.worldFrameID
                 && target?.frozenProxy.worldFrameVersion == environment.worldFrameVersion
@@ -785,6 +789,7 @@ final class RoomEditModel {
     @ObservationIgnored private var hasPrepared = false
     @ObservationIgnored private var currentWorldFrameID = RoomEditIdentity.worldFrameID
     @ObservationIgnored private var currentWorldFrameVersion: UInt64 = 1
+    @ObservationIgnored private var replaceStoreCompatible = false
 
     init(
         authority: NativeBranchAuthority,
@@ -811,6 +816,9 @@ final class RoomEditModel {
         let active = await authority.activeSnapshot()
         currentWorldFrameID = active.scene.worldFrame.worldFrameID
         currentWorldFrameVersion = active.scene.worldFrame.worldFrameVersion
+        replaceStoreCompatible = active.scene.objects.contains {
+            $0.objectID == RoomEditIdentity.targetObjectID
+        }
         targetGrounding = TargetGroundingReducer.initial(
             environment: targetEnvironment(
                 for: active,
@@ -818,7 +826,13 @@ final class RoomEditModel {
                 supportReady: false
             )
         )
-        publish(active, status: "Local room state recovered")
+        publish(
+            active,
+            blocker: replaceStoreCompatible ? nil : .replaceDeferred,
+            status: replaceStoreCompatible
+                ? "Local room state recovered"
+                : "Replace needs a fresh local room; recovered store predates Phase 5"
+        )
     }
 
     func groundTarget(at point: CGPoint) async {
@@ -879,9 +893,12 @@ final class RoomEditModel {
         )
         publish(
             active,
-            status: targetGrounding.failure == nil
-                ? "Manual target grounded with frozen no-dense proxy"
-                : targetFailureStatus(targetGrounding.failure)
+            blocker: replaceStoreCompatible ? nil : .replaceDeferred,
+            status: replaceStoreCompatible
+                ? (targetGrounding.failure == nil
+                    ? "Manual target grounded with frozen no-dense proxy"
+                    : targetFailureStatus(targetGrounding.failure))
+                : "Replace needs a fresh local room; recovered store has no canonical target"
         )
     }
 
@@ -897,9 +914,12 @@ final class RoomEditModel {
         )
         publish(
             active,
-            status: targetGrounding.failure == nil
-                ? "Manual target reseeded in the current world epoch"
-                : targetFailureStatus(targetGrounding.failure)
+            blocker: replaceStoreCompatible ? nil : .replaceDeferred,
+            status: replaceStoreCompatible
+                ? (targetGrounding.failure == nil
+                    ? "Manual target reseeded in the current world epoch"
+                    : targetFailureStatus(targetGrounding.failure))
+                : "Replace needs a fresh local room; recovered store has no canonical target"
         )
     }
 
@@ -935,7 +955,8 @@ final class RoomEditModel {
                 worldFrameVersion: worldFrameVersion,
                 tracking: tracking,
                 supportReady: false,
-                restoreEligible: hasEligibleRestore(in: active)
+                restoreEligible: hasEligibleRestore(in: active),
+                replaceTargetCanonical: replaceStoreCompatible
             )
         )
         publish(active, status: "World epoch changed; explicit target reseed required")
@@ -1247,7 +1268,8 @@ final class RoomEditModel {
                 $0.lifecycle == "tracked"
                     && ["floor", "tabletop", "other_horizontal"].contains($0.kind)
             },
-            restoreEligible: hasEligibleRestore(in: active)
+            restoreEligible: hasEligibleRestore(in: active),
+            replaceTargetCanonical: replaceStoreCompatible
         )
     }
 
@@ -1296,6 +1318,7 @@ final class RoomEditModel {
 }
 
 enum RoomEditIdentity {
+    static let storeDirectoryName = "phase5-room-edit-v1"
     static let sessionID = "session_53000000-0000-4000-8000-000000000010"
     static let sceneID = "scene_53000000-0000-4000-8000-000000000011"
     static let deviceID = "device_53000000-0000-4000-8000-000000000012"
@@ -1304,6 +1327,9 @@ enum RoomEditIdentity {
     static let frameID = "frame_53000000-0000-4000-8000-000000000015"
     static let surfaceID = "surface_53000000-0000-4000-8000-000000000016"
     static let targetObjectID = "object_53000000-0000-4000-8000-000000000030"
+    static let replacementPlacedAssetID = "assetinst_53000000-0000-4000-8000-000000000031"
+    static let replacementSupportRelationID = "support_53000000-0000-4000-8000-000000000032"
+    static let supportedViewFixtureID = "envelope_53000000-0000-4000-8000-000000000033"
     static let placedAssetID = "assetinst_53000000-0000-4000-8000-000000000017"
     static let supportRelationID = "support_53000000-0000-4000-8000-000000000018"
     static let userID = "user_53000000-0000-4000-8000-000000000019"
@@ -1325,6 +1351,29 @@ enum RoomEditIdentity {
 
 enum RoomEditFactory {
     static func bootstrap(manifest: Phase3ProxyManifest) -> TransactionGenerationCandidate {
+        let targetReadiness = Readiness(
+            contractSelect: "ready",
+            place: "ready",
+            replace: "degraded",
+            remove: "unavailable",
+            restore: "unavailable"
+        )
+        let targetReasons = ReadinessReasons(
+            contractSelect: [],
+            place: [],
+            replace: [ReadinessReason(
+                contractCode: "provider_unavailable",
+                message: "Manual proxy fallback only; provider gate pending"
+            )],
+            remove: [ReadinessReason(
+                contractCode: "reveal_quality_failed",
+                message: "Validated reveal evidence is unavailable"
+            )],
+            restore: [ReadinessReason(
+                contractCode: "no_eligible_restore",
+                message: "No committed edit is eligible for restore"
+            )]
+        )
         let scene = SceneState(
             sessionID: RoomEditIdentity.sessionID,
             sceneID: RoomEditIdentity.sceneID,
@@ -1348,7 +1397,18 @@ enum RoomEditFactory {
                 lifecycle: "tracked",
                 artifactRefs: []
             )],
-            objects: [],
+            objects: [SceneObject(
+                contractObjectID: RoomEditIdentity.targetObjectID,
+                label: "chair",
+                labelConfidence: 1,
+                lifecycle: "tracked",
+                readiness: targetReadiness,
+                readinessReasons: targetReasons,
+                artifactRefs: [],
+                editState: ObjectEditState(contractVisible: true, activeReveal: nil),
+                createdSceneRevision: 0,
+                lastObservedFrameID: RoomEditIdentity.frameID
+            )],
             supportRelations: [],
             placedAssets: [],
             editHistory: [],
@@ -1360,6 +1420,73 @@ enum RoomEditFactory {
             requiredArtifacts: [],
             receipts: [],
             idempotencyRecords: []
+        )
+    }
+
+    static func replaceProposal(
+        scene: SceneState,
+        targetContext: TargetContext,
+        manifest: Phase3ProxyManifest
+    ) -> BoundProposal {
+        BoundProposal(
+            sessionID: scene.sessionID,
+            revisionAuthority: scene.revisionAuthority,
+            baseSceneRevision: scene.sceneRevision,
+            targetContext: targetContext,
+            intent: TransactionIntent(
+                contractOperation: .replace,
+                source: "tap",
+                arguments: IntentArguments(assetID: manifest.contractAssetID),
+                constraints: []
+            )
+        )
+    }
+
+    static func replaceCandidate(
+        scene: SceneState,
+        targetContext: TargetContext,
+        manifest: Phase3ProxyManifest,
+        support: RoomEditSupportContext
+    ) -> DeterministicReplaceCandidate? {
+        guard targetContext.selectedObjectID == RoomEditIdentity.targetObjectID,
+              targetContext.candidateObjectIDs == [RoomEditIdentity.targetObjectID],
+              targetContext.capturedSceneRevision == scene.sceneRevision,
+              targetContext.worldFrameID == scene.worldFrame.worldFrameID,
+              targetContext.worldFrameVersion == scene.worldFrame.worldFrameVersion,
+              scene.objects.contains(where: { $0.objectID == RoomEditIdentity.targetObjectID }),
+              scene.surfaces.contains(where: {
+                  $0.surfaceID == support.surfaceID && $0.lifecycle == "tracked"
+              })
+        else { return nil }
+
+        return DeterministicReplaceCandidate(
+            asset: ProxyAssetCandidate(
+                assetID: manifest.contractAssetID,
+                placedAssetID: RoomEditIdentity.replacementPlacedAssetID,
+                manifestArtifactRef: manifest.artifactReference,
+                allowlisted: true,
+                collisionProxyPassed: true,
+                assetLicensePassed: true,
+                artifactIntegrityPassed: true
+            ),
+            support: DeterministicSupportCandidate(
+                relationID: RoomEditIdentity.replacementSupportRelationID,
+                surfaceID: support.surfaceID,
+                worldFrameID: scene.worldFrame.worldFrameID,
+                worldFrameVersion: scene.worldFrame.worldFrameVersion,
+                capturedSceneRevision: scene.sceneRevision,
+                worldFromAsset: support.worldFromAsset,
+                confidence: support.confidence,
+                method: support.method
+            ),
+            targetObjectID: RoomEditIdentity.targetObjectID,
+            capabilityReadiness: "degraded",
+            readinessSource: "manual_proxy_fallback",
+            supportedViewFixtureID: RoomEditIdentity.supportedViewFixtureID,
+            supportedView: true,
+            capturedSceneRevision: scene.sceneRevision,
+            worldFrameID: scene.worldFrame.worldFrameID,
+            worldFrameVersion: scene.worldFrame.worldFrameVersion
         )
     }
 
@@ -1376,7 +1503,7 @@ enum RoomEditFactory {
             appropriateFor: nil,
             create: true
         )
-        let root = documents.appendingPathComponent("phase3-room-edit", isDirectory: true)
+        let root = documents.appendingPathComponent(RoomEditIdentity.storeDirectoryName, isDirectory: true)
         if resetStore, FileManager.default.fileExists(atPath: root.path) {
             try FileManager.default.removeItem(at: root)
         }
