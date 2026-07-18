@@ -178,7 +178,16 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
   3. Retries with the same key and fingerprint return the prior result without another revision; changed content, stale bases, or wrong authority reject, and divergent branches quarantine without automatic merge.
   4. Typed/tap controls can propose all four operations with network and learned providers disabled, while malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit.
 
-**Plans**: TBD
+**Plans**: 6 plans
+
+Plans:
+
+- [ ] 03-01-PLAN.md — Freeze exact transaction models, schema/JCS adapter, and immutable Phase 3 oracle.
+- [ ] 03-02-PLAN.md — Implement strict typed/tap intent, exact fingerprinting, and pure place preview/confirm reduction.
+- [ ] 03-03-PLAN.md — Implement RR-EDIT-PROJECTION-1 and offline RR-RESTORE-REBASE-1 compensation.
+- [ ] 03-04-PLAN.md — Add pointer-last durable generations and one non-reentrant native branch authority.
+- [ ] 03-05-PLAN.md — Deliver the compact native four-operation place/restore proof surface.
+- [ ] 03-06-PLAN.md — Prove three-runtime agreement and publish honest automated sprint evidence.
 **UI hint**: yes
 
 ### Phase 4: Target Grounding and Compositor Gate
