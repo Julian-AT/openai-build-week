@@ -178,13 +178,13 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
   3. Retries with the same key and fingerprint return the prior result without another revision; changed content, stale bases, or wrong authority reject, and divergent branches quarantine without automatic merge.
   4. Typed/tap controls can propose all four operations with network and learned providers disabled, while malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit.
 
-**Plans**: 7 plans
+**Plans**: 1/7 plans executed
 
 Plans:
 
 **Wave 1**
 
-- [ ] 03-01-PLAN.md — Freeze the immutable oracle and implement its exact transaction contract in one final-passing TDD task.
+- [x] 03-01-PLAN.md — Freeze the immutable oracle and implement its exact transaction contract in one final-passing TDD task.
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -311,7 +311,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
 | 2. Atomic Capture and Exact Replay | 7/7 | In Progress|  |
-| 3. Typed Place, Commit, and Offline Restore | 0/TBD | Not started | - |
+| 3. Typed Place, Commit, and Offline Restore | 1/7 | In Progress|  |
 | 4. Target Grounding and Compositor Gate | 0/TBD | Not started | - |
 | 5. Curated Replacement Vertical | 0/TBD | Not started | - |
 | 6. Controlled Multi-Surface Removal | 0/TBD | Not started | - |

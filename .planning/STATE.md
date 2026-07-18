@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 03
 current_phase_name: Typed Place, Commit, and Offline Restore
 status: ready_to_execute
-stopped_at: Phase 03 planning verified; ready to execute 03-01-PLAN.md
-last_updated: "2026-07-18T14:18:00Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-07-18T13:58:44.412Z"
 last_activity: 2026-07-18
-last_activity_desc: Phase 03 planned and independently verified with 7 plans across 7 waves
+last_activity_desc: Phase 03 planning verified; GATE-001 remains PENDING under the approved sprint cut
 progress:
-  total_phases: 2
-  completed_phases: 1
-  total_plans: 22
-  completed_plans: 21
+  total_phases: 3
+  completed_phases: 2
+  total_plans: 29
+  completed_plans: 23
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 03 (Typed Place, Commit, and Offline Restore) — READY TO EXECUTE
 
-Plan: 0 of 7
+Plan: 1 of 7
 
 Status: Seven Phase 03 plans passed the independent GSD plan checker with zero blockers or warnings
 
 Last activity: 2026-07-18 — Phase 03 planning verified; GATE-001 remains PENDING under the approved sprint cut
 
-Progress: [████████████████████] 15/15 planned tasks ([██████████] 95%)
+Progress: [████████████████████] 15/15 planned tasks ([████████░░] 79%)
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 02 P03 | 32min | 3 tasks | 9 files |
 | Phase 02 P05 | 32min | 3 tasks | 8 files |
 | Phase 02 P06 | 1h35m | 2 tasks | 11 files |
+| Phase 03 P01 | 15min | 1 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,10 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 02]: Accept a per-frame encoding profile so each durable packet's image, intrinsics, projection, and pose originate from the same ARFrame callback. — A session-static encoding profile could pair fresh imagery and calibration with stale camera pose.
 - [Phase 02]: Expose recovery candidates only as immutable verified snapshots or sanitized failure snapshots; rejected records never enter the inspector. — Presentation must not turn an unverified recovery candidate into replay-visible state.
 - [Phase 02]: Resolve the pinned draft meta-schema resource bundle explicitly under iOS static linking and retain full fail-closed meta-schema validation. — The resource is embedded in the app but the dependency public bundle accessor cannot discover it in the iOS static-link host.
+- [Phase 03]: Preserve frozen CON-003 and CON-005 schema bytes and bind them through existing strict validator registrations. — Avoids schema drift while making the transaction boundary executable.
+- [Phase 03]: Keep the operation inventory exactly place, replace, remove, restore and keep transaction, idempotency, and branch identities distinct. — Maintains the approved P0 vocabulary and deterministic authority semantics.
+- [Phase 03]: Require canonicalization, frozen-schema validation, typed decode, and canonical typed round-trip equality at ingress. — Fails closed against hostile bytes and silent field loss.
+
 ### Pending Todos
 
 - Execute one signed-device queue-pressure/recovery smoke on the finalized Phase 2 revision.
@@ -143,9 +148,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T01:56:16.074Z
+Last session: 2026-07-18T13:58:44.406Z
 
-Stopped at: Completed 02-06-PLAN.md
+Stopped at: Completed 03-01-PLAN.md
 
 Resume file: None
 
