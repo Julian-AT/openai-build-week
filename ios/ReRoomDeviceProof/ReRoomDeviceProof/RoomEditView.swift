@@ -807,6 +807,12 @@ private struct RoomEditStatePanel: View {
                 "Remove is visible but blocked until target authorization and reveal artifacts are implemented.",
                 identifier: "roomedit.blocker.remove"
             )
+        case .removeFixtureUnavailable:
+            blocker("Demo reveal fixture unavailable; original retained.", identifier: "roomedit.blocker.remove.fixture")
+        case .removeViewUnsupported:
+            blocker("Outside the demo pose bound; original retained.", identifier: "roomedit.blocker.remove.view")
+        case .removeTrackingUnavailable:
+            blocker("Tracking or target binding is unavailable; original retained.", identifier: "roomedit.blocker.remove.tracking")
         case .restoreSourceRequired:
             blocker("Restore needs a committed local place transaction.", identifier: "roomedit.blocker.restore")
         case .transactionRejected(let detail):

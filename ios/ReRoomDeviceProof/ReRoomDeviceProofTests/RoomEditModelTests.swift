@@ -720,7 +720,12 @@ private struct TestRoomEditHarness {
         let authority = try NativeBranchAuthority(
             store: store,
             bootstrap: RoomEditFactory.bootstrap(manifest: manifest),
-            locallyAvailableArtifacts: [manifest.artifactReference]
+            locallyAvailableArtifacts: [manifest.artifactReference] + [
+                removeLaunchMode == .degradedDemoFixture
+                    ? try? RoomEditDemoRevealFixture.decodeExact(bytes: removeFixtureBytesProvider())
+                        .revealReference
+                    : nil,
+            ].compactMap { $0 }
         )
         self.fileSystem = fileSystem
         self.manifest = manifest
@@ -763,7 +768,13 @@ private struct TestRoomEditHarness {
                 contracts: TransactionContractAdapter(validator: try DiagnosticAppOwner.makeContractValidator())
             ),
             bootstrap: RoomEditFactory.bootstrap(manifest: manifest),
-            locallyAvailableArtifacts: [manifest.artifactReference]
+            locallyAvailableArtifacts: [manifest.artifactReference] + [
+                removeLaunchMode == .degradedDemoFixture
+                    ? try? RoomEditDemoRevealFixture.decodeExact(
+                        bytes: RoomEditDemoRevealFixture.compiledBytes
+                    ).revealReference
+                    : nil,
+            ].compactMap { $0 }
         )
         return (
             model: RoomEditModel(

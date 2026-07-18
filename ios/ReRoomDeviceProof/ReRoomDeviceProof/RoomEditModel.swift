@@ -22,8 +22,112 @@ enum RoomEditBlocker: Equatable, Sendable {
     case replacementAssetUnavailable(RoomEditReplacementAssetFailure)
     case replacementViewUnsupported
     case removeDeferred
+    case removeFixtureUnavailable
+    case removeViewUnsupported
+    case removeTrackingUnavailable
     case restoreSourceRequired
     case transactionRejected(String)
+}
+
+enum RoomEditRemoveLaunchMode: Equatable, Sendable {
+    case normal
+    case degradedDemoFixture
+}
+
+typealias RoomEditRemoveFixtureBytesProvider = @Sendable () -> Data?
+
+struct RoomEditRevealProxySurface: Codable, Equatable, Sendable {
+    let surfaceID: String
+    let role: String
+    let worldFromSurface: Matrix4
+    let sizeMeters: [Double]
+}
+
+struct RoomEditDemoRevealFixture: Codable, Equatable, Sendable {
+    let schemaVersion: String
+    let classification: String
+    let validatorVersion: String
+    let poseEnvelopePolicy: String
+    let envelopeID: String
+    let targetObjectID: String
+    let branchID: String
+    let worldFrameID: String
+    let worldFrameVersion: UInt64
+    let capturedRevision: UInt64
+    let seedCameraPose: Matrix4
+    let maximumTranslationMeters: Double
+    let minimumDirectionDot: Double
+    let revealReference: ArtifactReference
+    let assumptionStatus: String
+    let gate006Status: String
+    let surfaces: [RoomEditRevealProxySurface]
+
+    static let compiledBytes = Data(compiledJSON.utf8)
+
+    static func decodeExact(bytes: Data?) throws -> Self {
+        guard let bytes, bytes == compiledBytes else {
+            throw RoomEditSetupError.invalidDemoRevealFixture
+        }
+        let value = try JSONDecoder().decode(Self.self, from: bytes)
+        guard value.schemaVersion == "1.0.0",
+              value.classification == "degraded_demo_fixture",
+              value.validatorVersion == "RR-DEMO-REMOVE-VALIDATOR-1",
+              value.poseEnvelopePolicy == "deterministic_demo_pose_bound",
+              value.envelopeID.hasPrefix("envelope_"),
+              value.targetObjectID == RoomEditIdentity.targetObjectID,
+              value.branchID == RoomEditIdentity.branchID,
+              value.worldFrameID == RoomEditIdentity.worldFrameID,
+              value.worldFrameVersion == 1,
+              value.capturedRevision == 0,
+              finitePose(value.seedCameraPose),
+              value.maximumTranslationMeters == 0.2,
+              value.minimumDirectionDot == 0.966,
+              value.revealReference.artifactType == "reveal_bundle",
+              value.revealReference.artifactRevision == 1,
+              value.revealReference.sha256.count == 64,
+              value.assumptionStatus == "HYPOTHESIS",
+              value.gate006Status == "PENDING",
+              value.surfaces.count >= 2,
+              Set(value.surfaces.map(\.surfaceID)).count == value.surfaces.count,
+              value.surfaces.allSatisfy({
+                  $0.surfaceID.hasPrefix("surface_")
+                      && ["floor_proxy", "wall_proxy"].contains($0.role)
+                      && finitePose($0.worldFromSurface)
+                      && $0.sizeMeters.count == 2
+                      && $0.sizeMeters.allSatisfy { $0.isFinite && $0 > 0 }
+              })
+        else { throw RoomEditSetupError.invalidDemoRevealFixture }
+        return value
+    }
+
+    func contains(cameraPose: Matrix4) -> Bool {
+        guard Self.finitePose(cameraPose) else { return false }
+        let dx = cameraPose.values[3] - seedCameraPose.values[3]
+        let dy = cameraPose.values[7] - seedCameraPose.values[7]
+        let dz = cameraPose.values[11] - seedCameraPose.values[11]
+        let distance = (dx * dx + dy * dy + dz * dz).squareRoot()
+        let lhs = [cameraPose.values[2], cameraPose.values[6], cameraPose.values[10]]
+        let rhs = [seedCameraPose.values[2], seedCameraPose.values[6], seedCameraPose.values[10]]
+        let lhsMagnitude = lhs.reduce(0) { $0 + $1 * $1 }.squareRoot()
+        let rhsMagnitude = rhs.reduce(0) { $0 + $1 * $1 }.squareRoot()
+        guard lhsMagnitude > 0, rhsMagnitude > 0 else { return false }
+        let directionDot = zip(lhs, rhs).reduce(0) { $0 + $1.0 * $1.1 }
+            / (lhsMagnitude * rhsMagnitude)
+        return distance <= maximumTranslationMeters && directionDot >= minimumDirectionDot
+    }
+
+    private static func finitePose(_ value: Matrix4) -> Bool {
+        value.values.count == 16 && value.values.allSatisfy(\.isFinite)
+    }
+
+    private static let compiledJSON = #"{"schemaVersion":"1.0.0","classification":"degraded_demo_fixture","validatorVersion":"RR-DEMO-REMOVE-VALIDATOR-1","poseEnvelopePolicy":"deterministic_demo_pose_bound","envelopeID":"envelope_63000000-0000-4000-8000-000000000040","targetObjectID":"object_53000000-0000-4000-8000-000000000030","branchID":"branch_53000000-0000-4000-8000-000000000013","worldFrameID":"world_53000000-0000-4000-8000-000000000014","worldFrameVersion":1,"capturedRevision":0,"seedCameraPose":{"layout":"row_major","scalar_type":"float32","math_convention":"column_vector","units":"meters","values":[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]},"maximumTranslationMeters":0.2,"minimumDirectionDot":0.966,"revealReference":{"artifact_id":"artifact_63000000-0000-4000-8000-000000000043","artifact_type":"reveal_bundle","artifact_revision":1,"sha256":"6666666666666666666666666666666666666666666666666666666666666666"},"assumptionStatus":"HYPOTHESIS","gate006Status":"PENDING","surfaces":[{"surfaceID":"surface_63000000-0000-4000-8000-000000000041","role":"floor_proxy","worldFromSurface":{"layout":"row_major","scalar_type":"float32","math_convention":"column_vector","units":"meters","values":[1,0,0,0,0,1,0,0,0,0,1,-1.2,0,0,0,1]},"sizeMeters":[1.4,1.2]},{"surfaceID":"surface_63000000-0000-4000-8000-000000000042","role":"wall_proxy","worldFromSurface":{"layout":"row_major","scalar_type":"float32","math_convention":"column_vector","units":"meters","values":[1,0,0,0,0,1,0,0.55,0,0,1,-1.45,0,0,0,1]},"sizeMeters":[1.4,1.1]}]}"#
+}
+
+struct RoomEditRemoveDemoSnapshot: Equatable, Sendable {
+    let classification: String
+    let envelopeID: String
+    let surfaces: [RoomEditRevealProxySurface]
+    let committed: Bool
 }
 
 enum RoomEditReplacementAssetFailure: String, CaseIterable, Equatable, Sendable {
@@ -157,6 +261,15 @@ struct RoomEditCompositorDescriptor: Equatable, Sendable {
     static func isCanonical(_ layers: [RoomEditCompositorLayer]) -> Bool {
         layers == canonical.layers
     }
+
+    static let degradedDemoReveal = RoomEditCompositorDescriptor(layers: [
+        RoomEditCompositorLayer(id: .camera, availability: .available(.liveCamera)),
+        RoomEditCompositorLayer(id: .reveal, availability: .available(.localRenderer)),
+        RoomEditCompositorLayer(id: .occluder, availability: .unavailable(.occluderArtifactMissing)),
+        RoomEditCompositorLayer(id: .assetProxy, availability: .available(.localRenderer)),
+        RoomEditCompositorLayer(id: .debug, availability: .unavailable(.debugOverlayDisabled)),
+        RoomEditCompositorLayer(id: .swiftUI, availability: .available(.nativeControls)),
+    ])
 }
 
 struct ManualTargetCandidate: Equatable, Sendable {
@@ -489,6 +602,7 @@ struct RoomEditRenderSnapshot: Equatable, Sendable {
     let layers: [RoomEditCompositorLayer]
     let targetProxy: RoomEditRenderProxySnapshot?
     let replacementProxy: RoomEditRenderProxySnapshot?
+    let revealProxySurfaces: [RoomEditRevealProxySurface]
 }
 
 struct RoomEditSnapshot: Equatable, Sendable {
@@ -503,10 +617,12 @@ struct RoomEditSnapshot: Equatable, Sendable {
     let replacementAssetState: RoomEditReplacementAssetState
     let canConfirm: Bool
     let canRetryReplacement: Bool
+    var canRetryRemove: Bool = false
     let canRestore: Bool
     let target: TargetGroundingSnapshot
     let targetContext: TargetContext?
     let status: String
+    var removeDemo: RoomEditRemoveDemoSnapshot? = nil
 
     var render: RoomEditRenderSnapshot {
         let proxy: RoomEditRenderProxySnapshot?
@@ -527,11 +643,15 @@ struct RoomEditSnapshot: Equatable, Sendable {
         } else {
             proxy = nil
         }
+        let revealSurfaces = removeDemo?.surfaces ?? []
         return RoomEditRenderSnapshot(
             revision: revision,
-            layers: RoomEditCompositorDescriptor.canonical.layers,
-            targetProxy: proxy,
-            replacementProxy: replacementRenderProxy
+            layers: revealSurfaces.isEmpty
+                ? RoomEditCompositorDescriptor.canonical.layers
+                : RoomEditCompositorDescriptor.degradedDemoReveal.layers,
+            targetProxy: revealSurfaces.isEmpty ? proxy : nil,
+            replacementProxy: replacementRenderProxy,
+            revealProxySurfaces: revealSurfaces
         )
     }
 
@@ -948,7 +1068,9 @@ final class RoomEditModel {
     @ObservationIgnored private let targetSession: (any RoomEditTargetSession)?
     @ObservationIgnored private var placePreview: PlacePreviewReduction?
     @ObservationIgnored private var replacePreview: ReplacePreviewReduction?
+    @ObservationIgnored private var removePreview: RemovePreviewReduction?
     @ObservationIgnored private var lastCommittedReplacePreview: ReplacePreviewReduction?
+    @ObservationIgnored private var lastCommittedRemovePreview: RemovePreviewReduction?
     @ObservationIgnored private var targetGrounding: TargetGroundingSnapshot = .loading
     @ObservationIgnored private var hasPrepared = false
     @ObservationIgnored private var currentWorldFrameID = RoomEditIdentity.worldFrameID
@@ -956,6 +1078,8 @@ final class RoomEditModel {
     @ObservationIgnored private var replaceStoreCompatible = false
     @ObservationIgnored private var replacementAssetState: RoomEditReplacementAssetState
     @ObservationIgnored private let replacementSupportedViewPolicy: RoomEditSupportedViewPolicy
+    @ObservationIgnored private let removeLaunchMode: RoomEditRemoveLaunchMode
+    @ObservationIgnored private let removeFixture: RoomEditDemoRevealFixture?
 
     init(
         authority: NativeBranchAuthority,
@@ -963,7 +1087,11 @@ final class RoomEditModel {
         supportProvider: @escaping RoomEditSupportProvider,
         targetSession: (any RoomEditTargetSession)? = nil,
         replacementAssetState: RoomEditReplacementAssetState = .loading,
-        replacementSupportedViewPolicy: RoomEditSupportedViewPolicy = .denyAll
+        replacementSupportedViewPolicy: RoomEditSupportedViewPolicy = .denyAll,
+        removeLaunchMode: RoomEditRemoveLaunchMode = .normal,
+        removeFixtureBytesProvider: @escaping RoomEditRemoveFixtureBytesProvider = {
+            RoomEditDemoRevealFixture.compiledBytes
+        }
     ) {
         self.authority = authority
         self.manifest = manifest
@@ -971,6 +1099,10 @@ final class RoomEditModel {
         self.targetSession = targetSession
         self.replacementAssetState = replacementAssetState
         self.replacementSupportedViewPolicy = replacementSupportedViewPolicy
+        self.removeLaunchMode = removeLaunchMode
+        self.removeFixture = removeLaunchMode == .degradedDemoFixture
+            ? try? RoomEditDemoRevealFixture.decodeExact(bytes: removeFixtureBytesProvider())
+            : nil
         targetSession?.setEventHandler { [weak self] event in
             Task { @MainActor [weak self] in
                 await self?.consumeTargetSessionEvent(event)
@@ -984,6 +1116,7 @@ final class RoomEditModel {
         await targetSession?.prepare()
         placePreview = nil
         replacePreview = nil
+        removePreview = nil
         let active = await authority.activeSnapshot()
         currentWorldFrameID = active.scene.worldFrame.worldFrameID
         currentWorldFrameVersion = active.scene.worldFrame.worldFrameVersion
@@ -1096,6 +1229,7 @@ final class RoomEditModel {
 
     func updateTargetTracking(_ tracking: TargetTrackingHealth) async {
         replacePreview = nil
+        removePreview = nil
         let active = await authority.activeSnapshot()
         targetGrounding = TargetGroundingReducer.reduce(
             targetGrounding,
@@ -1116,6 +1250,7 @@ final class RoomEditModel {
         tracking: TargetTrackingHealth
     ) async {
         replacePreview = nil
+        removePreview = nil
         currentWorldFrameID = worldFrameID
         currentWorldFrameVersion = worldFrameVersion
         let active = await authority.activeSnapshot()
@@ -1151,17 +1286,14 @@ final class RoomEditModel {
     func selectOperation(_ operation: RoomEditOperation) async {
         placePreview = nil
         replacePreview = nil
+        removePreview = nil
         switch operation {
         case .place:
             await proposePlace()
         case .replace:
             await proposeReplace()
         case .remove:
-            await refresh(
-                selected: operation,
-                blocker: .removeDeferred,
-                status: "Remove needs the later target-and-reveal capability"
-            )
+            await proposeRemove()
         case .restore:
             let active = await authority.activeSnapshot()
             publish(
@@ -1186,6 +1318,10 @@ final class RoomEditModel {
                 _ = try ReplaceReducer.cancel(preview, currentScene: active.scene)
                 replacePreview = nil
                 publish(active, selected: .replace, status: "Replacement preview cancelled; revision unchanged")
+            } else if let preview = removePreview {
+                _ = try RemoveReducer.cancel(preview, currentScene: active.scene)
+                removePreview = nil
+                publish(active, selected: .remove, status: "Demo reveal preview cancelled; original retained")
             }
         } catch {
             await fail(error)
@@ -1249,6 +1385,55 @@ final class RoomEditModel {
                 localUndoToken: RoomEditIdentity.replaceUndoToken
             )
             await refresh(selected: .replace, status: "Identical replacement retry resolved without a new revision")
+        } catch {
+            await fail(error)
+        }
+    }
+
+    /// Sole launch-gated degraded removal confirmation ingress.
+    func confirmRemovalFromButton() async {
+        guard let preview = removePreview else { return }
+        do {
+            let active = await authority.activeSnapshot()
+            guard let fixture = removeFixture,
+                  targetGrounding.tracking.isHealthy,
+                  let support = await supportProvider(active.scene),
+                  removeFixtureAllows(fixture, scene: active.scene, support: support)
+            else {
+                removePreview = nil
+                publish(
+                    active,
+                    selected: .remove,
+                    blocker: .removeViewUnsupported,
+                    status: "Demo pose changed; original retained. GATE-006 PENDING"
+                )
+                return
+            }
+            _ = try await authority.commitRemove(
+                preview,
+                confirmation: removalConfirmation(previewID: preview.preview.previewID),
+                request: removalRequest,
+                localUndoToken: RoomEditIdentity.removeUndoToken
+            )
+            lastCommittedRemovePreview = preview
+            removePreview = nil
+            await refresh(selected: .remove, status: "Degraded demo removal committed once; GATE-006 PENDING")
+        } catch {
+            await fail(error)
+        }
+    }
+
+    /// Replays the identical remove request through sole authority idempotency.
+    func retryRemovalFromButton() async {
+        guard let preview = lastCommittedRemovePreview else { return }
+        do {
+            _ = try await authority.commitRemove(
+                preview,
+                confirmation: removalConfirmation(previewID: preview.preview.previewID),
+                request: removalRequest,
+                localUndoToken: RoomEditIdentity.removeUndoToken
+            )
+            await refresh(selected: .remove, status: "Identical demo removal retry stayed on the committed revision")
         } catch {
             await fail(error)
         }
@@ -1519,6 +1704,132 @@ final class RoomEditModel {
         }
     }
 
+    private func proposeRemove() async {
+        do {
+            let active = await authority.activeSnapshot()
+            guard removeLaunchMode == .degradedDemoFixture else {
+                publish(
+                    active,
+                    selected: .remove,
+                    blocker: .removeDeferred,
+                    status: "Remove unavailable: reveal_quality_failed"
+                )
+                return
+            }
+            guard let fixture = removeFixture else {
+                publish(
+                    active,
+                    selected: .remove,
+                    blocker: .removeFixtureUnavailable,
+                    status: "Demo reveal fixture missing or corrupt; original retained"
+                )
+                return
+            }
+            guard targetGrounding.tracking.isHealthy,
+                  let targetContext = targetGrounding.targetContext
+            else {
+                publish(
+                    active,
+                    selected: .remove,
+                    blocker: .removeTrackingUnavailable,
+                    status: "Normal tracking and the bound target are required; original retained"
+                )
+                return
+            }
+            guard let support = await supportProvider(active.scene),
+                  removeFixtureAllows(fixture, scene: active.scene, support: support)
+            else {
+                publish(
+                    active,
+                    selected: .remove,
+                    blocker: .removeViewUnsupported,
+                    status: "Outside deterministic HYPOTHESIS pose bound; reposition to the frozen seed view"
+                )
+                return
+            }
+            let proposal = BoundProposal(
+                sessionID: active.scene.sessionID,
+                revisionAuthority: active.scene.revisionAuthority,
+                baseSceneRevision: active.scene.sceneRevision,
+                targetContext: targetContext,
+                intent: TransactionIntent(
+                    contractOperation: .remove,
+                    source: "tap",
+                    arguments: IntentArguments(),
+                    constraints: []
+                )
+            )
+            let reduction = try await authority.previewRemove(
+                proposal: proposal,
+                candidate: DeterministicRemoveCandidate(
+                    targetObjectID: fixture.targetObjectID,
+                    capabilityClassification: fixture.classification,
+                    validatorVersion: fixture.validatorVersion,
+                    poseEnvelopePolicy: fixture.poseEnvelopePolicy,
+                    supportedViewEnvelopeID: fixture.envelopeID,
+                    supportedView: true,
+                    revealReference: fixture.revealReference,
+                    artifactIntegrityPassed: true,
+                    artifactLocallyAvailable: true,
+                    capturedSceneRevision: active.scene.sceneRevision,
+                    worldFrameID: active.scene.worldFrame.worldFrameID,
+                    worldFrameVersion: active.scene.worldFrame.worldFrameVersion
+                ),
+                seed: RemovePreviewSeed(
+                    transactionID: RoomEditIdentity.removeTransactionID,
+                    previewID: RoomEditIdentity.removePreviewID,
+                    expiresAtUTC: RoomEditIdentity.previewExpiry
+                )
+            )
+            removePreview = reduction
+            assignSnapshot(RoomEditSnapshot(
+                operations: RoomEditOperation.allCases,
+                selectedOperation: .remove,
+                revision: active.scene.sceneRevision,
+                preview: RoomEditPreviewSnapshot(
+                    proxyID: fixture.envelopeID,
+                    baseRevision: reduction.preview.baseSceneRevision,
+                    currentRevision: active.scene.sceneRevision,
+                    supportStatus: "HYPOTHESIS pose bound; no coverage or quality claim"
+                ),
+                blocker: nil,
+                localState: active.receipts.isEmpty ? .ready : .durable,
+                placedAssetVisible: active.scene.placedAssets.isEmpty == false,
+                replacementAssetVisible: replacementVisible(in: active),
+                replacementAssetState: replacementAssetState,
+                canConfirm: true,
+                canRetryReplacement: lastCommittedReplacePreview != nil,
+                canRetryRemove: lastCommittedRemovePreview != nil,
+                canRestore: hasEligibleRestore(in: active),
+                target: targetGrounding,
+                targetContext: targetContext,
+                status: "Degraded demo reveal preview; GATE-006 PENDING",
+                removeDemo: RoomEditRemoveDemoSnapshot(
+                    classification: fixture.classification,
+                    envelopeID: fixture.envelopeID,
+                    surfaces: fixture.surfaces,
+                    committed: false
+                )
+            ))
+        } catch {
+            await fail(error)
+        }
+    }
+
+    private func removeFixtureAllows(
+        _ fixture: RoomEditDemoRevealFixture,
+        scene: SceneState,
+        support: RoomEditSupportContext
+    ) -> Bool {
+        scene.sceneRevision == fixture.capturedRevision
+            && scene.revisionAuthority.revisionBranchID == fixture.branchID
+            && scene.worldFrame.worldFrameID == fixture.worldFrameID
+            && scene.worldFrame.worldFrameVersion == fixture.worldFrameVersion
+            && targetGrounding.target?.objectID == fixture.targetObjectID
+            && targetGrounding.target?.frozenProxy.capturedSceneRevision == fixture.capturedRevision
+            && fixture.contains(cameraPose: support.cameraPose)
+    }
+
     private func proposal(
         for operation: ProductOperation,
         scene: SceneState,
@@ -1582,6 +1893,7 @@ final class RoomEditModel {
         blocker: RoomEditBlocker? = nil,
         status: String
     ) {
+        let demo = committedRemoveDemo(in: active)
         assignSnapshot(RoomEditSnapshot(
             operations: RoomEditOperation.allCases,
             selectedOperation: selected,
@@ -1594,10 +1906,12 @@ final class RoomEditModel {
             replacementAssetState: replacementAssetState,
             canConfirm: false,
             canRetryReplacement: lastCommittedReplacePreview != nil,
+            canRetryRemove: lastCommittedRemovePreview != nil,
             canRestore: hasEligibleRestore(in: active),
             target: targetGrounding,
             targetContext: targetGrounding.targetContext,
-            status: status
+            status: status,
+            removeDemo: demo
         ))
     }
 
@@ -1649,6 +1963,7 @@ final class RoomEditModel {
     private func fail(_ error: any Error) async {
         placePreview = nil
         replacePreview = nil
+        removePreview = nil
         await refresh(
             blocker: .transactionRejected(String(describing: error)),
             status: "Local transaction rejected safely"
@@ -1662,7 +1977,7 @@ final class RoomEditModel {
     private func eligibleRestoreSource(in active: TransactionGenerationSnapshot) -> TransactionRecord? {
         let compensated = Set(active.transactions.compactMap(\.compensatesTransactionID))
         return active.transactions.reversed().first {
-            [.place, .replace].contains($0.intent.operation)
+            [.place, .replace, .remove].contains($0.intent.operation)
                 && $0.canonicalState == .committed
                 && $0.inverseOperations?.isEmpty == false
                 && !compensated.contains($0.transactionID)
@@ -1674,6 +1989,43 @@ final class RoomEditModel {
             transactionID: RoomEditIdentity.replaceTransactionID,
             idempotencyKey: RoomEditIdentity.replaceIdempotencyKey,
             updatedAtUTC: RoomEditIdentity.replaceTimestamp
+        )
+    }
+
+    private var removalRequest: PlaceConfirmationRequest {
+        PlaceConfirmationRequest(
+            transactionID: RoomEditIdentity.removeTransactionID,
+            idempotencyKey: RoomEditIdentity.removeIdempotencyKey,
+            updatedAtUTC: RoomEditIdentity.removeTimestamp
+        )
+    }
+
+    private func removalConfirmation(previewID: String) -> ExplicitConfirmation {
+        ExplicitConfirmation(
+            actorID: RoomEditIdentity.userID,
+            source: "native_ui",
+            previewID: previewID,
+            confirmationEventID: RoomEditIdentity.removeEventID,
+            confirmedAtUTC: RoomEditIdentity.removeTimestamp
+        )
+    }
+
+    private func committedRemoveDemo(
+        in active: TransactionGenerationSnapshot
+    ) -> RoomEditRemoveDemoSnapshot? {
+        guard removeLaunchMode == .degradedDemoFixture,
+              let fixture = removeFixture,
+              active.scene.objects.contains(where: {
+                  $0.objectID == fixture.targetObjectID
+                      && !$0.editState.visible
+                      && $0.editState.activeReveal == fixture.revealReference
+              })
+        else { return nil }
+        return RoomEditRemoveDemoSnapshot(
+            classification: fixture.classification,
+            envelopeID: fixture.envelopeID,
+            surfaces: fixture.surfaces,
+            committed: true
         )
     }
 
@@ -1712,6 +2064,11 @@ enum RoomEditIdentity {
     static let replaceIdempotencyKey = "txidem_53000000-0000-4000-8000-000000000036"
     static let replaceUndoToken = "undo_53000000-0000-4000-8000-000000000037"
     static let replaceEventID = "event_53000000-0000-4000-8000-000000000038"
+    static let removeTransactionID = "tx_63000000-0000-4000-8000-000000000050"
+    static let removePreviewID = "preview_63000000-0000-4000-8000-000000000051"
+    static let removeIdempotencyKey = "txidem_63000000-0000-4000-8000-000000000052"
+    static let removeUndoToken = "undo_63000000-0000-4000-8000-000000000053"
+    static let removeEventID = "event_63000000-0000-4000-8000-000000000054"
     static let placedAssetID = "assetinst_53000000-0000-4000-8000-000000000017"
     static let supportRelationID = "support_53000000-0000-4000-8000-000000000018"
     static let userID = "user_53000000-0000-4000-8000-000000000019"
@@ -1728,6 +2085,7 @@ enum RoomEditIdentity {
     static let bootstrapTimestamp = "2026-07-18T12:00:00Z"
     static let placeTimestamp = "2026-07-18T12:01:00Z"
     static let replaceTimestamp = "2026-07-18T12:02:00Z"
+    static let removeTimestamp = "2026-07-18T12:02:30Z"
     static let restoreTimestamp = "2026-07-18T12:03:00Z"
     static let previewExpiry = "2027-07-18T12:00:00Z"
 }
@@ -1878,9 +2236,16 @@ enum RoomEditFactory {
     static func runtime(
         resetStore: Bool = false,
         useFixtureSupport: Bool = false,
-        fixtureScenario: RoomEditTargetFixtureScenario = .healthy
+        fixtureScenario: RoomEditTargetFixtureScenario = .healthy,
+        removeLaunchMode: RoomEditRemoveLaunchMode = .normal,
+        removeFixtureBytesProvider: @escaping RoomEditRemoveFixtureBytesProvider = {
+            RoomEditDemoRevealFixture.compiledBytes
+        }
     ) throws -> RoomEditRuntime {
         let manifest = try Phase3ProxyManifest.load(bundle: .main)
+        let demoReveal = removeLaunchMode == .degradedDemoFixture
+            ? try? RoomEditDemoRevealFixture.decodeExact(bytes: removeFixtureBytesProvider())
+            : nil
         let documents = try FileManager.default.url(
             for: .documentDirectory,
             in: .userDomainMask,
@@ -1902,7 +2267,7 @@ enum RoomEditFactory {
         let authority = try NativeBranchAuthority(
             store: store,
             bootstrap: bootstrap(manifest: manifest),
-            locallyAvailableArtifacts: [manifest.artifactReference]
+            locallyAvailableArtifacts: [manifest.artifactReference] + [demoReveal?.revealReference].compactMap { $0 }
         )
         if useFixtureSupport {
             let targetSession = RoomEditFixtureTargetSession(scenario: fixtureScenario)
@@ -1911,7 +2276,9 @@ enum RoomEditFactory {
                 manifest: manifest,
                 supportProvider: { _ in .fixture },
                 targetSession: targetSession,
-                replacementSupportedViewPolicy: .fixtureDemoHypothesis
+                replacementSupportedViewPolicy: .fixtureDemoHypothesis,
+                removeLaunchMode: removeLaunchMode,
+                removeFixtureBytesProvider: removeFixtureBytesProvider
             )
             return RoomEditRuntime(
                 model: model,
@@ -1950,7 +2317,8 @@ enum RoomEditFactory {
                 )
             },
             targetSession: targetSession,
-            replacementSupportedViewPolicy: .liveDemoHypothesis
+            replacementSupportedViewPolicy: .liveDemoHypothesis,
+            removeLaunchMode: .normal
         )
         return RoomEditRuntime(
             model: model,
@@ -2019,5 +2387,6 @@ enum RoomEditSetupError: Error {
     case missingProxyResource
     case openProxyManifest
     case invalidProxyManifest
+    case invalidDemoRevealFixture
     case missingContractSchema
 }
