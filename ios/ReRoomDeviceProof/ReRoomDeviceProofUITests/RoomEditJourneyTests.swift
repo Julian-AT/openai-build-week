@@ -4,8 +4,7 @@ final class RoomEditJourneyTests: XCTestCase {
     @MainActor
     func testManualTargetSeedReseedReadinessAndTrackingRevocation() {
         var app = launch(reset: true, scenario: "healthy")
-        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
-        element("roomedit.target.surface", in: app).tap()
+        tapTargetSurface(in: app)
 
         XCTAssertTrue(element("roomedit.target.id", in: app).waitForExistence(timeout: 2))
         XCTAssertTrue(element("roomedit.target.epoch", in: app).exists)
@@ -29,8 +28,7 @@ final class RoomEditJourneyTests: XCTestCase {
 
         app.terminate()
         app = launch(reset: true, scenario: "tracking-loss")
-        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
-        element("roomedit.target.surface", in: app).tap()
+        tapTargetSurface(in: app)
         XCTAssertTrue(element("roomedit.target.tracking.unavailable", in: app).waitForExistence(timeout: 2))
         XCTAssertTrue(waitForLabel(
             "Select: unavailable — tracking_not_normal",
@@ -41,14 +39,12 @@ final class RoomEditJourneyTests: XCTestCase {
     @MainActor
     func testTargetMissAndAmbiguityAreExplicit() {
         var app = launch(reset: true, scenario: "miss")
-        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
-        element("roomedit.target.surface", in: app).tap()
+        tapTargetSurface(in: app)
         XCTAssertTrue(element("roomedit.target.failure.miss", in: app).waitForExistence(timeout: 2))
 
         app.terminate()
         app = launch(reset: true, scenario: "ambiguous")
-        XCTAssertTrue(element("roomedit.target.surface", in: app).waitForExistence(timeout: 5))
-        element("roomedit.target.surface", in: app).tap()
+        tapTargetSurface(in: app)
         XCTAssertTrue(element("roomedit.target.failure.ambiguous", in: app).waitForExistence(timeout: 2))
     }
 
@@ -127,5 +123,16 @@ final class RoomEditJourneyTests: XCTestCase {
             object: element
         )
         return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
+    }
+
+    @MainActor
+    private func tapTargetSurface(in app: XCUIApplication) {
+        let surface = element("roomedit.target.surface", in: app)
+        XCTAssertTrue(surface.waitForExistence(timeout: 5))
+        for _ in 0..<3 where surface.isHittable == false {
+            app.swipeUp()
+        }
+        XCTAssertTrue(surface.isHittable)
+        surface.tap()
     }
 }

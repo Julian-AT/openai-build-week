@@ -93,10 +93,13 @@ struct RoomEditView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     RoomEditHeader()
+                    RoomEditRevisionPanel(snapshot: model.snapshot)
                     RoomEditOperationGrid(
                         snapshot: model.snapshot,
                         select: selectOperation
                     )
+                    RoomEditStatePanel(snapshot: model.snapshot)
+                    RoomEditActionTray(snapshot: model.snapshot, model: model)
                     RoomEditCameraStage(
                         liveView: runtime.sharedSession?.view,
                         fixtureScenario: runtime.fixtureScenario,
@@ -107,9 +110,6 @@ struct RoomEditView: View {
                         snapshot: model.snapshot,
                         reseed: reseedTarget
                     )
-                    RoomEditRevisionPanel(snapshot: model.snapshot)
-                    RoomEditStatePanel(snapshot: model.snapshot)
-                    RoomEditActionTray(snapshot: model.snapshot, model: model)
                 }
                 .frame(maxWidth: 640, alignment: .leading)
                 .padding(.horizontal, 16)
