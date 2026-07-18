@@ -274,6 +274,34 @@ def _working_tree_counts(root: Path) -> dict[str, int]:
     return {"tracked_modified": tracked_modified, "untracked": untracked}
 
 
+def _reboot_booted_ui_simulator(root: Path) -> bytes:
+    """Give XCUITest a fresh runner host after the preceding model test session."""
+
+    xcrun = _executable("xcrun")
+    listing = _run([xcrun, "simctl", "list", "devices", "available", "-j"], root=root, label="ui_simulator_listing", timeout=30)
+    try:
+        document = json.loads(listing)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise EvidenceError("ui_simulator:listing") from error
+    devices = document.get("devices") if isinstance(document, dict) else None
+    if not isinstance(devices, dict):
+        raise EvidenceError("ui_simulator:listing")
+    booted = [
+        item
+        for values in devices.values()
+        if isinstance(values, list)
+        for item in values
+        if isinstance(item, dict) and item.get("name") == "iPhone 17" and item.get("state") == "Booted" and item.get("isAvailable", True) is True
+    ]
+    if len(booted) != 1 or not isinstance(booted[0].get("udid"), str):
+        raise EvidenceError("ui_simulator:booted_target")
+    identifier = booted[0]["udid"]
+    shutdown = _run([xcrun, "simctl", "shutdown", identifier], root=root, label="ui_simulator_shutdown", timeout=60)
+    boot = _run([xcrun, "simctl", "boot", identifier], root=root, label="ui_simulator_boot", timeout=60)
+    ready = _run([xcrun, "simctl", "bootstatus", identifier, "-b"], root=root, label="ui_simulator_ready", timeout=180)
+    return shutdown + boot + ready
+
+
 def _walk_strings(value: Any, *, key: str = "root") -> None:
     if isinstance(value, dict):
         for child_key, child in value.items():
@@ -465,7 +493,8 @@ def _full(root: Path, runtimes: dict[str, str], checks: list[dict[str, str]]) ->
     xcode_common = ["xcodebuild", "-project", XCODE_PROJECT, "-scheme", "ReRoomDeviceProof", "-destination", XCODE_DESTINATION]
     model = _run([*xcode_common, "test", "-only-testing:ReRoomDeviceProofTests/RoomEditModelTests"], root=root, label="room_edit_model_tests")
     checks.append(_check_record("room_edit_model_tests", model))
-    ui = _run([*xcode_common, "test", "-only-testing:ReRoomDeviceProofUITests/RoomEditJourneyTests"], root=root, label="room_edit_ui_tests")
+    simulator_boundary = _reboot_booted_ui_simulator(root)
+    ui = simulator_boundary + _run([*xcode_common, "test", "-only-testing:ReRoomDeviceProofUITests/RoomEditJourneyTests"], root=root, label="room_edit_ui_tests")
     checks.append(_check_record("room_edit_ui_tests", ui))
     debug = _run([*xcode_common, "-configuration", "Debug", "build"], root=root, label="debug_build")
     checks.append(_check_record("debug_build", debug))
