@@ -195,12 +195,12 @@ public enum IntentBoundary {
 
     private static func validateConstraint(_ constraint: TypedConstraint) throws {
         switch (constraint.kind, constraint.value) {
-        case ("color_tag", .string(let value)):
-            guard !value.isEmpty, value.count <= 32 else { throw IntentBoundaryRejection.invalidValue }
-        case ("support_required", .boolean):
+        case ("color_tag", .string(let value)), ("style_tag", .string(let value)):
+            guard !value.isEmpty, value.count <= 64 else { throw IntentBoundaryRejection.invalidValue }
+        case ("support_required", .boolean), ("preserve_walkway", .boolean):
             break
-        case ("maximum_height_m", .number(let value)):
-            guard value.isFinite, value > 0, value <= 10 else { throw IntentBoundaryRejection.invalidValue }
+        case ("max_footprint_m2", .number(let value)):
+            guard value.isFinite, value > 0, value <= 20 else { throw IntentBoundaryRejection.invalidValue }
         default:
             throw IntentBoundaryRejection.invalidValue
         }

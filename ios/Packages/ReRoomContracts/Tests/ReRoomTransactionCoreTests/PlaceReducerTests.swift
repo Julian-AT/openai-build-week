@@ -154,6 +154,7 @@ enum PlaceFailureCase: String, CaseIterable, Sendable, CustomTestStringConvertib
     case notAllowlisted
     case staleBase
     case wrongAuthority
+    case wrongBranch
 
     var testDescription: String { rawValue }
 
@@ -167,7 +168,7 @@ enum PlaceFailureCase: String, CaseIterable, Sendable, CustomTestStringConvertib
         case .integrityFailure: .artifactIntegrityFailed
         case .notAllowlisted: .assetNotAllowlisted
         case .staleBase: .staleBaseRevision
-        case .wrongAuthority: .authorityMismatch
+        case .wrongAuthority, .wrongBranch: .authorityMismatch
         }
     }
 }
@@ -304,6 +305,15 @@ enum PlaceFixtures {
                     kind: .nativeDevice,
                     authorityID: "device_30000000-0000-4000-8000-000000000018",
                     revisionBranchID: TransactionTestFixtures.branchID
+                )
+            )
+        case .wrongBranch:
+            proposal = self.proposal(
+                operation: .place,
+                authority: RevisionAuthority(
+                    kind: .nativeDevice,
+                    authorityID: TransactionTestFixtures.deviceID,
+                    revisionBranchID: "branch_30000000-0000-4000-8000-000000000019"
                 )
             )
         }
