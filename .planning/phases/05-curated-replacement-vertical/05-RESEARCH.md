@@ -307,19 +307,19 @@ Source: canonical replace checks plus Phase 4 stable target policy. Use typed re
 |---|-------|---------|---------------|
 | — | No unverified external claim is required. Recommendations derive from locked context, canonical repository authority, current source, and installed tool versions. | All | — |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Can the USDA itself load on the target device through the retained RealityKit path?**
+1. **RESOLVED — Can the USDA itself load on the target device through the retained RealityKit path?**
    - What we know: the bytes are bundled and hash-verified; official format capability was already recorded as CLM-007, but load support does not establish this file's device behavior. [VERIFIED: resource loader and Research Ledger]
-   - Recommendation: make local load a fail-closed runtime/automated smoke check; keep device-load and GATE-011 evidence pending even if simulator loading passes.
+   - Selected decision: require one-time retained RealityKit loading plus a fail-closed automated simulator smoke check. A load failure keeps replace unavailable. Physical-device load and `GATE-011` remain pending even if simulator loading passes.
 
-2. **How should older Phase 3 local generations be handled?**
+2. **RESOLVED — How should older Phase 3 local generations be handled?**
    - What we know: recovery accepts the old scene and ignores bootstrap content beyond identity checks, so it can recover with no canonical target object. [VERIFIED: `NativeBranchAuthority.init`]
-   - Recommendation: use a versioned Phase 5 demo-store directory for sprint speed and deterministic bootstrap. Do not silently mutate/relabel older persisted content; document this as demo-state versioning.
+   - Selected decision: use a versioned Phase 5 demo-store directory for sprint speed and deterministic bootstrap. Do not silently mutate or relabel older persisted content; document this as demo-state versioning.
 
-3. **What counts as the supported view?**
+3. **RESOLVED — What counts as the supported view?**
    - What we know: measured geometry is deferred; context locks a deterministic local fixture only. [VERIFIED: context/sprint cut]
-   - Recommendation: keep one closed fixture verdict tied to current target/revision/world; any mismatch coaches/reseeds. Never emit numerical coverage/pose claims.
+   - Selected decision: keep one closed fixture verdict tied to current target/revision/world; any mismatch coaches or reseeds. Never emit numerical coverage or pose claims.
 
 ## Environment Availability
 
