@@ -68,6 +68,10 @@ let package = Package(
             name: "ReRoomTransactionCoreTests",
             dependencies: ["ReRoomContracts", "ReRoomTransactionCore"]
         ),
+        .testTarget(
+            name: "ReRoomTransactionTraceExporterTests",
+            dependencies: ["ReRoomContracts", "ReRoomTransactionCore"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )
