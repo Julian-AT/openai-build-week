@@ -38,6 +38,9 @@
 		E10000000000000000000001 /* CaptureSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* CaptureSessionAdapterTests.swift */; };
 		E10000000000000000000002 /* ReRoomCaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = E30000000000000000000001 /* ReRoomCaptureCore */; };
 		E10000000000000000000004 /* CaptureSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000002 /* CaptureSessionAdapter.swift */; };
+		F10000000000000000000001 /* RoomEditModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* RoomEditModel.swift */; };
+		F10000000000000000000002 /* RoomEditModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000002 /* RoomEditModelTests.swift */; };
+		F10000000000000000000003 /* ReRoomTransactionCore in Frameworks */ = {isa = PBXBuildFile; productRef = F30000000000000000000001 /* ReRoomTransactionCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -86,6 +89,8 @@
 		D20000000000000000000001 /* ReleaseSmokeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseSmokeTests.swift; sourceTree = "<group>"; };
 		E20000000000000000000001 /* CaptureSessionAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionAdapterTests.swift; sourceTree = "<group>"; };
 		E20000000000000000000002 /* CaptureSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureSessionAdapter.swift; sourceTree = "<group>"; };
+		F20000000000000000000001 /* RoomEditModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditModel.swift; sourceTree = "<group>"; };
+		F20000000000000000000002 /* RoomEditModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditModelTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +100,7 @@
 			files = (
 				A10000000000000000000003 /* ReRoomContracts in Frameworks */,
 				E10000000000000000000002 /* ReRoomCaptureCore in Frameworks */,
+				F10000000000000000000003 /* ReRoomTransactionCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -130,6 +136,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000001 /* App.swift */,
+				F20000000000000000000001 /* RoomEditModel.swift */,
 				E20000000000000000000002 /* CaptureSessionAdapter.swift */,
 				A20000000000000000000002 /* DeviceProofModel.swift */,
 				A20000000000000000000003 /* PermissionController.swift */,
@@ -149,6 +156,7 @@
 		A80000000000000000000003 /* ReRoomDeviceProofTests */ = {
 			isa = PBXGroup;
 			children = (
+				F20000000000000000000002 /* RoomEditModelTests.swift */,
 				E20000000000000000000001 /* CaptureSessionAdapterTests.swift */,
 				A20000000000000000000006 /* ARSessionPolicyTests.swift */,
 				A2000000000000000000000C /* CaptureAttemptTests.swift */,
@@ -209,6 +217,7 @@
 			packageProductDependencies = (
 				A30000000000000000000001 /* ReRoomContracts */,
 				E30000000000000000000001 /* ReRoomCaptureCore */,
+				F30000000000000000000001 /* ReRoomTransactionCore */,
 			);
 			productName = ReRoomDeviceProof;
 			productReference = A20000000000000000000007 /* ReRoomDeviceProof.app */;
@@ -360,6 +369,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000001 /* App.swift in Sources */,
+				F10000000000000000000001 /* RoomEditModel.swift in Sources */,
 				E10000000000000000000004 /* CaptureSessionAdapter.swift in Sources */,
 				A10000000000000000000002 /* DeviceProofModel.swift in Sources */,
 				A10000000000000000000005 /* PermissionController.swift in Sources */,
@@ -378,6 +388,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F10000000000000000000002 /* RoomEditModelTests.swift in Sources */,
 				E10000000000000000000001 /* CaptureSessionAdapterTests.swift in Sources */,
 				A10000000000000000000004 /* ARSessionPolicyTests.swift in Sources */,
 				A1000000000000000000000A /* CaptureAttemptTests.swift in Sources */,
@@ -651,6 +662,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AD0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ReRoomContracts" */;
 			productName = ReRoomCaptureCore;
+		};
+		F30000000000000000000001 /* ReRoomTransactionCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AD0000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/ReRoomContracts" */;
+			productName = ReRoomTransactionCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
