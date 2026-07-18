@@ -303,7 +303,11 @@ Plans:
   4. OPS-GOLDEN-001 completes 5/5 consecutive signed base-device place/replace/remove/restore journeys plus matching B0 replay with all blocking gates green and controlled removal separately passing `GATE-006`.
   5. The rules checklist and evidence package are signed before the deadline; the public demo stays under the official limit, shows all four operations and B0 honestly, includes a representative Codex Session ID, and makes no unsupported performance or novelty claim.
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Fail-closed readiness, composite integration/safety checks, and exact sprint BOM.
+- [ ] 08-02-PLAN.md — Sanitized evidence/status publication, representative rehearsal runbook, and human submission handoff.
 **UI hint**: yes
 
 ## Dependency and Scope Notes
