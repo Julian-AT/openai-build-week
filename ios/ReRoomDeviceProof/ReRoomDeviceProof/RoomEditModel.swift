@@ -28,6 +28,376 @@ enum RoomEditLocalState: String, Equatable, Sendable {
     case durable = "Saved locally"
 }
 
+enum ManualTargetCategory: Equatable, Sendable {
+    case chair
+    case smallTable
+    case unsupported(String)
+}
+
+enum TargetTrackingHealth: String, Equatable, Sendable {
+    case normal
+    case limited
+    case notAvailable = "not_available"
+    case interrupted
+    case failed
+
+    var isHealthy: Bool { self == .normal }
+}
+
+enum TargetLifecycle: String, Equatable, Sendable {
+    case candidate
+    case tracked
+    case lost
+    case retired
+}
+
+enum TargetGroundingFailure: String, Equatable, Sendable {
+    case targetMissed = "target_missed"
+    case targetAmbiguous = "target_ambiguous"
+    case trackingNotNormal = "tracking_not_normal"
+    case staleSceneRevision = "stale_scene_revision"
+    case worldFrameMismatch = "world_frame_mismatch"
+    case unsupportedTargetCategory = "unsupported_target_category"
+    case invalidSpatialEvidence = "invalid_spatial_evidence"
+}
+
+enum TargetReadinessValue: String, Equatable, Sendable {
+    case unavailable
+    case warming
+    case ready
+    case degraded
+    case failed
+}
+
+enum TargetReadinessReasonCode: String, Equatable, Sendable {
+    case trackingNotNormal = "tracking_not_normal"
+    case targetAmbiguous = "target_ambiguous"
+    case targetLost = "target_lost"
+    case unsupportedTargetCategory = "unsupported_target_category"
+    case supportMissing = "support_missing"
+    case artifactMissing = "artifact_missing"
+    case providerUnavailable = "provider_unavailable"
+    case revealQualityFailed = "reveal_quality_failed"
+    case noEligibleRestore = "no_eligible_restore"
+    case worldFrameMismatch = "world_frame_mismatch"
+    case authorityConflict = "authority_conflict"
+}
+
+struct TargetReadinessMatrix: Equatable, Sendable {
+    let select: TargetReadinessValue
+    let place: TargetReadinessValue
+    let replace: TargetReadinessValue
+    let remove: TargetReadinessValue
+    let restore: TargetReadinessValue
+}
+
+struct TargetReadinessReasons: Equatable, Sendable {
+    let select: [TargetReadinessReasonCode]
+    let place: [TargetReadinessReasonCode]
+    let replace: [TargetReadinessReasonCode]
+    let remove: [TargetReadinessReasonCode]
+    let restore: [TargetReadinessReasonCode]
+}
+
+struct ManualTargetCandidate: Equatable, Sendable {
+    let category: ManualTargetCategory
+    let capturedAtFrameID: String
+    let capturedSceneRevision: UInt64
+    let worldFrameID: String
+    let worldFrameVersion: UInt64
+    let cameraPose: Matrix4
+    let worldFromTarget: Matrix4
+    let screenPointEncodedPixels: [Double]
+}
+
+struct ManualFrozenProxy: Equatable, Sendable {
+    let version: UInt64
+    let capturedAtFrameID: String
+    let capturedSceneRevision: UInt64
+    let worldFrameID: String
+    let worldFrameVersion: UInt64
+    let cameraPose: Matrix4
+    let worldFromTarget: Matrix4
+    let screenPointEncodedPixels: [Double]
+}
+
+struct GroundedManualTarget: Equatable, Sendable {
+    let objectID: String
+    let category: ManualTargetCategory
+    let lifecycle: TargetLifecycle
+    let frozenProxy: ManualFrozenProxy
+
+    func with(lifecycle: TargetLifecycle) -> Self {
+        Self(
+            objectID: objectID,
+            category: category,
+            lifecycle: lifecycle,
+            frozenProxy: frozenProxy
+        )
+    }
+}
+
+struct TargetGroundingEnvironment: Equatable, Sendable {
+    let sceneRevision: UInt64
+    let worldFrameID: String
+    let worldFrameVersion: UInt64
+    let tracking: TargetTrackingHealth
+    let supportReady: Bool
+    let restoreEligible: Bool
+}
+
+enum TargetGroundingEvent: Equatable, Sendable {
+    case select([ManualTargetCandidate])
+    case reseed([ManualTargetCandidate])
+    case trackingChanged
+    case worldReset
+}
+
+struct TargetGroundingSnapshot: Equatable, Sendable {
+    let target: GroundedManualTarget?
+    let failure: TargetGroundingFailure?
+    let sceneRevision: UInt64
+    let worldFrameID: String
+    let worldFrameVersion: UInt64
+    let tracking: TargetTrackingHealth
+    let readiness: TargetReadinessMatrix
+    let reasons: TargetReadinessReasons
+
+    static let loading = TargetGroundingSnapshot(
+        target: nil,
+        failure: nil,
+        sceneRevision: 0,
+        worldFrameID: RoomEditIdentity.worldFrameID,
+        worldFrameVersion: 1,
+        tracking: .limited,
+        readiness: TargetReadinessMatrix(
+            select: .warming,
+            place: .warming,
+            replace: .unavailable,
+            remove: .unavailable,
+            restore: .unavailable
+        ),
+        reasons: TargetReadinessReasons(
+            select: [.trackingNotNormal],
+            place: [.trackingNotNormal],
+            replace: [.targetLost],
+            remove: [.revealQualityFailed],
+            restore: [.noEligibleRestore]
+        )
+    )
+
+    var targetContext: TargetContext? {
+        guard let target,
+              target.lifecycle == .tracked,
+              target.frozenProxy.capturedSceneRevision == sceneRevision,
+              target.frozenProxy.worldFrameID == worldFrameID,
+              target.frozenProxy.worldFrameVersion == worldFrameVersion,
+              tracking.isHealthy
+        else { return nil }
+        let proxy = target.frozenProxy
+        return TargetContext(
+            contractCapturedAtFrameID: proxy.capturedAtFrameID,
+            capturedSceneRevision: proxy.capturedSceneRevision,
+            worldFrameID: proxy.worldFrameID,
+            worldFrameVersion: proxy.worldFrameVersion,
+            cameraPose: proxy.cameraPose,
+            screenPointEncodedPixels: proxy.screenPointEncodedPixels,
+            candidateObjectIDs: [target.objectID],
+            selectedObjectID: target.objectID,
+            artifactRefs: []
+        )
+    }
+}
+
+enum TargetGroundingReducer {
+    static func initial(environment: TargetGroundingEnvironment) -> TargetGroundingSnapshot {
+        build(target: nil, failure: nil, environment: environment)
+    }
+
+    static func reduce(
+        _ current: TargetGroundingSnapshot,
+        event: TargetGroundingEvent,
+        environment: TargetGroundingEnvironment,
+        stableObjectID: String = RoomEditIdentity.targetObjectID
+    ) -> TargetGroundingSnapshot {
+        switch event {
+        case let .select(candidates):
+            return grounding(
+                current,
+                candidates: candidates,
+                environment: environment,
+                stableObjectID: current.target?.objectID ?? stableObjectID,
+                requiresExistingTarget: false
+            )
+        case let .reseed(candidates):
+            return grounding(
+                current,
+                candidates: candidates,
+                environment: environment,
+                stableObjectID: current.target?.objectID ?? stableObjectID,
+                requiresExistingTarget: true
+            )
+        case .trackingChanged:
+            let target = environment.tracking.isHealthy
+                ? current.target
+                : current.target?.with(lifecycle: .lost)
+            let failure: TargetGroundingFailure? = environment.tracking.isHealthy
+                ? current.failure
+                : .trackingNotNormal
+            return build(target: target, failure: failure, environment: environment)
+        case .worldReset:
+            return build(
+                target: current.target?.with(lifecycle: .lost),
+                failure: .worldFrameMismatch,
+                environment: environment
+            )
+        }
+    }
+
+    private static func grounding(
+        _ current: TargetGroundingSnapshot,
+        candidates: [ManualTargetCandidate],
+        environment: TargetGroundingEnvironment,
+        stableObjectID: String,
+        requiresExistingTarget: Bool
+    ) -> TargetGroundingSnapshot {
+        if requiresExistingTarget, current.target == nil {
+            return build(target: current.target, failure: .targetMissed, environment: environment)
+        }
+        guard environment.tracking.isHealthy else {
+            return build(target: current.target, failure: .trackingNotNormal, environment: environment)
+        }
+        guard candidates.count == 1 else {
+            let failure: TargetGroundingFailure = candidates.isEmpty ? .targetMissed : .targetAmbiguous
+            return build(target: current.target, failure: failure, environment: environment)
+        }
+        let candidate = candidates[0]
+        guard candidate.category == .chair || candidate.category == .smallTable else {
+            return build(
+                target: current.target,
+                failure: .unsupportedTargetCategory,
+                environment: environment
+            )
+        }
+        guard candidate.capturedSceneRevision == environment.sceneRevision else {
+            return build(target: current.target, failure: .staleSceneRevision, environment: environment)
+        }
+        guard candidate.worldFrameID == environment.worldFrameID,
+              candidate.worldFrameVersion == environment.worldFrameVersion
+        else {
+            return build(target: current.target, failure: .worldFrameMismatch, environment: environment)
+        }
+        guard valid(candidate), validStableObjectID(stableObjectID) else {
+            return build(target: current.target, failure: .invalidSpatialEvidence, environment: environment)
+        }
+        let target = GroundedManualTarget(
+            objectID: stableObjectID,
+            category: candidate.category,
+            lifecycle: .tracked,
+            frozenProxy: ManualFrozenProxy(
+                version: (current.target?.frozenProxy.version ?? 0) + 1,
+                capturedAtFrameID: candidate.capturedAtFrameID,
+                capturedSceneRevision: candidate.capturedSceneRevision,
+                worldFrameID: candidate.worldFrameID,
+                worldFrameVersion: candidate.worldFrameVersion,
+                cameraPose: candidate.cameraPose,
+                worldFromTarget: candidate.worldFromTarget,
+                screenPointEncodedPixels: candidate.screenPointEncodedPixels
+            )
+        )
+        return build(target: target, failure: nil, environment: environment)
+    }
+
+    private static func valid(_ candidate: ManualTargetCandidate) -> Bool {
+        candidate.capturedAtFrameID.hasPrefix("frame_")
+            && candidate.cameraPose.values.count == 16
+            && candidate.cameraPose.values.allSatisfy(\.isFinite)
+            && candidate.worldFromTarget.values.count == 16
+            && candidate.worldFromTarget.values.allSatisfy(\.isFinite)
+            && candidate.screenPointEncodedPixels.count == 2
+            && candidate.screenPointEncodedPixels.allSatisfy(\.isFinite)
+    }
+
+    private static func validStableObjectID(_ value: String) -> Bool {
+        value.range(
+            of: #"^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"#,
+            options: .regularExpression
+        ) != nil
+    }
+
+    private static func build(
+        target: GroundedManualTarget?,
+        failure: TargetGroundingFailure?,
+        environment: TargetGroundingEnvironment
+    ) -> TargetGroundingSnapshot {
+        let hasCurrentTarget = target?.lifecycle == .tracked
+            && target?.frozenProxy.capturedSceneRevision == environment.sceneRevision
+            && target?.frozenProxy.worldFrameID == environment.worldFrameID
+            && target?.frozenProxy.worldFrameVersion == environment.worldFrameVersion
+        let trackingFailure: TargetReadinessValue = environment.tracking == .failed ? .failed : .unavailable
+
+        let select: TargetReadinessValue = environment.tracking.isHealthy ? .ready : trackingFailure
+        let place: TargetReadinessValue
+        if !environment.tracking.isHealthy {
+            place = trackingFailure
+        } else {
+            place = environment.supportReady ? .ready : .unavailable
+        }
+        let replace: TargetReadinessValue
+        if !environment.tracking.isHealthy {
+            replace = trackingFailure
+        } else {
+            replace = hasCurrentTarget ? .degraded : .unavailable
+        }
+        let remove: TargetReadinessValue = .unavailable
+        let restore: TargetReadinessValue = environment.restoreEligible ? .ready : .unavailable
+
+        let selectReasons: [TargetReadinessReasonCode] = select == .ready ? [] : [.trackingNotNormal]
+        let placeReasons: [TargetReadinessReasonCode]
+        if place == .ready {
+            placeReasons = []
+        } else {
+            placeReasons = environment.tracking.isHealthy ? [.supportMissing] : [.trackingNotNormal]
+        }
+        let replaceReasons: [TargetReadinessReasonCode]
+        if !environment.tracking.isHealthy {
+            replaceReasons = [.trackingNotNormal]
+        } else if hasCurrentTarget {
+            replaceReasons = [.providerUnavailable]
+        } else if target != nil {
+            replaceReasons = target?.frozenProxy.worldFrameID == environment.worldFrameID
+                && target?.frozenProxy.worldFrameVersion == environment.worldFrameVersion
+                ? [.authorityConflict]
+                : [.worldFrameMismatch]
+        } else {
+            replaceReasons = failure == .targetAmbiguous ? [.targetAmbiguous] : [.targetLost]
+        }
+
+        return TargetGroundingSnapshot(
+            target: target,
+            failure: failure,
+            sceneRevision: environment.sceneRevision,
+            worldFrameID: environment.worldFrameID,
+            worldFrameVersion: environment.worldFrameVersion,
+            tracking: environment.tracking,
+            readiness: TargetReadinessMatrix(
+                select: select,
+                place: place,
+                replace: replace,
+                remove: remove,
+                restore: restore
+            ),
+            reasons: TargetReadinessReasons(
+                select: selectReasons,
+                place: placeReasons,
+                replace: replaceReasons,
+                remove: [.revealQualityFailed],
+                restore: restore == .ready ? [] : [.noEligibleRestore]
+            )
+        )
+    }
+}
+
 struct RoomEditPreviewSnapshot: Equatable, Sendable {
     let proxyID: String
     let baseRevision: UInt64
@@ -45,6 +415,8 @@ struct RoomEditSnapshot: Equatable, Sendable {
     let placedAssetVisible: Bool
     let canConfirm: Bool
     let canRestore: Bool
+    let target: TargetGroundingSnapshot
+    let targetContext: TargetContext?
     let status: String
 
     static let loading = RoomEditSnapshot(
@@ -57,6 +429,8 @@ struct RoomEditSnapshot: Equatable, Sendable {
         placedAssetVisible: false,
         canConfirm: false,
         canRestore: false,
+        target: .loading,
+        targetContext: nil,
         status: "Loading local room state"
     )
 }
@@ -141,6 +515,7 @@ final class RoomEditModel {
     @ObservationIgnored private let manifest: Phase3ProxyManifest
     @ObservationIgnored private let supportProvider: RoomEditSupportProvider
     @ObservationIgnored private var placePreview: PlacePreviewReduction?
+    @ObservationIgnored private var targetGrounding: TargetGroundingSnapshot = .loading
 
     init(
         authority: NativeBranchAuthority,
@@ -154,7 +529,87 @@ final class RoomEditModel {
 
     func prepare() async {
         placePreview = nil
-        await refresh(status: "Local room state recovered")
+        let active = await authority.activeSnapshot()
+        targetGrounding = TargetGroundingReducer.initial(
+            environment: targetEnvironment(
+                for: active,
+                tracking: .limited,
+                supportReady: false
+            )
+        )
+        publish(active, status: "Local room state recovered")
+    }
+
+    func groundTarget(
+        candidates: [ManualTargetCandidate],
+        tracking: TargetTrackingHealth
+    ) async {
+        let active = await authority.activeSnapshot()
+        targetGrounding = TargetGroundingReducer.reduce(
+            targetGrounding,
+            event: .select(candidates),
+            environment: targetEnvironment(for: active, tracking: tracking)
+        )
+        publish(
+            active,
+            status: targetGrounding.failure == nil
+                ? "Manual target grounded with frozen no-dense proxy"
+                : targetFailureStatus(targetGrounding.failure)
+        )
+    }
+
+    func reseedTarget(
+        candidates: [ManualTargetCandidate],
+        tracking: TargetTrackingHealth
+    ) async {
+        let active = await authority.activeSnapshot()
+        targetGrounding = TargetGroundingReducer.reduce(
+            targetGrounding,
+            event: .reseed(candidates),
+            environment: targetEnvironment(for: active, tracking: tracking)
+        )
+        publish(
+            active,
+            status: targetGrounding.failure == nil
+                ? "Manual target reseeded in the current world epoch"
+                : targetFailureStatus(targetGrounding.failure)
+        )
+    }
+
+    func updateTargetTracking(_ tracking: TargetTrackingHealth) async {
+        let active = await authority.activeSnapshot()
+        targetGrounding = TargetGroundingReducer.reduce(
+            targetGrounding,
+            event: .trackingChanged,
+            environment: targetEnvironment(for: active, tracking: tracking)
+        )
+        publish(
+            active,
+            status: tracking.isHealthy
+                ? "Tracking recovered; reseed a lost target before editing"
+                : "Tracking is not normal; unsafe target edits are disabled"
+        )
+    }
+
+    func noteTargetWorldReset(
+        worldFrameID: String,
+        worldFrameVersion: UInt64,
+        tracking: TargetTrackingHealth
+    ) async {
+        let active = await authority.activeSnapshot()
+        targetGrounding = TargetGroundingReducer.reduce(
+            targetGrounding,
+            event: .worldReset,
+            environment: TargetGroundingEnvironment(
+                sceneRevision: active.scene.sceneRevision,
+                worldFrameID: worldFrameID,
+                worldFrameVersion: worldFrameVersion,
+                tracking: tracking,
+                supportReady: false,
+                restoreEligible: hasEligibleRestore(in: active)
+            )
+        )
+        publish(active, status: "World epoch changed; explicit target reseed required")
     }
 
     func selectOperation(_ operation: RoomEditOperation) async {
@@ -176,7 +631,7 @@ final class RoomEditModel {
             )
         case .restore:
             let active = await authority.activeSnapshot()
-            await publish(
+            publish(
                 active,
                 selected: operation,
                 blocker: hasEligibleRestore(in: active) ? nil : .restoreSourceRequired,
@@ -193,7 +648,7 @@ final class RoomEditModel {
             let active = await authority.activeSnapshot()
             _ = try PlaceReducer.cancel(preview, currentScene: active.scene)
             placePreview = nil
-            await publish(active, selected: .place, status: "Provisional placement cancelled; revision unchanged")
+            publish(active, selected: .place, status: "Provisional placement cancelled; revision unchanged")
         } catch {
             await fail(error)
         }
@@ -231,7 +686,7 @@ final class RoomEditModel {
         do {
             let active = await authority.activeSnapshot()
             guard let source = eligibleRestoreSource(in: active) else {
-                await publish(
+                publish(
                     active,
                     selected: .restore,
                     blocker: .restoreSourceRequired,
@@ -276,7 +731,7 @@ final class RoomEditModel {
             guard let support = await supportProvider(active.scene),
                   support.surfaceID == RoomEditIdentity.surfaceID
             else {
-                await publish(
+                publish(
                     active,
                     selected: .place,
                     blocker: .healthySupportRequired,
@@ -314,7 +769,12 @@ final class RoomEditModel {
                 )
             )
             placePreview = reduction
-            snapshot = RoomEditSnapshot(
+            targetGrounding = TargetGroundingReducer.reduce(
+                targetGrounding,
+                event: .trackingChanged,
+                environment: targetEnvironment(for: active, tracking: .normal, supportReady: true)
+            )
+            assignSnapshot(RoomEditSnapshot(
                 operations: RoomEditOperation.allCases,
                 selectedOperation: .place,
                 revision: active.scene.sceneRevision,
@@ -329,8 +789,10 @@ final class RoomEditModel {
                 placedAssetVisible: active.scene.placedAssets.isEmpty == false,
                 canConfirm: true,
                 canRestore: hasEligibleRestore(in: active),
+                target: targetGrounding,
+                targetContext: targetGrounding.targetContext,
                 status: "Provisional Phase 3 proxy; confirm or cancel"
-            )
+            ))
         } catch {
             await fail(error)
         }
@@ -341,11 +803,18 @@ final class RoomEditModel {
         scene: SceneState,
         support: RoomEditSupportContext?
     ) -> BoundProposal {
-        BoundProposal(
+        let groundedContext: TargetContext?
+        switch operation {
+        case .replace, .remove:
+            groundedContext = targetGrounding.targetContext
+        case .place, .restore:
+            groundedContext = nil
+        }
+        return BoundProposal(
             sessionID: scene.sessionID,
             revisionAuthority: scene.revisionAuthority,
             baseSceneRevision: scene.sceneRevision,
-            targetContext: TargetContext(
+            targetContext: groundedContext ?? TargetContext(
                 contractCapturedAtFrameID: support?.capturedFrameID ?? RoomEditIdentity.frameID,
                 capturedSceneRevision: scene.sceneRevision,
                 worldFrameID: scene.worldFrame.worldFrameID,
@@ -372,8 +841,14 @@ final class RoomEditModel {
         blocker: RoomEditBlocker? = nil,
         status: String
     ) async {
-        await publish(
-            authority.activeSnapshot(),
+        let active = await authority.activeSnapshot()
+        targetGrounding = TargetGroundingReducer.reduce(
+            targetGrounding,
+            event: .trackingChanged,
+            environment: targetEnvironment(for: active, tracking: targetGrounding.tracking)
+        )
+        publish(
+            active,
             selected: selected,
             blocker: blocker,
             status: status
@@ -385,8 +860,8 @@ final class RoomEditModel {
         selected: RoomEditOperation? = nil,
         blocker: RoomEditBlocker? = nil,
         status: String
-    ) async {
-        snapshot = RoomEditSnapshot(
+    ) {
+        assignSnapshot(RoomEditSnapshot(
             operations: RoomEditOperation.allCases,
             selectedOperation: selected,
             revision: active.scene.sceneRevision,
@@ -396,8 +871,54 @@ final class RoomEditModel {
             placedAssetVisible: active.scene.placedAssets.isEmpty == false,
             canConfirm: false,
             canRestore: hasEligibleRestore(in: active),
+            target: targetGrounding,
+            targetContext: targetGrounding.targetContext,
             status: status
+        ))
+    }
+
+    private func assignSnapshot(_ next: RoomEditSnapshot) {
+        guard next != snapshot else { return }
+        snapshot = next
+    }
+
+    private func targetEnvironment(
+        for active: TransactionGenerationSnapshot,
+        tracking: TargetTrackingHealth,
+        supportReady: Bool? = nil
+    ) -> TargetGroundingEnvironment {
+        TargetGroundingEnvironment(
+            sceneRevision: active.scene.sceneRevision,
+            worldFrameID: active.scene.worldFrame.worldFrameID,
+            worldFrameVersion: active.scene.worldFrame.worldFrameVersion,
+            tracking: tracking,
+            supportReady: supportReady ?? active.scene.surfaces.contains {
+                $0.lifecycle == "tracked"
+                    && ["floor", "tabletop", "other_horizontal"].contains($0.kind)
+            },
+            restoreEligible: hasEligibleRestore(in: active)
         )
+    }
+
+    private func targetFailureStatus(_ failure: TargetGroundingFailure?) -> String {
+        switch failure {
+        case .targetMissed:
+            "No target found; aim at the visible chair/table and tap again"
+        case .targetAmbiguous:
+            "Target is ambiguous; isolate one chair/table and tap again"
+        case .trackingNotNormal:
+            "Tracking is not normal; move slowly and retry"
+        case .staleSceneRevision:
+            "Target evidence is stale; tap again in the current room state"
+        case .worldFrameMismatch:
+            "Target belongs to another world epoch; reseed it"
+        case .unsupportedTargetCategory:
+            "Only one freestanding chair or small table is supported"
+        case .invalidSpatialEvidence:
+            "Target evidence is invalid; aim at visible floor and retry"
+        case nil:
+            "Manual target ready"
+        }
     }
 
     private func fail(_ error: any Error) async {
@@ -431,6 +952,7 @@ enum RoomEditIdentity {
     static let worldFrameID = "world_53000000-0000-4000-8000-000000000014"
     static let frameID = "frame_53000000-0000-4000-8000-000000000015"
     static let surfaceID = "surface_53000000-0000-4000-8000-000000000016"
+    static let targetObjectID = "object_53000000-0000-4000-8000-000000000030"
     static let placedAssetID = "assetinst_53000000-0000-4000-8000-000000000017"
     static let supportRelationID = "support_53000000-0000-4000-8000-000000000018"
     static let userID = "user_53000000-0000-4000-8000-000000000019"
