@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: executing
-stopped_at: Completed 02-05-PLAN.md
-last_updated: "2026-07-18T00:18:11.231Z"
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-07-18T01:56:16.081Z"
 last_activity: 2026-07-17
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 22
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -30,13 +30,13 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 Phase: 02 (Atomic Capture and Exact Replay) — EXECUTING
 
-Plan: 6 of 7
+Plan: 7 of 7
 
 Status: Ready to execute
 
 Last activity: 2026-07-17 — Phase 02 execution started
 
-Progress: [████████████████████] 15/15 planned tasks ([█████████░] 91%)
+Progress: [████████████████████] 15/15 planned tasks ([██████████] 95%)
 
 ## Performance Metrics
 
@@ -80,6 +80,7 @@ Progress: [████████████████████] 15/15 p
 | Phase 02 P04 | 16 min | 2 tasks | 7 files |
 | Phase 02 P03 | 32min | 3 tasks | 9 files |
 | Phase 02 P05 | 32min | 3 tasks | 8 files |
+| Phase 02 P06 | 1h35m | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -111,7 +112,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 02]: Bind all three replay runners to one exact implementation revision and closed source-tree digest. — Separate comparator and publisher content hashes keep the evidence reproducible without dynamic-HEAD or self-reference ambiguity.
 - [Phase 02]: Validate every report against its immutable oracle, closed schema, runtime identity, canonical bytes, and self-digest before semantic normalization. — No runtime output may define another runtime's replay authority or hide a mismatch through normalization.
 - [Phase 02]: Publish replay agreement through a recoverable prepared/committed transaction. — Replacement faults and interrupted restarts expose the complete prior or complete new evidence generation, never an accepted mixed state.
-
+- [Phase 02]: Accept a per-frame encoding profile so each durable packet's image, intrinsics, projection, and pose originate from the same ARFrame callback. — A session-static encoding profile could pair fresh imagery and calibration with stale camera pose.
+- [Phase 02]: Expose recovery candidates only as immutable verified snapshots or sanitized failure snapshots; rejected records never enter the inspector. — Presentation must not turn an unverified recovery candidate into replay-visible state.
+- [Phase 02]: Resolve the pinned draft meta-schema resource bundle explicitly under iOS static linking and retain full fail-closed meta-schema validation. — The resource is embedded in the app but the dependency public bundle accessor cannot discover it in the iOS static-link host.
 ### Pending Todos
 
 None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independently re-verified; future physical or human gates remain pending until their own real evidence exists.
@@ -130,9 +133,9 @@ None carried from Phase 1. GATE-013 and GATE-002 are signed GREEN and independen
 
 ## Session Continuity
 
-Last session: 2026-07-18T00:18:11.226Z
+Last session: 2026-07-18T01:56:16.074Z
 
-Stopped at: Completed 02-05-PLAN.md
+Stopped at: Completed 02-06-PLAN.md
 
 Resume file: None
 
