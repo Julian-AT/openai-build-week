@@ -2,6 +2,77 @@ import XCTest
 
 final class RoomEditJourneyTests: XCTestCase {
     @MainActor
+    func testBundledReplacementLoadsAndFullJourneyIsExactlyOnce() {
+        var app = launch(reset: true, scenario: "healthy")
+        XCTAssertTrue(element("roomedit.asset.proxy.loaded", in: app).waitForExistence(timeout: 5))
+        XCTAssertEqual(element("roomedit.asset.proxy.loaded", in: app).label, "Six-cube local demo proxy loaded")
+        XCTAssertTrue(element("roomedit.replace.supported-view", in: app).exists)
+        XCTAssertTrue(element("roomedit.replace.gate.pending", in: app).exists)
+
+        tapTargetSurface(in: app)
+        element("roomedit.operation.replace", in: app).tap()
+        XCTAssertTrue(element("roomedit.preview.replacement", in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists)
+        XCTAssertTrue(element("roomedit.render.replacement", in: app).exists)
+        XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r0")
+
+        element("roomedit.action.confirm.replace", in: app).tap()
+        XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
+        XCTAssertTrue(element("roomedit.asset.replacement.committed", in: app).exists)
+        XCTAssertTrue(element("roomedit.action.retry.replace", in: app).exists)
+        element("roomedit.action.retry.replace", in: app).tap()
+        XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r1")
+
+        app.terminate()
+        app = launch(reset: false, scenario: "healthy")
+        XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
+        XCTAssertTrue(element("roomedit.asset.replacement.committed", in: app).exists)
+        element("roomedit.operation.restore", in: app).tap()
+        XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
+        XCTAssertTrue(element("roomedit.restore.committed", in: app).exists)
+        XCTAssertFalse(element("roomedit.asset.replacement.committed", in: app).exists)
+    }
+
+    @MainActor
+    func testFiveDeterministicReplacementFixtureIterations() {
+        for iteration in 1...5 {
+            let app = launch(reset: true, scenario: "healthy")
+            XCTAssertTrue(
+                element("roomedit.asset.proxy.loaded", in: app).waitForExistence(timeout: 5),
+                "asset iteration \(iteration)"
+            )
+            tapTargetSurface(in: app)
+            XCTAssertEqual(
+                element("roomedit.target.id", in: app).label,
+                "Target ID object_53000000-0000-4000-8000-000000000030"
+            )
+            element("roomedit.operation.replace", in: app).tap()
+            XCTAssertTrue(element("roomedit.action.confirm.replace", in: app).waitForExistence(timeout: 2))
+            element("roomedit.action.confirm.replace", in: app).tap()
+            XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
+            element("roomedit.action.retry.replace", in: app).tap()
+            XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r1")
+            XCTAssertTrue(element("roomedit.asset.replacement.committed", in: app).exists)
+            element("roomedit.operation.restore", in: app).tap()
+            XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
+            XCTAssertFalse(element("roomedit.asset.replacement.committed", in: app).exists)
+            app.terminate()
+        }
+    }
+
+    @MainActor
+    func testReplacementLoaderFailureRetainsSafeTarget() {
+        let app = launch(reset: true, scenario: "healthy", failReplacementLoad: true)
+        tapTargetSurface(in: app)
+        XCTAssertTrue(element("roomedit.asset.proxy.failed", in: app).waitForExistence(timeout: 5))
+        element("roomedit.operation.replace", in: app).tap()
+        XCTAssertTrue(element("roomedit.blocker.replace.asset", in: app).waitForExistence(timeout: 2))
+        XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists)
+        XCTAssertFalse(element("roomedit.render.replacement", in: app).exists)
+        XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r0")
+    }
+
+    @MainActor
     func testManualTargetSeedReseedReadinessAndTrackingRevocation() {
         var app = launch(reset: true, scenario: "healthy")
         tapTargetSurface(in: app)
@@ -99,8 +170,20 @@ final class RoomEditJourneyTests: XCTestCase {
 
     @MainActor
     private func launch(reset: Bool, scenario: String?) -> XCUIApplication {
+        launch(reset: reset, scenario: scenario, failReplacementLoad: false)
+    }
+
+    @MainActor
+    private func launch(
+        reset: Bool,
+        scenario: String?,
+        failReplacementLoad: Bool
+    ) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["--room-edit-ui-test"] + (reset ? ["--room-edit-reset"] : [])
+        if failReplacementLoad {
+            app.launchArguments.append("--room-edit-proxy-load-fail")
+        }
         if let scenario {
             app.launchArguments.append("--room-edit-target-\(scenario)")
         }
