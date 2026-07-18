@@ -212,6 +212,66 @@ struct ARSessionPolicyTests {
         #expect(events.suffix(2) == [.worldReset, .running(true)])
     }
 
+    @MainActor
+    @Test("Registered observers share one ordered synchronous AR event stream")
+    func controllerDeliversToMultipleObserversInRegistrationOrder() {
+        let driver = TestARSessionDriver()
+        let controller = ARSessionController(driver: driver)
+        var deliveries: [ObservedDelivery] = []
+        let first = controller.addObserver { event in
+            deliveries.append(ObservedDelivery(observer: "first", event: event))
+        }
+        _ = controller.addObserver { event in
+            deliveries.append(ObservedDelivery(observer: "second", event: event))
+        }
+
+        controller.synchronize(cameraAuthorization: .granted)
+        controller.recordTrackingState(.normal)
+        controller.recordPlaneObservation(.horizontal)
+
+        #expect(driver.runPolicies == [.deviceProof])
+        #expect(deliveries == [
+            ObservedDelivery(observer: "first", event: .running(true)),
+            ObservedDelivery(observer: "second", event: .running(true)),
+            ObservedDelivery(observer: "first", event: .tracking(.normal)),
+            ObservedDelivery(observer: "second", event: .tracking(.normal)),
+            ObservedDelivery(observer: "first", event: .planeObserved(.horizontal)),
+            ObservedDelivery(observer: "second", event: .planeObserved(.horizontal)),
+        ])
+
+        controller.removeObserver(first)
+        controller.sessionWasInterrupted(ARSession())
+
+        #expect(deliveries.suffix(2) == [
+            ObservedDelivery(observer: "second", event: .tracking(.unavailable)),
+            ObservedDelivery(observer: "second", event: .running(false)),
+        ])
+        #expect(driver.pauseCallCount == 1)
+    }
+
+    @MainActor
+    @Test("No-op session state is coalesced without another driver run or event buffer")
+    func controllerCoalescesDuplicateNoOpState() {
+        let driver = TestARSessionDriver()
+        let controller = ARSessionController(driver: driver)
+        var events: [ARSessionEvent] = []
+        _ = controller.addObserver { events.append($0) }
+
+        controller.synchronize(cameraAuthorization: .granted)
+        controller.synchronize(cameraAuthorization: .granted)
+        controller.recordTrackingState(.limited)
+        controller.recordTrackingState(.limited)
+        controller.recordPlaneObservation(.horizontal)
+        controller.recordPlaneObservation(.horizontal)
+
+        #expect(driver.runPolicies == [.deviceProof])
+        #expect(events == [
+            .running(true),
+            .tracking(.limited),
+            .planeObserved(.horizontal),
+        ])
+    }
+
     private func otherwiseReadyState(
         microphoneAuthorization: PermissionAuthorizationState
     ) -> DeviceProofState {
@@ -229,6 +289,11 @@ struct ARSessionPolicyTests {
 }
 
 private struct TestSessionFailure: Error {}
+
+private struct ObservedDelivery: Equatable {
+    let observer: String
+    let event: ARSessionEvent
+}
 
 @MainActor
 private final class TestARSessionDriver: ARSessionDriving {
