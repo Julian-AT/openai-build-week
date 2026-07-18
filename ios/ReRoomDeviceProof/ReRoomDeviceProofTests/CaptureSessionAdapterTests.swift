@@ -232,6 +232,55 @@ struct CaptureSessionAdapterTests {
     }
 
     @MainActor
+    @Test("presentation keeps local durability upload connectivity and sharing independent")
+    func truthfulPresentationLabels() async throws {
+        let writer = TestCaptureArchiveSession(stallsWrites: true)
+        let adapter = try makeAdapter(
+            identities: TestCaptureIdentities(sessionOrdinals: [1]),
+            factory: TestCaptureArchiveFactory(writers: [writer]),
+            ordinaryCapacity: 2
+        )
+        await adapter.acceptDisclosure()
+
+        #expect(adapter.presentation.localRecordingLabel == "Recording locally")
+        #expect(adapter.presentation.uploadLabel == "Upload not configured")
+        #expect(adapter.presentation.shareLabel == "Not shared")
+
+        adapter.setOffline(true)
+        #expect(adapter.presentation.localRecordingLabel == "Recording locally")
+        #expect(adapter.presentation.uploadLabel == "Offline — no upload connection")
+        #expect(adapter.presentation.shareLabel == "Not shared")
+
+        #expect(
+            adapter.offerCapturedFrame(
+                snapshot(ordinal: 1, translationX: 0),
+                selectionInput: selectionInput(ordinal: 1, isUserEvent: true)
+            ).isAdmitted
+        )
+        await writer.waitUntilPublishEntered(1)
+        #expect(adapter.presentation.explicitCaptureBusy)
+        #expect(CaptureSessionAdapter.userEventBusyAccessibilityIdentifier == "diagnostic.capture.user-event-busy")
+
+        await writer.releaseWrites()
+        await adapter.stop()
+        #expect(adapter.presentation.explicitCaptureBusy == false)
+    }
+
+    @Test("verified replay inspector exposes only accepted authoritative timeline entries")
+    func verifiedReplayInspectorBoundary() throws {
+        let replay = try verifiedRecovery(sessionOrdinal: 7)
+        let inspector = try VerifiedReplayInspector(replay: replay)
+
+        #expect(inspector.report.verdict == .accept)
+        #expect(inspector.status == .recoveredPrefix)
+        #expect(inspector.timeline.map(\.journalSequence) == [0])
+        #expect(try inspector.entry(journalSequence: 0).referenceID == TestCaptureIDs.event(1))
+        #expect(throws: VerifiedReplayInspectorError.unverifiedSelection) {
+            _ = try inspector.entry(journalSequence: 1)
+        }
+    }
+
+    @MainActor
     private func makeAdapter(
         identities: TestCaptureIdentities,
         factory: TestCaptureArchiveFactory,

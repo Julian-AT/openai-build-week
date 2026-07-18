@@ -16,6 +16,28 @@ final class DiagnosticSurfaceTests: XCTestCase {
         XCTAssertTrue(element(in: app, identifiedBy: "debug.check.gate").exists)
         XCTAssertTrue(element(in: app, identifiedBy: "debug.action.exportEvidence").exists)
         XCTAssertTrue(element(in: app, identifiedBy: "debug.action.worldReset").exists)
+        let startCapture = element(in: app, identifiedBy: "diagnostic.capture.start")
+        makeHittable(startCapture, in: app)
+        startCapture.tap()
+        XCTAssertTrue(app.staticTexts["Start local room capture?"].waitForExistence(timeout: 3))
+        app.buttons["Keep Capture Off"].tap()
+        XCTAssertTrue(
+            element(in: app, identifiedBy: "diagnostic.capture.denied")
+                .waitForExistence(timeout: 3)
+        )
+        XCTAssertFalse(element(in: app, identifiedBy: "diagnostic.capture.local-state").exists)
+
+        makeHittable(startCapture, in: app)
+        startCapture.tap()
+        app.buttons["Accept and Start"].tap()
+        let localState = element(in: app, identifiedBy: "diagnostic.capture.local-state")
+        XCTAssertTrue(localState.waitForExistence(timeout: 5))
+        XCTAssertTrue(localState.label.contains("Recording locally"))
+        XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.upload-state").exists)
+        XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.share-state").exists)
+        XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.admission").exists)
+        XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.explicit").exists)
+        XCTAssertTrue(element(in: app, identifiedBy: "diagnostic.capture.stop").exists)
         let orientation = element(in: app, identifiedBy: "debug.check.orientation")
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(waitForValue(containing: "Landscape", in: orientation))
@@ -56,5 +78,13 @@ final class DiagnosticSurfaceTests: XCTestCase {
         let predicate = NSPredicate(format: "value CONTAINS %@", expected)
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
         return XCTWaiter.wait(for: [expectation], timeout: 5) == .completed
+    }
+
+    @MainActor
+    private func makeHittable(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<8 where !element.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.isHittable)
     }
 }
