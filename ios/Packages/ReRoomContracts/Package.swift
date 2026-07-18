@@ -55,6 +55,10 @@ let package = Package(
             name: "ReRoomReplayRunnerTests",
             dependencies: ["ReRoomCaptureCore"]
         ),
+        .testTarget(
+            name: "ReRoomTransactionCoreTests",
+            dependencies: ["ReRoomContracts"]
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

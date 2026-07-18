@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "FX-TRANSACTION-001",
+  "fixture_revision": "rev-001",
+  "contract_bindings": [
+    {
+      "contract_id": "CON-003",
+      "schema_id": "urn:reroom:schema:scene-state:1",
+      "schema_version": "1.0.0",
+      "schema_sha256": "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"
+    },
+    {
+      "contract_id": "CON-005",
+      "schema_id": "urn:reroom:schema:transaction:1",
+      "schema_version": "1.0.0",
+      "schema_sha256": "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"
+    }
+  ],
+  "identity": {
+    "session_id": "session_30000000-0000-4000-8000-000000000001",
+    "scene_id": "scene_30000000-0000-4000-8000-000000000001",
+    "authority_id": "device_30000000-0000-4000-8000-000000000001",
+    "revision_branch_id": "branch_30000000-0000-4000-8000-000000000001",
+    "transaction_id": "tx_30000000-0000-4000-8000-000000000001",
+    "idempotency_key": "txidem_30000000-0000-4000-8000-000000000001"
+  },
+  "operation_inventory": ["place", "replace", "remove", "restore"],
+  "canonical_lifecycle": ["draft", "validated", "previewed", "committed"],
+  "terminal_lifecycle": ["rejected", "cancelled"],
+  "cases": [
+    {"case_id":"authority.native-pair","expected":"accept"},
+    {"case_id":"authority.wrong-branch","expected":"reject","rejection":"authority_conflict"},
+    {"case_id":"authority.wrong-id-family","expected":"reject","rejection":"invalid_identity"},
+    {"case_id":"contract.empty","expected":"reject","rejection":"json_parse"},
+    {"case_id":"contract.malformed","expected":"reject","rejection":"json_parse"},
+    {"case_id":"contract.missing-required","expected":"reject","rejection":"schema_validation"},
+    {"case_id":"contract.unknown-property","expected":"reject","rejection":"unknown_property"},
+    {"case_id":"contract.wrong-version","expected":"reject","rejection":"unsupported_contract_version"},
+    {"case_id":"idempotency.same-key-same-fingerprint","expected":"prior_result"},
+    {"case_id":"idempotency.same-key-changed-fingerprint","expected":"reject","rejection":"idempotency_conflict"},
+    {"case_id":"intent.confirmation-injection","expected":"reject","rejection":"unknown_property"},
+    {"case_id":"intent.session-injection","expected":"reject","rejection":"unknown_property"},
+    {"case_id":"intent.transform-injection","expected":"reject","rejection":"unknown_property"},
+    {"case_id":"intent.url-injection","expected":"reject","rejection":"unknown_property"},
+    {"case_id":"operation.place-order","expected":"create_asset_instance"},
+    {"case_id":"operation.remove-order","expected":"set_reveal_bundle,set_object_visibility"},
+    {"case_id":"operation.replace-order","expected":"set_object_visibility,create_asset_instance"},
+    {"case_id":"operation.restore-order","expected":"restore_snapshot"},
+    {"case_id":"revision.preview-noop","expected":"0"},
+    {"case_id":"revision.commit-cas","expected":"1"},
+    {"case_id":"revision.stale-base","expected":"reject","rejection":"stale_scene_revision"},
+    {"case_id":"restore.original-immutable","expected":"true"},
+    {"case_id":"restore.touched-id-rebase","expected":"2"}
+  ]
+}

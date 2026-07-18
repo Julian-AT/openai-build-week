@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "FX-TRANSACTION-001",
+  "fixture_revision": "rev-001",
+  "trace_format": "reroom_transaction_trace_v1",
+  "traces": [
+    {
+      "trace_id": "place.commit.replay",
+      "events": [
+        {"canonical_state":"draft","scene_revision":0,"mutation_count":0},
+        {"canonical_state":"validated","scene_revision":0,"mutation_count":0},
+        {"canonical_state":"previewed","scene_revision":0,"mutation_count":0},
+        {"canonical_state":"committed","scene_revision":1,"mutation_count":1},
+        {"canonical_state":"committed","scene_revision":1,"mutation_count":1,"retry":"prior_result"}
+      ]
+    },
+    {
+      "trace_id": "place.restore.offline",
+      "events": [
+        {"operation":"place","scene_revision":1,"transaction_id":"tx_30000000-0000-4000-8000-000000000001"},
+        {"operation":"restore","scene_revision":2,"transaction_id":"tx_30000000-0000-4000-8000-000000000002","compensates_transaction_id":"tx_30000000-0000-4000-8000-000000000001"}
+      ],
+      "network_reads": 0,
+      "source_transaction_immutable": true
+    },
+    {
+      "trace_id": "conflict.fail-closed",
+      "events": [
+        {"case_id":"authority.wrong-branch","scene_revision":0,"mutation_count":0},
+        {"case_id":"idempotency.same-key-changed-fingerprint","scene_revision":0,"mutation_count":0},
+        {"case_id":"revision.stale-base","scene_revision":0,"mutation_count":0},
+        {"case_id":"intent.transform-injection","scene_revision":0,"mutation_count":0}
+      ]
+    }
+  ]
+}
