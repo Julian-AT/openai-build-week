@@ -783,7 +783,6 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
         "recovery_exact_replay": (
             ("swift", "test", "--package-path", package, "--filter", "CaptureRecoveryTests"),
             ("swift", "test", "--package-path", package, "--filter", "ReplayCoreTests"),
-            ("scripts/run-phase-02-replay-agreement", "--verify-evidence"),
         ),
         "queue_stress_reordering": (
             ("swift", "test", "--package-path", package, "--filter", "BoundedQueueTests"),
@@ -826,7 +825,9 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
         ),
         "three_runtime_agreement": (
             ("scripts/run-three-runtime-agreement",),
+            ("scripts/run-three-runtime-agreement", "--verify-reports"),
             ("scripts/run-phase-02-replay-agreement",),
+            ("scripts/run-phase-02-replay-agreement", "--verify-evidence"),
         ),
     }
     return tuple(CommandSpec(check_id, definitions[check_id]) for check_id in requested)
