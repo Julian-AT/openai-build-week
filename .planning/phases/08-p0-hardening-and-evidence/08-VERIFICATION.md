@@ -26,13 +26,15 @@ deferred:
 **Phase Goal:** The complete four-operation native journey and B0 replay are repeatable, secure, licensed, resilient, measured, and honestly documented for submission.
 **Verified:** 2026-07-18T20:22:37Z
 **Status:** `human_needed`
-**Re-verification:** No — initial verification, including the follow-up runbook correction at `8c136ba`
+**Re-verification:** Yes — includes the runbook correction at `8c136ba` and cross-phase historical/successor binding closure at `5ef0aaa`
 
 ## Goal Achievement
 
 The approved 36-hour sprint consolidation is implemented and independently verified. Phase 8 now has fail-closed upstream composition, closed evidence schemas, an exact blocked-for-shipping BOM, formal-versus-sprint state separation, honest evidence classification, and an executable demo/submission handoff. The initial signed-device runbook contradiction was corrected at `8c136ba`: normal mode now verifies that removal remains unavailable, while the optional four-operation path explicitly uses the DEBUG-only `--room-edit-demo-reveal` fixture and keeps `GATE-006` pending. A mutation test prevents regression.
 
-The canonical roadmap goal is not complete. Latency distributions, full resilience campaigns, shipping-license approval, signed-device/real-browser evidence, controlled-removal votes, 5/5 golden journeys, and human submission remain pending or blocked. This is why the verdict is `human_needed`, not `passed`. The roadmap also still shows Phase 8 as 0/2 even though both summaries exist; that is a planning-state reconciliation item, not an implementation failure and was intentionally not edited during independent verification.
+The canonical roadmap goal is not complete. Latency distributions, full resilience campaigns, shipping-license approval, signed-device/real-browser evidence, controlled-removal votes, 5/5 golden journeys, and human submission remain pending or blocked. This is why the verdict is `human_needed`, not `passed`. The roadmap now records 2/2 executed Phase 8 plans while leaving the phase and requirements incomplete.
+
+Post-verification cross-phase testing exposed a verifier-integration regression: Phase 5 tests fed current Phase 6 successor source into an immutable Phase 5 source contract. The resolved debug record separates implementation-revision, verification-parent, unchanged-current-core, and Phase 6 superseding bindings. All six Phase 2–7 prerequisites are READY again, and the refreshed Phase 8 evidence remains byte-stable and blocked for shipping.
 
 ## Observable Truths
 
@@ -60,7 +62,7 @@ The canonical roadmap goal is not complete. Latency distributions, full resilien
 | Artifact | Expected | Status | Details |
 |---|---|---|---|
 | `verify-phase-08-hardening` | Fail-closed readiness/safety/BOM orchestrator | ✓ VERIFIED | Executable; prerequisites, quick, and standalone evidence modes passed. |
-| `verify_phase_08_hardening.py` | Independent closed hardening/BOM verifier | ✓ VERIFIED | Eight mutation tests passed; exact closure, promotion, privacy, digest, and atomic-publication checks are substantive. |
+| `verify_phase_08_hardening.py` | Independent closed hardening/BOM verifier | ✓ VERIFIED | Nine mutation tests passed; exact closure, promotion, privacy, digest, atomic-publication, and historical/current binding checks are substantive. |
 | `sprint-bom.json` | Exact shipping inventory with blockers | ✓ VERIFIED | 79 digest/version-bound members; shipping BLOCKED with exact blocker IDs. |
 | `automated-preflight.json` | Sanitized source-bound automated report | ✓ VERIFIED | All upstream rows READY, named checks PASS, formal requirements pending, and human/browser/device/submission claims absent. |
 | `verify-phase-08-evidence` | Evidence/status publication and standalone verification | ✓ VERIFIED | Standalone verification passed against the regenerated current-revision pair. |
@@ -95,7 +97,7 @@ The canonical roadmap goal is not complete. Latency distributions, full resilien
 
 | Behavior | Command | Result | Status |
 |---|---|---|---|
-| Hardening mutation enforcement | `python3 -m unittest tools.verify.tests.test_phase_08_hardening -v` | 8 tests passed | ✓ PASS |
+| Hardening mutation enforcement | `python3 -m unittest tools.verify.tests.test_phase_08_hardening -v` | 9 tests passed | ✓ PASS |
 | Evidence/docs mutation enforcement | `python3 -m unittest tools.verify.tests.test_phase_08_evidence -v` | 10 tests passed | ✓ PASS |
 | Upstream readiness | `scripts/verify-phase-08-hardening prerequisites` | Phase 2–7 READY | ✓ PASS |
 | Focused hardening composition | `scripts/verify-phase-08-hardening quick` | PASS; shipping BLOCKED; completions empty | ✓ PASS |
@@ -126,7 +128,8 @@ The expensive Phase 8 `full` modes were not rerun because both plans already ret
 |---|---|---|---|
 | `PHASE_08_DEMO_RUNBOOK.md` before `8c136ba` | Normal signed run incorrectly required `remove`, although normal/Release mode intentionally returns `reveal_quality_failed`. | BLOCKER, CLOSED | The runbook was not executable as written. It now separates normal verification from the DEBUG-only degraded four-operation fixture. |
 | `verify_phase_08_evidence.py` at `8c136ba` | New docs contract requires the DEBUG argument and explicit normal-mode unavailability/GATE-006 language. | ✓ CLOSED | Mutation coverage prevents the handoff from promoting degraded removal into normal signed-device behavior. |
-| `.planning/ROADMAP.md` | Phase 8 still says 0/2 and Planned while both summaries and artifacts are present. | PLANNING STATE | Reconcile after verification; do not interpret this stale row as formal requirement/gate completion. |
+| `.planning/ROADMAP.md` before `44ea727` | Phase 8 said 0/2 and Planned while both summaries and artifacts were present. | PLANNING STATE, CLOSED | The row now records 2/2 executed plans without promoting formal requirements or gates. |
+| Phase 5 verifier integration before `5ef0aaa` | Historical Phase 5 source and verifier/test bindings were compared as though they all belonged to the current Phase 6 successor tree. | BLOCKER, CLOSED | Revision-specific bindings are now validated independently; unchanged current core and Phase 6 superseding shared-app evidence remain fail-closed. |
 
 No unresolved `TBD`, `FIXME`, `XXX`, TODO, empty implementation, private path, credential-shaped value, checked public action, unsupported performance/license/P0 claim, or evidence-class promotion was found in the Phase 8 change set.
 

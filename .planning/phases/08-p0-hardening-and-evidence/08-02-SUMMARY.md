@@ -72,7 +72,7 @@ status: complete
 
 ## Accomplishments
 
-- Added nine mutation tests and an independent standard-library verifier for tracked digests, relative paths, classifications, actual states, formal reports, sprint dispositions, requirement traces, privacy, claims, and locked documentation.
+- Added ten mutation tests and an independent standard-library verifier for tracked digests, relative paths, classifications, actual states, formal reports, sprint dispositions, requirement traces, privacy, claims, locked documentation, and degraded-remove classification.
 - Published [the evidence index](../../../evidence/hardening/phase-08/evidence-index.json) with 16 entries: eight verified automated items, three verified canonical gate records, and explicit pending/blocked device, browser, human, license, and submission procedures.
 - Published [the gate report](../../../evidence/hardening/phase-08/pending-gates.json) with all 14 gates. `GATE-001` is `RUNNING`; `GATE-002` and `GATE-013` are `GREEN`; the remaining formal states are `NO_REPORT` with separate fallback/deferred/blocked sprint dispositions.
 - Added [the demo runbook](../../../docs/demo/PHASE_08_DEMO_RUNBOOK.md) and [submission handoff](../../../docs/demo/BUILD_WEEK_SUBMISSION_HANDOFF.md). Official challenge/rules URLs were rechecked on 2026-07-18; the handoff requires another human recheck immediately before submission.
@@ -88,7 +88,7 @@ status: complete
 
 ## Verification Evidence
 
-- `python3 -m unittest tools.verify.tests.test_phase_08_evidence -v` passed all 9 tests.
+- `python3 -m unittest tools.verify.tests.test_phase_08_evidence -v` passed all 10 tests.
 - The three canonical formal reports passed the repository gate-report/schema verifier, including required checklists for the two human-bound GREEN records.
 - `scripts/verify-phase-08-hardening --verify-evidence` passed before indexing.
 - `scripts/verify-phase-08-evidence full` passed twice and both JSON artifacts compared byte-for-byte.

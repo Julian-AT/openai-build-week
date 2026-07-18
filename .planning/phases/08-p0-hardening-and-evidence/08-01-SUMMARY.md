@@ -76,7 +76,7 @@ status: complete
 
 ## Accomplishments
 
-- Added eight dependency-free mutation tests and a closed-shape verifier for readiness, credential signatures, source closure, privacy, BOM completeness, claim promotion, self-digests, and publication safety.
+- Added nine dependency-free mutation tests and a closed-shape verifier for readiness, credential signatures, source closure, privacy, BOM completeness, claim promotion, self-digests, publication safety, and historical-versus-current binding separation.
 - Added `prerequisites`, `quick`, `full`, and `--verify-evidence` modes. All six upstream rows are READY only after their actual retained reports and source bindings validate.
 - Published a 79-member inventory derived from the tracked Swift, npm, and Python locks plus tracked proxy/reveal resources. Every member remains BLOCKED pending a root license and explicit proxy use/redistribution decision.
 - Published a sanitized automated preflight with the sprint slice PASS while all four trace requirements remain PENDING and device/browser/human/submission evidence remains NOT_CLAIMED.
@@ -90,7 +90,7 @@ status: complete
 
 ## Verification Evidence
 
-- `python3 -m unittest tools.verify.tests.test_phase_08_hardening -v` passed all 8 tests.
+- `python3 -m unittest tools.verify.tests.test_phase_08_hardening -v` passed all 9 tests.
 - `scripts/verify-phase-08-hardening prerequisites` reported Phase 2 through Phase 7 READY.
 - `scripts/verify-phase-08-hardening quick` passed the source-bound integration, typed-boundary, scan, BOM, and mutation checks.
 - `scripts/verify-phase-08-hardening full` passed twice; SHA-256 verification proved both output files byte-identical across runs.
@@ -100,6 +100,8 @@ status: complete
 ## Deviation from the Original Plan
 
 The full mode did not rerun Xcode or the Next production build. The approved sprint execution instruction explicitly preferred existing source-bound evidence where sufficient and prohibited unnecessary expensive Xcode work. Full mode therefore validates the actual Phase 5/6 retained Release evidence and Phase 7 retained production-build evidence, plus their current/superseding source bindings. This changes only how previously completed build work is consumed; it does not weaken or promote its semantic verdict.
+
+Post-verification cross-phase testing found that Phase 5 historical evidence and the Phase 6 successor tree were being conflated. Commit `5ef0aaa` separates implementation-revision, verification-parent, unchanged-current-core, and superseding Phase 6 bindings; commit `93815b8` republishes the two byte-stable Phase 8 evidence pairs.
 
 ## Known Pending Work
 
