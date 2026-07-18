@@ -19,7 +19,7 @@ from typing import Any, Sequence
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-BOUND_REVISION = "ba04382fbc03e0065ff9e943bc9b007b04318692"
+BOUND_REVISION = "1e3e42161d65e541e52989c0eb81063ba89c0b56"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 REPORT_SCHEMA_REVISION = "1.0.0"
 EVIDENCE_RELATIVE_PATH = "evidence/replacement/phase-05/automated-preflight.json"
@@ -54,9 +54,13 @@ SOURCE_CONTRACT_PATH_KEYS = (
     "ui_tests_sha256",
 )
 BOUND_PRODUCT_DIGESTS = {
-    "room_edit_model_sha256": "6b7880a9c65a8abc68d471efbaa26923c983ed0b8008cb31ffb9a97b39f12ed9",
+    "replace_reducer_sha256": "6ad2e59388209174fb989d79cb97f857cffe2e91510f2f89a646f746f718a433",
+    "transaction_authority_sha256": "8981c6402c2d96bdbb0fe4808d36b78f2791fee52384258339d2c9a2138b8e74",
+    "replace_reducer_tests_sha256": "9fbd1f1ce8040c6d5ac83616f6ce6de9681a40d472586638f541c5a87d5cc57a",
+    "authority_tests_sha256": "029543c76180a6e0d73613b3abc575babf21801e0987f98dcc16ef4cd51e1ac2",
+    "room_edit_model_sha256": "783ddc781417baa2a595d246d78b0dfbe189fd7a22d3e88d8ac0c12702440b5f",
     "room_edit_view_sha256": "ac5b1bfa0522ff4af488b4b91e2498bf62070ed57297375bae85ea94f9711f3c",
-    "model_tests_sha256": "14485f3472513780cddb5d2ab17a2613e535e4d1567ae27cdb1daaf2af81d944",
+    "model_tests_sha256": "690318f3f28645b471786bdb74208de9738f64f3da8e5b87f7586df1d15351b1",
     "ui_tests_sha256": "cdc4a05f70101e7766119a8e53ce4ac2debef7ce30509c8e35acc21843d185af",
     "proxy_asset_sha256": "afdd38d8713f7e02fb91b15709094c9a0f990d91cedddf8812ea7e4ae5e32379",
     "asset_manifest_sha256": "b1270514857f46c9d8c8b89ddeb72e505efbb887c9123fea5f894f6eab8f7551",
@@ -276,9 +280,42 @@ def _verify_replacement_source_contract(root: Path) -> bytes:
         ".replacementViewUnsupported",
         "guard isPreview || replacementAssetVisible else { return nil }",
         "NativeBranchAuthority",
+        "enum RoomEditSupportedViewPolicy: Equatable, Sendable",
+        "replacementSupportedViewPolicy: RoomEditSupportedViewPolicy = .denyAll",
+        "target.sceneRevision == scene.sceneRevision",
+        "target.worldFrameID == scene.worldFrame.worldFrameID",
+        "target.worldFrameVersion == scene.worldFrame.worldFrameVersion",
+        "maximumCameraTranslationMeters",
+        "minimumCameraDirectionDot",
+        "maximumTargetAlignmentMeters",
+        "minimumTargetDirectionDot",
+        "HYPOTHESIS: fixture evidence",
+        "HYPOTHESIS: a bounded 0.75 m / ~35 degree demo envelope",
+        "supportProvider: { _ in .fixture },\n                targetSession: targetSession,\n                replacementSupportedViewPolicy: .fixtureDemoHypothesis",
+        "targetSession: targetSession,\n            replacementSupportedViewPolicy: .liveDemoHypothesis",
     )
     if any(token not in model for token in required_model):
         raise EvidenceError("replacement_source:model_fail_closed")
+    forbidden_model = (
+        "replacementSupportedView: Bool = true",
+        "supportedView: Bool = true",
+    )
+    if any(token in model for token in forbidden_model):
+        raise EvidenceError("replacement_source:implicit_supported_view")
+    try:
+        confirmation = model[
+            model.index("func confirmReplacementFromButton() async"):
+            model.index("func retryReplacementFromButton() async")
+        ]
+        proposal = model[
+            model.index("private func proposeReplace() async"):
+            model.index("private func refresh(", model.index("private func proposeReplace() async"))
+        ]
+    except ValueError as error:
+        raise EvidenceError("replacement_source:supported_view_structure") from error
+    policy_call = "replacementSupportedViewPolicy.allows("
+    if policy_call not in confirmation or policy_call not in proposal:
+        raise EvidenceError("replacement_source:supported_view_revalidation")
     required_authority = ("previewReplace", "commitReplace", "idempotencyRecords", "commitRestore")
     if any(token not in authority for token in required_authority):
         raise EvidenceError("replacement_source:authority_contract")
