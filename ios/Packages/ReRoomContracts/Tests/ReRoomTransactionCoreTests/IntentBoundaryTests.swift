@@ -93,7 +93,13 @@ struct IntentBoundaryTests {
             return values
         }
         #expect(proposals.count == 32)
-        #expect(Set(proposals.map { try TransactionFingerprint.digest(proposal: $0, proposedOperations: [TransactionTestFixtures.createFirstAssetOperation()]) }).count == 1)
+        let digests = try proposals.map {
+            try TransactionFingerprint.digest(
+                proposal: $0,
+                proposedOperations: [TransactionTestFixtures.createFirstAssetOperation()]
+            )
+        }
+        #expect(Set(digests).count == 1)
     }
 
     @Test(
