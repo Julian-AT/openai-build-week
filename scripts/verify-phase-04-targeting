@@ -21,6 +21,8 @@ from typing import Any, Sequence
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 BOUND_REVISION = "4d268ba88c1a8e10181bbd88faf306df1bd1d3d6"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
+REPORT_SCHEMA_REVISION = "1.0.0"
+PUBLISH_ONLY_AFTER_CHECK_COUNT = 12
 EVIDENCE_RELATIVE_PATH = "evidence/targeting/phase-04/automated-preflight.json"
 XCODE_PROJECT = "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
 XCODE_SCHEME = "ReRoomDeviceProof"
@@ -321,7 +323,7 @@ def _evidence_template(
     working_tree_counts: dict[str, int],
 ) -> dict[str, Any]:
     report: dict[str, Any] = {
-        "schema_version": "1.0.0",
+        "schema_version": REPORT_SCHEMA_REVISION,
         "evidence_id": "evidence_phase_04_targeting_automated_preflight_rev_001",
         "claim": "automated sprint fallback slice passed",
         "value_classification": "HYPOTHESIS",
@@ -377,7 +379,7 @@ def validate_evidence(report: dict[str, Any]) -> None:
     }
     if not isinstance(report, dict) or set(report) != required:
         raise EvidenceError("evidence:root")
-    if report["schema_version"] != "1.0.0" or report["evidence_id"] != "evidence_phase_04_targeting_automated_preflight_rev_001":
+    if report["schema_version"] != REPORT_SCHEMA_REVISION or report["evidence_id"] != "evidence_phase_04_targeting_automated_preflight_rev_001":
         raise EvidenceError("evidence:identity")
     if report["claim"] != "automated sprint fallback slice passed" or report["value_classification"] != "HYPOTHESIS":
         raise EvidenceError("evidence:claim")
