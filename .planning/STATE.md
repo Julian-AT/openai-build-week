@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 08
-current_phase_name: P0 Hardening and Evidence
-status: verifying
-stopped_at: Completed and independently verified the 36-hour sprint implementation; human, license, physical, browser, golden, and submission evidence remains pending
-last_updated: "2026-07-18T20:25:45Z"
-last_activity: 2026-07-18
-last_activity_desc: Phase 08 independent verification completed with human_needed status
+current_phase: 02.1
+current_phase_name: Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12
+status: planning
+stopped_at: Phase 02.1 context gathered
+last_updated: "2026-07-19T16:23:07.684Z"
+last_activity: 2026-07-19
+last_activity_desc: inserted urgent Phase 02.1 for CR-03, CR-04, and CR-12 gap closure
 progress:
-  total_phases: 8
-  completed_phases: 1
+  total_phases: 9
+  completed_phases: 8
   total_plans: 46
   completed_plans: 46
 ---
@@ -24,17 +24,17 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Phase 08 — P0 Hardening and Evidence
+**Current focus:** Plan urgent Phase 02.1 capture/recovery trust-boundary closure before resuming Phase 2 verification or physical evidence.
 
 ## Current Position
 
-Phase: 08 (P0 Hardening and Evidence) — VERIFYING
+Phase: 02.1 (Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12) — NOT PLANNED
 
-Plan: 2 of 2
+Plan: 0 of 0 — not discussed or planned; run $gsd-discuss-phase 02.1
 
-Status: Sprint implementation verified — human/license/formal completion pending
+Status: Urgent Phase 02.1 inserted — planning intake; next: $gsd-discuss-phase 02.1
 
-Last activity: 2026-07-18 — Phase 08 independent verification completed (`human_needed`)
+Last activity: 2026-07-19 — inserted urgent Phase 02.1 for CR-03, CR-04, and CR-12 gap closure
 
 Progress: [████████████████████] 46/46 implementation plans executed ([██████████] 100%)
 
@@ -159,14 +159,19 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-- Execute one signed-device queue-pressure/recovery smoke on the finalized Phase 2 revision.
-- Run the prepared signed-device, real-browser, and public-submission procedures when a human operator is available.
-- Preserve every deferred physical/human gate as `PENDING`; do not convert implementation or smoke evidence into a full P0 claim.
+- Run restored code, security, Nyquist, UI-safety, and cross-phase audits against the current implementation and fix confirmed software defects before revision-bound physical evidence.
+- Resume `$gsd-verify-work 02`, close the 12 judgment-tier reviews, then execute the complete signed-device `GATE-001` matrix on the corrected revision.
+- Continue Phase 3 through Phase 8 verification and the formal gate campaigns in dependency order; preserve every incomplete gate as `PENDING`.
+- Resolve the root-product and proxy redistribution/license decisions before `GATE-011` or a shipping claim.
 
 ### Blockers/Concerns
 
 - Provisional ADR variants cannot be treated as selected or measured until their physical/fixture evidence and deadlines are satisfied.
 - Remaining compositor/thermal, visual-vote, license, final-rules, and later physical-device gates require real human/device evidence and cannot be fabricated.
+
+### Roadmap Evolution
+
+- Phase 02.1 inserted after Phase 2: Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12 (URGENT)
 
 ## Deferred Items
 
@@ -174,8 +179,8 @@ Full locked and provisional decision blocks are in PROJECT.md.
 |----------|------|--------|-------------|
 | Future/stretch | `STR-VOICE-001` optional Realtime/GPT semantic ingress | Nonblocking; not in P0 roadmap | Initial planning |
 | Future/stretch | `STR-B1-001` isolated offline refinement | Frozen until all P0 gates are green and human-approved | Initial planning |
-| 36-hour sprint | Full new-revision `GATE-001` consent plus 10-run physical matrix, videos, logs, and attestation | Deferred; one signed-device pressure/recovery smoke in sprint | Human-approved sprint cut, 2026-07-18 |
-| 36-hour sprint | Formal `GATE-003`, `GATE-004`, `GATE-005`, `GATE-006`, `GATE-007`, `GATE-008`, `GATE-009`, `GATE-011`, `GATE-012`, and `OPS-GOLDEN-001` campaigns | Deferred as itemized in `.planning/SPRINT-CUT-36H.md`; canonical fallbacks active where defined | Human-approved sprint cut, 2026-07-18 |
+| Completed 36-hour sprint | Full new-revision `GATE-001` consent plus 10-run physical matrix, videos, logs, and attestation | Reactivated; run after current-revision software audit/fixes | Human resumed canonical QA, 2026-07-18 |
+| Completed 36-hour sprint | Formal `GATE-003`, `GATE-004`, `GATE-005`, `GATE-006`, `GATE-007`, `GATE-008`, `GATE-009`, `GATE-011`, `GATE-012`, and `OPS-GOLDEN-001` campaigns | Reactivated in canonical dependency order; fallbacks remain active until replaced by passing evidence | Human resumed canonical QA, 2026-07-18 |
 
 ## Deferred Verification
 
@@ -191,11 +196,11 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-18T20:25:45Z
+Last session: 2026-07-19T16:23:07.674Z
 
-Stopped at: Completed and independently verified Phase 08 sprint implementation; human/license/formal gates remain pending
+Stopped at: Phase 02.1 context gathered
 
-Resume file: None
+Resume file: .planning/phases/02.1-close-phase-2-capture-and-recovery-trust-boundary-cr-03-cr-0/02.1-CONTEXT.md
 
 ## Rebuild Log
 
