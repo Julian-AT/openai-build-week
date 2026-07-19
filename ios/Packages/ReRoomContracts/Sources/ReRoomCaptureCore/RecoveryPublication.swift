@@ -150,6 +150,11 @@ public struct RecoveryPublisher: Sendable {
                 to: activePointer
             )
         } catch CaptureFileSystemError.destinationExists {
+            guard try recover(sourceIdentitySHA256: sourceDigest) != nil else {
+                throw CaptureRecoveryError.ioFailure
+            }
+            try fileSystem.synchronizeFile(at: activePointer)
+            try fileSystem.synchronizeDirectory(at: sourceRoot)
             guard let winner = try recover(sourceIdentitySHA256: sourceDigest) else {
                 throw CaptureRecoveryError.ioFailure
             }
