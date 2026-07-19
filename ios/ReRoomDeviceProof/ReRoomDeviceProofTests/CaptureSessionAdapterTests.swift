@@ -381,6 +381,10 @@ struct CaptureSessionAdapterTests {
             copying: ["finalized-one-frame.rrcap", "recovered-prefix.rrcap"]
         )
         defer { fixture.remove() }
+        try fixture.addOpenTerminalSuffixArchive(
+            copying: "recovered-prefix.rrcap",
+            as: "open-terminal-suffix.rrcap"
+        )
         let driver = FoundationCaptureRecoveryDriver(
             root: fixture.root,
             fixtureManifestSHA256: String(repeating: "a", count: 64),
@@ -391,10 +395,11 @@ struct CaptureSessionAdapterTests {
 
         #expect(discovery.failures.isEmpty)
         #expect(discovery.verified.map(\.recovered.finalization.state) == [
-            .finalized, .recoveredPrefix,
+            .finalized, .recoveredPrefix, .recoveredPrefix,
         ])
-        #expect(discovery.verified.map(\.timeline.count) == [8, 6])
-        #expect(try fixture.activePublicationPointers().count == 2)
+        #expect(discovery.verified.map(\.timeline.count) == [8, 6, 6])
+        #expect(discovery.verified.compactMap(\.recovered.firstInvalidJournalSequence) == [6])
+        #expect(try fixture.activePublicationPointers().count == 3)
         for replay in discovery.verified {
             let labels = Set(Mirror(reflecting: replay.report).children.compactMap(\.label))
             #expect(labels.contains("fixture") == false)
@@ -699,42 +704,25 @@ struct CaptureSessionAdapterTests {
                 monotonicTimestampNanoseconds: "1000000000"
             ),
         ]
-        let report = try ReplayReportV1(
-            evaluator: ReplayEvaluator(name: "test", version: "1", platform: "swift"),
-            fixture: ReplayFixtureIdentity(
-                fixtureID: "FX-CAPTURE-001",
-                fixtureRevision: "rev-001",
-                manifestSHA256: digest
-            ),
-            archive: ReplayArchiveIdentity(
-                caseID: "adapter-recovery",
-                archiveName: finalization.archivePath,
-                finalizationState: .recoveredPrefix,
+        let report = CaptureReplayIntegrityReport(
+            verdict: .accept,
+            implementationRevision: "git:" + String(repeating: "1", count: 40),
+            sourceIdentitySHA256: digest,
+            generationID: digest,
+            inventorySHA256: digest,
+            archive: CaptureReplayArchiveIntegrity(
                 manifestSHA256: digest,
+                finalizationState: .recoveredPrefix,
                 acceptedFrameCount: 0,
                 eventCount: 1,
                 journalRecordCount: 1
             ),
-            implementation: ReplayImplementationIdentity(
-                repositoryRevision: "git:" + String(repeating: "1", count: 40),
-                runtime: "swift",
-                buildID: "adapter-test"
-            ),
-            verdict: .accept,
             digests: ReplayDigestSet(
                 journalTupleSHA256: digest,
                 frameProjectionSHA256: digest,
                 eventProjectionSHA256: digest,
                 revisionTraceSHA256: digest
-            ),
-            rejection: nil,
-            metrics: ReplayMetrics(
-                maximumQueueDepth: 0,
-                droppedStaleCandidates: 0,
-                recoveredPrefixRecords: 1,
-                quarantinedSuffixRecords: 1
-            ),
-            reportSHA256: digest
+            )
         )
         return VerifiedCaptureReplay(recovered: recovered, report: report, timeline: timeline)
     }
@@ -993,6 +981,57 @@ private struct NativeRecoveryFixture {
             else { return nil }
             return url
         }.sorted { $0.path < $1.path }
+    }
+
+    func addOpenTerminalSuffixArchive(copying sourceName: String, as destinationName: String) throws {
+        let source = root.appendingPathComponent(sourceName)
+        let destination = root.appendingPathComponent(destinationName)
+        try FileManager.default.copyItem(at: source, to: destination)
+        let manifestURL = destination.appendingPathComponent("manifest.json")
+        var object = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: manifestURL)
+        ) as! [String: Any]
+        let staleJournal = Array((object["journal"] as! [[String: Any]]).prefix(3))
+        let staleEvents = Array((object["events"] as! [[String: Any]]).prefix(3))
+        let referencedEventPaths = Set(staleEvents.map { $0["payload_path"] as! String })
+        object["journal"] = staleJournal
+        object["events"] = staleEvents
+        object["accepted_frame_order"] = [[String: Any]]()
+        object["keyframes"] = [[String: Any]]()
+        object["files"] = (object["files"] as! [[String: Any]]).filter {
+            referencedEventPaths.contains($0["relative_path"] as! String)
+        }
+        var replay = object["replay"] as! [String: Any]
+        let tuples: [[Any]] = staleJournal.map {
+            [
+                $0["journal_sequence"]!,
+                $0["entry_type"]!,
+                $0["reference_id"]!,
+                $0["content_sha256"]!,
+            ]
+        }
+        let tupleBytes = try JSONSerialization.data(withJSONObject: tuples, options: [.sortedKeys])
+        replay["input_digest"] = ReplayInputIntegrity.sha256Hex(
+            try ReplayInputIntegrity.canonicalizeJSON(tupleBytes)
+        )
+        object["replay"] = replay
+        var finalization = object["finalization"] as! [String: Any]
+        finalization["state"] = "open"
+        finalization["last_durable_journal_sequence"] = 2
+        finalization.removeValue(forKey: "manifest_sha256")
+        object["finalization"] = finalization
+        let unsigned = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        let canonicalUnsigned = try ReplayInputIntegrity.canonicalizeJSON(unsigned)
+        finalization["manifest_sha256"] = ReplayInputIntegrity.sha256Hex(canonicalUnsigned)
+        object["finalization"] = finalization
+        let encoded = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        try ReplayInputIntegrity.canonicalizeJSON(encoded).write(to: manifestURL, options: .atomic)
+
+        let journal = destination.appendingPathComponent("journal/global.jsonl")
+        let handle = try FileHandle(forWritingTo: journal)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(#"{"journal_sequence":6"#.utf8))
     }
 }
 

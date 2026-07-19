@@ -20,7 +20,8 @@ private struct Options {
 
 private struct LoadedFixture {
     let root: URL
-    let archiveVerifier: ArchiveVerifier
+    let recovery: CaptureRecovery
+    let recoveryPublisher: RecoveryPublisher
     let manifestSHA256: String
     let archives: [[String: Any]]
     let edgeProbes: [[String: Any]]
@@ -231,9 +232,22 @@ private func loadFixture(_ options: Options) throws -> LoadedFixture {
     guard caseIDs.count == 16, Set(caseIDs).count == caseIDs.count else {
         throw RunnerFailure("complete case set is invalid")
     }
+    let archiveVerifier = try makeArchiveVerifier(repositoryRoot: options.repositoryRoot)
+    let publicationFileSystem: FoundationCaptureFileSystem
+    do {
+        publicationFileSystem = try FoundationCaptureFileSystem(
+            root: options.outputRoot.deletingLastPathComponent()
+        )
+    } catch {
+        throw RunnerFailure("recovery publication root is invalid")
+    }
     return LoadedFixture(
         root: root,
-        archiveVerifier: try makeArchiveVerifier(repositoryRoot: options.repositoryRoot),
+        recovery: CaptureRecovery(verifier: archiveVerifier),
+        recoveryPublisher: RecoveryPublisher(
+            fileSystem: publicationFileSystem,
+            verifier: archiveVerifier
+        ),
         manifestSHA256: manifestSHA,
         archives: archives,
         edgeProbes: probes,
@@ -254,10 +268,24 @@ private func replayArchive(
     else { throw RunnerFailure("archive descriptor is invalid") }
     let snapshot: ReplaySnapshot
     do {
-        let archive = try fixture.archiveVerifier.verify(
-            root: safeFile(path, root: fixture.root)
+        let publication = try fixture.recovery.publish(
+            root: safeFile(path, root: fixture.root),
+            using: fixture.recoveryPublisher
         )
-        snapshot = try ReplayCore.replay(archive)
+        let admitted = try ReplayCore.replay(publication.archive)
+        snapshot = ReplaySnapshot(
+            finalization: try CaptureFinalization(
+                sessionID: admitted.finalization.sessionID,
+                archivePath: archiveName,
+                state: admitted.finalization.state,
+                manifestSHA256: admitted.finalization.manifestSHA256,
+                lastDurableJournalSequence: admitted.finalization.lastDurableJournalSequence,
+                acceptedFrameCount: admitted.finalization.acceptedFrameCount,
+                eventCount: admitted.finalization.eventCount
+            ),
+            timeline: admitted.timeline,
+            digests: admitted.digests
+        )
     } catch {
         throw RunnerFailure("archive replay verification failed")
     }

@@ -73,8 +73,28 @@ enum CaptureShareState: String, Equatable, Sendable {
 
 struct VerifiedCaptureReplay: Equatable, Sendable {
     let recovered: RecoveredArchive
-    let report: ReplayReportV1
+    let report: CaptureReplayIntegrityReport
     let timeline: [ReplayTimelineEntry]
+}
+
+/// Generic live-archive integrity result. It deliberately carries no frozen
+/// fixture identity, physical-device result, human verdict, or gate status.
+struct CaptureReplayIntegrityReport: Equatable, Sendable {
+    let verdict: ReplayVerdict
+    let implementationRevision: String
+    let sourceIdentitySHA256: String
+    let generationID: String
+    let inventorySHA256: String
+    let archive: CaptureReplayArchiveIntegrity
+    let digests: ReplayDigestSet
+}
+
+struct CaptureReplayArchiveIntegrity: Equatable, Sendable {
+    let manifestSHA256: String
+    let finalizationState: CaptureFinalizationState
+    let acceptedFrameCount: UInt64
+    let eventCount: UInt64
+    let journalRecordCount: UInt64
 }
 
 struct CaptureRecoveryFailureSnapshot: Equatable, Sendable {
@@ -96,7 +116,7 @@ enum VerifiedReplayInspectorError: Error, Equatable, Sendable {
 
 struct VerifiedReplayInspector: Equatable, Sendable {
     let recovered: RecoveredArchive
-    let report: ReplayReportV1
+    let report: CaptureReplayIntegrityReport
     let timeline: [ReplayTimelineEntry]
 
     var status: CaptureFinalizationState { recovered.finalization.state }
@@ -105,7 +125,6 @@ struct VerifiedReplayInspector: Equatable, Sendable {
     init(replay: VerifiedCaptureReplay) throws {
         let finalization = replay.recovered.finalization
         guard replay.report.verdict == .accept,
-              replay.report.rejection == nil,
               replay.report.archive.manifestSHA256 == finalization.manifestSHA256,
               replay.report.archive.finalizationState == finalization.state,
               replay.report.archive.acceptedFrameCount == finalization.acceptedFrameCount,
@@ -367,8 +386,16 @@ struct CoreCaptureArchiveSessionFactory: CaptureArchiveSessionFactory, Sendable 
 
 struct FoundationCaptureRecoveryDriver: CaptureRecoveryDriving, Sendable {
     let root: URL
-    let fixtureManifestSHA256: String
     let repositoryRevision: String
+
+    init(
+        root: URL,
+        fixtureManifestSHA256 _: String,
+        repositoryRevision: String
+    ) {
+        self.root = root
+        self.repositoryRevision = repositoryRevision
+    }
 
     func discoverArchives() async -> CaptureRecoveryDiscoverySnapshot {
         scanArchives()
@@ -406,19 +433,33 @@ struct FoundationCaptureRecoveryDriver: CaptureRecoveryDriving, Sendable {
     }
 
     private func verifiedReplay(at sourceURL: URL) throws -> VerifiedCaptureReplay {
-        let recovered = try CaptureRecovery.inspect(root: sourceURL)
-        let replayURL = sourceURL.deletingLastPathComponent()
-            .appendingPathComponent(recovered.finalization.archivePath)
-        let archive = try CaptureRecoveryContracts.verifier().verify(root: replayURL)
-        let snapshot = try ReplayCore.replay(archive)
-        let report = try ReplayReport.make(
-            snapshot: snapshot,
-            caseID: recovered.finalization.sessionID,
-            fixtureManifestSHA256: fixtureManifestSHA256,
-            repositoryRevision: repositoryRevision
+        let verifier = try CaptureRecoveryContracts.verifier()
+        let recovery = CaptureRecovery(verifier: verifier)
+        let publicationFileSystem: any ReRoomCaptureCore.CaptureFileSystem =
+            try ReRoomCaptureCore.FoundationCaptureFileSystem(root: root)
+        let publisher = RecoveryPublisher(
+            fileSystem: publicationFileSystem,
+            verifier: verifier
+        )
+        let publication = try recovery.publish(root: sourceURL, using: publisher)
+        let snapshot = try ReplayCore.replay(publication.archive)
+        let report = CaptureReplayIntegrityReport(
+            verdict: .accept,
+            implementationRevision: repositoryRevision,
+            sourceIdentitySHA256: publication.sourceIdentity.sha256,
+            generationID: publication.generationID,
+            inventorySHA256: publication.inventorySHA256,
+            archive: CaptureReplayArchiveIntegrity(
+                manifestSHA256: snapshot.finalization.manifestSHA256,
+                finalizationState: snapshot.finalization.state,
+                acceptedFrameCount: snapshot.finalization.acceptedFrameCount,
+                eventCount: snapshot.finalization.eventCount,
+                journalRecordCount: UInt64(snapshot.timeline.count)
+            ),
+            digests: snapshot.digests
         )
         return VerifiedCaptureReplay(
-            recovered: recovered,
+            recovered: publication.recoveredArchive,
             report: report,
             timeline: snapshot.timeline
         )
@@ -796,6 +837,9 @@ final class CaptureSessionAdapter {
             presentation.sessionID = latest.recovered.finalization.sessionID
             presentation.recovered = latest
             presentation.finalization = latest.recovered.finalization
+            if latest.recovered.finalization.state == .recoveredPrefix {
+                presentation.failureMessage = "Recovered — capture may be incomplete"
+            }
         } else {
             presentation.phase = .failed
             presentation.failureMessage = discovery.failures.last?.message
