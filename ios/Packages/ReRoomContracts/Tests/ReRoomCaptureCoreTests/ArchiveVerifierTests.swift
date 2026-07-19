@@ -9,7 +9,7 @@ struct ArchiveVerifierTests {
     @Test(
         "closed archives mint one deterministic immutable descriptor set",
         arguments: [
-            ("finalized-empty.rrcap", CaptureFinalizationState.finalized, 2, 0),
+            ("finalized-empty.rrcap", CaptureFinalizationState.finalized, 2, 2),
             ("finalized-one-frame.rrcap", .finalized, 8, 9),
             ("recovered-prefix.rrcap", .recoveredPrefix, 6, 7),
         ]
@@ -81,6 +81,19 @@ struct ArchiveVerifierTests {
             try verifier.verify(root: fixture.archiveURL)
         }
     }
+
+    @Test("a member changed after admission cannot retain the prior capability verdict")
+    func postAdmissionSubstitution() throws {
+        let fixture = try ArchiveVerifierFixture.mutableArchive("finalized-one-frame.rrcap")
+        defer { fixture.remove() }
+        let verifier = ArchiveVerifier(validator: try ArchiveVerifierFixture.validator())
+        let archive = try verifier.verify(root: fixture.archiveURL)
+        try fixture.replaceImageBytes()
+
+        #expect(throws: ArchiveVerificationError.digestMismatch) {
+            try archive.consumeVerifiedContents()
+        }
+    }
 }
 
 enum ArchiveVerifierMutation: CaseIterable, Sendable {
@@ -108,8 +121,10 @@ enum ArchiveVerifierMutation: CaseIterable, Sendable {
         case .unknownPacketMember:
             .unknownProperty
         case .sessionMismatch, .worldMismatch, .lifecycleContradiction,
-             .idempotencyContradiction, .invalidRigidTransform, .payloadMismatch:
+             .idempotencyContradiction, .invalidRigidTransform:
             .semanticInvariant
+        case .payloadMismatch:
+            .digestMismatch
         case .acceptedSequenceInversion, .inventoryContradiction:
             .projectionMismatch
         case .journalSequenceInversion:
@@ -299,6 +314,13 @@ private final class ArchiveVerifierFixture {
         try FileManager.default.copyItem(at: imageURL, to: copyURL)
         try FileManager.default.removeItem(at: imageURL)
         try FileManager.default.createSymbolicLink(at: imageURL, withDestinationURL: copyURL)
+    }
+
+    func replaceImageBytes() throws {
+        let manifest = try manifestObject()
+        let files = manifest["files"] as! [[String: Any]]
+        let path = files.first { $0["role"] as? String == "frame_image" }!["relative_path"] as! String
+        try Data("substituted".utf8).write(to: archiveURL.appendingPathComponent(path))
     }
 
     func manifestObject() throws -> [String: Any] {
