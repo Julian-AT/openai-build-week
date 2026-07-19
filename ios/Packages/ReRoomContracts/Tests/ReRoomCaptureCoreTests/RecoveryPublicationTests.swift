@@ -9,11 +9,12 @@ struct RecoveryPublicationTests {
     @Test("every publication durability edge exposes no pointer or one complete generation")
     func durabilityDeathMatrix() throws {
         let candidate = try RecoveryPublicationFixture.candidateWithInvalidSuffix()
+        let verifier = try RecoveryPublicationFixture.verifier()
         let probeController = PublicationFaultController()
         let probeFileSystem = PublicationDurableMemoryFileSystem(controller: probeController)
         let probePublisher = RecoveryPublisher(
             fileSystem: probeFileSystem,
-            verifier: try RecoveryPublicationFixture.verifier(),
+            verifier: verifier,
             stagingToken: { "probe" }
         )
 
@@ -45,7 +46,7 @@ struct RecoveryPublicationTests {
                 let fileSystem = PublicationDurableMemoryFileSystem(controller: controller)
                 let publisher = RecoveryPublisher(
                     fileSystem: fileSystem,
-                    verifier: try RecoveryPublicationFixture.verifier(),
+                    verifier: verifier,
                     stagingToken: { "fault" }
                 )
 
@@ -57,7 +58,7 @@ struct RecoveryPublicationTests {
                 let restartedFileSystem = fileSystem.crashedCopy()
                 let restarted = RecoveryPublisher(
                     fileSystem: restartedFileSystem,
-                    verifier: try RecoveryPublicationFixture.verifier(),
+                    verifier: verifier,
                     stagingToken: { "restart" }
                 )
                 let recovered = try restarted.recover(
@@ -120,9 +121,10 @@ struct RecoveryPublicationTests {
             verifier: try RecoveryPublicationFixture.verifier(),
             stagingToken: { "restart" }
         )
-        let recovered = try #require(
-            restarted.recover(sourceIdentitySHA256: candidate.sourceIdentity.sha256)
+        let recoveredResult = try restarted.recover(
+            sourceIdentitySHA256: candidate.sourceIdentity.sha256
         )
+        let recovered = try #require(recoveredResult)
         #expect(recovered.generationID == result.generationID)
         #expect(recovered.sourceIdentity == candidate.sourceIdentity)
         #expect(recovered.recoveredArchive.firstInvalidJournalSequence == 6)
@@ -130,12 +132,53 @@ struct RecoveryPublicationTests {
         #expect(try ReplayCore.replay(recovered.archive).timeline.count == 6)
     }
 
+    @Test("Foundation and durable-memory filesystems publish byte-identical generations")
+    func foundationParity() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("reroom-publication-foundation-\(UUID().uuidString.lowercased())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let candidate = try RecoveryPublicationFixture.candidateWithInvalidSuffix()
+        let verifier = try RecoveryPublicationFixture.verifier()
+        let foundationController = PublicationFaultController()
+        let memoryController = PublicationFaultController()
+        let foundationFileSystem = try FoundationCaptureFileSystem(
+            root: root,
+            observe: foundationController.observeBefore,
+            afterOperation: foundationController.observeAfter
+        )
+        let memoryFileSystem = PublicationDurableMemoryFileSystem(controller: memoryController)
+        let foundationPublisher = RecoveryPublisher(
+            fileSystem: foundationFileSystem,
+            verifier: verifier,
+            stagingToken: { "parity" }
+        )
+        let memoryPublisher = RecoveryPublisher(
+            fileSystem: memoryFileSystem,
+            verifier: verifier,
+            stagingToken: { "parity" }
+        )
+
+        let foundation = try foundationPublisher.publish(candidate)
+        let memory = try memoryPublisher.publish(candidate)
+
+        #expect(foundation.generationID == memory.generationID)
+        #expect(foundation.inventorySHA256 == memory.inventorySHA256)
+        #expect(foundation.recoveredArchive == memory.recoveredArchive)
+        #expect(foundationController.beforeOperations == memoryController.beforeOperations)
+        let foundationFiles = try RecoveryPublicationFixture.fileSnapshot(root)
+        let memoryFiles = memoryFileSystem.snapshotFiles()
+        #expect(foundationFiles == memoryFiles)
+        #expect(try ReplayCore.replay(foundation.archive) == ReplayCore.replay(memory.archive))
+    }
+
     @Test(
         "CaptureRecovery imports finalized input and reconstructs open input through publication",
         arguments: [RecoveryPublicationInput.finalized, .openWithSuffix]
     )
-    func captureRecoveryIntegration(input: RecoveryPublicationInput) throws {
-        let source = try RecoveryPublicationFixture.copySource(input)
+    func captureRecoveryIntegration(input: RecoveryPublicationInput) async throws {
+        let source = try await RecoveryPublicationFixture.copySource(input)
         defer { source.remove() }
         let verifier = try RecoveryPublicationFixture.verifier()
         let recovery = CaptureRecovery(verifier: verifier)
@@ -433,9 +476,12 @@ final class PublicationDurableMemoryFileSystem: CaptureFileSystem, @unchecked Se
             }
             return (relativeDirectories, relativeFiles)
         }
-        let mirror = FileManager.default.temporaryDirectory
+        let mirrorContainer = FileManager.default.temporaryDirectory
             .appendingPathComponent("reroom-publication-memory-\(UUID().uuidString.lowercased())")
-        try FileManager.default.createDirectory(at: mirror, withIntermediateDirectories: false)
+        let mirror = mirrorContainer.appendingPathComponent(
+            path.split(separator: "/").last.map(String.init) ?? "root"
+        )
+        try FileManager.default.createDirectory(at: mirror, withIntermediateDirectories: true)
         for directory in snapshot.0.sorted() where directory.isEmpty == false {
             try FileManager.default.createDirectory(
                 at: mirror.appendingPathComponent(directory),
@@ -450,7 +496,7 @@ final class PublicationDurableMemoryFileSystem: CaptureFileSystem, @unchecked Se
             )
             try data.write(to: url, options: Data.WritingOptions.withoutOverwriting)
         }
-        withLock { mirrorRoots.append(mirror) }
+        withLock { mirrorRoots.append(mirrorContainer) }
         return mirror
     }
 
@@ -540,7 +586,8 @@ enum RecoveryPublicationFixture {
         let root = fixtureRoot.appendingPathComponent("recovered-prefix.rrcap")
         let verifier = try verifier()
         let archive = try verifier.verify(root: root)
-        let journal = try Data(contentsOf: root.appendingPathComponent("journal/global.jsonl"))
+        let manifestData = try Data(contentsOf: root.appendingPathComponent("manifest.json"))
+        let journal = try journalData(from: manifestData)
         let suffix = Data(#"{"journal_sequence":6"#.utf8)
         let suffixSHA256 = CanonicalJSON.sha256Hex(suffix)
         let metadata = try canonical([
@@ -551,7 +598,7 @@ enum RecoveryPublicationFixture {
         ])
         return RecoveryGenerationCandidate(
             sourceIdentity: archive.sourceIdentity,
-            manifestData: try Data(contentsOf: root.appendingPathComponent("manifest.json")),
+            manifestData: manifestData,
             members: try archive.members.map { descriptor in
                 RecoveryCandidateMember(
                     descriptor: descriptor,
@@ -574,40 +621,79 @@ enum RecoveryPublicationFixture {
         )
     }
 
-    static func copySource(_ input: RecoveryPublicationInput) throws -> PublicationSourceFixture {
+    static func copySource(_ input: RecoveryPublicationInput) async throws -> PublicationSourceFixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("reroom-publication-source-\(UUID().uuidString.lowercased())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
-        let archiveName = input == .finalized
-            ? "finalized-one-frame.rrcap"
-            : "recovered-prefix.rrcap"
-        let archive = root.appendingPathComponent(archiveName)
-        try FileManager.default.copyItem(
-            at: fixtureRoot.appendingPathComponent(archiveName),
-            to: archive
-        )
-        var suffix = Data()
         if input == .openWithSuffix {
-            let manifestURL = archive.appendingPathComponent("manifest.json")
-            var manifest = try JSONSerialization.jsonObject(
-                with: Data(contentsOf: manifestURL)
-            ) as! [String: Any]
-            var finalization = manifest["finalization"] as! [String: Any]
-            finalization["state"] = "open"
-            finalization.removeValue(forKey: "manifest_sha256")
-            manifest["finalization"] = finalization
-            let digest = CanonicalJSON.sha256Hex(try canonical(manifest))
-            finalization["manifest_sha256"] = digest
-            manifest["finalization"] = finalization
-            try canonical(manifest).write(to: manifestURL)
-            suffix = Data(#"{"journal_sequence":6"#.utf8)
+            let sessionID = id(prefix: "session", ordinal: 971)
+            let archivePath = "archives/\(sessionID).rrcap"
+            let archive = root.appendingPathComponent(archivePath)
+            let validator = try verifierValidator()
+            let store = CaptureArchiveStore(
+                fileSystem: try FoundationCaptureFileSystem(root: root),
+                encoder: FramePacketEncoder(
+                    validator: validator,
+                    profile: .syntheticOnePixelPNG
+                ),
+                descriptor: try CaptureSessionDescriptor(
+                    sessionID: sessionID,
+                    archivePath: archivePath,
+                    worldFrameID: id(prefix: "world", ordinal: 971),
+                    startedAtMonotonicNanoseconds: "3000000971"
+                ),
+                source: CaptureArchiveSource(
+                    deviceModel: "Synthetic iPhone Fixture",
+                    osVersion: "fixture-1.0.0",
+                    appVersion: "fixture-1.0.0",
+                    buildID: "build_fixture_0003",
+                    recordedAtUTC: "2026-07-19T00:00:00Z"
+                ),
+                eventID: { sequence in id(prefix: "event", ordinal: 97_100 + Int(sequence)) }
+            )
+            _ = try await store.startSession(
+                authorization: CaptureSessionAuthorization(
+                    sessionID: sessionID,
+                    consentGranted: true
+                )
+            )
+            let frameID = id(prefix: "frame", ordinal: 971)
+            _ = try await store.publishSelectedFrame(
+                SelectedFrameCandidate(
+                    sessionID: sessionID,
+                    frameID: frameID,
+                    submapID: id(prefix: "submap", ordinal: 971),
+                    worldFrameID: id(prefix: "world", ordinal: 971),
+                    worldFrameVersion: 1,
+                    captureSequence: 0,
+                    monotonicTimestampNanoseconds: "4000000971",
+                    imageRelativePath: "frames/\(frameID)/image.png",
+                    packetRelativePath: "frames/\(frameID)/packet.json",
+                    imageBytes: onePixelPNG,
+                    selectedReason: .userEvent,
+                    idempotencyKey: id(prefix: "frameidem", ordinal: 971)
+                )
+            )
+            let suffix = Data(#"{"journal_sequence":6"#.utf8)
             let journalURL = archive.appendingPathComponent("journal/global.jsonl")
             let handle = try FileHandle(forWritingTo: journalURL)
             defer { try? handle.close() }
             try handle.seekToEnd()
             try handle.write(contentsOf: suffix)
+            return PublicationSourceFixture(
+                rootURL: root,
+                archiveURL: archive,
+                invalidSuffix: suffix
+            )
         }
-        return PublicationSourceFixture(rootURL: root, archiveURL: archive, invalidSuffix: suffix)
+
+        let archiveName = "finalized-one-frame.rrcap"
+        let archive = root.appendingPathComponent(archiveName)
+        try FileManager.default.copyItem(
+            at: fixtureRoot.appendingPathComponent(archiveName),
+            to: archive
+        )
+        return PublicationSourceFixture(rootURL: root, archiveURL: archive, invalidSuffix: Data())
     }
 
     static func verifier() throws -> ArchiveVerifier {
@@ -618,7 +704,20 @@ enum RecoveryPublicationFixture {
             (.editArtifacts, "edit-artifacts.schema.json", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
             (.transaction, "transaction.schema.json", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
         ]
-        let validator = try ContractValidator(registrations: registrations.map { identifier, name, digest in
+        return ArchiveVerifier(validator: try verifierValidator(registrations: registrations))
+    }
+
+    private static func verifierValidator(
+        registrations: [(ContractSchemaIdentifier, String, String)]? = nil
+    ) throws -> ContractValidator {
+        let bindings = registrations ?? [
+            (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
+            (.rrcapManifest, "rrcap-manifest.schema.json", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
+            (.sceneState, "scene-state.schema.json", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
+            (.editArtifacts, "edit-artifacts.schema.json", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
+            (.transaction, "transaction.schema.json", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
+        ]
+        return try ContractValidator(registrations: bindings.map { identifier, name, digest in
             ContractSchemaRegistration(
                 identifier: identifier,
                 version: "1.0.0",
@@ -626,7 +725,6 @@ enum RecoveryPublicationFixture {
                 schemaData: try Data(contentsOf: repositoryRoot.appendingPathComponent("docs/contracts/\(name)"))
             )
         })
-        return ArchiveVerifier(validator: validator)
     }
 
     static func snapshot(_ root: URL) throws -> [String: String] {
@@ -641,6 +739,26 @@ enum RecoveryPublicationFixture {
             }
             let relative = String(url.path.dropFirst(root.path.count + 1))
             result[relative] = CanonicalJSON.sha256Hex(try Data(contentsOf: url))
+        }
+        return result
+    }
+
+    static func fileSnapshot(_ root: URL) throws -> [String: Data] {
+        let resolvedRoot = root.resolvingSymlinksInPath()
+        guard let enumerator = FileManager.default.enumerator(
+            at: resolvedRoot,
+            includingPropertiesForKeys: [.isRegularFileKey]
+        ) else { return [:] }
+        var result = [String: Data]()
+        for case let url as URL in enumerator {
+            guard try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
+                continue
+            }
+            guard let rootIndex = url.pathComponents.lastIndex(of: resolvedRoot.lastPathComponent),
+                  rootIndex + 1 < url.pathComponents.count
+            else { continue }
+            let relative = url.pathComponents[(rootIndex + 1)...].joined(separator: "/")
+            result[relative] = try Data(contentsOf: url)
         }
         return result
     }
@@ -664,6 +782,25 @@ enum RecoveryPublicationFixture {
         let encoded = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
         return try CanonicalJSON.canonicalize(jsonData: encoded)
     }
+
+    private static func journalData(from manifestData: Data) throws -> Data {
+        let manifest = try JSONSerialization.jsonObject(with: manifestData) as! [String: Any]
+        let records = manifest["journal"] as! [Any]
+        var result = Data()
+        for record in records {
+            result.append(try canonical(record))
+            result.append(0x0a)
+        }
+        return result
+    }
+
+    private static func id(prefix: String, ordinal: Int) -> String {
+        "\(prefix)_\(String(format: "%08x", ordinal))-0000-4000-8000-000000000001"
+    }
+
+    private static let onePixelPNG = Data(base64Encoded:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )!
 }
 
 struct PublicationSourceFixture {

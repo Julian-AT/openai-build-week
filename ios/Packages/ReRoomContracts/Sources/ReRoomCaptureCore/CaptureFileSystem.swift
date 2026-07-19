@@ -44,6 +44,10 @@ public enum CaptureFileOperationKind: String, Codable, CaseIterable, Sendable {
     case append
     case replace
     case rename
+    case renameExclusive = "rename_exclusive"
+    case installExclusive = "install_exclusive"
+    case removeItem = "remove_item"
+    case listFiles = "list_files"
     case read
     case fileExists = "file_exists"
 }
@@ -79,13 +83,38 @@ public protocol CaptureFileSystem: Sendable {
     func append(_ data: Data, to path: String) throws
     func replace(_ data: Data, at path: String) throws
     func rename(from sourcePath: String, to destinationPath: String) throws
+    func renameExclusively(from sourcePath: String, to destinationPath: String) throws
+    func installFileExclusively(from sourcePath: String, to destinationPath: String) throws
+    func removeItem(at path: String) throws
     func read(at path: String, maximumBytes: Int?) throws -> Data
     func fileExists(at path: String) throws -> Bool
+    func listFilesRecursively(at path: String) throws -> [String]
+    func localURL(at path: String) throws -> URL
 }
 
 public extension CaptureFileSystem {
     func read(at path: String) throws -> Data {
         try read(at: path, maximumBytes: nil)
+    }
+
+    func renameExclusively(from sourcePath: String, to destinationPath: String) throws {
+        throw CaptureFileSystemError.ioFailure
+    }
+
+    func installFileExclusively(from sourcePath: String, to destinationPath: String) throws {
+        throw CaptureFileSystemError.ioFailure
+    }
+
+    func removeItem(at path: String) throws {
+        throw CaptureFileSystemError.ioFailure
+    }
+
+    func listFilesRecursively(at path: String) throws -> [String] {
+        throw CaptureFileSystemError.ioFailure
+    }
+
+    func localURL(at path: String) throws -> URL {
+        throw CaptureFileSystemError.ioFailure
     }
 }
 
@@ -173,7 +202,7 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
     }
 
     public func synchronizeDirectory(at path: String) throws {
-        let directory = try existing(path, requiresDirectory: true)
+        let directory = path.isEmpty ? root : try existing(path, requiresDirectory: true)
         let operation = CaptureFileOperation(kind: .synchronizeDirectory, path: path)
         try observe(operation)
         #if canImport(Darwin)
@@ -242,6 +271,72 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         try afterOperation(operation)
     }
 
+    public func renameExclusively(from sourcePath: String, to destinationPath: String) throws {
+        let source = try existing(sourcePath, requiresDirectory: true)
+        let destination = try resolve(destinationPath)
+        let operation = CaptureFileOperation(
+            kind: .renameExclusive,
+            path: sourcePath,
+            destinationPath: destinationPath
+        )
+        try observe(operation)
+        #if canImport(Darwin)
+        let result = source.path.withCString { sourcePointer in
+            destination.path.withCString { destinationPointer in
+                Darwin.renamex_np(sourcePointer, destinationPointer, UInt32(RENAME_EXCL))
+            }
+        }
+        guard result == 0 else {
+            if errno == EEXIST { throw CaptureFileSystemError.destinationExists }
+            throw CaptureFileSystemError.ioFailure
+        }
+        #else
+        throw CaptureFileSystemError.ioFailure
+        #endif
+        try afterOperation(operation)
+    }
+
+    public func installFileExclusively(
+        from sourcePath: String,
+        to destinationPath: String
+    ) throws {
+        let source = try existing(sourcePath)
+        let destination = try resolve(destinationPath)
+        let operation = CaptureFileOperation(
+            kind: .installExclusive,
+            path: sourcePath,
+            destinationPath: destinationPath
+        )
+        try observe(operation)
+        #if canImport(Darwin)
+        let result = source.path.withCString { sourcePointer in
+            destination.path.withCString { destinationPointer in
+                Darwin.link(sourcePointer, destinationPointer)
+            }
+        }
+        guard result == 0 else {
+            if errno == EEXIST { throw CaptureFileSystemError.destinationExists }
+            throw CaptureFileSystemError.ioFailure
+        }
+        #else
+        throw CaptureFileSystemError.ioFailure
+        #endif
+        try afterOperation(operation)
+    }
+
+    public func removeItem(at path: String) throws {
+        guard path.isEmpty == false else { throw CaptureFileSystemError.invalidPath }
+        let item = try existing(path)
+        let operation = CaptureFileOperation(kind: .removeItem, path: path)
+        try observe(operation)
+        do {
+            try FileManager.default.removeItem(at: item)
+        } catch {
+            throw CaptureFileSystemError.ioFailure
+        }
+        try afterOperation(operation)
+    }
+
     public func read(at path: String, maximumBytes: Int? = nil) throws -> Data {
         let limit = maximumBytes ?? limits.maximumReadBytes
         guard limit > 0, limit <= limits.maximumReadBytes else {
@@ -273,6 +368,62 @@ public struct FoundationCaptureFileSystem: CaptureFileSystem, Sendable {
         let exists = FileManager.default.fileExists(atPath: file.path)
         try afterOperation(operation)
         return exists
+    }
+
+    public func listFilesRecursively(at path: String) throws -> [String] {
+        let directory = path.isEmpty ? root : try existing(path, requiresDirectory: true)
+        let operation = CaptureFileOperation(kind: .listFiles, path: path)
+        try observe(operation)
+        var paths = [String]()
+        func walk(_ current: URL, prefix: String) throws {
+            let children: [URL]
+            do {
+                children = try FileManager.default.contentsOfDirectory(
+                    at: current,
+                    includingPropertiesForKeys: [
+                        .isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey,
+                    ],
+                    options: []
+                )
+            } catch {
+                throw CaptureFileSystemError.ioFailure
+            }
+            for child in children.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                let values: URLResourceValues
+                do {
+                    values = try child.resourceValues(
+                        forKeys: [.isRegularFileKey, .isDirectoryKey, .isSymbolicLinkKey]
+                    )
+                } catch {
+                    throw CaptureFileSystemError.ioFailure
+                }
+                guard values.isSymbolicLink != true else {
+                    throw CaptureFileSystemError.invalidPath
+                }
+                let relativePath = prefix.isEmpty
+                    ? child.lastPathComponent
+                    : "\(prefix)/\(child.lastPathComponent)"
+                do {
+                    try ArchivePath.validate(relativePath)
+                } catch {
+                    throw CaptureFileSystemError.invalidPath
+                }
+                if values.isDirectory == true {
+                    try walk(child, prefix: relativePath)
+                } else if values.isRegularFile == true {
+                    paths.append(relativePath)
+                } else {
+                    throw CaptureFileSystemError.invalidPath
+                }
+            }
+        }
+        try walk(directory, prefix: "")
+        try afterOperation(operation)
+        return paths
+    }
+
+    public func localURL(at path: String) throws -> URL {
+        path.isEmpty ? root : try existing(path, requiresDirectory: true)
     }
 
     private func requireWriteSize(_ count: Int) throws {

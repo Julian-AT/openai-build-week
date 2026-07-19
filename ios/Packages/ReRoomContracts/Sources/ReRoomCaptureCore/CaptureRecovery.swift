@@ -1,4 +1,5 @@
 import Foundation
+import ReRoomContracts
 
 public enum CaptureRecoveryError: String, Error, Equatable, Sendable {
     case missingManifest = "missing_manifest"
@@ -56,6 +57,15 @@ public struct CaptureRecovery: Sendable {
         }
     }
 
+    /// Imports finalized/recovered input or reconstructs an open input, then
+    /// crosses the visibility boundary only through `RecoveryPublisher`.
+    public func publish(
+        root: URL,
+        using publisher: RecoveryPublisher
+    ) throws -> RecoveryPublication {
+        try publisher.publish(publicationCandidate(root: root))
+    }
+
     func recoveryCandidate(root: URL) throws -> RecoveryGenerationCandidate {
         do {
             let source = try verifier.verifyRecoverySource(root: root)
@@ -67,6 +77,86 @@ public struct CaptureRecovery: Sendable {
         } catch {
             throw CaptureRecoveryError.invalidManifest
         }
+    }
+
+    private func publicationCandidate(root: URL) throws -> RecoveryGenerationCandidate {
+        do {
+            let archive = try verifier.verify(root: root)
+            let boundary = try RecoveryPublicationSourceBoundary(root: root)
+            let manifestData = try boundary.read(
+                relativePath: "manifest.json",
+                maximumBytes: ArchiveVerifier.maximumManifestBytes
+            )
+            guard manifestData.count == archive.manifest.byteLength,
+                  CanonicalJSON.sha256Hex(manifestData) == archive.manifest.sha256
+            else { throw CaptureRecoveryError.digestMismatch }
+            let journalData = try canonicalJournalData(from: manifestData)
+            let members = try archive.members.map { descriptor in
+                let data = try boundary.read(
+                    relativePath: descriptor.relativePath,
+                    maximumBytes: ArchiveVerifier.maximumMemberBytes
+                )
+                guard data.count == descriptor.byteLength,
+                      CanonicalJSON.sha256Hex(data) == descriptor.sha256
+                else { throw CaptureRecoveryError.digestMismatch }
+                return RecoveryCandidateMember(descriptor: descriptor, data: data)
+            }
+            return RecoveryGenerationCandidate(
+                sourceIdentity: archive.sourceIdentity,
+                manifestData: manifestData,
+                members: members,
+                journalData: journalData,
+                invalidSuffix: nil,
+                acceptedPrefixJournalSHA256: CanonicalJSON.sha256Hex(journalData),
+                finalizationState: archive.manifest.finalizationState,
+                manifestSHA256: archive.sourceIdentity.manifestSHA256,
+                lastDurableJournalSequence: archive.manifest.lastDurableJournalSequence,
+                acceptedFrameCount: UInt64(archive.manifest.acceptedFrameCount),
+                eventCount: UInt64(archive.manifest.eventCount)
+            )
+        } catch ArchiveVerificationError.archiveOpen {
+            return try recoveryCandidate(root: root)
+        } catch let error as CaptureRecoveryError {
+            throw error
+        } catch let error as ArchiveVerificationError {
+            throw CaptureRecoveryError(error)
+        } catch {
+            throw CaptureRecoveryError.ioFailure
+        }
+    }
+
+    private func canonicalJournalData(from manifestData: Data) throws -> Data {
+        let object: [String: Any]
+        do {
+            guard let value = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any] else {
+                throw CaptureRecoveryError.invalidJSON
+            }
+            object = value
+        } catch let error as CaptureRecoveryError {
+            throw error
+        } catch {
+            throw CaptureRecoveryError.invalidJSON
+        }
+        guard let records = object["journal"] as? [Any], records.isEmpty == false else {
+            throw CaptureRecoveryError.invalidManifest
+        }
+        var result = Data()
+        for record in records {
+            do {
+                let encoded = try JSONSerialization.data(
+                    withJSONObject: record,
+                    options: [.sortedKeys]
+                )
+                result.append(try CanonicalJSON.canonicalize(jsonData: encoded))
+                result.append(0x0a)
+            } catch {
+                throw CaptureRecoveryError.invalidJSON
+            }
+        }
+        guard result.count <= Self.maximumJournalBytes else {
+            throw CaptureRecoveryError.byteLimitExceeded
+        }
+        return result
     }
 
     private func recoveredArchive(from archive: VerifiedArchive, root: URL) throws -> RecoveredArchive {
@@ -85,6 +175,61 @@ public struct CaptureRecovery: Sendable {
             firstInvalidJournalSequence: nil,
             quarantineSHA256: nil
         )
+    }
+}
+
+private struct RecoveryPublicationSourceBoundary {
+    let root: URL
+
+    init(root: URL) throws {
+        guard root.isFileURL else { throw CaptureRecoveryError.invalidRoot }
+        let standardized = root.standardizedFileURL
+        let values = try? standardized.resourceValues(
+            forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+        )
+        guard values?.isDirectory == true,
+              values?.isSymbolicLink != true,
+              standardized.resolvingSymlinksInPath().path == standardized.path
+        else { throw CaptureRecoveryError.invalidRoot }
+        self.root = standardized
+    }
+
+    func read(relativePath: String, maximumBytes: Int) throws -> Data {
+        guard maximumBytes > 0 else { throw CaptureRecoveryError.byteLimitExceeded }
+        let url: URL
+        do {
+            url = try ArchivePath.resolve(relativePath, under: root)
+        } catch {
+            throw CaptureRecoveryError.invalidPath
+        }
+        var cursor = root
+        for component in relativePath.split(separator: "/") {
+            cursor.appendPathComponent(String(component))
+            let values = try? cursor.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard values?.isSymbolicLink != true else {
+                throw CaptureRecoveryError.invalidPath
+            }
+        }
+        let values = try? url.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+        )
+        guard values?.isRegularFile == true, values?.isSymbolicLink != true else {
+            throw CaptureRecoveryError.ioFailure
+        }
+        guard let size = values?.fileSize, size <= maximumBytes else {
+            throw CaptureRecoveryError.byteLimitExceeded
+        }
+        do {
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
+            guard data.count <= maximumBytes else {
+                throw CaptureRecoveryError.byteLimitExceeded
+            }
+            return data
+        } catch let error as CaptureRecoveryError {
+            throw error
+        } catch {
+            throw CaptureRecoveryError.ioFailure
+        }
     }
 }
 
