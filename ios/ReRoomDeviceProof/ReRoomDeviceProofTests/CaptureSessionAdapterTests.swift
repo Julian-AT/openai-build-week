@@ -375,15 +375,16 @@ struct CaptureSessionAdapterTests {
         #expect(await recovery.recoverCount == 1)
     }
 
+    @MainActor
     @Test("foundation recovery publishes finalized and recovered inputs before inspection")
     func foundationRecoveryUsesActiveGenerations() async throws {
         let fixture = try NativeRecoveryFixture(
             copying: ["finalized-one-frame.rrcap", "recovered-prefix.rrcap"]
         )
         defer { fixture.remove() }
-        try fixture.addOpenTerminalSuffixArchive(
-            copying: "recovered-prefix.rrcap",
-            as: "open-terminal-suffix.rrcap"
+        try await fixture.addOpenTerminalSuffixArchive(
+            as: "open-terminal-suffix.rrcap",
+            validator: contractValidator()
         )
         let driver = FoundationCaptureRecoveryDriver(
             root: fixture.root,
@@ -983,71 +984,107 @@ private struct NativeRecoveryFixture {
         }.sorted { $0.path < $1.path }
     }
 
-    func addOpenTerminalSuffixArchive(copying sourceName: String, as destinationName: String) throws {
-        let source = root.appendingPathComponent(sourceName)
-        let destination = root.appendingPathComponent(destinationName)
-        try FileManager.default.copyItem(at: source, to: destination)
-        let manifestURL = destination.appendingPathComponent("manifest.json")
-        var object = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: manifestURL)
-        ) as! [String: Any]
-        let durableJournal = object["journal"] as! [[String: Any]]
-        let staleJournal = Array(durableJournal.prefix(3))
-        let staleEvents = Array((object["events"] as! [[String: Any]]).prefix(3))
-        object["journal"] = staleJournal
-        object["events"] = staleEvents
-        object["accepted_frame_order"] = [[String: Any]]()
-        object["keyframes"] = [[String: Any]]()
-        var replay = object["replay"] as! [String: Any]
-        let tuples: [[Any]] = staleJournal.map {
-            [
-                $0["journal_sequence"]!,
-                $0["entry_type"]!,
-                $0["reference_id"]!,
-                $0["content_sha256"]!,
-            ]
-        }
-        let tupleBytes = try JSONSerialization.data(withJSONObject: tuples, options: [.sortedKeys])
-        replay["input_digest"] = ReplayInputIntegrity.sha256Hex(
-            try ReplayInputIntegrity.canonicalizeJSON(tupleBytes)
+    func addOpenTerminalSuffixArchive(
+        as destinationName: String,
+        validator: ContractValidator
+    ) async throws {
+        let sessionOrdinal = 902
+        let sessionID = TestCaptureIDs.session(sessionOrdinal)
+        let archiveURL = root.appendingPathComponent(destinationName)
+        let probe = NativeStaleManifestProbe(
+            manifestURL: archiveURL.appendingPathComponent("manifest.json")
         )
-        object["replay"] = replay
-        var finalization = object["finalization"] as! [String: Any]
-        finalization["state"] = "open"
-        finalization["last_durable_journal_sequence"] = 2
-        finalization.removeValue(forKey: "manifest_sha256")
-        object["finalization"] = finalization
-        let unsigned = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
-        let canonicalUnsigned = try ReplayInputIntegrity.canonicalizeJSON(unsigned)
-        finalization["manifest_sha256"] = ReplayInputIntegrity.sha256Hex(canonicalUnsigned)
-        object["finalization"] = finalization
-        let encoded = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
-        try ReplayInputIntegrity.canonicalizeJSON(encoded).write(to: manifestURL, options: .atomic)
-
-        let journalDirectory = destination.appendingPathComponent("journal", isDirectory: true)
-        try FileManager.default.createDirectory(
-            at: journalDirectory,
-            withIntermediateDirectories: false
+        let store = CaptureArchiveStore(
+            fileSystem: try ReRoomCaptureCore.FoundationCaptureFileSystem(root: root),
+            encoder: FramePacketEncoder(
+                validator: validator,
+                profile: .syntheticOnePixelPNG
+            ),
+            descriptor: try CaptureSessionDescriptor(
+                sessionID: sessionID,
+                archivePath: destinationName,
+                worldFrameID: TestCaptureIDs.world(sessionOrdinal),
+                startedAtMonotonicNanoseconds: "3000000902"
+            ),
+            source: CaptureArchiveSource(
+                deviceModel: "Synthetic iPhone Fixture",
+                osVersion: "fixture-1.0.0",
+                appVersion: "fixture-1.0.0",
+                buildID: "build_fixture_0902",
+                recordedAtUTC: "2026-07-17T00:00:00Z"
+            ),
+            eventID: { sequence in
+                TestCaptureIDs.event(90_200 + Int(sequence))
+            },
+            lifecycleObserver: probe.observe
         )
-        var journalData = Data()
-        for record in durableJournal {
-            journalData.append(
-                try ReplayInputIntegrity.canonicalizeJSON(
-                    JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
-                )
+        _ = try await store.startSession(
+            authorization: CaptureSessionAuthorization(
+                sessionID: sessionID,
+                consentGranted: true
             )
-            journalData.append(0x0A)
-        }
-        journalData.append(Data(#"{"journal_sequence":6"#.utf8))
-        try journalData.write(
-            to: journalDirectory.appendingPathComponent("global.jsonl"),
+        )
+        let frameID = TestCaptureIDs.frame(sessionOrdinal)
+        _ = try await store.publishSelectedFrame(
+            SelectedFrameCandidate(
+                sessionID: sessionID,
+                frameID: frameID,
+                submapID: TestCaptureIDs.submap(sessionOrdinal),
+                worldFrameID: TestCaptureIDs.world(sessionOrdinal),
+                worldFrameVersion: 1,
+                captureSequence: 0,
+                monotonicTimestampNanoseconds: "4000000902",
+                imageRelativePath: "frames/\(frameID)/image.png",
+                packetRelativePath: "frames/\(frameID)/packet.json",
+                imageBytes: Self.onePixelPNG,
+                selectedReason: .userEvent,
+                idempotencyKey: TestCaptureIDs.idempotency(sessionOrdinal)
+            )
+        )
+        try probe.manifestData().write(
+            to: archiveURL.appendingPathComponent("manifest.json"),
             options: .atomic
         )
+        let journalURL = archiveURL.appendingPathComponent("journal/global.jsonl")
+        let handle = try FileHandle(forWritingTo: journalURL)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(#"{"journal_sequence":6"#.utf8))
     }
+
+    private static let onePixelPNG = Data(base64Encoded:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )!
 }
 
 private enum NativeRecoveryFixtureError: Error {
     case repositoryRootNotFound
+    case missingStaleManifest
+}
+
+private final class NativeStaleManifestProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let manifestURL: URL
+    private var captured: Data?
+
+    init(manifestURL: URL) {
+        self.manifestURL = manifestURL
+    }
+
+    func observe(_ observation: CaptureLifecycleObservation) {
+        guard observation.state == .imageAndMetadataDurable else { return }
+        let data = try? Data(contentsOf: manifestURL)
+        lock.lock()
+        captured = data
+        lock.unlock()
+    }
+
+    func manifestData() throws -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let captured else { throw NativeRecoveryFixtureError.missingStaleManifest }
+        return captured
+    }
 }
 
 private enum TestCaptureIDs {
