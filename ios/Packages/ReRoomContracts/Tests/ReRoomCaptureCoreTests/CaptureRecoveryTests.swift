@@ -37,6 +37,21 @@ struct CaptureRecoveryTests {
         #expect(FileManager.default.fileExists(atPath: fixture.recoveredURL.path) == false)
     }
 
+    @Test("a stale open manifest cannot truncate later fsynced journal records")
+    func staleOpenManifest() async throws {
+        let fixture = try await RecoveryWriterFixture.staleAfterDurableFrameBytes()
+        defer { fixture.remove() }
+        let sourceBefore = try RecoveryFixture.snapshot(of: fixture.archiveURL)
+
+        let recovered = try CaptureRecovery.inspect(root: fixture.archiveURL)
+
+        #expect(recovered.finalization.state == .recoveredPrefix)
+        #expect(recovered.acceptedJournalRecordCount == 6)
+        #expect(recovered.finalization.acceptedFrameCount == 1)
+        #expect(recovered.finalization.eventCount == 5)
+        #expect(try RecoveryFixture.snapshot(of: fixture.archiveURL) == sourceBefore)
+    }
+
     @Test("a torn final JSONL record publishes only the immediately preceding prefix")
     func tornFinalRecord() throws {
         let fixture = try RecoveryFixture.openArchive()
@@ -168,6 +183,148 @@ struct CaptureRecoveryTests {
         #expect(FileManager.default.fileExists(atPath: fixture.quarantineRootURL.path) == false)
         #expect(fixture.stagingPaths.isEmpty)
     }
+}
+
+private final class StaleManifestProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private let manifestURL: URL
+    private var captured: Data?
+
+    init(manifestURL: URL) {
+        self.manifestURL = manifestURL
+    }
+
+    func observe(_ observation: CaptureLifecycleObservation) {
+        guard observation.state == .imageAndMetadataDurable else { return }
+        let data = try? Data(contentsOf: manifestURL)
+        lock.lock()
+        captured = data
+        lock.unlock()
+    }
+
+    func manifestData() throws -> Data {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let captured else { throw RecoveryWriterFixtureError.missingStaleManifest }
+        return captured
+    }
+}
+
+private struct RecoveryWriterFixture: Sendable {
+    let rootURL: URL
+    let archiveURL: URL
+
+    static func staleAfterDurableFrameBytes() async throws -> RecoveryWriterFixture {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("reroom-recovery-writer-\(UUID().uuidString.lowercased())")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        let sessionID = id(prefix: "session", ordinal: 901)
+        let archivePath = "archives/\(sessionID).rrcap"
+        let archiveURL = root.appendingPathComponent(archivePath)
+        let probe = StaleManifestProbe(
+            manifestURL: archiveURL.appendingPathComponent("manifest.json")
+        )
+        let validator = try validator()
+        let store = CaptureArchiveStore(
+            fileSystem: try FoundationCaptureFileSystem(root: root),
+            encoder: FramePacketEncoder(
+                validator: validator,
+                profile: .syntheticOnePixelPNG
+            ),
+            descriptor: try CaptureSessionDescriptor(
+                sessionID: sessionID,
+                archivePath: archivePath,
+                worldFrameID: id(prefix: "world", ordinal: 901),
+                startedAtMonotonicNanoseconds: "3000000901"
+            ),
+            source: CaptureArchiveSource(
+                deviceModel: "Synthetic iPhone Fixture",
+                osVersion: "fixture-1.0.0",
+                appVersion: "fixture-1.0.0",
+                buildID: "build_fixture_0002",
+                recordedAtUTC: "2026-07-17T00:00:00Z"
+            ),
+            eventID: { sequence in id(prefix: "event", ordinal: 90_100 + Int(sequence)) },
+            lifecycleObserver: probe.observe
+        )
+        _ = try await store.startSession(
+            authorization: CaptureSessionAuthorization(
+                sessionID: sessionID,
+                consentGranted: true
+            )
+        )
+        let frameID = id(prefix: "frame", ordinal: 901)
+        _ = try await store.publishSelectedFrame(
+            SelectedFrameCandidate(
+                sessionID: sessionID,
+                frameID: frameID,
+                submapID: id(prefix: "submap", ordinal: 901),
+                worldFrameID: id(prefix: "world", ordinal: 901),
+                worldFrameVersion: 1,
+                captureSequence: 0,
+                monotonicTimestampNanoseconds: "4000000901",
+                imageRelativePath: "frames/\(frameID)/image.png",
+                packetRelativePath: "frames/\(frameID)/packet.json",
+                imageBytes: onePixelPNG,
+                selectedReason: .userEvent,
+                idempotencyKey: id(prefix: "frameidem", ordinal: 901)
+            )
+        )
+        try probe.manifestData().write(
+            to: archiveURL.appendingPathComponent("manifest.json"),
+            options: .atomic
+        )
+        return RecoveryWriterFixture(rootURL: root, archiveURL: archiveURL)
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: rootURL)
+    }
+
+    private static let onePixelPNG = Data(base64Encoded:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    )!
+
+    private static func id(prefix: String, ordinal: Int) -> String {
+        "\(prefix)_\(String(format: "%08x", ordinal))-0000-4000-8000-000000000001"
+    }
+
+    private static func validator() throws -> ContractValidator {
+        let root = try repositoryRoot()
+        let registrations: [(ContractSchemaIdentifier, String, String)] = [
+            (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
+            (.rrcapManifest, "rrcap-manifest.schema.json", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
+            (.sceneState, "scene-state.schema.json", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
+            (.editArtifacts, "edit-artifacts.schema.json", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
+            (.transaction, "transaction.schema.json", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
+        ]
+        return try ContractValidator(registrations: registrations.map { identifier, name, digest in
+            ContractSchemaRegistration(
+                identifier: identifier,
+                version: "1.0.0",
+                sha256: digest,
+                schemaData: try Data(contentsOf: root.appendingPathComponent("docs/contracts/\(name)"))
+            )
+        })
+    }
+
+    private static func repositoryRoot() throws -> URL {
+        var cursor = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        for _ in 0..<12 {
+            if FileManager.default.fileExists(
+                atPath: cursor.appendingPathComponent("docs/contracts/frame-packet.schema.json").path
+            ) {
+                return cursor
+            }
+            cursor.deleteLastPathComponent()
+        }
+        throw RecoveryWriterFixtureError.repositoryRootNotFound
+    }
+}
+
+private enum RecoveryWriterFixtureError: Error {
+    case missingStaleManifest
+    case repositoryRootNotFound
 }
 
 private struct InjectedRecoveryPublicationFailure: Error {}
