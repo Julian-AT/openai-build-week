@@ -991,16 +991,13 @@ private struct NativeRecoveryFixture {
         var object = try JSONSerialization.jsonObject(
             with: Data(contentsOf: manifestURL)
         ) as! [String: Any]
-        let staleJournal = Array((object["journal"] as! [[String: Any]]).prefix(3))
+        let durableJournal = object["journal"] as! [[String: Any]]
+        let staleJournal = Array(durableJournal.prefix(3))
         let staleEvents = Array((object["events"] as! [[String: Any]]).prefix(3))
-        let referencedEventPaths = Set(staleEvents.map { $0["payload_path"] as! String })
         object["journal"] = staleJournal
         object["events"] = staleEvents
         object["accepted_frame_order"] = [[String: Any]]()
         object["keyframes"] = [[String: Any]]()
-        object["files"] = (object["files"] as! [[String: Any]]).filter {
-            referencedEventPaths.contains($0["relative_path"] as! String)
-        }
         var replay = object["replay"] as! [String: Any]
         let tuples: [[Any]] = staleJournal.map {
             [
@@ -1027,11 +1024,25 @@ private struct NativeRecoveryFixture {
         let encoded = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
         try ReplayInputIntegrity.canonicalizeJSON(encoded).write(to: manifestURL, options: .atomic)
 
-        let journal = destination.appendingPathComponent("journal/global.jsonl")
-        let handle = try FileHandle(forWritingTo: journal)
-        defer { try? handle.close() }
-        try handle.seekToEnd()
-        try handle.write(contentsOf: Data(#"{"journal_sequence":6"#.utf8))
+        let journalDirectory = destination.appendingPathComponent("journal", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: journalDirectory,
+            withIntermediateDirectories: false
+        )
+        var journalData = Data()
+        for record in durableJournal {
+            journalData.append(
+                try ReplayInputIntegrity.canonicalizeJSON(
+                    JSONSerialization.data(withJSONObject: record, options: [.sortedKeys])
+                )
+            )
+            journalData.append(0x0A)
+        }
+        journalData.append(Data(#"{"journal_sequence":6"#.utf8))
+        try journalData.write(
+            to: journalDirectory.appendingPathComponent("global.jsonl"),
+            options: .atomic
+        )
     }
 }
 
