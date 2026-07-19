@@ -4,6 +4,25 @@
 **Approved at:** 2026-07-18
 **Timebox:** 36 hours
 **Delivery classification:** Demo candidate; not a fully gated P0 release
+**Status:** Completed historical overlay; canonical quality verification resumed 2026-07-18
+
+## Post-Sprint Transition
+
+The human project owner confirmed that the sprint produced a usable version and
+directed the project to return to the original quality-assurance process. This
+file now records a completed delivery overlay; it no longer authorizes reduced
+verification or disabled quality controls.
+
+The implementation is retained. Every deferred canonical requirement, test,
+gate, benchmark, human review, and physical-device obligation remains active.
+Verification resumes against the current code revision rather than reverting
+to the pre-sprint source tree.
+
+Before collecting revision-bound physical evidence, the project must close any
+software correctness or evidence-integrity defects found by the restored code,
+security, Nyquist, UI-safety, and cross-phase audits. This prevents expensive
+human/device evidence from being captured against a revision that is already
+known to require correction. Gate definitions and thresholds are unchanged.
 
 ## Purpose
 
