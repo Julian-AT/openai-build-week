@@ -1,5 +1,6 @@
 import Foundation
 import ReRoomCaptureCore
+import ReRoomContracts
 
 private let pinnedManifestSHA256 = "3b4519d2730e158df73e938f7b841664c6ce5f7d65ed2650c90ca8e89c7a7610"
 private let pinnedReportSchemaSHA256 = "821784ce1a3e4f45c2fe4db70f8f16643284f2e3e9f6effe85a7aee3e17bb9a9"
@@ -19,6 +20,7 @@ private struct Options {
 
 private struct LoadedFixture {
     let root: URL
+    let archiveVerifier: ArchiveVerifier
     let manifestSHA256: String
     let archives: [[String: Any]]
     let edgeProbes: [[String: Any]]
@@ -116,6 +118,31 @@ private func exactInt(_ value: Any?) -> Int? {
     return number.intValue
 }
 
+private func makeArchiveVerifier(repositoryRoot: URL) throws -> ArchiveVerifier {
+    let registrations: [(ContractSchemaIdentifier, String, String)] = [
+        (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
+        (.rrcapManifest, "rrcap-manifest.schema.json", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
+        (.sceneState, "scene-state.schema.json", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
+        (.editArtifacts, "edit-artifacts.schema.json", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
+        (.transaction, "transaction.schema.json", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
+    ]
+    do {
+        let schemas = try registrations.map { identifier, name, digest in
+            ContractSchemaRegistration(
+                identifier: identifier,
+                version: identifier.version,
+                sha256: digest,
+                schemaData: try readBounded(
+                    safeFile("docs/contracts/\(name)", root: repositoryRoot)
+                )
+            )
+        }
+        return ArchiveVerifier(validator: try ContractValidator(registrations: schemas))
+    } catch {
+        throw RunnerFailure("archive contract registry is invalid")
+    }
+}
+
 private func loadFixture(_ options: Options) throws -> LoadedFixture {
     let repositoryValues = try? options.repositoryRoot.resourceValues(
         forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
@@ -206,6 +233,7 @@ private func loadFixture(_ options: Options) throws -> LoadedFixture {
     }
     return LoadedFixture(
         root: root,
+        archiveVerifier: try makeArchiveVerifier(repositoryRoot: options.repositoryRoot),
         manifestSHA256: manifestSHA,
         archives: archives,
         edgeProbes: probes,
@@ -226,7 +254,10 @@ private func replayArchive(
     else { throw RunnerFailure("archive descriptor is invalid") }
     let snapshot: ReplaySnapshot
     do {
-        snapshot = try ReplayCore.replay(root: safeFile(path, root: fixture.root))
+        let archive = try fixture.archiveVerifier.verify(
+            root: safeFile(path, root: fixture.root)
+        )
+        snapshot = try ReplayCore.replay(archive)
     } catch {
         throw RunnerFailure("archive replay verification failed")
     }

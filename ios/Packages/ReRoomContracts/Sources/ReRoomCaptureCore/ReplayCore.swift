@@ -27,31 +27,19 @@ public struct ReplaySnapshot: Equatable, Sendable {
 }
 
 public enum ReplayCore {
-    public static func replay(root: URL) throws -> ReplaySnapshot {
-        let archive: RecoveryValidatedArchive
+    public static func replay(_ archive: VerifiedArchive) throws -> ReplaySnapshot {
         do {
-            archive = try CaptureRecovery.verifiedArchive(root: root)
-        } catch let error as CaptureRecoveryError {
-            throw ReplayCoreError(error)
-        } catch {
-            throw ReplayCoreError.semanticInvariant
-        }
-
-        do {
-            let timeline = try archive.journal.map { entry -> ReplayTimelineEntry in
-                guard let sequence = replayUInt(entry["journal_sequence"]),
-                      let typeText = entry["entry_type"] as? String,
-                      let type = ReplayTimelineEntryType(rawValue: typeText),
-                      let referenceID = entry["reference_id"] as? String,
-                      let digest = entry["content_sha256"] as? String,
-                      let timestamp = entry["monotonic_timestamp_ns"] as? String
-                else { throw ReplayCoreError.semanticInvariant }
+            let contents = try archive.consumeVerifiedContents()
+            let timeline = try contents.journal.map { entry -> ReplayTimelineEntry in
+                guard let type = ReplayTimelineEntryType(rawValue: entry.entryType) else {
+                    throw ReplayCoreError.semanticInvariant
+                }
                 return try ReplayTimelineEntry(
-                    journalSequence: sequence,
+                    journalSequence: entry.journalSequence,
                     entryType: type,
-                    referenceID: referenceID,
-                    contentSHA256: digest,
-                    monotonicTimestampNanoseconds: timestamp
+                    referenceID: entry.referenceID,
+                    contentSHA256: entry.contentSHA256,
+                    monotonicTimestampNanoseconds: entry.timestamp
                 )
             }
             guard timeline.indices.allSatisfy({ timeline[$0].journalSequence == UInt64($0) }) else {
@@ -60,7 +48,7 @@ public enum ReplayCore {
 
             let revisionTrace: [[String: Any]] = [[
                 "journal_sequence": 0,
-                "revision_id": archive.sessionID.replacingOccurrences(
+                "revision_id": contents.sourceIdentity.sessionID.replacingOccurrences(
                     of: "session_",
                     with: "revision_",
                     options: [.anchored]
@@ -68,32 +56,33 @@ public enum ReplayCore {
                 "source": "capture_baseline",
             ]]
             let digests = try ReplayDigestSet(
-                journalTupleSHA256: try replayJournalDigest(archive.journal),
+                journalTupleSHA256: try replayJournalDigest(contents.journal),
                 frameProjectionSHA256: CanonicalJSON.sha256Hex(
-                    try replayCanonicalData(archive.frames)
+                    replayCanonicalArray(contents.frames.map(\.canonicalProjectionData))
                 ),
                 eventProjectionSHA256: CanonicalJSON.sha256Hex(
-                    try replayCanonicalData(archive.events)
+                    replayCanonicalArray(contents.events.map(\.canonicalProjectionData))
                 ),
                 revisionTraceSHA256: CanonicalJSON.sha256Hex(
                     try replayCanonicalData(revisionTrace)
                 )
             )
-            let lastSequence = UInt64(archive.journal.count - 1)
             let finalization = try CaptureFinalization(
-                sessionID: archive.sessionID,
-                archivePath: root.lastPathComponent,
-                state: archive.state,
-                manifestSHA256: archive.manifestSHA256,
-                lastDurableJournalSequence: lastSequence,
-                acceptedFrameCount: UInt64(archive.frames.count),
-                eventCount: UInt64(archive.events.count)
+                sessionID: contents.sourceIdentity.sessionID,
+                archivePath: contents.archiveName,
+                state: contents.manifest.finalizationState,
+                manifestSHA256: contents.sourceIdentity.manifestSHA256,
+                lastDurableJournalSequence: contents.manifest.lastDurableJournalSequence,
+                acceptedFrameCount: UInt64(contents.frames.count),
+                eventCount: UInt64(contents.events.count)
             )
             return ReplaySnapshot(
                 finalization: finalization,
                 timeline: timeline,
                 digests: digests
             )
+        } catch let error as ArchiveVerificationError {
+            throw ReplayCoreError(error)
         } catch let error as ReplayCoreError {
             throw error
         } catch {
@@ -119,21 +108,21 @@ public enum ReplayInputIntegrity {
 }
 
 private extension ReplayCoreError {
-    init(_ error: CaptureRecoveryError) {
+    init(_ error: ArchiveVerificationError) {
         switch error {
         case .digestMismatch:
             self = .digestMismatch
+        case .invalidIdentity:
+            self = .invalidIdentity
         case .invalidPath:
             self = .invalidPath
         case .nonContiguousJournal:
             self = .nonContiguousJournal
-        case .unsupportedContractVersion, .unsupportedCodec, .unsupportedDigest:
+        case .unsupportedContractVersion:
             self = .unsupportedContractVersion
-        case .interiorCorruption:
-            self = .nonContiguousJournal
-        case .missingManifest, .missingJournal, .emptyJournal, .invalidRoot, .invalidJSON,
-             .invalidManifest, .byteLimitExceeded, .projectionMismatch, .noRecoverablePrefix,
-             .publicationConflict, .ioFailure:
+        case .invalidRoot, .missingManifest, .invalidJSON, .nonCanonicalJSON,
+             .schemaValidation, .unknownProperty, .numericOutOfRange, .byteLimitExceeded,
+             .semanticInvariant, .projectionMismatch, .archiveOpen, .ioFailure:
             self = .semanticInvariant
         }
     }
@@ -144,24 +133,24 @@ func replayCanonicalData(_ value: Any) throws -> Data {
     return try CanonicalJSON.canonicalize(jsonData: encoded)
 }
 
-private func replayJournalDigest(_ journal: [[String: Any]]) throws -> String {
-    let tuples = try journal.map { entry -> [Any] in
-        guard let sequence = replayUInt(entry["journal_sequence"]),
-              let type = entry["entry_type"] as? String,
-              let referenceID = entry["reference_id"] as? String,
-              let digest = entry["content_sha256"] as? String
-        else { throw ReplayCoreError.semanticInvariant }
-        return [sequence, type, referenceID, digest]
+private func replayJournalDigest(_ journal: [VerifiedJournalRecord]) throws -> String {
+    let tuples: [[Any]] = journal.map { entry in
+        [
+            entry.journalSequence,
+            entry.entryType,
+            entry.referenceID,
+            entry.contentSHA256,
+        ]
     }
     return CanonicalJSON.sha256Hex(try replayCanonicalData(tuples))
 }
 
-private func replayUInt(_ value: Any?) -> UInt64? {
-    guard let number = value as? NSNumber,
-          number.objCType.pointee != 0x63,
-          number.doubleValue >= 0,
-          number.doubleValue.rounded(.towardZero) == number.doubleValue,
-          number.doubleValue <= 9_007_199_254_740_991
-    else { return nil }
-    return number.uint64Value
+private func replayCanonicalArray(_ values: [Data]) -> Data {
+    var result = Data([0x5b])
+    for (index, value) in values.enumerated() {
+        if index > 0 { result.append(0x2c) }
+        result.append(value)
+    }
+    result.append(0x5d)
+    return result
 }
