@@ -702,17 +702,28 @@ public struct ArchiveVerifier: Sendable {
                 }
                 return rank
             }
-            guard ranks == ranks.sorted(), Set(ranks).count == ranks.count else {
+            guard ranks == ranks.sorted(),
+                  Set(ranks).count == ranks.count,
+                  ranks.last.map({ ranks == Array(0...$0) }) == true
+            else {
                 throw ArchiveVerificationError.semanticInvariant
             }
             if let frame = framesByID[frameID] {
-                let requiredLastRank = finalizationState == .open ? 2 : 3
+                let requiredLastRank = switch finalizationState {
+                case .open: 2
+                case .finalized: 3
+                case .recoveredPrefix: 1
+                }
                 guard ranks.count > requiredLastRank,
                       Array(ranks.prefix(requiredLastRank + 1)) == Array(0...requiredLastRank),
                       stageEvents[1].record.durableJournalSequence < frame.record.durableJournalSequence,
-                      frame.record.durableJournalSequence < stageEvents[2].record.durableJournalSequence,
                       (ranks.contains(4) == frame.record.serverAcknowledged)
                 else { throw ArchiveVerificationError.semanticInvariant }
+                if ranks.contains(2) {
+                    guard frame.record.durableJournalSequence
+                            < stageEvents[2].record.durableJournalSequence
+                    else { throw ArchiveVerificationError.semanticInvariant }
+                }
                 for event in stageEvents {
                     guard event.details.idempotencyKey.map({ $0 == frame.record.idempotencyKey }) ?? true,
                           event.details.packetPath.map({ $0 == frame.record.packet.relativePath }) ?? true,
@@ -721,7 +732,7 @@ public struct ArchiveVerifier: Sendable {
                     else { throw ArchiveVerificationError.semanticInvariant }
                 }
             } else {
-                guard finalizationState == .open,
+                guard finalizationState != .finalized,
                       ranks.allSatisfy({ $0 <= 1 })
                 else { throw ArchiveVerificationError.semanticInvariant }
             }

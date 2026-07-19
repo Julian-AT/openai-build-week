@@ -86,7 +86,13 @@ struct CaptureCrashMatrixTests {
         let sourceURL = root
             .appendingPathComponent("archives", isDirectory: true)
             .appendingPathComponent("\(CrashIDs.session(testCase.sessionOrdinal)).rrcap")
-        let probe = LifecycleRecoveryProbe(target: testCase.state, sourceURL: sourceURL)
+        let probe = LifecycleRecoveryProbe(
+            target: testCase.state,
+            sourceURL: sourceURL,
+            recovery: CaptureRecovery(
+                verifier: ArchiveVerifier(validator: try CrashSchemas.validator())
+            )
+        )
         let faults = CaptureOperationFaultController()
         let fileSystem = try FoundationCaptureFileSystem(
             root: root,
@@ -127,7 +133,13 @@ struct CaptureCrashMatrixTests {
         let sourceURL = root
             .appendingPathComponent("archives", isDirectory: true)
             .appendingPathComponent("\(CrashIDs.session(sessionOrdinal)).rrcap")
-        let probe = LifecycleRecoveryProbe(target: .journaled, sourceURL: sourceURL)
+        let probe = LifecycleRecoveryProbe(
+            target: .journaled,
+            sourceURL: sourceURL,
+            recovery: CaptureRecovery(
+                verifier: ArchiveVerifier(validator: try CrashSchemas.validator())
+            )
+        )
         let faults = CaptureOperationFaultController()
         let fileSystem = try FoundationCaptureFileSystem(
             root: root,
@@ -443,15 +455,17 @@ private final class LifecycleRecoveryProbe: @unchecked Sendable {
 
     let target: CaptureFrameState
     let sourceURL: URL
+    let recovery: CaptureRecovery
 
     private let lock = NSLock()
     private var didObserve = false
     private var recovered: RecoveredArchive?
     private var failure: String?
 
-    init(target: CaptureFrameState, sourceURL: URL) {
+    init(target: CaptureFrameState, sourceURL: URL, recovery: CaptureRecovery) {
         self.target = target
         self.sourceURL = sourceURL
+        self.recovery = recovery
     }
 
     func observe(_ observation: CaptureLifecycleObservation) {
@@ -464,7 +478,7 @@ private final class LifecycleRecoveryProbe: @unchecked Sendable {
         lock.unlock()
 
         do {
-            let value = try CaptureRecovery.inspect(root: sourceURL)
+            let value = try recovery.inspect(root: sourceURL)
             lock.lock()
             recovered = value
             lock.unlock()

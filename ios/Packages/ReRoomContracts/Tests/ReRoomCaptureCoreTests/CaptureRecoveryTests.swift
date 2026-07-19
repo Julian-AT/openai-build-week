@@ -25,7 +25,7 @@ struct CaptureRecoveryTests {
         defer { fixture.remove() }
         let before = try fixture.snapshot()
 
-        let recovered = try CaptureRecovery.inspect(root: fixture.archiveURL)
+        let recovered = try fixture.recovery().inspect(root: fixture.archiveURL)
 
         #expect(recovered.finalization.state == state)
         #expect(recovered.acceptedJournalRecordCount == journalCount)
@@ -43,59 +43,81 @@ struct CaptureRecoveryTests {
         defer { fixture.remove() }
         let sourceBefore = try RecoveryFixture.snapshot(of: fixture.archiveURL)
 
-        let recovered = try CaptureRecovery.inspect(root: fixture.archiveURL)
+        let candidate = try fixture.recovery.recoveryCandidate(root: fixture.archiveURL)
 
-        #expect(recovered.finalization.state == .recoveredPrefix)
-        #expect(recovered.acceptedJournalRecordCount == 6)
-        #expect(recovered.finalization.acceptedFrameCount == 1)
-        #expect(recovered.finalization.eventCount == 5)
+        #expect(candidate.finalizationState == .recoveredPrefix)
+        #expect(candidate.acceptedJournalRecordCount == 6)
+        #expect(candidate.acceptedFrameCount == 1)
+        #expect(candidate.eventCount == 5)
+        #expect(candidate.members.count == 7)
+        #expect(candidate.invalidSuffix == nil)
+        #expect(candidate.acceptedPrefixJournalSHA256 == CanonicalJSON.sha256Hex(candidate.journalData))
         #expect(try RecoveryFixture.snapshot(of: fixture.archiveURL) == sourceBefore)
+        #expect(FileManager.default.fileExists(atPath: fixture.recoveredURL.path) == false)
+
+        let verified = try fixture.materializeAndVerify(candidate)
+        let replay = try ReplayCore.replay(verified)
+        #expect(replay.timeline.count == 6)
+        #expect(replay.finalization.acceptedFrameCount == 1)
+        #expect(replay.finalization.eventCount == 5)
     }
 
-    @Test("a torn final JSONL record publishes only the immediately preceding prefix")
-    func tornFinalRecord() throws {
-        let fixture = try RecoveryFixture.openArchive()
+    @Test("a prefix ending at the fsynced frame record remains verifier-replayable")
+    func frameJournalBoundary() async throws {
+        let fixture = try await RecoveryWriterFixture.staleAfterDurableFrameBytes()
         defer { fixture.remove() }
-        let original = try fixture.snapshot(excludingJournal: true)
-        try fixture.appendJournal(Data(#"{"journal_sequence":6"#.utf8))
+        try fixture.replaceJournal(objects: Array(try fixture.journalObjects().prefix(4)))
 
-        let recovered = try CaptureRecovery.inspect(root: fixture.archiveURL)
+        let candidate = try fixture.recovery.recoveryCandidate(root: fixture.archiveURL)
 
-        #expect(recovered.finalization.state == .recoveredPrefix)
-        #expect(recovered.acceptedJournalRecordCount == 6)
-        #expect(recovered.firstInvalidJournalSequence == 6)
-        #expect(recovered.quarantineSHA256 == CanonicalJSON.sha256Hex(Data(#"{"journal_sequence":6"#.utf8)))
-        #expect(try fixture.snapshot(excludingJournal: true) == original)
-        #expect(FileManager.default.fileExists(atPath: fixture.recoveredURL.path))
-        #expect(FileManager.default.fileExists(atPath: fixture.quarantineBytesURL.path))
-        #expect(try Data(contentsOf: fixture.quarantineBytesURL) == Data(#"{"journal_sequence":6"#.utf8))
+        #expect(candidate.acceptedJournalRecordCount == 4)
+        #expect(candidate.acceptedFrameCount == 1)
+        #expect(candidate.eventCount == 3)
+        let replay = try ReplayCore.replay(fixture.materializeAndVerify(candidate))
+        #expect(replay.timeline.map(\.journalSequence) == [0, 1, 2, 3])
+        #expect(replay.finalization.acceptedFrameCount == 1)
+    }
 
-        let replayable = try CaptureRecovery.inspect(root: fixture.recoveredURL)
-        #expect(replayable.finalization.state == .recoveredPrefix)
-        #expect(replayable.acceptedJournalRecordCount == 6)
-        #expect(replayable.firstInvalidJournalSequence == nil)
+    @Test("a torn final JSONL record produces an unpublished preceding-prefix candidate")
+    func tornFinalRecord() async throws {
+        let fixture = try await RecoveryWriterFixture.completedFrame()
+        defer { fixture.remove() }
+        let tail = Data(#"{"journal_sequence":6"#.utf8)
+        try fixture.appendJournal(tail)
+        let original = try RecoveryFixture.snapshot(of: fixture.archiveURL)
+
+        let candidate = try fixture.recovery.recoveryCandidate(root: fixture.archiveURL)
+
+        #expect(candidate.acceptedJournalRecordCount == 6)
+        #expect(candidate.invalidSuffix?.firstInvalidJournalSequence == 6)
+        #expect(candidate.invalidSuffix?.bytes == tail)
+        #expect(candidate.invalidSuffix?.sha256 == CanonicalJSON.sha256Hex(tail))
+        #expect(try RecoveryFixture.snapshot(of: fixture.archiveURL) == original)
+        #expect(FileManager.default.fileExists(atPath: fixture.recoveredURL.path) == false)
+        #expect(try ReplayCore.replay(fixture.materializeAndVerify(candidate)).timeline.count == 6)
     }
 
     @Test("a hash-invalid final record is a suffix but accepted-record corruption is fatal")
-    func corruptSuffixVersusInterior() throws {
-        let suffix = try RecoveryFixture.openArchive()
+    func corruptSuffixVersusInterior() async throws {
+        let suffix = try await RecoveryWriterFixture.completedFrame()
         defer { suffix.remove() }
         var finalEntry = try suffix.journalObjects().last!
         finalEntry["content_sha256"] = String(repeating: "0", count: 64)
         try suffix.replaceJournal(objects: Array(try suffix.journalObjects().dropLast()) + [finalEntry])
 
-        let recovered = try CaptureRecovery.inspect(root: suffix.archiveURL)
-        #expect(recovered.acceptedJournalRecordCount == 5)
-        #expect(recovered.firstInvalidJournalSequence == 5)
+        let candidate = try suffix.recovery.recoveryCandidate(root: suffix.archiveURL)
+        #expect(candidate.acceptedJournalRecordCount == 5)
+        #expect(candidate.invalidSuffix?.firstInvalidJournalSequence == 5)
+        #expect(try ReplayCore.replay(suffix.materializeAndVerify(candidate)).timeline.count == 5)
 
-        let interior = try RecoveryFixture.openArchive()
+        let interior = try await RecoveryWriterFixture.completedFrame()
         defer { interior.remove() }
         var objects = try interior.journalObjects()
         objects[2]["content_sha256"] = String(repeating: "0", count: 64)
         try interior.replaceJournal(objects: objects)
 
         #expect(throws: CaptureRecoveryError.interiorCorruption) {
-            try CaptureRecovery.inspect(root: interior.archiveURL)
+            try interior.recovery.recoveryCandidate(root: interior.archiveURL)
         }
         #expect(FileManager.default.fileExists(atPath: interior.recoveredURL.path) == false)
     }
@@ -104,8 +126,8 @@ struct CaptureRecoveryTests {
         "first-record corruption and interior adjacency failures never skip ahead",
         arguments: [RecoveryJournalMutation.firstRecord, .gap, .reorder]
     )
-    func journalAdjacency(_ mutation: RecoveryJournalMutation) throws {
-        let fixture = try RecoveryFixture.openArchive()
+    func journalAdjacency(_ mutation: RecoveryJournalMutation) async throws {
+        let fixture = try await RecoveryWriterFixture.completedFrame()
         defer { fixture.remove() }
         try fixture.mutateJournal(mutation)
 
@@ -113,7 +135,7 @@ struct CaptureRecoveryTests {
             ? CaptureRecoveryError.noRecoverablePrefix
             : CaptureRecoveryError.nonContiguousJournal
         ) {
-            try CaptureRecovery.inspect(root: fixture.archiveURL)
+            try fixture.recovery.recoveryCandidate(root: fixture.archiveURL)
         }
         #expect(FileManager.default.fileExists(atPath: fixture.recoveredURL.path) == false)
     }
@@ -128,7 +150,7 @@ struct CaptureRecoveryTests {
         try fixture.mutateManifestOrInventory(mutation)
 
         #expect(throws: mutation.expectedError) {
-            try CaptureRecovery.inspect(root: fixture.archiveURL)
+            try fixture.recovery().inspect(root: fixture.archiveURL)
         }
     }
 
@@ -137,51 +159,31 @@ struct CaptureRecoveryTests {
         let missing = try RecoveryFixture.emptyArchive()
         defer { missing.remove() }
         #expect(throws: CaptureRecoveryError.missingManifest) {
-            try CaptureRecovery.inspect(root: missing.archiveURL)
+            try missing.recovery().inspect(root: missing.archiveURL)
         }
 
         let empty = try RecoveryFixture.openArchive()
         defer { empty.remove() }
         try Data().write(to: empty.journalURL)
         #expect(throws: CaptureRecoveryError.emptyJournal) {
-            try CaptureRecovery.inspect(root: empty.archiveURL)
+            try empty.recovery().inspect(root: empty.archiveURL)
         }
     }
 
-    @Test("recovery is idempotent and never resumes or rewrites the interrupted archive")
-    func repeatedRecovery() throws {
-        let fixture = try RecoveryFixture.openArchive()
+    @Test("candidate construction is deterministic and never publishes or rewrites its source")
+    func repeatedRecovery() async throws {
+        let fixture = try await RecoveryWriterFixture.completedFrame()
         defer { fixture.remove() }
         let suffix = Data("not-json".utf8)
         try fixture.appendJournal(suffix)
-        let original = try fixture.snapshot()
+        let original = try RecoveryFixture.snapshot(of: fixture.archiveURL)
 
-        let first = try CaptureRecovery.inspect(root: fixture.archiveURL)
-        let published = try RecoveryFixture.snapshot(of: fixture.recoveredURL)
-        let second = try CaptureRecovery.inspect(root: fixture.archiveURL)
+        let first = try fixture.recovery.recoveryCandidate(root: fixture.archiveURL)
+        let second = try fixture.recovery.recoveryCandidate(root: fixture.archiveURL)
 
         #expect(first == second)
-        #expect(try fixture.snapshot() == original)
-        #expect(try RecoveryFixture.snapshot(of: fixture.recoveredURL) == published)
-    }
-
-    @Test("a pre-publication failure leaves no accepted partial recovered archive")
-    func publicationRollback() throws {
-        let fixture = try RecoveryFixture.openArchive()
-        defer { fixture.remove() }
-        try fixture.appendJournal(Data("torn".utf8))
-        let original = try fixture.snapshot()
-
-        #expect(throws: InjectedRecoveryPublicationFailure.self) {
-            try CaptureRecovery.inspect(root: fixture.archiveURL) { stage in
-                if stage == .beforePublish { throw InjectedRecoveryPublicationFailure() }
-            }
-        }
-
-        #expect(try fixture.snapshot() == original)
+        #expect(try RecoveryFixture.snapshot(of: fixture.archiveURL) == original)
         #expect(FileManager.default.fileExists(atPath: fixture.recoveredURL.path) == false)
-        #expect(FileManager.default.fileExists(atPath: fixture.quarantineRootURL.path) == false)
-        #expect(fixture.stagingPaths.isEmpty)
     }
 }
 
@@ -213,8 +215,21 @@ private final class StaleManifestProbe: @unchecked Sendable {
 private struct RecoveryWriterFixture: Sendable {
     let rootURL: URL
     let archiveURL: URL
+    let verifier: ArchiveVerifier
+    let recovery: CaptureRecovery
+
+    var journalURL: URL { archiveURL.appendingPathComponent("journal/global.jsonl") }
+    var recoveredURL: URL {
+        archiveURL.deletingPathExtension().appendingPathExtension("recovered-prefix.rrcap")
+    }
 
     static func staleAfterDurableFrameBytes() async throws -> RecoveryWriterFixture {
+        try await completedFrame(useStaleManifest: true)
+    }
+
+    static func completedFrame(
+        useStaleManifest: Bool = false
+    ) async throws -> RecoveryWriterFixture {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("reroom-recovery-writer-\(UUID().uuidString.lowercased())")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
@@ -270,11 +285,64 @@ private struct RecoveryWriterFixture: Sendable {
                 idempotencyKey: id(prefix: "frameidem", ordinal: 901)
             )
         )
-        try probe.manifestData().write(
-            to: archiveURL.appendingPathComponent("manifest.json"),
-            options: .atomic
+        if useStaleManifest {
+            try probe.manifestData().write(
+                to: archiveURL.appendingPathComponent("manifest.json"),
+                options: .atomic
+            )
+        }
+        let verifier = ArchiveVerifier(validator: validator)
+        return RecoveryWriterFixture(
+            rootURL: root,
+            archiveURL: archiveURL,
+            verifier: verifier,
+            recovery: CaptureRecovery(verifier: verifier)
         )
-        return RecoveryWriterFixture(rootURL: root, archiveURL: archiveURL)
+    }
+
+    func appendJournal(_ data: Data) throws {
+        let handle = try FileHandle(forWritingTo: journalURL)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: data)
+    }
+
+    func journalObjects() throws -> [[String: Any]] {
+        try Data(contentsOf: journalURL)
+            .split(separator: 0x0a)
+            .map { try JSONSerialization.jsonObject(with: Data($0)) as! [String: Any] }
+    }
+
+    func replaceJournal(objects: [[String: Any]]) throws {
+        var data = Data()
+        for object in objects {
+            data.append(try canonical(object))
+            data.append(0x0a)
+        }
+        try data.write(to: journalURL)
+    }
+
+    func mutateJournal(_ mutation: RecoveryJournalMutation) throws {
+        var objects = try journalObjects()
+        switch mutation {
+        case .firstRecord:
+            try Data("{".utf8).write(to: journalURL)
+            return
+        case .gap:
+            objects[2]["journal_sequence"] = 3
+        case .reorder:
+            objects.swapAt(2, 3)
+        }
+        try replaceJournal(objects: objects)
+    }
+
+    func materializeAndVerify(
+        _ candidate: RecoveryGenerationCandidate
+    ) throws -> VerifiedArchive {
+        let generation = rootURL
+            .appendingPathComponent("candidate-\(UUID().uuidString.lowercased()).rrcap")
+        try candidate.materialize(at: generation)
+        return try verifier.verify(root: generation)
     }
 
     func remove() {
@@ -289,7 +357,7 @@ private struct RecoveryWriterFixture: Sendable {
         "\(prefix)_\(String(format: "%08x", ordinal))-0000-4000-8000-000000000001"
     }
 
-    private static func validator() throws -> ContractValidator {
+    fileprivate static func validator() throws -> ContractValidator {
         let root = try repositoryRoot()
         let registrations: [(ContractSchemaIdentifier, String, String)] = [
             (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
@@ -320,14 +388,17 @@ private struct RecoveryWriterFixture: Sendable {
         }
         throw RecoveryWriterFixtureError.repositoryRootNotFound
     }
+
+    private func canonical(_ value: Any) throws -> Data {
+        let encoded = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+        return try CanonicalJSON.canonicalize(jsonData: encoded)
+    }
 }
 
 private enum RecoveryWriterFixtureError: Error {
     case missingStaleManifest
     case repositoryRootNotFound
 }
-
-private struct InjectedRecoveryPublicationFailure: Error {}
 
 enum RecoveryJournalMutation: Equatable, Sendable {
     case firstRecord
@@ -349,11 +420,13 @@ enum RecoveryManifestMutation: CaseIterable, Sendable {
     var expectedError: CaptureRecoveryError {
         switch self {
         case .unsafePath: .invalidPath
-        case .wrongRawHash, .wrongEventRecordHash, .wrongPacketHash, .wrongManifestHash:
+        case .wrongRawHash, .wrongEventRecordHash, .wrongManifestHash:
             .digestMismatch
+        case .wrongPacketHash:
+            .projectionMismatch
         case .unsupportedVersion: .unsupportedContractVersion
-        case .unsupportedCodec: .unsupportedCodec
-        case .unsupportedDigestAlgorithm, .unsupportedDigestScope: .unsupportedDigest
+        case .unsupportedCodec, .unsupportedDigestAlgorithm, .unsupportedDigestScope:
+            .invalidManifest
         }
     }
 }
@@ -423,6 +496,12 @@ private final class RecoveryFixture {
     }
 
     func remove() { try? FileManager.default.removeItem(at: rootURL) }
+
+    func recovery() throws -> CaptureRecovery {
+        CaptureRecovery(
+            verifier: ArchiveVerifier(validator: try RecoveryWriterFixture.validator())
+        )
+    }
 
     func manifestObject() throws -> [String: Any] {
         let data = try Data(contentsOf: archiveURL.appendingPathComponent("manifest.json"))
