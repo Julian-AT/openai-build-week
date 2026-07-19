@@ -371,7 +371,35 @@ struct CaptureSessionAdapterTests {
         #expect(adapter.presentation.phase == .recovered)
         #expect(adapter.presentation.recovered == recovered)
         #expect(adapter.presentation.admission?.closeReason == .storageUnavailable)
+        #expect(adapter.presentation.failureMessage == "Recovered — capture may be incomplete")
         #expect(await recovery.recoverCount == 1)
+    }
+
+    @Test("foundation recovery publishes finalized and recovered inputs before inspection")
+    func foundationRecoveryUsesActiveGenerations() async throws {
+        let fixture = try NativeRecoveryFixture(
+            copying: ["finalized-one-frame.rrcap", "recovered-prefix.rrcap"]
+        )
+        defer { fixture.remove() }
+        let driver = FoundationCaptureRecoveryDriver(
+            root: fixture.root,
+            fixtureManifestSHA256: String(repeating: "a", count: 64),
+            repositoryRevision: "git:" + String(repeating: "1", count: 40)
+        )
+
+        let discovery = await driver.discoverArchives()
+
+        #expect(discovery.failures.isEmpty)
+        #expect(discovery.verified.map(\.recovered.finalization.state) == [
+            .finalized, .recoveredPrefix,
+        ])
+        #expect(discovery.verified.map(\.timeline.count) == [8, 6])
+        #expect(try fixture.activePublicationPointers().count == 2)
+        for replay in discovery.verified {
+            let labels = Set(Mirror(reflecting: replay.report).children.compactMap(\.label))
+            #expect(labels.contains("fixture") == false)
+            #expect(labels.contains("gate") == false)
+        }
     }
 
     @MainActor
@@ -917,6 +945,59 @@ private final class TestCaptureBackgroundDriver: CaptureBackgroundDriving {
 
 private enum TestCaptureError: Error {
     case storageUnavailable
+}
+
+private struct NativeRecoveryFixture {
+    let root: URL
+
+    init(copying archiveNames: [String]) throws {
+        var repository = URL(fileURLWithPath: #filePath)
+        while FileManager.default.fileExists(
+            atPath: repository.appendingPathComponent(".git").path
+        ) == false {
+            let parent = repository.deletingLastPathComponent()
+            guard parent.path != repository.path else {
+                throw NativeRecoveryFixtureError.repositoryRootNotFound
+            }
+            repository = parent
+        }
+        root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "reroom-native-recovery-\(UUID().uuidString.lowercased())",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false)
+        let archives = repository.appendingPathComponent(
+            "fixtures/capture/1.0.0/rev-001/archives"
+        )
+        for name in archiveNames {
+            try FileManager.default.copyItem(
+                at: archives.appendingPathComponent(name),
+                to: root.appendingPathComponent(name)
+            )
+        }
+    }
+
+    func remove() {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    func activePublicationPointers() throws -> [URL] {
+        let publications = root.appendingPathComponent("recovery-publications")
+        guard let enumerator = FileManager.default.enumerator(
+            at: publications,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ) else { return [] }
+        return enumerator.compactMap { value -> URL? in
+            guard let url = value as? URL,
+                  url.lastPathComponent == "active-generation.json"
+            else { return nil }
+            return url
+        }.sorted { $0.path < $1.path }
+    }
+}
+
+private enum NativeRecoveryFixtureError: Error {
+    case repositoryRootNotFound
 }
 
 private enum TestCaptureIDs {

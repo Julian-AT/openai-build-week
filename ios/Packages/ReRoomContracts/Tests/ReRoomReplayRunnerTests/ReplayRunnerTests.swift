@@ -34,6 +34,7 @@ struct ReplayRunnerTests {
         let secondFiles = try fixture.reportFiles(second)
         #expect(firstFiles.map(\.lastPathComponent) == ReplayRunnerFixture.expectedFileNames)
         #expect(secondFiles.map(\.lastPathComponent) == ReplayRunnerFixture.expectedFileNames)
+        #expect(try fixture.activePublicationPointers().count == 3)
         for (left, right) in zip(firstFiles, secondFiles) {
             let leftBytes = try Data(contentsOf: left)
             let rightBytes = try Data(contentsOf: right)
@@ -49,6 +50,24 @@ struct ReplayRunnerTests {
             let caseID = try #require(archive["case_id"] as? String)
             #expect(left.lastPathComponent == "\(caseID).replay-report.json")
         }
+    }
+
+    @Test(
+        "corrupt active recovery state fails before any replay report is exposed",
+        arguments: ReplayRunnerPublicationMutation.allCases
+    )
+    func corruptActivePublication(_ mutation: ReplayRunnerPublicationMutation) throws {
+        let fixture = try ReplayRunnerFixture.make()
+        defer { fixture.remove() }
+        try fixture.run(outputRoot: fixture.scratch.appendingPathComponent("accepted"))
+        try fixture.mutateActivePublication(mutation)
+        let rejected = fixture.scratch.appendingPathComponent("rejected-\(mutation.rawValue)")
+
+        let result = try fixture.invoke(outputRoot: rejected)
+
+        #expect(result.status != 0)
+        #expect(result.standardError.contains("replay-runner: FAIL:"))
+        #expect(FileManager.default.fileExists(atPath: rejected.path) == false)
     }
 
     @Test(
@@ -105,6 +124,11 @@ enum ReplayRunnerFixtureMutation: String, CaseIterable, Sendable {
     case reorderedArchives
     case sourceManifestDrift
     case rawArchiveDrift
+}
+
+enum ReplayRunnerPublicationMutation: String, CaseIterable, Sendable {
+    case corruptPointer
+    case substituteGenerationMember
 }
 
 private struct ReplayRunnerFixture {
@@ -234,6 +258,42 @@ private struct ReplayRunnerFixture {
         ).sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
+    func activePublicationPointers() throws -> [URL] {
+        let root = scratch.appendingPathComponent("recovery-publications")
+        guard let enumerator = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        ) else { return [] }
+        return enumerator.compactMap { value -> URL? in
+            guard let url = value as? URL,
+                  url.lastPathComponent == "active-generation.json"
+            else { return nil }
+            return url
+        }.sorted { $0.path < $1.path }
+    }
+
+    func mutateActivePublication(_ mutation: ReplayRunnerPublicationMutation) throws {
+        guard let pointer = try activePublicationPointers().first else {
+            throw ReplayRunnerTestError.missingRecoveryPublication
+        }
+        switch mutation {
+        case .corruptPointer:
+            try Data("{}".utf8).write(to: pointer, options: .atomic)
+        case .substituteGenerationMember:
+            let object = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: pointer)
+            ) as! [String: Any]
+            guard let generationID = object["generation_id"] as? String else {
+                throw ReplayRunnerTestError.missingRecoveryPublication
+            }
+            let manifest = pointer.deletingLastPathComponent()
+                .appendingPathComponent("generations")
+                .appendingPathComponent(generationID)
+                .appendingPathComponent("archive/manifest.json")
+            try Data("substituted".utf8).write(to: manifest, options: .atomic)
+        }
+    }
+
     func reportDigest(_ report: [String: Any]) -> String {
         var unsigned = report
         unsigned.removeValue(forKey: "report_sha256")
@@ -289,4 +349,5 @@ private struct ReplayRunnerProcessResult {
 private enum ReplayRunnerTestError: Error {
     case repositoryRootNotFound
     case runnerFailed(String)
+    case missingRecoveryPublication
 }
