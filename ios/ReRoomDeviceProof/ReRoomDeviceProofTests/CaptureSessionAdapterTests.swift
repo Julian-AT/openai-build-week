@@ -717,7 +717,7 @@ struct CaptureSessionAdapterTests {
                 eventCount: 1,
                 journalRecordCount: 1
             ),
-            digests: ReplayDigestSet(
+            digests: try ReplayDigestSet(
                 journalTupleSHA256: digest,
                 frameProjectionSHA256: digest,
                 eventProjectionSHA256: digest,
