@@ -60,14 +60,7 @@ struct CaptureCrashMatrixTests {
         }
 
         #expect(fixture.faults.didFire)
-        let recovered = try fixture.scanDurablePrefix()
-        #expect(recovered.journalSequences == Array(0..<UInt64(recovered.journalSequences.count)))
-        #expect(recovered.frameIDs.count == testCase.expectedFrameCount)
-        #expect(recovered.networkEligibleFrameIDs.count == testCase.expectedEligibleCount)
-        #expect(recovered.acknowledgedFrameIDs.count == testCase.expectedAcknowledgedCount)
-        #expect(recovered.hasFinalizedManifest == testCase.expectsFinalizedManifest)
-        #expect(Set(recovered.networkEligibleFrameIDs).isSubset(of: Set(recovered.frameIDs)))
-        #expect(Set(recovered.acknowledgedFrameIDs).isSubset(of: Set(recovered.networkEligibleFrameIDs)))
+        try fixture.assertProductionRecovery(testCase)
 
         if let immutablePrefix {
             try fixture.assertFirstFramePrefixUnchanged(immutablePrefix)
@@ -216,7 +209,10 @@ struct CaptureCrashMatrixTests {
         #expect(snapshot.events.map(\.eventSequence) == Array(0..<33))
         #expect(snapshot.journalEntries.map(\.journalSequence) == Array(0..<41))
         #expect(snapshot.journalEntries.filter { $0.entryType == "frame" }.count == 8)
-        #expect(try fixture.scanDurablePrefix().networkEligibleFrameIDs.count == 8)
+        let recovered = try fixture.productionRecovery()
+        #expect(recovered.replay.timeline.count == 41)
+        #expect(recovered.replay.finalization.acceptedFrameCount == 8)
+        #expect(recovered.eventTypes.filter { $0 == "frame_network_eligible" }.count == 8)
     }
 
     @Test("identity and idempotency collisions perform no filesystem mutation")
@@ -266,6 +262,53 @@ struct CaptureCrashMatrixTests {
                 == memoryFiles.mapValues(CanonicalJSON.sha256Hex)
         )
         #expect(production.faults.observations == memoryRecorder.observations)
+    }
+
+    @Test(
+        "interior physical corruption never produces a candidate, capability, or replay",
+        arguments: PhysicalCorruptionCase.allCases
+    )
+    private func interiorCorruptionFailsBeforeReplay(
+        _ mutation: PhysicalCorruptionCase
+    ) async throws {
+        let fixture = try CrashMatrixFixture(sessionOrdinal: 300 + mutation.rawValue)
+        defer { fixture.remove() }
+        _ = try await fixture.store.startSession(authorization: fixture.authorization)
+        _ = try await fixture.store.publishSelectedFrame(fixture.candidate(ordinal: 1))
+        try fixture.applyPhysicalCorruption(mutation)
+        let sourceBefore = try #require(fixture.sourceURL).appendingPathComponent("manifest.json")
+        let manifestDigest = CanonicalJSON.sha256Hex(try Data(contentsOf: sourceBefore))
+        let recovery = CaptureRecovery(
+            verifier: ArchiveVerifier(validator: fixture.validator)
+        )
+
+        #expect(throws: mutation.expectedError) {
+            _ = try recovery.recoveryCandidate(root: try #require(fixture.sourceURL))
+        }
+        #expect(CanonicalJSON.sha256Hex(try Data(contentsOf: sourceBefore)) == manifestDigest)
+        #expect(fixture.materializedGenerationPaths.isEmpty)
+    }
+}
+
+private enum PhysicalCorruptionCase: Int, CaseIterable, Sendable {
+    case gap
+    case duplicate
+    case reorder
+    case laterValidAfterFault
+    case referencedByteContradiction
+    case invalidLifecycle
+
+    var expectedError: CaptureRecoveryError {
+        switch self {
+        case .gap, .duplicate, .reorder:
+            .nonContiguousJournal
+        case .laterValidAfterFault:
+            .interiorCorruption
+        case .referencedByteContradiction:
+            .digestMismatch
+        case .invalidLifecycle:
+            .invalidManifest
+        }
     }
 }
 
@@ -496,7 +539,7 @@ private final class LifecycleRecoveryProbe: @unchecked Sendable {
     }
 }
 
-private enum FaultWorkflow: Sendable {
+private enum FaultWorkflow: Equatable, Sendable {
     case start
     case firstFrame
     case laterFrame
@@ -698,133 +741,293 @@ private struct CrashMatrixFixture: Sendable {
         return receipt
     }
 
-    func scanDurablePrefix() throws -> DurablePrefixScan {
-        let journalPath = archivePath("journal/global.jsonl")
-        guard try fileSystem.fileExists(at: journalPath) else {
-            return DurablePrefixScan.empty
-        }
-        let journalData = try fileSystem.read(at: journalPath)
-        let lines = journalData.split(separator: 0x0a, omittingEmptySubsequences: true)
-        var entries = [CaptureJournalEntry]()
-        var eventTypes = [String]()
-        var frameIDs = [String]()
-        var lifecycleByFrame = [String: [String]]()
-        var eventOrdinal = 0
+    func assertProductionRecovery(_ testCase: CaptureFaultCase) throws {
+        guard let sourceURL else { throw CrashFixtureError.invalidFileSystem }
+        let sourceBefore = try recursiveArchiveFiles(at: sourceURL)
+        let manifestExists = FileManager.default.fileExists(
+            atPath: sourceURL.appendingPathComponent("manifest.json").path
+        )
 
-        for line in lines {
-            let entry = try JSONDecoder().decode(CaptureJournalEntry.self, from: Data(line))
-            guard entry.journalSequence == UInt64(entries.count) else {
-                throw CrashFixtureError.invalidJournal
+        if manifestExists == false {
+            #expect(testCase.workflow == .start)
+            #expect(throws: CaptureRecoveryError.missingManifest) {
+                try CaptureRecovery(verifier: ArchiveVerifier(validator: validator))
+                    .inspect(root: sourceURL)
             }
-            switch entry.entryType {
-            case "event":
-                let payloadPath = "events/event_\(String(format: "%04d", eventOrdinal)).json"
-                let payloadData = try fileSystem.read(at: archivePath(payloadPath))
-                guard let payload = try JSONSerialization.jsonObject(with: payloadData)
-                        as? [String: Any],
-                      let type = payload["type"] as? String
-                else { throw CrashFixtureError.invalidJournal }
-                var record: [String: Any] = [
-                    "event_id": entry.referenceID,
-                    "event_sequence": eventOrdinal,
-                    "durable_journal_sequence": entry.journalSequence,
-                    "monotonic_timestamp_ns": entry.monotonicTimestampNanoseconds,
-                    "type": type,
-                    "payload_sha256": CanonicalJSON.sha256Hex(payloadData),
-                    "payload_path": payloadPath,
-                    "record_sha256_algorithm": "RR-JCS-SHA256-1",
-                    "record_sha256_scope":
-                        "entire_event_record_with_record_sha256_member_omitted",
-                ]
-                let recordDigest = CanonicalJSON.sha256Hex(try canonicalData(record))
-                guard recordDigest == entry.contentSHA256 else {
-                    throw CrashFixtureError.invalidJournal
-                }
-                record["record_sha256"] = recordDigest
-                _ = record
-                eventTypes.append(type)
-                if let details = payload["details"] as? [String: Any],
-                   let frameID = details["frame_id"] as? String {
-                    lifecycleByFrame[frameID, default: []].append(type)
-                }
+            #expect(try recursiveArchiveFiles(at: sourceURL) == sourceBefore)
+            return
+        }
+
+        let recovered = try productionRecovery()
+        let physical = recovered.physical
+        let frameIDs = physical.entries
+            .filter { $0.entryType == "frame" }
+            .map(\.referenceID)
+        let eligibleFrameIDs = physical.events.compactMap { event in
+            event.type == "frame_network_eligible" ? event.frameID : nil
+        }
+        let acknowledgedFrameIDs = physical.events.compactMap { event in
+            event.type == "frame_server_acknowledged" ? event.frameID : nil
+        }
+
+        #expect(physical.entries.map(\.journalSequence) == Array(0..<UInt64(physical.entries.count)))
+        #expect(frameIDs.count == testCase.expectedFrameCount)
+        #expect(eligibleFrameIDs.count == testCase.expectedEligibleCount)
+        #expect(acknowledgedFrameIDs.count == testCase.expectedAcknowledgedCount)
+        #expect(Set(eligibleFrameIDs).isSubset(of: Set(frameIDs)))
+        #expect(Set(acknowledgedFrameIDs).isSubset(of: Set(eligibleFrameIDs)))
+        #expect(recovered.replay.timeline == physical.timeline)
+        #expect(recovered.replay.finalization.acceptedFrameCount == UInt64(frameIDs.count))
+        #expect(recovered.replay.finalization.eventCount == UInt64(physical.events.count))
+        #expect(recovered.inspected.acceptedJournalRecordCount == UInt64(physical.entries.count))
+
+        let sourceManifest = try JSONSerialization.jsonObject(
+            with: Data(contentsOf: sourceURL.appendingPathComponent("manifest.json"))
+        ) as! [String: Any]
+        let sourceFinalization = sourceManifest["finalization"] as! [String: Any]
+        #expect(
+            (sourceFinalization["state"] as? String == "finalized")
+                == testCase.expectsFinalizedManifest
+        )
+
+        let manifest = recovered.manifest
+        let projectedJournal = manifest["journal"] as! [[String: Any]]
+        let projectedFrames = manifest["accepted_frame_order"] as! [[String: Any]]
+        let projectedEvents = manifest["events"] as! [[String: Any]]
+        let projectedFiles = manifest["files"] as! [[String: Any]]
+        let finalization = manifest["finalization"] as! [String: Any]
+        let replay = manifest["replay"] as! [String: Any]
+        let expectedState = physical.events.contains(where: { $0.type == "session_finalized" })
+            ? CaptureFinalizationState.finalized
+            : .recoveredPrefix
+
+        #expect(projectedJournal.count == physical.entries.count)
+        #expect(projectedFrames.map { $0["frame_id"] as! String } == frameIDs)
+        #expect(projectedEvents.map { $0["event_id"] as! String }
+            == physical.entries.filter { $0.entryType == "event" }.map(\.referenceID))
+        #expect(Set(projectedFiles.map { $0["relative_path"] as! String }) == physical.memberPaths)
+        #expect(projectedFrames.filter { $0["server_acknowledged"] as? Bool == true }.count
+            == testCase.expectedAcknowledgedCount)
+        #expect(finalization["state"] as? String == expectedState.rawValue)
+        #expect(recovered.inspected.finalization.state == expectedState)
+        #expect(finalization["last_durable_journal_sequence"] as? Int
+            == physical.entries.count - 1)
+
+        let tuples: [[Any]] = physical.entries.map {
+            [$0.journalSequence, $0.entryType, $0.referenceID, $0.contentSHA256]
+        }
+        let expectedJournalDigest = CanonicalJSON.sha256Hex(try canonicalData(tuples))
+        #expect(replay["input_digest"] as? String == expectedJournalDigest)
+        #expect(recovered.replay.digests.journalTupleSHA256 == expectedJournalDigest)
+        #expect(recovered.replay.digests.frameProjectionSHA256
+            == CanonicalJSON.sha256Hex(try canonicalData(projectedFrames)))
+        #expect(recovered.replay.digests.eventProjectionSHA256
+            == CanonicalJSON.sha256Hex(try canonicalData(projectedEvents)))
+
+        if let candidate = recovered.candidate {
+            #expect(candidate.journalData == physical.journalData)
+            #expect(candidate.acceptedPrefixJournalSHA256
+                == CanonicalJSON.sha256Hex(physical.journalData))
+            #expect(candidate.members.map(\.descriptor).sorted { $0.relativePath < $1.relativePath }
+                == recovered.verified.members)
+            for member in candidate.members {
+                let sourceData = try fileSystem.read(
+                    at: archivePath(member.descriptor.relativePath)
+                )
+                #expect(member.data == sourceData)
+                #expect(member.descriptor.sha256 == CanonicalJSON.sha256Hex(member.data))
+            }
+        } else {
+            #expect(testCase.expectsFinalizedManifest)
+        }
+        #expect(try recursiveArchiveFiles(at: sourceURL) == sourceBefore)
+    }
+
+    func productionRecovery() throws -> ProductionRecoverySnapshot {
+        guard let root, let sourceURL else { throw CrashFixtureError.invalidFileSystem }
+        let recovery = CaptureRecovery(verifier: ArchiveVerifier(validator: validator))
+        let inspected = try recovery.inspect(root: sourceURL)
+        let candidate: RecoveryGenerationCandidate?
+        let verified: VerifiedArchive
+        do {
+            verified = try validatorBackedVerifier().verify(root: sourceURL)
+            candidate = nil
+        } catch ArchiveVerificationError.archiveOpen {
+            let value = try recovery.recoveryCandidate(root: sourceURL)
+            let generation = root.appendingPathComponent(
+                "matrix-generation-\(UUID().uuidString.lowercased()).rrcap"
+            )
+            try value.materialize(at: generation)
+            verified = try validatorBackedVerifier().verify(root: generation)
+            candidate = value
+        }
+        let replay = try ReplayCore.replay(verified)
+        let manifestData: Data
+        if let candidate {
+            manifestData = candidate.manifestData
+        } else {
+            manifestData = try Data(
+                contentsOf: sourceURL.appendingPathComponent("manifest.json")
+            )
+        }
+        let manifest = try JSONSerialization.jsonObject(with: manifestData) as! [String: Any]
+        return ProductionRecoverySnapshot(
+            inspected: inspected,
+            candidate: candidate,
+            verified: verified,
+            replay: replay,
+            manifest: manifest,
+            physical: try physicalJournalSnapshot()
+        )
+    }
+
+    var sourceURL: URL? {
+        root?.appendingPathComponent(descriptor.archivePath)
+    }
+
+    var materializedGenerationPaths: [URL] {
+        guard let root else { return [] }
+        return ((try? FileManager.default.contentsOfDirectory(
+            at: root,
+            includingPropertiesForKeys: nil
+        )) ?? []).filter { $0.lastPathComponent.hasPrefix("matrix-generation-") }
+    }
+
+    func applyPhysicalCorruption(_ mutation: PhysicalCorruptionCase) throws {
+        let journalPath = archivePath("journal/global.jsonl")
+        var objects = try fileSystem.read(at: journalPath)
+            .split(separator: 0x0a)
+            .map { try JSONSerialization.jsonObject(with: Data($0)) as! [String: Any] }
+        switch mutation {
+        case .gap:
+            objects[2]["journal_sequence"] = 3
+            try replacePhysicalJournal(objects)
+        case .duplicate:
+            objects[2]["journal_sequence"] = 1
+            try replacePhysicalJournal(objects)
+        case .reorder:
+            objects.swapAt(2, 3)
+            try replacePhysicalJournal(objects)
+        case .laterValidAfterFault:
+            var data = Data()
+            for (index, object) in objects.enumerated() {
+                data.append(index == 2 ? Data("{".utf8) : try canonicalData(object))
+                data.append(0x0a)
+            }
+            try data.write(to: try #require(sourceURL).appendingPathComponent("journal/global.jsonl"))
+        case .referencedByteContradiction:
+            try Data("contradictory-packet".utf8).write(
+                to: try #require(sourceURL)
+                    .appendingPathComponent("frames/\(CrashIDs.frame(1))/packet.json")
+            )
+        case .invalidLifecycle:
+            try installOpenManifestPrefix(recordCount: 2, journalObjects: objects)
+            let payloadPath = try #require(sourceURL)
+                .appendingPathComponent("events/event_0002.json")
+            var payload = try JSONSerialization.jsonObject(
+                with: Data(contentsOf: payloadPath)
+            ) as! [String: Any]
+            payload["type"] = "frame_selected"
+            let payloadData = try canonicalData(payload)
+            try payloadData.write(to: payloadPath)
+            let entry = objects[2]
+            var record: [String: Any] = [
+                "event_id": entry["reference_id"]!,
+                "event_sequence": 2,
+                "durable_journal_sequence": 2,
+                "monotonic_timestamp_ns": entry["monotonic_timestamp_ns"]!,
+                "type": "frame_selected",
+                "payload_sha256": CanonicalJSON.sha256Hex(payloadData),
+                "payload_path": "events/event_0002.json",
+                "record_sha256_algorithm": "RR-JCS-SHA256-1",
+                "record_sha256_scope":
+                    "entire_event_record_with_record_sha256_member_omitted",
+            ]
+            record["record_sha256"] = CanonicalJSON.sha256Hex(try canonicalData(record))
+            objects[2]["content_sha256"] = record["record_sha256"]
+            try replacePhysicalJournal(objects)
+        }
+    }
+
+    private func replacePhysicalJournal(_ objects: [[String: Any]]) throws {
+        var data = Data()
+        for object in objects {
+            data.append(try canonicalData(object))
+            data.append(0x0a)
+        }
+        try data.write(to: try #require(sourceURL).appendingPathComponent("journal/global.jsonl"))
+    }
+
+    private func installOpenManifestPrefix(
+        recordCount: Int,
+        journalObjects: [[String: Any]]
+    ) throws {
+        let sourceURL = try #require(sourceURL)
+        try replacePhysicalJournal(Array(journalObjects.prefix(recordCount)))
+        let recovery = CaptureRecovery(verifier: validatorBackedVerifier())
+        let prefix = try recovery.recoveryCandidate(root: sourceURL)
+        var manifest = try JSONSerialization.jsonObject(with: prefix.manifestData) as! [String: Any]
+        var finalization = manifest["finalization"] as! [String: Any]
+        finalization["state"] = CaptureFinalizationState.open.rawValue
+        finalization.removeValue(forKey: "manifest_sha256")
+        manifest["finalization"] = finalization
+        finalization["manifest_sha256"] = CanonicalJSON.sha256Hex(try canonicalData(manifest))
+        manifest["finalization"] = finalization
+        try canonicalData(manifest).write(to: sourceURL.appendingPathComponent("manifest.json"))
+        try replacePhysicalJournal(journalObjects)
+    }
+
+    private func validatorBackedVerifier() -> ArchiveVerifier {
+        ArchiveVerifier(validator: validator)
+    }
+
+    private func physicalJournalSnapshot() throws -> PhysicalJournalSnapshot {
+        let journalData = try fileSystem.read(at: archivePath("journal/global.jsonl"))
+        let entries = try journalData.split(separator: 0x0a).map {
+            try JSONDecoder().decode(CaptureJournalEntry.self, from: Data($0))
+        }
+        var eventOrdinal = 0
+        var events = [PhysicalEventSnapshot]()
+        var memberPaths = Set<String>()
+        for entry in entries {
+            if entry.entryType == "event" {
+                let path = "events/event_\(String(format: "%04d", eventOrdinal)).json"
+                let payloadData = try fileSystem.read(at: archivePath(path))
+                let payload = try JSONSerialization.jsonObject(with: payloadData) as! [String: Any]
+                let details = payload["details"] as! [String: Any]
+                events.append(
+                    PhysicalEventSnapshot(
+                        type: payload["type"] as! String,
+                        frameID: details["frame_id"] as? String
+                    )
+                )
+                memberPaths.insert(path)
                 eventOrdinal += 1
-            case "frame":
+            } else if entry.entryType == "frame" {
                 let packetPath = "frames/\(entry.referenceID)/packet.json"
                 let packetData = try fileSystem.read(at: archivePath(packetPath))
-                guard CanonicalJSON.sha256Hex(packetData) == entry.contentSHA256,
-                      let packet = try JSONSerialization.jsonObject(with: packetData)
-                        as? [String: Any],
-                      let image = packet["image"] as? [String: Any],
-                      let payload = image["payload"] as? [String: Any],
-                      let imagePath = payload["relative_path"] as? String,
-                      let imageDigest = payload["sha256"] as? String
-                else { throw CrashFixtureError.invalidJournal }
-                let imageData = try fileSystem.read(at: archivePath(imagePath))
-                guard CanonicalJSON.sha256Hex(imageData) == imageDigest,
-                      validator.validate(
-                        ContractValidationRequest(
-                            schemaID: ContractSchemaIdentifier.framePacket.rawValue,
-                            schemaVersion: "1.0.0",
-                            schemaSHA256: CrashSchemas.framePacketDigest,
-                            documentData: packetData,
-                            payloadData: imageData
-                        )
-                      ) == .accepted
-                else { throw CrashFixtureError.invalidJournal }
-                frameIDs.append(entry.referenceID)
-            default:
-                throw CrashFixtureError.invalidJournal
+                let packet = try JSONSerialization.jsonObject(with: packetData) as! [String: Any]
+                let image = packet["image"] as! [String: Any]
+                let payload = image["payload"] as! [String: Any]
+                memberPaths.insert(packetPath)
+                memberPaths.insert(payload["relative_path"] as! String)
             }
-            entries.append(entry)
         }
-
-        let eligible = lifecycleByFrame.compactMap { frameID, lifecycle in
-            lifecycle.contains("frame_network_eligible") ? frameID : nil
-        }.sorted()
-        let acknowledged = lifecycleByFrame.compactMap { frameID, lifecycle in
-            lifecycle.contains("frame_server_acknowledged") ? frameID : nil
-        }.sorted()
-        for frameID in eligible {
-            guard lifecycleByFrame[frameID]?.prefix(4) == [
-                "frame_selected",
-                "frame_image_and_metadata_durable",
-                "frame_journaled",
-                "frame_network_eligible",
-            ], frameIDs.contains(frameID)
-            else { throw CrashFixtureError.invalidLifecycle }
+        let timeline = try entries.map {
+            try ReplayTimelineEntry(
+                journalSequence: $0.journalSequence,
+                entryType: ReplayTimelineEntryType(rawValue: $0.entryType)!,
+                referenceID: $0.referenceID,
+                contentSHA256: $0.contentSHA256,
+                monotonicTimestampNanoseconds: $0.monotonicTimestampNanoseconds
+            )
         }
-        for frameID in acknowledged {
-            guard lifecycleByFrame[frameID]?.suffix(2) == [
-                "frame_network_eligible", "frame_server_acknowledged",
-            ] else { throw CrashFixtureError.invalidLifecycle }
-        }
-
-        var hasFinalizedManifest = false
-        let manifestPath = archivePath("manifest.json")
-        if try fileSystem.fileExists(at: manifestPath) {
-            let manifest = try fileSystem.read(at: manifestPath)
-            guard validator.validate(
-                ContractValidationRequest(
-                    schemaID: ContractSchemaIdentifier.rrcapManifest.rawValue,
-                    schemaVersion: "1.0.0",
-                    schemaSHA256: CrashSchemas.manifestDigest,
-                    documentData: manifest
-                )
-            ) == .accepted else { throw CrashFixtureError.invalidManifest }
-            try verifyManifestDigest(manifest)
-            let object = try JSONSerialization.jsonObject(with: manifest) as! [String: Any]
-            let manifestFinalization = object["finalization"] as! [String: Any]
-            hasFinalizedManifest = manifestFinalization["state"] as? String
-                == CaptureFinalizationState.finalized.rawValue
-        }
-
-        return DurablePrefixScan(
-            journalSequences: entries.map(\.journalSequence),
-            eventTypes: eventTypes,
-            frameIDs: frameIDs,
-            networkEligibleFrameIDs: eligible,
-            acknowledgedFrameIDs: acknowledged,
-            hasFinalizedManifest: hasFinalizedManifest
+        return PhysicalJournalSnapshot(
+            journalData: journalData,
+            entries: entries,
+            timeline: timeline,
+            events: events,
+            memberPaths: memberPaths
         )
     }
 
@@ -874,22 +1077,28 @@ private struct CrashMatrixFixture: Sendable {
     }
 }
 
-private struct DurablePrefixScan {
-    let journalSequences: [UInt64]
-    let eventTypes: [String]
-    let frameIDs: [String]
-    let networkEligibleFrameIDs: [String]
-    let acknowledgedFrameIDs: [String]
-    let hasFinalizedManifest: Bool
+private struct ProductionRecoverySnapshot {
+    let inspected: RecoveredArchive
+    let candidate: RecoveryGenerationCandidate?
+    let verified: VerifiedArchive
+    let replay: ReplaySnapshot
+    let manifest: [String: Any]
+    let physical: PhysicalJournalSnapshot
 
-    static let empty = DurablePrefixScan(
-        journalSequences: [],
-        eventTypes: [],
-        frameIDs: [],
-        networkEligibleFrameIDs: [],
-        acknowledgedFrameIDs: [],
-        hasFinalizedManifest: false
-    )
+    var eventTypes: [String] { physical.events.map(\.type) }
+}
+
+private struct PhysicalJournalSnapshot {
+    let journalData: Data
+    let entries: [CaptureJournalEntry]
+    let timeline: [ReplayTimelineEntry]
+    let events: [PhysicalEventSnapshot]
+    let memberPaths: Set<String>
+}
+
+private struct PhysicalEventSnapshot {
+    let type: String
+    let frameID: String?
 }
 
 private struct ImmutablePrefix {
@@ -1114,6 +1323,22 @@ private func recursiveFiles(at root: URL) throws -> [String: Data] {
             let relative = String(url.path[archiveStart.lowerBound...].dropFirst())
             files[relative] = try Data(contentsOf: url)
         }
+    }
+    return files
+}
+
+private func recursiveArchiveFiles(at root: URL) throws -> [String: Data] {
+    guard let enumerator = FileManager.default.enumerator(
+        at: root,
+        includingPropertiesForKeys: [.isRegularFileKey]
+    ) else { return [:] }
+    var files = [String: Data]()
+    for case let url as URL in enumerator {
+        guard try url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile == true else {
+            continue
+        }
+        let relative = String(url.path.dropFirst(root.path.count + 1))
+        files[relative] = try Data(contentsOf: url)
     }
     return files
 }
