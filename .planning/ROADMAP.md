@@ -165,6 +165,20 @@ Plans:
 one signed-device queue-pressure/recovery smoke. The repeated new-revision
 10-run physical `GATE-001` matrix is deferred to Phase 8 and remains `PENDING`.
 
+### Phase 02.1: Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12 (INSERTED)
+
+**Goal:** Recovery and replay admit only fully contract-verified archives, reconstruct the exact physically durable journal prefix, and atomically publish one verified content-addressed recovery generation under crashes and races.
+**Requirements**: FR-CAPTURE-001, FR-B0-001, NFR-REPLAY-001, NFR-CONTRACT-001, NFR-RESILIENCE-001, SEC-CONSENT-001
+**Depends on:** Phase 2
+**Plans:** 1/4 plans executed
+
+Plans:
+
+- [x] 02.1-01-PLAN.md — Establish sole pinned archive verification and capability-only replay.
+- [ ] 02.1-02-PLAN.md — Reconstruct exact physical durable prefix through production recovery/replay.
+- [ ] 02.1-03-PLAN.md — Publish one crash-atomic, race-safe archive/quarantine generation.
+- [ ] 02.1-04-PLAN.md — Wire production callers and publish exact-source narrow automated evidence.
+
 ### Phase 3: Typed Place, Commit, and Offline Restore
 
 **Goal**: Users can complete a deterministic place/restore journey through typed/tap input while canonical revisions, inverses, and reconciliation remain exact offline and on replay.
