@@ -582,6 +582,27 @@ final class PublicationDurableMemoryFileSystem: CaptureFileSystem, @unchecked Se
 }
 
 enum RecoveryPublicationFixture {
+    private struct VerifierBundle: Sendable {
+        let validator: ContractValidator
+        let verifier: ArchiveVerifier
+    }
+
+    private enum VerifierFixtureError: Error, Sendable {
+        case initialization(String)
+    }
+
+    private static let verifierBundle: Result<VerifierBundle, VerifierFixtureError> = {
+        do {
+            let validator = try makeVerifierValidator()
+            return .success(VerifierBundle(
+                validator: validator,
+                verifier: ArchiveVerifier(validator: validator)
+            ))
+        } catch {
+            return .failure(.initialization(String(describing: error)))
+        }
+    }()
+
     static func candidateWithInvalidSuffix() throws -> RecoveryGenerationCandidate {
         let root = fixtureRoot.appendingPathComponent("recovered-prefix.rrcap")
         let verifier = try verifier()
@@ -697,20 +718,15 @@ enum RecoveryPublicationFixture {
     }
 
     static func verifier() throws -> ArchiveVerifier {
-        let registrations: [(ContractSchemaIdentifier, String, String)] = [
-            (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
-            (.rrcapManifest, "rrcap-manifest.schema.json", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
-            (.sceneState, "scene-state.schema.json", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
-            (.editArtifacts, "edit-artifacts.schema.json", "58dbfc8f152881cbdc31be22f6ab7631ac474bb78537ac2a9254f5ef16bd598f"),
-            (.transaction, "transaction.schema.json", "2a4f6728978db0879b5dfb10f052f6d5280e5cf83ad5600f0cf959626c2399a2"),
-        ]
-        return ArchiveVerifier(validator: try verifierValidator(registrations: registrations))
+        try verifierBundle.get().verifier
     }
 
-    private static func verifierValidator(
-        registrations: [(ContractSchemaIdentifier, String, String)]? = nil
-    ) throws -> ContractValidator {
-        let bindings = registrations ?? [
+    private static func verifierValidator() throws -> ContractValidator {
+        try verifierBundle.get().validator
+    }
+
+    private static func makeVerifierValidator() throws -> ContractValidator {
+        let bindings: [(ContractSchemaIdentifier, String, String)] = [
             (.framePacket, "frame-packet.schema.json", "d50b19bfb29c6c62c494e3a47deb3c51a933609698f4ff2f9cbfba6ec4252b43"),
             (.rrcapManifest, "rrcap-manifest.schema.json", "c97349820ed66fb1a1fdf60ea9afee312f532811602851d01d1e233641730b87"),
             (.sceneState, "scene-state.schema.json", "9c77d27762e20ff5fad24c438e8817a03c770b55be3fc82ea72097c4c273e440"),
