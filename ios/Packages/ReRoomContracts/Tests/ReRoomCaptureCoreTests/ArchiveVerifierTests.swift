@@ -329,6 +329,18 @@ private final class ArchiveVerifierFixture {
 
     func writeManifest(_ value: [String: Any]) throws {
         var manifest = value
+        let journal = manifest["journal"] as! [[String: Any]]
+        let tuples = journal.map { entry in
+            [
+                entry["journal_sequence"]!,
+                entry["entry_type"]!,
+                entry["reference_id"]!,
+                entry["content_sha256"]!,
+            ]
+        }
+        var replay = manifest["replay"] as! [String: Any]
+        replay["input_digest"] = CanonicalJSON.sha256Hex(try Self.canonical(tuples))
+        manifest["replay"] = replay
         var finalization = manifest["finalization"] as! [String: Any]
         finalization.removeValue(forKey: "manifest_sha256")
         manifest["finalization"] = finalization
