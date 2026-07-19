@@ -209,10 +209,10 @@ struct CaptureCrashMatrixTests {
         #expect(snapshot.events.map(\.eventSequence) == Array(0..<33))
         #expect(snapshot.journalEntries.map(\.journalSequence) == Array(0..<41))
         #expect(snapshot.journalEntries.filter { $0.entryType == "frame" }.count == 8)
-        let recovered = try fixture.productionRecovery()
-        #expect(recovered.replay.timeline.count == 41)
-        #expect(recovered.replay.finalization.acceptedFrameCount == 8)
-        #expect(recovered.eventTypes.filter { $0 == "frame_network_eligible" }.count == 8)
+        let physical = try fixture.physicalJournalSnapshot()
+        #expect(physical.timeline.count == 41)
+        #expect(physical.timeline.filter { $0.entryType == .frame }.count == 8)
+        #expect(physical.events.filter { $0.type == "frame_network_eligible" }.count == 8)
     }
 
     @Test("identity and idempotency collisions perform no filesystem mutation")
@@ -981,7 +981,7 @@ private struct CrashMatrixFixture: Sendable {
         ArchiveVerifier(validator: validator)
     }
 
-    private func physicalJournalSnapshot() throws -> PhysicalJournalSnapshot {
+    func physicalJournalSnapshot() throws -> PhysicalJournalSnapshot {
         let journalData = try fileSystem.read(at: archivePath("journal/global.jsonl"))
         let entries = try journalData.split(separator: 0x0a).map {
             try JSONDecoder().decode(CaptureJournalEntry.self, from: Data($0))

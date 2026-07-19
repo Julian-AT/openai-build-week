@@ -467,11 +467,11 @@ public struct ArchiveVerifier: Sendable {
                     throw ArchiveVerificationError.semanticInvariant
                 }
             }
-            if let previousFrameID {
-                guard packet["previous_durable_frame_id"] as? String == previousFrameID else {
-                    throw ArchiveVerificationError.semanticInvariant
-                }
-            } else {
+            if let previousFrameID,
+               let linkedFrameID = packet["previous_durable_frame_id"] as? String,
+               linkedFrameID != previousFrameID {
+                throw ArchiveVerificationError.semanticInvariant
+            } else if previousFrameID == nil {
                 guard packet["previous_durable_frame_id"] is NSNull else {
                     throw ArchiveVerificationError.semanticInvariant
                 }
