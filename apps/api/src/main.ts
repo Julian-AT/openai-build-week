@@ -1,13 +1,6 @@
-import {
-  buildDesignCopilotInstructions,
-  createOpenAIProposalModelClient,
-  createOpenAIRealtimeSessionService,
-} from "@reframe/agent";
+import { createOpenAIRealtimeSessionService } from "@reframe/agent";
 
-import { CURATED_CATALOG } from "./catalog.ts";
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
-import { createProposalService } from "./proposal-service.ts";
-import { MODEL_PROPOSAL_OUTPUT_SCHEMA } from "./semantic-schema.ts";
 import { createGatewayApp, type GatewayLogRecord, MAX_REQUEST_BYTES } from "./server.ts";
 
 const host = process.env.REFRAME_GATEWAY_HOST?.trim() || "0.0.0.0";
@@ -15,17 +8,6 @@ const port = parsePort(process.env.REFRAME_GATEWAY_PORT);
 const gatewayToken = process.env.REFRAME_GATEWAY_TOKEN ?? "";
 const openAIAPIKey = process.env.OPENAI_API_KEY;
 
-const proposalService = openAIAPIKey
-  ? createProposalService({
-      modelClient: createOpenAIProposalModelClient({
-        apiKey: openAIAPIKey,
-        instructions: buildDesignCopilotInstructions(
-          CURATED_CATALOG.map((asset) => ({ assetID: asset.asset_id, name: asset.name })),
-        ),
-        outputSchema: MODEL_PROPOSAL_OUTPUT_SCHEMA,
-      }),
-    })
-  : undefined;
 const realtimeService = openAIAPIKey
   ? createOpenAIRealtimeSessionService({ apiKey: openAIAPIKey })
   : undefined;
@@ -36,7 +18,6 @@ const inferenceService = createInferenceWorkerClientFromEnvironment({
 
 const app = createGatewayApp({
   gatewayToken,
-  ...(proposalService ? { proposalService } : {}),
   ...(realtimeService ? { realtimeService } : {}),
   ...(inferenceService ? { inferenceService } : {}),
   logger: writeRequestLog,
@@ -59,7 +40,8 @@ process.stdout.write(
     host: server.hostname,
     port: server.port,
     protected_routes_enabled: gatewayToken.length > 0,
-    openai_routes_enabled: openAIAPIKey !== undefined,
+    realtime_enabled: realtimeService !== undefined,
+    agent_turns_enabled: false,
     inference_routes_enabled: inferenceService !== undefined,
   })}\n`,
 );

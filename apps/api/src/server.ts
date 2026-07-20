@@ -14,18 +14,13 @@ import {
 } from "./edit-transaction-service.ts";
 import { type InferenceService, InferenceWorkerError } from "./inference-client.ts";
 import { parseInferenceJobRequest } from "./inference-protocol.ts";
-import { type ProposalRequest, ProtocolError, parseProposalRequest } from "./protocol.ts";
+import { ProtocolError } from "./protocol.ts";
 import { parseJSONBytesStrict } from "./strict-json.ts";
 
 export const MAX_REQUEST_BYTES = 2_500_000;
 
-export interface ProposalService {
-  propose(request: ProposalRequest, signal: AbortSignal): Promise<unknown>;
-}
-
 export interface GatewayAppOptions {
   gatewayToken: string;
-  proposalService?: ProposalService;
   realtimeService?: RealtimeSessionService;
   inferenceService?: InferenceService;
   editTransactionService?: EditTransactionService;
@@ -93,12 +88,6 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
 
   app.get("/health", (context) => context.json({ status: "ok" }));
 
-  app.post("/v1/proposals", async (context) => {
-    const rejection = authorizeJSONRequest(context, options.gatewayToken);
-    if (rejection !== undefined) return rejection;
-    return handleProposal(context, options);
-  });
-
   app.post("/v1/realtime/calls", async (context) => {
     const rejection = authorizeSDPRequest(context, options.gatewayToken);
     if (rejection !== undefined) return rejection;
@@ -123,7 +112,6 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.post("/v1/turns", async (context) => handleAgentTurn(context, options));
 
   app.all("/health", (context) => methodNotAllowed(context, "GET"));
-  app.all("/v1/proposals", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/realtime/calls", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/inference/status", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/inference/jobs", (context) => methodNotAllowed(context, "POST"));
@@ -160,36 +148,6 @@ function authorizeBearerRequest(context: Context, gatewayToken: string): Respons
     return context.json({ error: "unauthorized" }, 401);
   }
   return undefined;
-}
-
-async function handleProposal(context: Context, options: GatewayAppOptions): Promise<Response> {
-  if (!options.proposalService) {
-    return context.json({ error: "service_unavailable" }, 503);
-  }
-
-  const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
-  try {
-    const body = await abortable(readJSON(context.req.raw), deadline.signal);
-    const proposalRequest = parseProposalRequest(body);
-    const result = await abortable(
-      options.proposalService.propose(proposalRequest, deadline.signal),
-      deadline.signal,
-    );
-    return context.json(result);
-  } catch (error) {
-    if (deadline.didTimeout()) {
-      return context.json({ error: "upstream_timeout" }, 504);
-    }
-    if (error instanceof BodyTooLargeError) {
-      return context.json({ error: "payload_too_large" }, 413);
-    }
-    if (error instanceof ProtocolError || error instanceof SyntaxError) {
-      return context.json({ error: "invalid_request" }, 400);
-    }
-    return context.json({ error: "upstream_failure" }, 502);
-  } finally {
-    deadline.dispose();
-  }
 }
 
 async function handleRealtimeSecret(
@@ -607,7 +565,6 @@ function methodNotAllowed(context: Context, allow: "GET" | "POST"): Response {
 function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
   if (pathname === "/health" || pathname === "/v1/inference/status") return "GET";
   if (
-    pathname === "/v1/proposals" ||
     pathname === "/v1/realtime/calls" ||
     pathname === "/v1/inference/jobs" ||
     pathname === "/v1/edit/previews" ||

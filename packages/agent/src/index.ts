@@ -23,12 +23,6 @@ export {
   REFRAME_AGENT_TOOLS,
 } from "./openai-agent-planner.ts";
 export {
-  buildDesignCopilotInstructions,
-  createOpenAIProposalModelClient,
-  type DesignCatalogEntry,
-  type OpenAIProposalModelClientOptions,
-} from "./openai-proposal-client.ts";
-export {
   createOpenAIRealtimeSessionService,
   type OpenAIRealtimeSessionServiceOptions,
   REALTIME_INSTRUCTIONS,
@@ -36,12 +30,4 @@ export {
   type RealtimeSessionService,
   SUBMIT_USER_TURN_TOOL,
 } from "./openai-realtime-session.ts";
-export {
-  type ModelProposalInput,
-  type ModelProposalResult,
-  PROPOSAL_MODEL,
-  type ProposalGenerationRequest,
-  type ProposalGenerator,
-  type ProposalModelClient,
-  type ProposalOutputSchema,
-} from "./types.ts";
+export { PROPOSAL_MODEL, type ProposalOutputSchema } from "./types.ts";
