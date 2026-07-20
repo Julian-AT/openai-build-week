@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "bun --watch src/main.ts",
+    "dev:local": "docker compose -f compose.dev.yml up --build --remove-orphans",
     "start": "bun src/main.ts",
     "test": "bun test test",
     "typecheck": "tsc --noEmit"

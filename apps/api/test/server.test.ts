@@ -55,6 +55,36 @@ test("health is public while private readiness is scoped", async () => {
   assert.deepEqual(await readiness.json(), expected);
 });
 
+test("public health identifies a degraded local catalog runtime without leaking paths", async () => {
+  const app = createGatewayApp({
+    gatewayToken: "test-token",
+    runtimeReadiness: {
+      snapshot: async () => ({
+        status: "degraded" as const,
+        dependencies: {
+          gateway: { status: "ready" as const },
+          catalog_store: { status: "ready" as const },
+          asset_storage: { status: "ready" as const },
+          qdrant: { status: "unavailable" as const },
+        },
+      }),
+    },
+  });
+
+  const response = await app.request("/health");
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    status: "degraded",
+    dependencies: {
+      gateway: { status: "ready" },
+      catalog_store: { status: "ready" },
+      asset_storage: { status: "ready" },
+      qdrant: { status: "unavailable" },
+    },
+  });
+});
+
 test("typed inference jobs are request-bound and private failures stay closed", async () => {
   let received: unknown;
   const mask = Buffer.from([1]);

@@ -1,6 +1,7 @@
 import { createOpenAIRealtimeSessionService } from "@reframe/agent";
 
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
+import { runtimeReadinessFromEnvironment } from "./runtime-readiness.ts";
 import { createGatewayApp, type GatewayLogRecord, MAX_REQUEST_BYTES } from "./server.ts";
 
 const host = process.env.REFRAME_GATEWAY_HOST?.trim() || "0.0.0.0";
@@ -15,9 +16,11 @@ const inferenceService = createInferenceWorkerClientFromEnvironment({
   REFRAME_VISION_URL: process.env.REFRAME_VISION_URL,
   REFRAME_VISION_TOKEN: process.env.REFRAME_VISION_TOKEN,
 });
+const runtimeReadiness = await runtimeReadinessFromEnvironment(process.env);
 
 const app = createGatewayApp({
   gatewayToken,
+  runtimeReadiness,
   ...(realtimeService ? { realtimeService } : {}),
   ...(inferenceService ? { inferenceService } : {}),
   logger: writeRequestLog,

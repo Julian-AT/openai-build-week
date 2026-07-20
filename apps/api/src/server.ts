@@ -21,6 +21,7 @@ export const MAX_REQUEST_BYTES = 2_500_000;
 
 export interface GatewayAppOptions {
   gatewayToken: string;
+  runtimeReadiness?: GatewayRuntimeReadiness;
   realtimeService?: RealtimeSessionService;
   inferenceService?: InferenceService;
   editTransactionService?: EditTransactionService;
@@ -30,6 +31,24 @@ export interface GatewayAppOptions {
   nowMilliseconds?: () => number;
   requestTimeoutMilliseconds?: number;
   protectedRequestsPerMinute?: number;
+}
+
+export interface GatewayRuntimeReadiness {
+  snapshot(): Promise<GatewayRuntimeSnapshot>;
+}
+
+export interface GatewayRuntimeSnapshot {
+  status: "ok" | "degraded";
+  dependencies: {
+    gateway: GatewayRuntimeDependency;
+    catalog_store: GatewayRuntimeDependency;
+    asset_storage: GatewayRuntimeDependency;
+    qdrant: GatewayRuntimeDependency;
+  };
+}
+
+export interface GatewayRuntimeDependency {
+  status: "ready" | "unavailable";
 }
 
 export interface GatewayLogRecord {
@@ -86,7 +105,10 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
     await next();
   });
 
-  app.get("/health", (context) => context.json({ status: "ok" }));
+  app.get("/health", async (context) => {
+    if (options.runtimeReadiness === undefined) return context.json({ status: "ok" });
+    return context.json(await options.runtimeReadiness.snapshot());
+  });
 
   app.post("/v1/realtime/calls", async (context) => {
     const rejection = authorizeSDPRequest(context, options.gatewayToken);

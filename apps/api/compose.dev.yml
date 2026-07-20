@@ -1,0 +1,53 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.17.0
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?Set QDRANT_API_KEY in the environment}
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - ${REFRAME_DATA_DIR:?Set an absolute REFRAME_DATA_DIR outside the repository}/qdrant:/qdrant/storage
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/6333 && printf 'GET /readyz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && read -r status <&3 && [[ "$$status" == 'HTTP/1.1 200 OK'* ]]
+      interval: 5s
+      timeout: 2s
+      retries: 12
+      start_period: 5s
+
+  api:
+    image: oven/bun:1.3.11
+    working_dir: /workspace
+    command:
+      - bun
+      - apps/api/src/main.ts
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    environment:
+      REFRAME_GATEWAY_HOST: 0.0.0.0
+      REFRAME_GATEWAY_PORT: "8787"
+      REFRAME_GATEWAY_TOKEN: ${REFRAME_GATEWAY_TOKEN:?Set REFRAME_GATEWAY_TOKEN in the environment}
+      REFRAME_DATA_DIR: /data
+      REFRAME_QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:?Set QDRANT_API_KEY in the environment}
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - ../..:/workspace:ro
+      - ${REFRAME_DATA_DIR:?Set an absolute REFRAME_DATA_DIR outside the repository}:/data
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - -e
+        - const response = await fetch("http://127.0.0.1:8787/health"); if (!response.ok) process.exit(1);
+      interval: 5s
+      timeout: 2s
+      retries: 12
+      start_period: 5s
