@@ -26,9 +26,8 @@ __pycache__/
 .ruff_cache/
 .venv/
 
-# Codex/GSD runtime is user-global and must never be vendored here
+# Local agent runtime state is user-global and must never be vendored here
 .codex/
-.planning/.gsd-trace.jsonl
 
 # Editors and operating systems
 .DS_Store
@@ -56,5 +55,3 @@ coverage/
 
 # Turborepo local cache
 .turbo/
-
-# Deliberately do not ignore .planning/: GSD planning docs and project config are shared.

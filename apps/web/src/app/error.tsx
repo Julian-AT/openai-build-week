@@ -11,19 +11,19 @@ export default function ReplayError({
       <header className="product-header">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">
-            RR
+            RF
           </span>
           <div>
             <span className="brand-name">Reframe</span>
-            <span className="brand-subtitle">Fallback inspection console</span>
+            <span className="brand-subtitle">Session replay</span>
           </div>
         </div>
         <div className="mode-lockup">
           <p className="mode-title">MODE B0 — RECORDED REPLAY</p>
           <div className="mode-badges">
-            <span>PROVIDER-INDEPENDENT</span>
-            <span>LOCAL DEMO FIXTURE</span>
-            <span className="mode-badge--pending">GATE-008 PENDING</span>
+            <span>SAFE FAILURE</span>
+            <span>SESSION ISOLATED</span>
+            <span className="mode-badge--pending">RETRY AVAILABLE</span>
           </div>
         </div>
       </header>
