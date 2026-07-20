@@ -285,9 +285,9 @@ export class DurableRoomSessionStore {
       await rm(framePath, { force: true });
       throw error;
     }
-    // The accepted SQLite row and frame bytes are recoverable before this RFCAP
-    // projection is published. A retried packet reconciles it if publication fails.
-    await synchronizeFrameJournal(this.#database, rfcapDirectory, sessionID);
+    // The accepted SQLite row and frame bytes are recoverable before the RFCAP
+    // projection is appended. A retried packet reconciles it if publication fails.
+    await appendFrameJournal(rfcapDirectory, row);
     return this.#receipt(row, false);
   }
 
@@ -439,22 +439,32 @@ async function synchronizeFrameJournal(
       "SELECT session_id, frame_id, image_sha256, image_bytes, accepted_at_ms, metadata_json FROM capture_frames WHERE session_id = ?1 ORDER BY frame_id",
     )
     .all(sessionID);
-  const lines = rows
-    .map((row) =>
-      canonicalJSONStringify({
-        frame_id: row.frame_id,
-        image_sha256: row.image_sha256,
-        image_bytes: row.image_bytes,
-        accepted_at_ms: row.accepted_at_ms,
-        metadata_sha256: canonicalJSONSHA256(JSON.parse(row.metadata_json)),
-        metadata: JSON.parse(row.metadata_json),
-      }),
-    )
-    .join("\n");
+  const lines = rows.map(frameJournalLine).join("\n");
   await writeAtomically(
     join(rfcapDirectory, "frames.jsonl"),
     lines.length === 0 ? "" : `${lines}\n`,
   );
+}
+
+async function appendFrameJournal(rfcapDirectory: string, row: FrameRow): Promise<void> {
+  const handle = await open(join(rfcapDirectory, "frames.jsonl"), "a", 0o600);
+  try {
+    await handle.writeFile(`${frameJournalLine(row)}\n`);
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
+function frameJournalLine(row: FrameRow): string {
+  return canonicalJSONStringify({
+    frame_id: row.frame_id,
+    image_sha256: row.image_sha256,
+    image_bytes: row.image_bytes,
+    accepted_at_ms: row.accepted_at_ms,
+    metadata_sha256: canonicalJSONSHA256(JSON.parse(row.metadata_json)),
+    metadata: JSON.parse(row.metadata_json),
+  });
 }
 
 async function writeBinaryAtomically(path: string, bytes: Uint8Array): Promise<void> {

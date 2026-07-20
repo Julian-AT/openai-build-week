@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { lstat, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -132,7 +132,41 @@ test("rebuilds the RFCAP journal from accepted SQLite rows after an interrupted 
   }
 });
 
-function packet(sessionID: string, image: Uint8Array): Uint8Array {
+test("appends accepted frame journal records without replacing prior durable bytes", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-session-store-journal-"));
+  try {
+    const sessions = await createDurableRoomSessionStore({
+      dataDirectory,
+      signingSecret: "test-signing-secret-with-sufficient-length",
+      nowMilliseconds: () => 1_000,
+    });
+    const session = await sessions.createSession({
+      sessionID: "room_2026_07_13_07",
+      expiresAtMilliseconds: 61_000,
+      allowedPaths: ["frames"],
+    });
+    const first = await sessions.acceptFrame({
+      credential: session.credential,
+      bytes: packet("room_2026_07_13_07", jpeg, 842),
+    });
+    const journalPath = join(first.rfcapDirectory, "frames.jsonl");
+    const before = await lstat(journalPath);
+
+    await sessions.acceptFrame({
+      credential: session.credential,
+      bytes: packet("room_2026_07_13_07", jpeg, 843),
+    });
+    const after = await lstat(journalPath);
+
+    assert.equal(after.ino, before.ino);
+    assert.deepEqual((await Bun.file(journalPath).text()).trim().split("\n").length, 2);
+    await sessions.close();
+  } finally {
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+function packet(sessionID: string, image: Uint8Array, frameID = 842): Uint8Array {
   return encodeFramePacket({
     flags: 0,
     image,
@@ -140,7 +174,7 @@ function packet(sessionID: string, image: Uint8Array): Uint8Array {
       protocol_version: 1,
       session_id: sessionID,
       submap_id: 0,
-      frame_id: 842,
+      frame_id: frameID,
       timestamp_ns: 1_783_918_472_391_823,
       clock_domain: "ios_monotonic_uptime",
       image: {
