@@ -78,9 +78,12 @@ export interface RestoreInput {
 }
 
 export interface EditTransactionService {
-  prepareReplacementPreview(credential: string, proposalID: string): ReplacementPreview;
-  confirmPreview(credential: string, input: ConfirmPreviewInput): EditDelta;
-  restore(credential: string, input: RestoreInput): EditDelta;
+  prepareReplacementPreview(
+    credential: string,
+    proposalID: string,
+  ): ReplacementPreview | Promise<ReplacementPreview>;
+  confirmPreview(credential: string, input: ConfirmPreviewInput): EditDelta | Promise<EditDelta>;
+  restore(credential: string, input: RestoreInput): EditDelta | Promise<EditDelta>;
 }
 
 interface SessionRecord {

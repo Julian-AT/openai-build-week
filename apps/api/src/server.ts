@@ -3,6 +3,14 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { RealtimeSessionService } from "@reframe/agent";
 import { type Context, Hono } from "hono";
 
+import {
+  type EditTransactionService,
+  IdempotencyConflictError,
+  RevisionConflictError,
+  SessionCredentialError,
+  TransactionConflictError,
+  TransactionNotFoundError,
+} from "./edit-transaction-service.ts";
 import { type InferenceService, InferenceWorkerError } from "./inference-client.ts";
 import { parseInferenceJobRequest } from "./inference-protocol.ts";
 import { type ProposalRequest, ProtocolError, parseProposalRequest } from "./protocol.ts";
@@ -19,6 +27,7 @@ export interface GatewayAppOptions {
   proposalService?: ProposalService;
   realtimeService?: RealtimeSessionService;
   inferenceService?: InferenceService;
+  editTransactionService?: EditTransactionService;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
   nowMilliseconds?: () => number;
@@ -106,11 +115,18 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
     return handleInferenceJob(context, options);
   });
 
+  app.post("/v1/edit/previews", async (context) => handleEditPreview(context, options));
+  app.post("/v1/edit/confirmations", async (context) => handleEditConfirmation(context, options));
+  app.post("/v1/edit/restores", async (context) => handleEditRestore(context, options));
+
   app.all("/health", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/proposals", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/realtime/calls", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/inference/status", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/inference/jobs", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/edit/previews", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/edit/confirmations", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/edit/restores", (context) => methodNotAllowed(context, "POST"));
   app.notFound((context) => context.json({ error: "not_found" }, 404));
   app.onError((_error, context) => context.json({ error: "internal_failure" }, 500));
 
@@ -249,6 +265,168 @@ async function handleInferenceJob(context: Context, options: GatewayAppOptions):
   } finally {
     deadline.dispose();
   }
+}
+
+async function handleEditPreview(context: Context, options: GatewayAppOptions): Promise<Response> {
+  const credential = authorizeScopedJSONRequest(context);
+  if (credential instanceof Response) return credential;
+  if (!options.editTransactionService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  try {
+    const request = parseEditPreviewRequest(await readJSON(context.req.raw));
+    const result = await options.editTransactionService.prepareReplacementPreview(
+      credential,
+      request.proposalID,
+    );
+    return context.json(result);
+  } catch (error) {
+    return editFailureResponse(context, error);
+  }
+}
+
+async function handleEditConfirmation(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  const credential = authorizeScopedJSONRequest(context);
+  if (credential instanceof Response) return credential;
+  if (!options.editTransactionService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  try {
+    const request = parseEditConfirmationRequest(await readJSON(context.req.raw));
+    const result = await options.editTransactionService.confirmPreview(credential, request);
+    return context.json(result);
+  } catch (error) {
+    return editFailureResponse(context, error);
+  }
+}
+
+async function handleEditRestore(context: Context, options: GatewayAppOptions): Promise<Response> {
+  const credential = authorizeScopedJSONRequest(context);
+  if (credential instanceof Response) return credential;
+  if (!options.editTransactionService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  try {
+    const request = parseEditRestoreRequest(await readJSON(context.req.raw));
+    const result = await options.editTransactionService.restore(credential, request);
+    return context.json(result);
+  } catch (error) {
+    return editFailureResponse(context, error);
+  }
+}
+
+function authorizeScopedJSONRequest(context: Context): string | Response {
+  const authorization = context.req.header("authorization");
+  if (!authorization?.startsWith("Bearer ") || authorization.length <= "Bearer ".length) {
+    return context.json({ error: "unauthorized" }, 401);
+  }
+  if (!hasJSONContentType(context.req.header("content-type"))) {
+    return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  return authorization.slice("Bearer ".length);
+}
+
+function editFailureResponse(context: Context, error: unknown): Response {
+  if (error instanceof BodyTooLargeError) {
+    return context.json({ error: "payload_too_large" }, 413);
+  }
+  if (
+    error instanceof SyntaxError ||
+    error instanceof TypeError ||
+    error instanceof ProtocolError
+  ) {
+    return context.json({ error: "invalid_request" }, 400);
+  }
+  if (error instanceof SessionCredentialError) {
+    return context.json({ error: "unauthorized" }, 401);
+  }
+  if (error instanceof TransactionNotFoundError) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  if (error instanceof RevisionConflictError) {
+    return context.json({ error: "revision_conflict", scene_revision: error.actualRevision }, 409);
+  }
+  if (error instanceof IdempotencyConflictError) {
+    return context.json({ error: "idempotency_conflict" }, 409);
+  }
+  if (error instanceof TransactionConflictError) {
+    return context.json({ error: "transaction_conflict" }, 409);
+  }
+  return context.json({ error: "internal_failure" }, 500);
+}
+
+function parseEditPreviewRequest(value: unknown): { readonly proposalID: string } {
+  if (!isExactRecord(value, ["proposal_id"]) || !matchesPublicID(value.proposal_id, "proposal")) {
+    throw new ProtocolError("invalid_request");
+  }
+  return { proposalID: value.proposal_id };
+}
+
+function parseEditConfirmationRequest(value: unknown): {
+  readonly previewID: string;
+  readonly expectedSceneRevision: number;
+  readonly idempotencyKey: string;
+} {
+  if (
+    !isExactRecord(value, ["preview_id", "expected_scene_revision", "idempotency_key"]) ||
+    !matchesPublicID(value.preview_id, "preview") ||
+    !isSceneRevision(value.expected_scene_revision) ||
+    !matchesPublicID(value.idempotency_key, "txidem")
+  ) {
+    throw new ProtocolError("invalid_request");
+  }
+  return {
+    previewID: value.preview_id,
+    expectedSceneRevision: value.expected_scene_revision,
+    idempotencyKey: value.idempotency_key,
+  };
+}
+
+function parseEditRestoreRequest(value: unknown): {
+  readonly transactionID: string;
+  readonly expectedSceneRevision: number;
+  readonly idempotencyKey: string;
+} {
+  if (
+    !isExactRecord(value, ["transaction_id", "expected_scene_revision", "idempotency_key"]) ||
+    !matchesPublicID(value.transaction_id, "tx") ||
+    !isSceneRevision(value.expected_scene_revision) ||
+    !matchesPublicID(value.idempotency_key, "txidem")
+  ) {
+    throw new ProtocolError("invalid_request");
+  }
+  return {
+    transactionID: value.transaction_id,
+    expectedSceneRevision: value.expected_scene_revision,
+    idempotencyKey: value.idempotency_key,
+  };
+}
+
+function isExactRecord(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => key in value)
+  );
+}
+
+function matchesPublicID(value: unknown, prefix: string): value is string {
+  return (
+    typeof value === "string" &&
+    new RegExp(
+      `^${prefix}_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`,
+      "u",
+    ).test(value)
+  );
+}
+
+function isSceneRevision(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
 }
 
 function inferenceFailureResponse(context: Context, error: unknown, didTimeout: boolean): Response {
@@ -392,7 +570,10 @@ function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
   if (
     pathname === "/v1/proposals" ||
     pathname === "/v1/realtime/calls" ||
-    pathname === "/v1/inference/jobs"
+    pathname === "/v1/inference/jobs" ||
+    pathname === "/v1/edit/previews" ||
+    pathname === "/v1/edit/confirmations" ||
+    pathname === "/v1/edit/restores"
   ) {
     return "POST";
   }
