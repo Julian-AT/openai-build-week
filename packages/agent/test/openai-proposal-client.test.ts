@@ -15,6 +15,10 @@ const outputSchema = {
   required: ["status"],
 } as const;
 
+test("uses the explicit GPT-5.6 Sol planning model", () => {
+  assert.equal(PROPOSAL_MODEL, "gpt-5.6-sol");
+});
+
 test("the AI SDK adapter binds model, schema, consented image, and abort signal", async () => {
   let receivedRequest: ProposalGenerationRequest | undefined;
   let receivedSignal: AbortSignal | undefined;

@@ -57,7 +57,7 @@ test("a ready model result becomes a context-bound CON-006 envelope", async () =
     ingress_source: "vision",
     semantic_model: {
       provider: "openai",
-      model: "gpt-5.6",
+      model: "gpt-5.6-sol",
       response_id: "resp_ready",
     },
     status: "ready",

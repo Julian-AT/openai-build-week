@@ -1,4 +1,19 @@
 export {
+  type AgentPlanner,
+  type AgentPlannerStep,
+  type AgentProposalStep,
+  type AgentReadToolExecutor,
+  type AgentReadToolName,
+  AgentToolPolicyError,
+  type AgentToolCall,
+  type AgentToolOutput,
+  type AgentTurnInput,
+  type AuthoritativeTurnContext,
+  MAX_AGENT_CANDIDATES,
+  MAX_AGENT_TOOL_CALLS,
+  runBoundedAgentTurn,
+} from "./bounded-tool-runner.ts";
+export {
   buildDesignCopilotInstructions,
   createOpenAIProposalModelClient,
   type DesignCatalogEntry,
