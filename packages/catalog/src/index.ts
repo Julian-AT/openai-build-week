@@ -41,6 +41,12 @@ export type {
 } from "./catalog-eligibility.ts";
 export { assessAssetInjectionReadiness } from "./catalog-eligibility.ts";
 export type {
+  PreparedCatalogProofOptions,
+  PreparedCatalogProofResult,
+  PreparedCatalogProofStore,
+} from "./catalog-proof.ts";
+export { provePreparedCatalogAsset } from "./catalog-proof.ts";
+export type {
   CachedAssetBinary,
   CatalogDerivativeKind,
   LocalAssetCache,
@@ -93,7 +99,7 @@ export {
   runIkeaUSSourceSmoke,
 } from "./ikea-source.ts";
 export type { OpenAICatalogEnricherOptions } from "./openai-enricher.ts";
-export { createOpenAICatalogEnricher } from "./openai-enricher.ts";
+export { CATALOG_DESCRIPTOR_MODEL, createOpenAICatalogEnricher } from "./openai-enricher.ts";
 export type { OpenAICatalogQueryVectorizerOptions } from "./openai-vectorizer.ts";
 export {
   CATALOG_EMBEDDING_MODEL,

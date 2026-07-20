@@ -5,11 +5,16 @@ import {
   BLENDER_NORMALIZER_SCRIPT_PATH,
   createBlenderAssetProcessor,
 } from "./blender-asset-processor.ts";
+import { type PreparedCatalogProofResult, provePreparedCatalogAsset } from "./catalog-proof.ts";
+import type { CatalogDerivativeKind, LocalAssetCache } from "./delivery.ts";
 import { createFilesystemAcquisitionStores } from "./filesystem-acquisition-store.ts";
 import { createFilesystemPreparedAssetStore } from "./filesystem-prepared-asset-store.ts";
 import { REFRAME_IKEA_US_AUTHORIZATION } from "./ikea-authorization.ts";
 import { createIkeaGLBFetchTransport } from "./ikea-glb-transport.ts";
 import { type IkeaUSSourceSmokeResult, runIkeaUSSourceSmoke } from "./ikea-source.ts";
+import { createOpenAICatalogEnricher } from "./openai-enricher.ts";
+import { createOpenAICatalogQueryVectorizer } from "./openai-vectorizer.ts";
+import { QdrantCatalogStore } from "./qdrant-store.ts";
 import type { AssetSupportType, CatalogDimensionsM } from "./types.ts";
 
 export interface IkeaSourceSmokeEnvironment {
@@ -31,8 +36,20 @@ export interface IkeaPreparedSmokeEnvironment extends IkeaSourceSmokeEnvironment
   REFRAME_ASSET_PROCESSOR_REVISION?: string;
 }
 
+export interface IkeaIndexedSmokeEnvironment extends IkeaPreparedSmokeEnvironment {
+  OPENAI_API_KEY?: string;
+  QDRANT_URL?: string;
+  QDRANT_API_KEY?: string;
+  REFRAME_IKEA_SMOKE_SEARCH_QUERY?: string;
+  REFRAME_IKEA_SMOKE_CACHE_PROFILE?: string;
+}
+
 export interface IkeaPreparedSmokeResult extends IkeaUSSourceSmokeResult {
   prepared: PreparedCatalogAssetRecord;
+}
+
+export interface IkeaIndexedSmokeResult extends IkeaPreparedSmokeResult {
+  proof: PreparedCatalogProofResult;
 }
 
 /** Executes one explicitly configured live source acquisition without broadening the frontier. */
@@ -118,6 +135,33 @@ export async function runIkeaPreparedSmokeFromEnvironment(
   return { ...source, prepared };
 }
 
+/** Completes one live enrichment, vector, Qdrant eligibility, and delivery proof. */
+export async function runIkeaIndexedSmokeFromEnvironment(
+  environment: IkeaIndexedSmokeEnvironment,
+): Promise<IkeaIndexedSmokeResult> {
+  const configuration = indexedSmokeConfiguration(environment);
+  const catalog = new QdrantCatalogStore({
+    url: configuration.qdrantURL,
+    ...(configuration.qdrantAPIKey === undefined ? {} : { apiKey: configuration.qdrantAPIKey }),
+  });
+  const prepared = await runIkeaPreparedSmokeFromEnvironment(environment);
+  const preparedStore = await createFilesystemPreparedAssetStore({
+    dataDirectory: configuration.dataDirectory,
+  });
+  const proof = await provePreparedCatalogAsset({
+    product: prepared.product,
+    prepared: prepared.prepared,
+    enricher: createOpenAICatalogEnricher({ apiKey: configuration.openAIAPIKey }),
+    store: catalog,
+    vectorizer: createOpenAICatalogQueryVectorizer({ apiKey: configuration.openAIAPIKey }),
+    cache: preparedAssetCache(prepared.prepared, preparedStore),
+    query: configuration.query,
+    cacheProfile: configuration.cacheProfile,
+    maxDimensionsM: prepared.prepared.asset.dimensionsM,
+  });
+  return { ...prepared, proof };
+}
+
 function preparedSmokeConfiguration(environment: IkeaPreparedSmokeEnvironment): {
   dataDirectory: string;
   dimensionsM: CatalogDimensionsM;
@@ -167,9 +211,52 @@ function preparedSmokeConfiguration(environment: IkeaPreparedSmokeEnvironment): 
   };
 }
 
+function indexedSmokeConfiguration(environment: IkeaIndexedSmokeEnvironment): {
+  dataDirectory: string;
+  openAIAPIKey: string;
+  qdrantURL: string;
+  qdrantAPIKey?: string;
+  query: string;
+  cacheProfile: string;
+} {
+  const openAIAPIKey = required(environment.OPENAI_API_KEY, "openai_api_key");
+  const dataDirectory = required(environment.REFRAME_DATA_DIR, "reframe_data_dir");
+  const qdrantURL = required(environment.QDRANT_URL, "qdrant_url");
+  const parsedQdrantURL = new URL(qdrantURL);
+  if (
+    (parsedQdrantURL.protocol !== "http:" && parsedQdrantURL.protocol !== "https:") ||
+    parsedQdrantURL.username !== "" ||
+    parsedQdrantURL.password !== ""
+  ) {
+    throw new Error("invalid_qdrant_url");
+  }
+  const query = required(environment.REFRAME_IKEA_SMOKE_SEARCH_QUERY, "ikea_smoke_search_query");
+  if (query.length > 500) throw new Error("invalid_reframe_ikea_smoke_search_query");
+  const cacheProfile = required(
+    environment.REFRAME_IKEA_SMOKE_CACHE_PROFILE,
+    "ikea_smoke_cache_profile",
+  );
+  if (!/^[a-z0-9][a-z0-9._-]{1,127}$/u.test(cacheProfile))
+    throw new Error("invalid_reframe_ikea_smoke_cache_profile");
+  const qdrantAPIKey = optional(environment.QDRANT_API_KEY);
+  return {
+    dataDirectory,
+    openAIAPIKey,
+    qdrantURL: parsedQdrantURL.toString(),
+    ...(qdrantAPIKey === undefined ? {} : { qdrantAPIKey }),
+    query,
+    cacheProfile,
+  };
+}
+
 function required(value: string | undefined, name: string): string {
   if (value === undefined || value.trim().length === 0) throw new Error(`missing_reframe_${name}`);
   return value.trim();
+}
+
+function optional(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized === undefined || normalized.length === 0 ? undefined : normalized;
 }
 
 function meter(value: string | undefined, name: string): number {
@@ -196,4 +283,29 @@ async function assertProcessorPaths(configuration: {
 
 function hash(buffer: ArrayBuffer): string {
   return createHash("sha256").update(new Uint8Array(buffer)).digest("hex");
+}
+
+function preparedAssetCache(
+  prepared: PreparedCatalogAssetRecord,
+  store: Awaited<ReturnType<typeof createFilesystemPreparedAssetStore>>,
+): LocalAssetCache {
+  return {
+    read: async (request) => {
+      if (
+        request.assetID !== prepared.asset.assetID ||
+        !prepared.asset.cacheProfiles.includes(request.cacheProfile)
+      ) {
+        return undefined;
+      }
+      const derivative = derivativeFor(prepared, request.derivative);
+      const bytes = await store.readDerivative(derivative.storageKey, derivative.sha256);
+      return { bytes, sha256: derivative.sha256, byteLength: derivative.byteLength };
+    },
+  };
+}
+
+function derivativeFor(prepared: PreparedCatalogAssetRecord, kind: CatalogDerivativeKind) {
+  if (kind === "glb") return prepared.asset.derivatives.glb;
+  if (kind === "usdz") return prepared.asset.derivatives.usdz;
+  return prepared.asset.derivatives.collision;
 }

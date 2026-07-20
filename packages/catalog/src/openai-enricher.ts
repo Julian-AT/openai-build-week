@@ -3,7 +3,8 @@ import OpenAI from "openai";
 import type { CatalogEnricher, CatalogProduct, EmbeddedCatalogProduct } from "./types.ts";
 import { SEMANTIC_VECTOR_SIZE } from "./types.ts";
 
-const DESCRIPTOR_MODEL = "gpt-5.6";
+/** Exact model ID verified against current official OpenAI model documentation. */
+export const CATALOG_DESCRIPTOR_MODEL = "gpt-5.6-sol";
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
 export interface OpenAICatalogEnricherOptions {
@@ -40,7 +41,7 @@ async function describeProduct(client: OpenAI, product: CatalogProduct): Promise
   const imageURL = product.imageURLs[0];
   if (imageURL === undefined) return product.searchableText;
   const response = await client.responses.create({
-    model: DESCRIPTOR_MODEL,
+    model: CATALOG_DESCRIPTOR_MODEL,
     store: false,
     reasoning: { effort: "low" },
     max_output_tokens: 180,

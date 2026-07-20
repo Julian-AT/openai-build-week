@@ -1,11 +1,11 @@
-import { runIkeaPreparedSmokeFromEnvironment } from "./source-smoke.ts";
+import { runIkeaIndexedSmokeFromEnvironment } from "./source-smoke.ts";
 
 const [profile, ...additionalArguments] = process.argv.slice(2);
 if (profile !== "smoke" || additionalArguments.length !== 0) {
   throw new Error("catalog_profile_must_be_smoke");
 }
 
-const result = await runIkeaPreparedSmokeFromEnvironment(process.env);
+const result = await runIkeaIndexedSmokeFromEnvironment(process.env);
 process.stdout.write(
   `${JSON.stringify({
     productID: result.product.id,
@@ -13,5 +13,11 @@ process.stdout.write(
     sourceContent: result.acquisition.checkpoint.content,
     preparedAssetID: result.prepared.asset.assetID,
     derivationID: result.prepared.derivationID,
+    catalogID: result.proof.hit.id,
+    delivery: {
+      derivative: result.proof.delivery.derivative,
+      sha256: result.proof.delivery.sha256,
+      byteLength: result.proof.delivery.byteLength,
+    },
   })}\n`,
 );
