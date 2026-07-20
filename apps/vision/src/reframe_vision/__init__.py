@@ -1,4 +1,5 @@
 from .app import InferenceAppOptions, create_inference_app
+from .da3_metric import DA3MetricProvider, DepthPlane
 from .providers import (
     DisabledProvider,
     InferenceProvider,
@@ -19,6 +20,8 @@ from .reveal import (
 from .target_geometry import TargetView, TargetViewAssessment, assess_target_views
 
 __all__ = [
+    "DA3MetricProvider",
+    "DepthPlane",
     "DisabledProvider",
     "DisabledRevealFillProvider",
     "HttpRevealFillProvider",
