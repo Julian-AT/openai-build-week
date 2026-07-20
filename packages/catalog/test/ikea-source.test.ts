@@ -1,7 +1,12 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { extractIkeaProduct, parseSitemap } from "../src/index.ts";
+import {
+  crawlIkeaUSProducts,
+  extractIkeaProduct,
+  parseSitemap,
+  REFRAME_IKEA_US_AUTHORIZATION,
+} from "../src/index.ts";
 
 test("the IKEA source discovers product pages from sitemap indexes", () => {
   const xml = `<?xml version="1.0"?><sitemapindex>
@@ -46,4 +51,18 @@ test("the IKEA source extracts stable product metadata and every GLB variant", (
       searchableText: "KALLAX shelf unit. A practical white shelf.",
     },
   );
+});
+
+test("the IKEA crawler rejects a disabled source policy before making a network request", async () => {
+  let fetches = 0;
+  const source = crawlIkeaUSProducts({
+    authorization: { ...REFRAME_IKEA_US_AUTHORIZATION, state: "disabled" },
+    fetch: async () => {
+      fetches += 1;
+      throw new Error("network_must_not_run");
+    },
+  });
+
+  await assert.rejects(source.next(), /ikea_authorization_disabled/);
+  assert.equal(fetches, 0);
 });

@@ -518,7 +518,7 @@ session.rfcap/
 
 ```json
 {
-  "format": "rrcap",
+  "format": "rfcap",
   "version": 1,
   "session_id": "room_2026_07_13_01",
   "created_at": "2026-07-13T17:30:00Z",

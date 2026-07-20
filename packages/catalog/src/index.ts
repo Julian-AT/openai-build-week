@@ -27,6 +27,11 @@ export type {
   LocalAssetDeliveryRequest,
 } from "./delivery.ts";
 export { resolveLocalAssetDelivery } from "./delivery.ts";
+export type { IkeaSourceAuthorization } from "./ikea-authorization.ts";
+export {
+  assertIkeaSourceAuthorization,
+  REFRAME_IKEA_US_AUTHORIZATION,
+} from "./ikea-authorization.ts";
 export type { IkeaSourceOptions, SitemapResult } from "./ikea-source.ts";
 export {
   crawlIkeaUSProducts,

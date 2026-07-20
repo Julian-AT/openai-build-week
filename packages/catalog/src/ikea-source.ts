@@ -1,8 +1,17 @@
+import {
+  assertIkeaSourceAuthorization,
+  type IkeaSourceAuthorization,
+} from "./ikea-authorization.ts";
 import type { CatalogProduct } from "./types.ts";
 
 const IKEA_ORIGIN = "https://www.ikea.com";
 const IKEA_ASSET_ORIGIN = "https://web-api.ikea.com";
 const PRODUCT_PATH = /^\/us\/en\/p\/[a-z0-9-]+\/$/u;
+
+type IkeaFetch = (
+  input: Parameters<typeof globalThis.fetch>[0],
+  init?: Parameters<typeof globalThis.fetch>[1],
+) => ReturnType<typeof globalThis.fetch>;
 
 export interface SitemapResult {
   sitemapURLs: string[];
@@ -10,8 +19,9 @@ export interface SitemapResult {
 }
 
 export interface IkeaSourceOptions {
-  fetch?: typeof globalThis.fetch;
+  fetch?: IkeaFetch;
   concurrency?: number;
+  authorization?: IkeaSourceAuthorization;
 }
 
 export function parseSitemap(xml: string, market = "us", language = "en"): SitemapResult {
@@ -68,6 +78,8 @@ export function extractGLBURLs(html: string): string[] {
 export async function* crawlIkeaUSProducts(
   options: IkeaSourceOptions = {},
 ): AsyncGenerator<CatalogProduct> {
+  if (options.authorization === undefined) throw new Error("missing_ikea_authorization");
+  assertIkeaSourceAuthorization(options.authorization);
   const fetchImplementation = options.fetch ?? globalThis.fetch;
   const concurrency = Math.max(1, Math.min(options.concurrency ?? 6, 12));
   const pendingSitemaps = [`${IKEA_ORIGIN}/sitemaps/sitemap.xml`];
@@ -99,7 +111,7 @@ export async function* crawlIkeaUSProducts(
 }
 
 async function fetchText(
-  fetchImplementation: typeof globalThis.fetch,
+  fetchImplementation: IkeaFetch,
   url: string,
   accept: string,
 ): Promise<string> {
