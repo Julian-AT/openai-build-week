@@ -1,10 +1,11 @@
 import { expect, test } from "bun:test";
 
 import {
-  AgentToolPolicyError,
-  runBoundedAgentTurn,
   type AgentPlanner,
   type AgentReadToolExecutor,
+  AgentToolPolicyError,
+  runBoundedAgentTurn,
+  runBoundedAgentTurnResult,
 } from "../src/index.ts";
 
 test("runs bounded read-only tools and returns one prepared proposal", async () => {
@@ -117,4 +118,34 @@ test("caps catalog inspection at eight candidates before executing the tool", as
     ),
   ).rejects.toThrow("invalid_catalog_candidate_limit");
   expect(executed).toBeFalse();
+});
+
+test("preserves the provider response identifier with a completed proposal", async () => {
+  const planner: AgentPlanner = {
+    next: async () => ({
+      type: "proposal",
+      responseID: "resp_placement_123",
+      proposal: { status: "preview_ready" },
+    }),
+  };
+
+  await expect(
+    runBoundedAgentTurnResult(
+      {
+        clientTurnID: "turn_1",
+        utterance: "Place a table",
+        authoritativeContext: {
+          sessionID: "session_1",
+          sceneRevision: 4,
+          pointerContextID: "pointer_1",
+        },
+      },
+      planner,
+      { execute: async () => ({}) },
+      new AbortController().signal,
+    ),
+  ).resolves.toEqual({
+    proposal: { status: "preview_ready" },
+    responseID: "resp_placement_123",
+  });
 });

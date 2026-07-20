@@ -29,6 +29,7 @@ export interface AgentResponseGenerationRequest {
   input: readonly unknown[];
   tools: readonly AgentFunctionToolDefinition[];
   proposalSchema: ProposalOutputSchema;
+  parallelToolCalls: false;
   store: false;
 }
 
@@ -119,6 +120,7 @@ export function createOpenAIResponsesAgentPlanner(
           input: history,
           tools,
           proposalSchema: options.proposalSchema,
+          parallelToolCalls: false,
           store: false,
         },
         signal,
@@ -131,6 +133,7 @@ export function createOpenAIResponsesAgentPlanner(
         throw new AgentToolPolicyError("missing_agent_proposal");
       return {
         type: "proposal",
+        responseID: response.responseID,
         proposal: parseJSON(response.outputText, "invalid_agent_proposal"),
       };
     },
@@ -154,6 +157,7 @@ function createOpenAIResponsesGenerator(
           instructions: request.instructions,
           input: request.input as ResponseInput,
           tools: request.tools as Tool[],
+          parallel_tool_calls: request.parallelToolCalls,
           max_output_tokens: 1_200,
           reasoning: { effort: "low" },
           text: {

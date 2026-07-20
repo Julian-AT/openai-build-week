@@ -1,15 +1,17 @@
 import { expect, test } from "bun:test";
 
 import {
+  type AgentResponseGenerationRequest,
   createOpenAIResponsesAgentPlanner,
   REFRAME_AGENT_TOOLS,
-  type AgentResponseGenerationRequest,
 } from "../src/index.ts";
 
 test("every nested agent tool object is closed for strict function calling", () => {
   const serialized = JSON.stringify(REFRAME_AGENT_TOOLS);
   const objectSchemas = [...serialized.matchAll(/\{"type":"object"/gu)];
-  const closedSchemas = [...serialized.matchAll(/\{"type":"object","additionalProperties":false/gu)];
+  const closedSchemas = [
+    ...serialized.matchAll(/\{"type":"object","additionalProperties":false/gu),
+  ];
   expect(closedSchemas).toHaveLength(objectSchemas.length);
 });
 
@@ -73,6 +75,7 @@ test("preserves response items and tool outputs across a GPT-5.6 planning turn",
 
   expect(proposal).toEqual({
     type: "proposal",
+    responseID: "resp_2",
     proposal: { operation: "replace", asset_id: "asset_red" },
   });
   expect(requests[1]?.input).toContainEqual({
@@ -85,4 +88,5 @@ test("preserves response items and tool outputs across a GPT-5.6 planning turn",
     id: "reason_1",
     encrypted_content: "encrypted",
   });
+  expect(requests[0]?.parallelToolCalls).toBeFalse();
 });

@@ -8,10 +8,12 @@ export {
   type AgentToolOutput,
   AgentToolPolicyError,
   type AgentTurnInput,
+  type AgentTurnRunResult,
   type AuthoritativeTurnContext,
   MAX_AGENT_CANDIDATES,
   MAX_AGENT_TOOL_CALLS,
   runBoundedAgentTurn,
+  runBoundedAgentTurnResult,
 } from "./bounded-tool-runner.ts";
 export {
   type AgentFunctionToolDefinition,

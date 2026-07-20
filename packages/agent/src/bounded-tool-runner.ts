@@ -18,6 +18,7 @@ export interface AgentToolCall {
 export interface AgentProposalStep {
   type: "proposal";
   proposal: unknown;
+  responseID?: string;
 }
 
 export type AgentPlannerStep = AgentToolCall | AgentProposalStep;
@@ -56,6 +57,11 @@ export interface AgentReadToolExecutor {
   ): Promise<unknown>;
 }
 
+export interface AgentTurnRunResult {
+  readonly proposal: unknown;
+  readonly responseID?: string;
+}
+
 export class AgentToolPolicyError extends Error {
   constructor(message = "agent_tool_policy_violation") {
     super(message);
@@ -77,11 +83,25 @@ export async function runBoundedAgentTurn(
   tools: AgentReadToolExecutor,
   signal: AbortSignal,
 ): Promise<unknown> {
+  return (await runBoundedAgentTurnResult(input, planner, tools, signal)).proposal;
+}
+
+export async function runBoundedAgentTurnResult(
+  input: AgentTurnInput,
+  planner: AgentPlanner,
+  tools: AgentReadToolExecutor,
+  signal: AbortSignal,
+): Promise<AgentTurnRunResult> {
   const outputs: AgentToolOutput[] = [];
   for (let stepIndex = 0; stepIndex <= MAX_AGENT_TOOL_CALLS; stepIndex += 1) {
     signal.throwIfAborted();
     const step = await planner.next(input, outputs, signal);
-    if (step.type === "proposal") return step.proposal;
+    if (step.type === "proposal") {
+      return {
+        proposal: step.proposal,
+        ...(step.responseID === undefined ? {} : { responseID: step.responseID }),
+      };
+    }
     assertAllowedCall(step);
     if (stepIndex === MAX_AGENT_TOOL_CALLS)
       throw new AgentToolPolicyError("agent_tool_budget_exceeded");

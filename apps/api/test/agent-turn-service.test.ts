@@ -191,8 +191,16 @@ test("OpenAI planner factories create a fresh bounded Responses planner per turn
   const first = await factory.create().next(input, [], new AbortController().signal);
   const second = await factory.create().next(input, [], new AbortController().signal);
 
-  assert.deepEqual(first, { type: "proposal", proposal: { status: "preview_ready" } });
-  assert.deepEqual(second, first);
+  assert.deepEqual(first, {
+    type: "proposal",
+    responseID: "response_1",
+    proposal: { status: "preview_ready" },
+  });
+  assert.deepEqual(second, {
+    type: "proposal",
+    responseID: "response_2",
+    proposal: { status: "preview_ready" },
+  });
   assert.equal(generatedInputs.length, 2);
   assert.equal(generatedInputs[0]?.length, 1);
   assert.equal(generatedInputs[1]?.length, 1);

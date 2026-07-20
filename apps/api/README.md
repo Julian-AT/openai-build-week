@@ -17,7 +17,13 @@ bun run --cwd apps/api test
 bun run --cwd apps/api typecheck
 bun run --cwd apps/api build
 bun run --cwd apps/api start
+bun run --cwd apps/api agent:smoke
 ```
+
+`agent:smoke` is a server-side proof operator. It requires the explicit
+`REFRAME_AGENT_SMOKE_*` values from `.env.example`, plus OpenAI and Qdrant
+credentials; it can only prepare one local placement preview and has no commit
+path.
 
 Configuration names are listed in the root `.env.example`. Keep OpenAI,
 Qdrant, vision-worker, and gateway credentials server-side. Routes whose real
