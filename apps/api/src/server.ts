@@ -3,6 +3,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { RealtimeSessionService } from "@reframe/agent";
 import { type Context, Hono } from "hono";
 
+import { type AgentTurnService, parseAgentTurnRequest } from "./agent-turn.ts";
 import {
   type EditTransactionService,
   IdempotencyConflictError,
@@ -28,6 +29,7 @@ export interface GatewayAppOptions {
   realtimeService?: RealtimeSessionService;
   inferenceService?: InferenceService;
   editTransactionService?: EditTransactionService;
+  agentTurnService?: AgentTurnService;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
   nowMilliseconds?: () => number;
@@ -118,6 +120,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.post("/v1/edit/previews", async (context) => handleEditPreview(context, options));
   app.post("/v1/edit/confirmations", async (context) => handleEditConfirmation(context, options));
   app.post("/v1/edit/restores", async (context) => handleEditRestore(context, options));
+  app.post("/v1/turns", async (context) => handleAgentTurn(context, options));
 
   app.all("/health", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/proposals", (context) => methodNotAllowed(context, "POST"));
@@ -127,6 +130,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.all("/v1/edit/previews", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/edit/confirmations", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/edit/restores", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/turns", (context) => methodNotAllowed(context, "POST"));
   app.notFound((context) => context.json({ error: "not_found" }, 404));
   app.onError((_error, context) => context.json({ error: "internal_failure" }, 500));
 
@@ -315,6 +319,41 @@ async function handleEditRestore(context: Context, options: GatewayAppOptions): 
     return context.json(result);
   } catch (error) {
     return editFailureResponse(context, error);
+  }
+}
+
+async function handleAgentTurn(context: Context, options: GatewayAppOptions): Promise<Response> {
+  const credential = authorizeScopedJSONRequest(context);
+  if (credential instanceof Response) return credential;
+  if (!options.agentTurnService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+
+  const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
+  try {
+    const body = await abortable(readJSON(context.req.raw), deadline.signal);
+    const turn = parseAgentTurnRequest(body);
+    const result = await abortable(
+      options.agentTurnService.submit(credential, turn, deadline.signal),
+      deadline.signal,
+    );
+    return context.json(result);
+  } catch (error) {
+    if (deadline.didTimeout()) {
+      return context.json({ error: "upstream_timeout" }, 504);
+    }
+    if (error instanceof BodyTooLargeError) {
+      return context.json({ error: "payload_too_large" }, 413);
+    }
+    if (error instanceof ProtocolError || error instanceof SyntaxError) {
+      return context.json({ error: "invalid_request" }, 400);
+    }
+    if (error instanceof SessionCredentialError) {
+      return context.json({ error: "unauthorized" }, 401);
+    }
+    return context.json({ error: "upstream_failure" }, 502);
+  } finally {
+    deadline.dispose();
   }
 }
 
@@ -573,7 +612,8 @@ function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
     pathname === "/v1/inference/jobs" ||
     pathname === "/v1/edit/previews" ||
     pathname === "/v1/edit/confirmations" ||
-    pathname === "/v1/edit/restores"
+    pathname === "/v1/edit/restores" ||
+    pathname === "/v1/turns"
   ) {
     return "POST";
   }
