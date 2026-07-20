@@ -79,7 +79,7 @@ Deliver the smallest honest native target-and-compositor slice needed by the app
 ## Deferred Ideas
 
 - Learned semantic tracking, SAM provider selection/benchmarking, dense depth/fusion, provider/cloud deployment, Metal reveal post-processing, and automatic target identity recovery remain out of this sprint slice.
-- Full `GATE-003`, `GATE-004`, `GATE-005`, `GATE-007`, and `GATE-012` campaigns remain in `.planning/SPRINT-CUT-36H.md` and must be completed before corresponding P0 or measured-performance claims.
+- Full `GATE-003`, `GATE-004`, `GATE-005`, `GATE-007`, and `GATE-012` campaigns remain in `.planning/milestones/v1.0/SPRINT-CUT-36H.md` and must be completed before corresponding P0 or measured-performance claims.
 - Full replacement compositing and asset validation remain Phase 5. Multi-surface reveal/removal and `GATE-006` remain Phase 6. Mode B0 remains Phase 7.
 
 </deferred>

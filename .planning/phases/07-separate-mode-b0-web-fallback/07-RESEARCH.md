@@ -50,7 +50,7 @@
 |---|---|---|
 | `FR-WEB-001` | Separate Next.js sessions/timeline, `.rrcap` and ordinary-video replay, sharing, typed proposals, sparse/artifact visualization, and explicit degradation. | Implement only the approved golden `.rrcap` verify/replay/scrub/inspect subset; leave the requirement pending. [VERIFIED: `.planning/REQUIREMENTS.md`; PRD FR-WEB-001; sprint cut] |
 | `SEC-RETENTION-001` | Local-only default plus explicit server TTL, deletion, share invalidation, source/derived cleanup, and ID-only audit logs. | Enforce/display local-only fixture state and add no server persistence/share surface; leave the requirement pending. [VERIFIED: `.planning/REQUIREMENTS.md`; PRD SEC-RETENTION-001; sprint cut] |
-| `GATE-008` | Two exact provider-disabled replays plus scene/artifact/transaction inspection, typed fixture edit, ordinary video, and camera/codec/quota/network degradation evidence. | Build and smoke only the minimal replay/inspection path; the full gate remains pending. [VERIFIED: `RISK_AND_KILL_GATES.md:113-122`; `.planning/SPRINT-CUT-36H.md:51`] |
+| `GATE-008` | Two exact provider-disabled replays plus scene/artifact/transaction inspection, typed fixture edit, ordinary video, and camera/codec/quota/network degradation evidence. | Build and smoke only the minimal replay/inspection path; the full gate remains pending. [VERIFIED: `RISK_AND_KILL_GATES.md:113-122`; `.planning/milestones/v1.0/SPRINT-CUT-36H.md:51`] |
 </phase_requirements>
 
 ## Summary
@@ -265,7 +265,7 @@ No unresolved product or technical question blocks planning.
 ## Sources
 
 ### Primary repository authority
-- `AGENTS.md`; `docs/canonical/README.md`; `.planning/SPRINT-CUT-36H.md`; `.planning/ROADMAP.md`; `.planning/REQUIREMENTS.md`. [VERIFIED]
+- `AGENTS.md`; `docs/canonical/README.md`; `.planning/milestones/v1.0/SPRINT-CUT-36H.md`; `.planning/ROADMAP.md`; `.planning/REQUIREMENTS.md`. [VERIFIED]
 - `docs/canonical/MASTER_TECHNICAL_SPEC.md`; `PRD.md`; `TEST_AND_EVALUATION_PLAN.md`; `RISK_AND_KILL_GATES.md`. [VERIFIED]
 - ADR-001, ADR-002, ADR-004, ADR-008, ADR-011, ADR-012, ADR-013, ADR-014 and `docs/contracts/README.md`. [VERIFIED]
 - `tools/javascript/src/replay.ts`, `tools/javascript/test/replay.test.mjs`, and `fixtures/capture/1.0.0/rev-001`. [VERIFIED]

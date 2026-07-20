@@ -178,7 +178,7 @@ None. The proof uses a bundled repository-owned proxy and local Documents persis
 ## Next Phase Readiness
 
 - Ready for `03-06-PLAN.md` to emit isolated Swift, TypeScript, and Python transaction traces over the now-visible proposal/blocker/confirm/restore journey.
-- Physical-device, reconnect, compositor, catalog/license, visual-quality, and human gate evidence remain explicitly `PENDING` under `.planning/SPRINT-CUT-36H.md`; this plan promotes none of them.
+- Physical-device, reconnect, compositor, catalog/license, visual-quality, and human gate evidence remain explicitly `PENDING` under `.planning/milestones/v1.0/SPRINT-CUT-36H.md`; this plan promotes none of them.
 
 ---
 *Phase: 03-typed-place-commit-and-offline-restore*

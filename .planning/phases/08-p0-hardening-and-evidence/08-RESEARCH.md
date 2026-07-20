@@ -50,7 +50,7 @@
 
 ## Summary
 
-Phase 8 should be planned as a two-plan consolidation slice, not the original canonical S8 release campaign. Plan A should add a thin fail-closed readiness/composite verifier and exact security/license inventory. Plan B should run the available integration checks, publish a sanitized evidence index and all-gate status report, and prepare the human demo/submission runbook. No plan should implement missing Phase 5–7 behavior. [VERIFIED: repository inventory; `.planning/SPRINT-CUT-36H.md`]
+Phase 8 should be planned as a two-plan consolidation slice, not the original canonical S8 release campaign. Plan A should add a thin fail-closed readiness/composite verifier and exact security/license inventory. Plan B should run the available integration checks, publish a sanitized evidence index and all-gate status report, and prepare the human demo/submission runbook. No plan should implement missing Phase 5–7 behavior. [VERIFIED: repository inventory; `.planning/milestones/v1.0/SPRINT-CUT-36H.md`]
 
 The decisive repository fact is that upstream work is incomplete: Phase 5 lacks `05-04-SUMMARY.md`, Phase 6 lacks `06-03/04` summaries, and Phase 7 lacks `07-02/03` summaries at research time. Therefore Phase 8 needs explicit prerequisite discovery with stable `BLOCKED_BY_UPSTREAM` outcomes rather than a verifier that silently skips missing surfaces. [VERIFIED: `.planning/phases/05-*` through `07-*`; repository file audit]
 
@@ -209,7 +209,7 @@ No unverified assumption is used to authorize implementation or a claim. Live su
 
 ### Primary — HIGH confidence
 
-- `AGENTS.md`, `.planning/SPRINT-CUT-36H.md`, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, and `08-CONTEXT.md`.
+- `AGENTS.md`, `.planning/milestones/v1.0/SPRINT-CUT-36H.md`, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, and `08-CONTEXT.md`.
 - `docs/canonical/README.md`, `PRD.md`, `MASTER_TECHNICAL_SPEC.md`, `TEST_AND_EVALUATION_PLAN.md`, `RISK_AND_KILL_GATES.md`, `DEVELOPMENT_STRATEGY.md`, and `RESEARCH_LEDGER.md`.
 - Completed Phase 2–7 summaries, remaining Phase 5–7 plans, actual source/package/lock/resource/evidence inventory, and formal gate reports.
 

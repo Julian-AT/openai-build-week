@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 02.1
-current_phase_name: Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12
-status: executing
-stopped_at: Completed 02.1-01-PLAN.md
-last_updated: "2026-07-19T18:29:38.309Z"
-last_activity: 2026-07-19
-last_activity_desc: Phase 02.1 execution started
+current_phase: 02
+current_phase_name: Atomic Capture and Exact Replay
+status: verification_deferred_human
+stopped_at: Phase 02.1 and Phase 09 software slices complete; resume Phase 2 verification
+last_updated: "2026-07-20T00:04:23Z"
+last_activity: 2026-07-20
+last_activity_desc: Phase 02.1 exact-source verification passed; full clean native candidate passed 129/129; web audit is zero
 progress:
-  total_phases: 9
-  completed_phases: 8
-  total_plans: 50
-  completed_plans: 47
+  total_phases: 10
+  completed_phases: 1
+  total_plans: 51
+  completed_plans: 51
 ---
 
 # Project State
@@ -24,25 +24,25 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Phase 02.1 — Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12
+**Current focus:** Phase 2 verification and the remaining live/device/browser/human hackathon finish gates. Phase 02.1 and Phase 09 have no unexecuted software plans.
 
 ## Current Position
 
-Phase: 02.1 (Close Phase 2 capture and recovery trust boundary — CR-03 CR-04 CR-12) — EXECUTING
+Phase: 02 (Atomic Capture and Exact Replay) — VERIFICATION DEFERRED HUMAN
 
-Plan: 2 of 4
+Plan: Phase 02.1 is 4/4 and Phase 09 is 1/1; no implementation plan is active.
 
-Status: Ready to execute
+Status: Resume `$gsd-verify-work 02`; keep CR-03/04/12 as automated review candidates and all other Phase 2 findings open.
 
-Last activity: 2026-07-19 — Phase 02.1 execution started
+Last activity: 2026-07-20 — Phase 02.1 exact-source verifier passed; the full clean native candidate reached 129/129 and the web production audit reached zero vulnerabilities
 
-Progress: [███████████████████░] 47/50 implementation plans executed ([█████████░] 94%)
+Progress: [████████████████████] 51/51 implementation plans executed ([██████████] 100%). Canonical verification and gates are not complete.
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 46
+- Total plans completed: 51
 - Average duration: N/A
 - Total execution time: 0 hours
 
@@ -50,11 +50,21 @@ Progress: [███████████████████░] 47/50 i
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
+| 01 | 15 | not normalized | - |
+| 02 | 7 | not normalized | - |
+| 02.1 | 4 | 2h 59m | 45m |
+| 03 | 7 | not normalized | - |
+| 04 | 4 | not normalized | - |
+| 05 | 4 | not normalized | - |
+| 06 | 4 | not normalized | - |
+| 07 | 3 | not normalized | - |
+| 08 | 2 | not normalized | - |
+| 09 | 1 | not recorded | - |
 
 **Recent Trend:**
 
-- Last 5 plans: None
-- Trend: Not established
+- Last 5 plans: Phase 02.1 P01–P04 and Phase 09 P01
+- Trend: Two narrow sprint overlays completed; continuation is evidence-first.
 
 *Updated after each approved plan completion.*
 **Per-Plan Metrics:**
@@ -93,6 +103,10 @@ Progress: [███████████████████░] 47/50 i
 | Phase 04 P03 | 22min | 2 tasks | 4 files |
 | Phase 04 P04 | 18min | 2 tasks | 3 files |
 | Phase 02.1 P01 | 31m | 2 tasks | 6 files |
+| Phase 02.1 P02 | 30m | 2 tasks | 5 files |
+| Phase 02.1 P03 | 1h 7m | 2 tasks | 5 files |
+| Phase 02.1 P04 | 51m | 3 tasks | 7 files |
+| Phase 09 P01 | not recorded | 3 tasks | multi-surface AI slice |
 
 ## Accumulated Context
 
@@ -157,13 +171,22 @@ Full locked and provisional decision blocks are in PROJECT.md.
 - [Phase 04]: Keep compositor order exactly camera, reveal, occluder, asset/proxy, debug, SwiftUI; reveal and occluder remain explicitly unavailable.
 - [Phase 04]: Expose only immutable render snapshots to SwiftUI and synchronize RealityKit entities by snapshot differences.
 - [Phase 04]: Automated evidence is bound to product commit 4d268ba and keeps GATE-003/004/005/007/012 PENDING.
+- [Phase 02.1]: Admit replay only through an opaque pinned `VerifiedArchive` capability and recheck bounded member bytes at consumption.
+- [Phase 02.1]: Recover the physically present contiguous journal prefix, then publish one immutable content-addressed generation with pointer-last crash/race safety.
+- [Phase 02.1]: Limit exact-source automated closeout to `CR-03`, `CR-04`, and `CR-12`; keep 17 other Phase 2 findings, Phase 2, `GATE-001`, and v1.0 open.
+- [Phase 09]: Use Sol and optional Realtime only for closed CON-006 semantic proposals; no model tool or response owns geometry, confirmation, revision, persistence, or commit.
+- [Phase 09]: Bind trusted native context after inference, arbitrate exactly one visible preview, and require a separate deterministic confirmation.
+- [Phase 09]: Ship three deterministic local CON-004 demo assets with canonical digest-bound USDZ/GLB/collision delivery while `GATE-011` remains pending.
 
 ### Pending Todos
 
-- Run restored code, security, Nyquist, UI-safety, and cross-phase audits against the current implementation and fix confirmed software defects before revision-bound physical evidence.
-- Resume `$gsd-verify-work 02`, close the 12 judgment-tier reviews, then execute the complete signed-device `GATE-001` matrix on the corrected revision.
+- Resume `$gsd-verify-work 02`, formally judge the three Phase 02.1 candidates, then work the remaining nine blocker and eight warning findings without promoting `GATE-001` early.
+- Freeze a clean candidate and run the exact signed-device camera/catalog/place/replace/restore rehearsal plus the required physical gate campaigns.
+- Run the timeboxed live Sol/one-frame-vision rubric and optional five-turn Realtime rubric; disable optional provider controls on a miss.
+- Repeat the passing local Chromium B0 smoke on the frozen clean candidate,
+  then complete the short honest demo recording and human submission checklist.
 - Continue Phase 3 through Phase 8 verification and the formal gate campaigns in dependency order; preserve every incomplete gate as `PENDING`.
-- Resolve the root-product and proxy redistribution/license decisions before `GATE-011` or a shipping claim.
+- Complete signed-device derivative parity, human visual review, and the final shipping BOM before `GATE-011` or a shipping claim.
 
 ### Blockers/Concerns
 
@@ -188,18 +211,20 @@ Full locked and provisional decision blocks are in PROJECT.md.
 | Phase | State | Resume |
 |-------|-------|--------|
 | 02 | verification_deferred_human | `$gsd-verify-work 02` |
+| 02.1 | verification_deferred_human | Review the three exact-source candidates during `$gsd-verify-work 02` |
 | 03 | verification_deferred_canonical_campaigns | Resume formal GATE-009/GATE-010/GATE-011 and physical/human evidence in the sprint-cut resume order |
 | 04 | verification_deferred_human | `$gsd-verify-work 04` |
 | 05 | verification_deferred_human | `$gsd-verify-work 05` |
 | 06 | verification_deferred_human | `$gsd-verify-work 06` |
 | 07 | verification_deferred_human | `$gsd-verify-work 07` |
 | 08 | verification_deferred_human | `$gsd-verify-work 08` |
+| 09 | verification_deferred_human_live | Run the fixed Phase 09 live/provider/device rubric; typed fallback remains complete |
 
 ## Session Continuity
 
-Last session: 2026-07-19T18:28:25.426Z
+Last session: 2026-07-20T00:04:23Z
 
-Stopped at: Completed 02.1-01-PLAN.md
+Stopped at: Completed all 51 implementation plans and fresh local candidate verification; Phase 2 formal review plus provider/device/browser/human gates remain.
 
 Resume file: None
 

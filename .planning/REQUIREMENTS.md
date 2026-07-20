@@ -25,7 +25,7 @@ Canonical IDs are preserved exactly. Acceptance summaries retain the canonical t
 - [ ] **FR-TRANSACTION-001 - Deterministic edit authority:** Every edit uses one declared branch authority, CAS revision control, RR-JCS request fingerprinting, exactly-once idempotency, local durability, inverse operations, and explicit reconciliation.
   - Acceptance: Preview changes no revision; explicit confirmation and the exact operation-specific reducer/check order are required; canonical edit state and support relations materialize atomically; commit changes `r` to `r+1`; same key/fingerprint returns the prior result while changed content conflicts; stale/wrong authority rejects; offline replication is idempotent; divergence is quarantined without automatic merge.
 - [ ] **FR-AGENT-001 - Typed/tap semantic intent:** Typed/tap controls propose any of the four operations without model or network and cannot authorize or mutate canonical state.
-  - Acceptance: All golden edits complete with network and learned providers disabled; malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit.
+  - Acceptance: All golden edits complete with network and learned providers disabled; malformed, stale, oversized, or injected arguments cannot change target/session, supply transforms, authorize, confirm, or commit. Optional vision/voice model output crosses only the closed `CON-006` envelope, is rebound to the exact current native context, and then re-enters frozen `CON-005` as a revision-neutral proposal with explicit model provenance.
 - [ ] **FR-B0-001 - Guaranteed `.rrcap` replay:** Replay accepted FramePackets and events from finalized or recovered-prefix `.rrcap` input without a learned reconstruction provider or live network.
   - Acceptance: Two runs match global-journal digests, exact frame/event projections, and the expected revision trace; all hashes validate; corrupt-suffix recovery stops at the valid prefix; neural comparison is allowed only under a pinned tolerance policy.
 - [ ] **FR-WEB-001 - Separate web replay and fallback:** Provide a separate Next.js client for sessions, timeline inspection, `.rrcap`/ordinary-video replay, sharing, typed proposals, and degraded visualization without claiming Mode A parity.
@@ -73,7 +73,7 @@ Canonical IDs are preserved exactly. Acceptance summaries retain the canonical t
 These IDs are preserved but are not P0, do not map to P0 phases, and cannot block P0.
 
 - **STR-VOICE-001 - Optional Realtime/GPT semantic ingress:** Realtime voice and GPT may translate utterances into the same nonmutating proposal contract used by typed/tap input.
-  - Acceptance: At least 4/5 fixed hero utterances yield the expected proposal; every ambiguity/injection case rejects or clarifies; disabling model/network leaves the full typed journey available. Failure ends voice work without changing P0.
+  - Acceptance: At least 4/5 fixed hero utterances yield the expected `CON-006` proposal; every ambiguity/injection case rejects or clarifies; a short-lived server-minted Realtime credential never enters source or logs; disabling model/network leaves the full typed journey available. Failure ends voice work without changing P0.
 - **STR-B1-001 - Isolated offline refinement:** Only after all P0 gates are green and a human approves, an offline provider may create a higher-fidelity render skin without changing canonical IDs, transforms, edits, or history.
   - Acceptance: No B1 dependency, worker, package, or task is scheduled while a P0 gate is red; every result maps to stable scene/artifact IDs and remains discardable without canonical-state change.
 
@@ -119,6 +119,13 @@ Each P0 requirement maps to exactly one phase. Future/stretch requirements inten
 | OPS-GOLDEN-001 | Phase 8 | Pending |
 | OPS-SUBMISSION-001 | Phase 8 | Pending |
 
+Phase 02.1 is a corrective overlay for Phase 2 plus milestone-wide
+`NFR-CONTRACT-001`; Phase 09 is a non-P0 hackathon overlay supplying additional
+implementation/evidence for `FR-AGENT-001`, `SEC-AGENT-001`,
+`SEC-CREDENTIAL-001`, and `STR-VOICE-001`. Neither overlay duplicates primary
+requirement ownership or promotes a checkbox/formal gate without its canonical
+acceptance evidence.
+
 **Coverage:**
 
 - P0 requirements: 24 total
@@ -130,4 +137,4 @@ Each P0 requirement maps to exactly one phase. Future/stretch requirements inten
 ---
 *Requirements defined: 2026-07-15*
 
-*Last updated: 2026-07-15 for the portable GSD 1.7 handoff.*
+*Last updated: 2026-07-19 for the Phase 02.1 trust-boundary closeout and optional CON-006 AI demo slice.*

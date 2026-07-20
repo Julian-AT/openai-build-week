@@ -39,7 +39,7 @@
 
 ### Deferred Ideas (OUT OF SCOPE)
 - Target grounding, semantic provider selection, renderer qualification, dense geometry, replacement compositing, and removal/reveal readiness remain Phases 4–6.
-- The complete GATE-009/GATE-010 campaign, optional voice ingress, production asset-license/device-load gate, cloud gateway deployment, and full physical/human gate evidence remain deferred exactly as recorded in `.planning/SPRINT-CUT-36H.md`; automation must still cover the demo-critical deterministic fixtures now.
+- The complete GATE-009/GATE-010 campaign, optional voice ingress, production asset-license/device-load gate, cloud gateway deployment, and full physical/human gate evidence remain deferred exactly as recorded in `.planning/milestones/v1.0/SPRINT-CUT-36H.md`; automation must still cover the demo-critical deterministic fixtures now.
 - Full Next.js sessions, sharing, typed web proposals, and polished B0 fallback remain Phase 7.
 </user_constraints>
 
@@ -60,7 +60,7 @@ Phase 3 should add one `ReRoomTransactionCore` SwiftPM product beside the existi
 
 The safest sprint implementation is a content-addressed generation bundle with an activation pointer written last: serialize and schema-validate the new SceneState and committed transaction, verify projection/commit/request digests and required artifact references, durably write and synchronize every generation member, then atomically replace and synchronize one small active-generation record. Startup accepts only a fully hash-valid activated generation; incomplete generations remain inactive and diagnosable. This follows the repository's existing synchronous filesystem plus sole-writer actor pattern and avoids suspension/reentrancy inside the CAS/durability critical section. [VERIFIED: `ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/CaptureFileSystem.swift`, `CaptureArchiveStore.swift`; `docs/adr/ADR-012-transaction-and-offline-restore.md`]
 
-The app proof surface should be deliberately narrow: exactly four operation buttons, a bundled/provenance-recorded proxy asset, base/current revision labels, provisional preview, explicit confirm/cancel, local sync status, and restore. `replace` and `remove` stop at safe nonmutating proposals with typed blockers. This is enough to prove the Phase 3 local contract journey while leaving target grounding and rendering claims to Phases 4–6. [VERIFIED: `.planning/phases/03-typed-place-commit-and-offline-restore/03-CONTEXT.md`; `.planning/SPRINT-CUT-36H.md`]
+The app proof surface should be deliberately narrow: exactly four operation buttons, a bundled/provenance-recorded proxy asset, base/current revision labels, provisional preview, explicit confirm/cancel, local sync status, and restore. `replace` and `remove` stop at safe nonmutating proposals with typed blockers. This is enough to prove the Phase 3 local contract journey while leaving target grounding and rendering claims to Phases 4–6. [VERIFIED: `.planning/phases/03-typed-place-commit-and-offline-restore/03-CONTEXT.md`; `.planning/milestones/v1.0/SPRINT-CUT-36H.md`]
 
 **Primary recommendation:** Build pure contract models/reducer first, actor-owned durable activation second, and the SwiftUI journey last; do not put transaction semantics or filesystem writes in the view model.
 
@@ -415,7 +415,7 @@ Source: existing duplicate/Unicode/depth-safe canonicalizer plus ADR-011 exact a
    - Decision: `ReRoomTransactionCore` depends on the existing `ReRoomCaptureCore` target and its store talks through a transaction-named adapter over `any CaptureFileSystem`. Do not extract a generalized storage/durability module this sprint. [VERIFIED: `CaptureFileSystem.swift`; sprint cut]
 
 3. **Resolved — Phase 3 evidence claim boundary.**
-   - Decision: publish only the exact label `automated sprint slice passed` after deterministic place/restore/idempotency/injection/fault automation passes. GATE-009 and GATE-010 remain `RUNNING`/`PENDING` until their canonical campaigns and physical/human evidence records are complete; no local automated result promotes either gate or full P0. [VERIFIED: `.planning/SPRINT-CUT-36H.md`]
+   - Decision: publish only the exact label `automated sprint slice passed` after deterministic place/restore/idempotency/injection/fault automation passes. GATE-009 and GATE-010 remain `RUNNING`/`PENDING` until their canonical campaigns and physical/human evidence records are complete; no local automated result promotes either gate or full P0. [VERIFIED: `.planning/milestones/v1.0/SPRINT-CUT-36H.md`]
 
 ## Environment Availability
 
@@ -467,7 +467,7 @@ Although GSD `security_enforcement` is explicitly disabled, this phase has a loa
 - `docs/canonical/TEST_AND_EVALUATION_PLAN.md` — TST-TX-001/002/003, TST-PERSIST-001, TST-OFFLINE-001, TST-AGENT-001, and TST-INJECTION-001.
 - `docs/canonical/RISK_AND_KILL_GATES.md` — GATE-009 and GATE-010 operational rules.
 - `ios/Packages/ReRoomContracts` and `ios/ReRoomDeviceProof` inspected source/tests — current canonicalizer, schema validator, actor/filesystem patterns, app routing, and test infrastructure.
-- `.planning/SPRINT-CUT-36H.md` and `03-CONTEXT.md` — human-approved sequencing and locked implementation boundary.
+- `.planning/milestones/v1.0/SPRINT-CUT-36H.md` and `03-CONTEXT.md` — human-approved sequencing and locked implementation boundary.
 
 ### Secondary (MEDIUM confidence)
 

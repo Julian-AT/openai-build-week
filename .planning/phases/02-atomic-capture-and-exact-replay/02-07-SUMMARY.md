@@ -136,7 +136,7 @@ Representative atomic commit groups:
 
 ## Decisions Made
 
-- The 36-hour sprint is a demo candidate, not a full P0 claim. The repeated new-revision physical matrix is recorded in `.planning/SPRINT-CUT-36H.md` and remains `PENDING`.
+- The 36-hour sprint is a demo candidate, not a full P0 claim. The repeated new-revision physical matrix is recorded in `.planning/milestones/v1.0/SPRINT-CUT-36H.md` and remains `PENDING`.
 - Local deterministic Phase 3 work may proceed because it introduces no live provider or upload integration; `GATE-001` still blocks those integrations.
 - A physical smoke run can be performed when the operator returns, but no device or human evidence is inferred in their absence.
 

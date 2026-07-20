@@ -121,7 +121,7 @@ None. All producers run locally from checked-in fixture, contract, and source by
 ## Next Phase Readiness
 
 - Ready for `03-07-PLAN.md` to orchestrate two isolated runs per runtime, enforce quick/full verification, and publish the sprint evidence transaction.
-- Physical-device, human, reconnect, compositor, catalog/license, visual-quality, and deferred risk-gate evidence remain explicitly `PENDING` under `.planning/SPRINT-CUT-36H.md`.
+- Physical-device, human, reconnect, compositor, catalog/license, visual-quality, and deferred risk-gate evidence remain explicitly `PENDING` under `.planning/milestones/v1.0/SPRINT-CUT-36H.md`.
 
 ---
 *Phase: 03-typed-place-commit-and-offline-restore*

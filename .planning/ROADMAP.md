@@ -2,18 +2,30 @@
 
 ## Overview
 
-ReRoom advances through replayable dependency and risk slices: prove closed contracts and the physical base-device path; establish atomic capture and exact replay; complete typed place/commit/offline restore; retire target/compositor risk; deliver replacement; pass controlled multi-surface removal; complete provider-independent B0 web fallback; and consolidate resilience, security, license, golden-run, and submission evidence. Eight phases are retained despite the standard granularity default because the canonical delivery strategy makes replacement and removal separate locked gates and forbids horizontal layer phases.
+ReRoom advances through replayable dependency and risk slices: prove closed contracts and the physical base-device path; establish atomic capture and exact replay; complete typed place/commit/offline restore; retire target/compositor risk; deliver replacement; pass controlled multi-surface removal; complete provider-independent B0 web fallback; and consolidate resilience, security, license, golden-run, and submission evidence. The original eight canonical P0 phases remain the release spine. Phase 02.1 is an urgent trust-boundary repair inserted after Phase 2, and Phase 9 is an optional AI demo sidecar whose removal cannot break typed/tap operation.
 
-This approved high-level roadmap initializes planning only. It does not authorize product implementation; every phase still requires discussion, a reviewed detailed plan, and its own verification. `STR-VOICE-001` and `STR-B1-001` remain future/stretch scope and have no P0 phase.
+The roadmap originally initialized planning only. The human owner directly authorized the Phase 02.1 and Phase 9 implementation sprint on 2026-07-19. Executed plans and passing local automation remain distinct from canonical phase acceptance: provider, physical-device, human, browser, license, and release gates stay `PENDING` until their prescribed evidence passes. `STR-VOICE-001` is implemented only as an optional Phase 9 control; it is still nonblocking stretch scope. `STR-B1-001` remains post-P0 and unscheduled.
 
-## 36-Hour Demo Sprint Overlay
+## Completed 36-Hour Demo Sprint Overlay
 
-The human project owner approved a demo-first sprint cut on 2026-07-18. The
-authoritative scope, activated fallbacks, deferred evidence, and post-sprint
-resume order are recorded in
-[SPRINT-CUT-36H.md](SPRINT-CUT-36H.md). During this sprint, implementation and
-demo smoke status must remain distinct from full P0 gate status; deferred gates
-stay `PENDING` and their canonical definitions are unchanged.
+The human project owner approved and completed a demo-first sprint cut on
+2026-07-18. Its historical scope, activated fallbacks, deferred evidence, and
+post-sprint resume order are recorded in
+[SPRINT-CUT-36H.md](milestones/v1.0/SPRINT-CUT-36H.md). The project has now returned to the
+original canonical quality-assurance process. Implementation and demo-smoke
+status remain distinct from full P0 gate status; deferred gates stay `PENDING`
+until their prescribed evidence passes.
+
+## Active 24-Hour Hackathon Finish Overlay
+
+The current two-lane finish sequence, kill rules, exact commands, and allowed
+claims are recorded in
+[HACKATHON-24H.md](milestones/v1.0/HACKATHON-24H.md). Lane A closes the three
+Phase 2 recovery trust findings without promoting `GATE-001`; Lane B makes Sol,
+one-frame vision, and optional Realtime proposals visible while deterministic
+native code keeps all mutation authority. The automated AI slice is complete;
+live provider, signed-device, formal browser, human-quality, and submission
+evidence remain the next bounded activities.
 
 ## Phases
 
@@ -21,12 +33,14 @@ stay `PENDING` and their canonical definitions are unchanged.
 
 - [x] **Phase 1: Contract and Device Proof** - Prove shared closed contracts, coordinate fixtures, and the signed no-LiDAR base-device path before architecture-sensitive work. (completed 2026-07-17)
 - [ ] **Phase 2: Atomic Capture and Exact Replay** - Make consented selected frames durable, recoverable, bounded, and exactly replayable before live inference.
+- [ ] **Phase 02.1: Capture/Recovery Trust Boundary** - Close CR-03, CR-04, and CR-12 in software without promoting Phase 2 or GATE-001.
 - [ ] **Phase 3: Typed Place, Commit, and Offline Restore** - Complete the deterministic edit lifecycle without voice, learned geometry, or network dependence.
 - [ ] **Phase 4: Target Grounding and Compositor Gate** - Establish explicit target readiness, fast proxies, and a measured viable base-device compositor with bounded provider fallbacks.
 - [ ] **Phase 5: Curated Replacement Vertical** - Deliver the signature replacement journey with stable identity, supported-view compositing, and exact transaction behavior.
 - [ ] **Phase 6: Controlled Multi-Surface Removal** - Pass the locked view-bounded removal gate and preserve remove/restore through replay.
 - [ ] **Phase 7: Separate Mode B0 Web Fallback** - Provide provider-independent Next.js replay, inspection, sessions, sharing, typed proposals, and honest degradation.
 - [ ] **Phase 8: P0 Hardening and Evidence** - Make all blocking gates, audits, distributions, 5/5 hero runs, and submission evidence green without unsupported claims.
+- [ ] **Phase 9: AI Design Copilot Demo** - Make strict Sol/vision/optional Realtime proposals visible while preview, confirmation, commit, reconciliation, and restore remain deterministic.
 
 ## Phase Details
 
@@ -157,7 +171,7 @@ Plans:
 
 **Wave 5**
 
-- [ ] 02-07 — Run fail-closed verification and obtain or truthfully leave pending the human/device GATE-001 evidence.
+- [x] 02-07 — Run fail-closed automated verification and truthfully leave the human/device GATE-001 evidence pending.
 
 **UI hint**: yes
 
@@ -170,14 +184,19 @@ one signed-device queue-pressure/recovery smoke. The repeated new-revision
 **Goal:** Recovery and replay admit only fully contract-verified archives, reconstruct the exact physically durable journal prefix, and atomically publish one verified content-addressed recovery generation under crashes and races.
 **Requirements**: FR-CAPTURE-001, FR-B0-001, NFR-REPLAY-001, NFR-CONTRACT-001, NFR-RESILIENCE-001, SEC-CONSENT-001
 **Depends on:** Phase 2
-**Plans:** 1/4 plans executed
+**Plans:** 4/4 plans executed
 
 Plans:
 
 - [x] 02.1-01-PLAN.md — Establish sole pinned archive verification and capability-only replay.
-- [ ] 02.1-02-PLAN.md — Reconstruct exact physical durable prefix through production recovery/replay.
-- [ ] 02.1-03-PLAN.md — Publish one crash-atomic, race-safe archive/quarantine generation.
-- [ ] 02.1-04-PLAN.md — Wire production callers and publish exact-source narrow automated evidence.
+- [x] 02.1-02-PLAN.md — Reconstruct exact physical durable prefix through production recovery/replay.
+- [x] 02.1-03-PLAN.md — Publish one crash-atomic, race-safe archive/quarantine generation.
+- [x] 02.1-04-PLAN.md — Wire production callers and publish exact-source narrow automated evidence.
+
+**Closeout truth:** All four software plans and the independent 16-command
+evidence rerun pass. Only `CR-03`, `CR-04`, and `CR-12` are automated review
+candidates; the other 17 Phase 2 `CR`/`WR` findings remain open, Phase 2 remains
+`human_needed`, and `GATE-001` remains `PENDING`.
 
 ### Phase 3: Typed Place, Commit, and Offline Restore
 
@@ -270,6 +289,7 @@ Plans:
 - [x] 05-02-PLAN.md — Add sole-authority durability, idempotency, restart/replay, restore, and canonical target bootstrap.
 - [x] 05-03-PLAN.md — Deliver bounded supported-view native replacement with exact retained demo asset loading.
 - [x] 05-04-PLAN.md — Publish source-bound fail-closed automated replacement evidence with formal gates pending.
+
 **UI hint**: yes
 
 ### Phase 6: Controlled Multi-Surface Removal
@@ -293,6 +313,7 @@ Plans:
 - [x] 06-02-PLAN.md — Add sole-authority remove durability, retry, crash recovery, replay, and restore.
 - [x] 06-03-PLAN.md — Deliver the explicit launch-gated two-surface demo fixture while normal removal remains unavailable.
 - [x] 06-04-PLAN.md — Publish fail-closed automated removal-fixture evidence with GATE-006 pending.
+
 **UI hint**: yes
 
 ### Phase 7: Separate Mode B0 Web Fallback
@@ -334,30 +355,61 @@ Plans:
 **Plans**: 2/2 plans executed
 
 Plans:
+
 - [x] 08-01-PLAN.md — Fail-closed readiness, composite integration/safety checks, and exact sprint BOM.
 - [x] 08-02-PLAN.md — Sanitized evidence/status publication, representative rehearsal runbook, and human submission handoff.
+
+**UI hint**: yes
+
+### Phase 9: AI Design Copilot Demo
+
+**Goal**: Users can see Sol reason over typed intent and one explicitly consented frame, optionally speak through bounded Realtime transcription, and apply only a strict semantic proposal to the existing revision-neutral preview path.
+**Depends on**: Phase 3, Phase 4, and Phase 5
+**Boundary**: This optional slice is not a prerequisite for typed/tap P0 or any deterministic commit path.
+**Requirements**: FR-AGENT-001, SEC-AGENT-001, SEC-CREDENTIAL-001, STR-VOICE-001
+**Formal status**: `human_needed`; local automation cannot establish provider,
+physical-device, design-quality, latency, or security-gate acceptance.
+**Success Criteria** (what must be TRUE):
+
+  1. Sol output validates as closed CON-006 over the server-owned three-entry catalog and cannot supply target, transform, revision authority, confirmation, commit, reconciliation, or restore execution.
+  2. Native code rebinds exact current session/branch/revision/world/selection context, maps proposals through frozen CON-005 provenance, and can create only a revision-neutral preview before separate user confirmation.
+  3. A camera image is encoded and sent only after explicit per-send consent; standard OpenAI credentials never enter the app or repository, and request logs retain no prompt, room image, audio, or secret.
+  4. Realtime uses a short-lived fixed-model client secret, has no mutation tools, and returns only a bounded completed transcript to the same Sol/CON-006 path; failure leaves typed input complete.
+  5. The fixed live/provider/device rubric passes before any quality claim; otherwise Sol/vision and/or voice remain visibly disabled without weakening the deterministic hero journey.
+
+**Plans**: 1/1 automated implementation plan executed
+
+Plans:
+
+- [x] 09-01-PLAN.md — Deliver strict CON-006, the credential-isolating gateway,
+  visible native copilot, three-entry catalog, preview-only handoff, and honest
+  live/manual verification handoff.
+
 **UI hint**: yes
 
 ## Dependency and Scope Notes
 
-- The critical native path is Phase 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 8.
+- The critical native path is Phase 1 -> 2 -> 02.1 -> 3 -> 4 -> 5 -> 6 -> 8. Phase 02.1 has exact-source automated review-candidate evidence; its three findings still require formal acceptance before new revision-bound Phase 2 evidence is promoted.
 - The provider-independent web path is Phase 2 -> 3 -> 7 -> 8. Phase 7 does not depend on learned geometry or completion of native replacement/removal, though the final P0 gate requires both paths.
+- Phase 9 is an optional demo sidecar over Phases 3/4/5. Removing its gateway, model, vision, audio, and UI control must leave typed/tap place, replace, remove, restore, confirmation, commit, reconciliation, and replay complete.
 - No phase is assigned to a person. If later execution permits concurrency, at most two implementation-critical streams join through the frozen contracts and replay fixtures.
-- `STR-VOICE-001` is not scheduled in P0. It may be considered only after typed proposals and transaction security pass, and failure must leave typed/tap complete.
+- `STR-VOICE-001` has an optional Phase 9 implementation and fixed live rubric, but remains outside P0 acceptance. A missed safety/quality/timebox disables voice and leaves typed/tap complete.
 - `STR-B1-001` has no P0 task. It remains frozen while any P0 gate is red and requires explicit human approval after P0.
 - `GATE-014` applies throughout the roadmap: no B1 package, provider, worker, task, schema dependency, or resource may enter a P0 phase.
 
 ## Progress
 
-**Execution order:** Follow the dependency paths above; sequential phase IDs remain the durable roadmap identifiers. Plans are intentionally TBD until each phase is separately discussed and approved.
+**Execution order:** Follow the dependency paths above; sequential phase IDs remain the durable roadmap identifiers. All current implementation plans have been discussed and authorized. Plan execution counts describe implementation artifacts, not canonical gate acceptance.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Contract and Device Proof | 15/15 | Complete    | 2026-07-17 |
 | 2. Atomic Capture and Exact Replay | 7/7 | In Progress|  |
+| 02.1. Capture/Recovery Trust Boundary | 4/4 | Software/evidence slice complete; CR-03/04/12 are review candidates only; outer Phase 2 and GATE-001 remain pending |  |
 | 3. Typed Place, Commit, and Offline Restore | 7/7 | Implementation complete; verification deferred |  |
 | 4. Target Grounding and Compositor Gate | 4/4 | In Progress|  |
 | 5. Curated Replacement Vertical | 4/4 | Sprint implementation complete; human gates pending | 2026-07-18 |
 | 6. Controlled Multi-Surface Removal | 4/4 | Bounded sprint implementation complete; formal GATE-006 pending | 2026-07-18 |
 | 7. Separate Mode B0 Web Fallback | 3/3 | Fixed-golden sprint slice complete; canonical/browser/retention work pending | 2026-07-18 |
 | 8. P0 Hardening and Evidence | 2/2 | Demo hardening implementation complete; human/license/formal gates pending | 2026-07-18 |
+| 9. AI Design Copilot Demo | 1/1 | Automated implementation complete; independent re-review and live/provider/device/human gates pending | 2026-07-19 |

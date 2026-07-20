@@ -58,7 +58,7 @@
 
 Canonical removal has two inseparable halves: an exact deterministic edit transaction and independently earned reveal evidence. The transaction half is already well prepared: `TransactionOperation` models reveal and visibility deltas, `EditProjectionEngine` accepts their exact order and artifact union, and `RestoreReducer` verifies that order during compensation. A new `RemoveReducer` should mirror the proven pure preview/cancel/confirm shape, while the sole `NativeBranchAuthority` owns retry, CAS, activation, recovery, and later restore. [VERIFIED: Master Spec §§9-11; `TransactionModels.swift`, `EditProjection.swift`, `RestoreReducer.swift`, ADR-012]
 
-The evidence half cannot be completed from automation. A `ready` CON-004 reveal bundle requires thresholded coverage/foreground/order values and exactly five human votes; the repository contains no real reveal payload, physical trajectory evidence, or ballot. The sprint cut therefore authorizes only a bounded demonstration and explicitly keeps `GATE-006` pending. The safest implementation is an unmistakable development/demo launch mode using deterministic local multi-surface proxy geometry, `degraded` status, exact digest binding, and persistent pending-gate copy. The ordinary path remains remove-unavailable. [VERIFIED: `edit-artifacts.schema.json`, ADR-009, Test Plan `TST-REVEAL-001`, `.planning/SPRINT-CUT-36H.md`]
+The evidence half cannot be completed from automation. A `ready` CON-004 reveal bundle requires thresholded coverage/foreground/order values and exactly five human votes; the repository contains no real reveal payload, physical trajectory evidence, or ballot. The sprint cut therefore authorizes only a bounded demonstration and explicitly keeps `GATE-006` pending. The safest implementation is an unmistakable development/demo launch mode using deterministic local multi-surface proxy geometry, `degraded` status, exact digest binding, and persistent pending-gate copy. The ordinary path remains remove-unavailable. [VERIFIED: `edit-artifacts.schema.json`, ADR-009, Test Plan `TST-REVEAL-001`, `.planning/milestones/v1.0/SPRINT-CUT-36H.md`]
 
 This split prevents the demo from laundering fixture values into a release claim: the exact transaction can be committed, recovered, replayed, retried, and restored in the explicitly isolated demo path, but neither `FR-REMOVE-001` nor `GATE-006` is checked off. [VERIFIED: approved sprint overlay and Phase 6 context]
 
@@ -316,7 +316,7 @@ The only intentionally unresolved outcome is physical visual quality; by authori
 - `docs/adr/ADR-012-transaction-and-offline-restore.md` - CAS, idempotency, durable activation, compensation.
 - `docs/contracts/edit-artifacts.schema.json`, `transaction.schema.json`, `scene-state.schema.json` - field/order/readiness invariants.
 - Current Swift source under `ReRoomTransactionCore` and `ReRoomDeviceProof` - reusable implementation seams.
-- `.planning/SPRINT-CUT-36H.md` and Phase 5 artifacts - authorized sprint boundary and dependency state.
+- `.planning/milestones/v1.0/SPRINT-CUT-36H.md` and Phase 5 artifacts - authorized sprint boundary and dependency state.
 
 ### Secondary (MEDIUM confidence)
 - None. No external ecosystem assertion is load-bearing for this codebase-only phase.

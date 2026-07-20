@@ -31,7 +31,7 @@
 #### Evidence and claims
 - Automate exact reducer order, before/after matching, target/capability/view/support/asset rejection, preview/cancel immutability, idempotent retry, crash/recovery replay, restore, and deterministic UI journey checks.
 - Run repeated automated development journeys where practical, but label them automated fixture runs. They do not substitute for five signed-device golden runs or human seam assessment.
-- Keep `GATE-011` `PENDING`. Native/web derivative parity, device/web load, redistribution/attribution review, and shipping bill-of-materials audit remain deferred by `.planning/SPRINT-CUT-36H.md`.
+- Keep `GATE-011` `PENDING`. Native/web derivative parity, device/web load, redistribution/attribution review, and shipping bill-of-materials audit remain deferred by `.planning/milestones/v1.0/SPRINT-CUT-36H.md`.
 - Keep related physical `GATE-003`, `GATE-005`, `GATE-009`, and `OPS-GOLDEN-001` evidence pending. Report only implemented behavior and checks actually observed.
 
 ### the agent's Discretion
@@ -351,7 +351,7 @@ Recommended execution checks for planning:
 - `docs/canonical/README.md`, `MASTER_TECHNICAL_SPEC.md`, `PRD.md`, `TEST_AND_EVALUATION_PLAN.md`, `RISK_AND_KILL_GATES.md`, and `GLOSSARY_AND_ID_REGISTRY.md` — requirement, operation, validation, evidence, and terminology authority.
 - `docs/adr/ADR-005-realitykit-first-compositor.md`, `ADR-008-scene-identity-and-readiness.md`, `ADR-010-asset-contract.md`, `ADR-011-agent-and-deterministic-boundary.md`, and `ADR-012-transaction-and-offline-restore.md` — accepted/provisional architecture constraints.
 - `docs/contracts/transaction.schema.json`, `edit-artifacts.schema.json`, and contracts README — exact closed field/check/delta/artifact rules.
-- `.planning/SPRINT-CUT-36H.md` and Phase 5 context — approved implementation/evidence cut.
+- `.planning/milestones/v1.0/SPRINT-CUT-36H.md` and Phase 5 context — approved implementation/evidence cut.
 - Current Swift package/app/test source and Phase 4 artifacts — verified reusable seams and concrete gaps.
 
 ### Secondary (MEDIUM confidence)

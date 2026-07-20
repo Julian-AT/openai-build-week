@@ -70,7 +70,7 @@ Deliver the deterministic native edit lifecycle for typed/tap input: propose all
 
 - Optimize for a legible demo: operation selector, one placeable demo asset, visible base/current revision, preview state, explicit confirmation, offline/local durability state, and a restore action.
 - Keep errors actionable and typed: missing support, stale revision, idempotency conflict, wrong authority, unavailable capability, and corrupt local inverse should be distinguishable without exposing private state.
-- The user explicitly approved the recommended sprint defaults and asked for autonomous execution; decisions above therefore select the narrow deterministic path and retain all deferred gates in `.planning/SPRINT-CUT-36H.md`.
+- The user explicitly approved the recommended sprint defaults and asked for autonomous execution; decisions above therefore select the narrow deterministic path and retain all deferred gates in `.planning/milestones/v1.0/SPRINT-CUT-36H.md`.
 
 </specifics>
 
@@ -78,7 +78,7 @@ Deliver the deterministic native edit lifecycle for typed/tap input: propose all
 ## Deferred Ideas
 
 - Target grounding, semantic provider selection, renderer qualification, dense geometry, replacement compositing, and removal/reveal readiness remain Phases 4–6.
-- The complete GATE-009/GATE-010 campaign, optional voice ingress, production asset-license/device-load gate, cloud gateway deployment, and full physical/human gate evidence remain deferred exactly as recorded in `.planning/SPRINT-CUT-36H.md`; automation must still cover the demo-critical deterministic fixtures now.
+- The complete GATE-009/GATE-010 campaign, optional voice ingress, production asset-license/device-load gate, cloud gateway deployment, and full physical/human gate evidence remain deferred exactly as recorded in `.planning/milestones/v1.0/SPRINT-CUT-36H.md`; automation must still cover the demo-critical deterministic fixtures now.
 - Full Next.js sessions, sharing, typed web proposals, and polished B0 fallback remain Phase 7.
 
 </deferred>

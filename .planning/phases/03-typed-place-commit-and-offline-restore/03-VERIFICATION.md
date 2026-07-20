@@ -8,7 +8,7 @@ overrides_applied: 0
 deferred:
   - truth: "The Phase 3 demo proxy has full production asset, license, geometry, and device-load qualification."
     addressed_in: "Phase 8 / GATE-011"
-    evidence: ".planning/SPRINT-CUT-36H.md permits the repository-generated Phase 3 proxy while keeping production qualification PENDING."
+    evidence: ".planning/milestones/v1.0/SPRINT-CUT-36H.md permits the repository-generated Phase 3 proxy while keeping production qualification PENDING."
   - truth: "The full reconnect, replication, worker-restart, and physical durability campaign has passed."
     addressed_in: "Phase 8 / GATE-009"
     evidence: "Local crash/restart automation passes; the canonical campaign remains explicitly PENDING."

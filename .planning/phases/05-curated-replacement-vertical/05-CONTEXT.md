@@ -35,7 +35,7 @@ Deliver the smallest honest signature replacement journey for the approved 36-ho
 ### Evidence and claims
 - Automate exact reducer order, before/after matching, target/capability/view/support/asset rejection, preview/cancel immutability, idempotent retry, crash/recovery replay, restore, and deterministic UI journey checks.
 - Run repeated automated development journeys where practical, but label them automated fixture runs. They do not substitute for five signed-device golden runs or human seam assessment.
-- Keep `GATE-011` `PENDING`. Native/web derivative parity, device/web load, redistribution/attribution review, and shipping bill-of-materials audit remain deferred by `.planning/SPRINT-CUT-36H.md`.
+- Keep `GATE-011` `PENDING`. Native/web derivative parity, device/web load, redistribution/attribution review, and shipping bill-of-materials audit remain deferred by `.planning/milestones/v1.0/SPRINT-CUT-36H.md`.
 - Keep related physical `GATE-003`, `GATE-005`, `GATE-009`, and `OPS-GOLDEN-001` evidence pending. Report only implemented behavior and checks actually observed.
 
 ### the agent's Discretion

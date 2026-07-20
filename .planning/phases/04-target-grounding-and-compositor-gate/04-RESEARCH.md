@@ -39,7 +39,7 @@
 
 ### Deferred Ideas (OUT OF SCOPE)
 - Learned semantic tracking, SAM provider selection/benchmarking, dense depth/fusion, provider/cloud deployment, Metal reveal post-processing, and automatic target identity recovery remain out of this sprint slice.
-- Full `GATE-003`, `GATE-004`, `GATE-005`, `GATE-007`, and `GATE-012` campaigns remain in `.planning/SPRINT-CUT-36H.md` and must be completed before corresponding P0 or measured-performance claims.
+- Full `GATE-003`, `GATE-004`, `GATE-005`, `GATE-007`, and `GATE-012` campaigns remain in `.planning/milestones/v1.0/SPRINT-CUT-36H.md` and must be completed before corresponding P0 or measured-performance claims.
 - Full replacement compositing and asset validation remain Phase 5. Multi-surface reveal/removal and `GATE-006` remain Phase 6. Mode B0 remains Phase 7.
 </user_constraints>
 
@@ -89,7 +89,7 @@ The current app already has nearly all required seams. `ARSessionController` own
 | Swift Testing / XCTest UI | Existing targets | Pure reducer/adapter tests and simulator journey | [VERIFIED: current test targets] |
 | ReRoomContracts / ReRoomTransactionCore | Existing local package | Stable IDs, world epoch, exact proposal/transaction types | [VERIFIED: local package and Phase 3 implementation] |
 
-No external package, provider, credential, runtime, or install is required. `GATE-004`, `GATE-007`, and `GATE-012` deliberately use their canonical fallbacks. [VERIFIED: `.planning/SPRINT-CUT-36H.md`]
+No external package, provider, credential, runtime, or install is required. `GATE-004`, `GATE-007`, and `GATE-012` deliberately use their canonical fallbacks. [VERIFIED: `.planning/milestones/v1.0/SPRINT-CUT-36H.md`]
 
 ## Architecture Patterns
 
@@ -193,7 +193,7 @@ None. The implementation must compile-check the exact installed RealityKit initi
 
 ### Primary (HIGH confidence)
 - `AGENTS.md`
-- `.planning/SPRINT-CUT-36H.md`, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`
+- `.planning/milestones/v1.0/SPRINT-CUT-36H.md`, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`
 - `docs/canonical/MASTER_TECHNICAL_SPEC.md`, `PRD.md`, `TEST_AND_EVALUATION_PLAN.md`, `RISK_AND_KILL_GATES.md`
 - `docs/adr/ADR-003`, `ADR-005`, `ADR-006`, `ADR-007`, `ADR-008`, `ADR-014`
 - `docs/contracts/scene-state.schema.json`, `edit-artifacts.schema.json`, `transaction.schema.json`

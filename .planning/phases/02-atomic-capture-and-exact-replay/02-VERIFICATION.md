@@ -8,7 +8,7 @@ overrides_applied: 0
 deferred:
   - truth: "The new-revision full GATE-001 physical consent, pressure, five-state termination, recovery, and two-replay matrix has human attestation."
     addressed_in: "Phase 8"
-    evidence: ".planning/SPRINT-CUT-36H.md explicitly defers the full matrix while keeping GATE-001 PENDING."
+    evidence: ".planning/milestones/v1.0/SPRINT-CUT-36H.md explicitly defers the full matrix while keeping GATE-001 PENDING."
 human_verification:
   - test: "Run the signed-device pressure/recovery smoke for the sprint, then the complete new-revision GATE-001 10-second/60-second five-state matrix and human attestation before a release claim."
     expected: "The smoke is recorded honestly; the full gate remains PENDING until the closed physical observation document passes and a human-bound GREEN report is supplied."

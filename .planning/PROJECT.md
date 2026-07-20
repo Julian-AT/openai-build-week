@@ -4,7 +4,14 @@
 
 ReRoom is a camera-grounded room-editing product for placing, replacing, removing, and restoring one controlled freestanding chair or small table. Mode A is a native SwiftUI iPhone experience with ARKit world authority; a separate Next.js Mode B0 client provides guaranteed capture replay, inspection, fallback, sessions, sharing, and typed proposals without claiming native Mode A parity.
 
-Phase 1 has established the verified closed-contract, coordinate, and signed base-device foundation. Remaining product work still proceeds only through an approved phase plan or direct human instruction; deployment, publication, and cloud-resource mutation remain separately gated.
+All eight original phases now have implementation-plan artifacts, while only
+Phase 1 has a passed canonical phase verdict. The current demo candidate also
+contains the approved Phase 02.1 recovery repair and Phase 09 optional AI
+overlay. Plan execution is not release completion: physical, provider,
+browser, license, removal-quality, golden-run, and human gates remain pending.
+Further product work still proceeds only through an approved phase plan or
+direct human instruction; deployment, publication, and cloud-resource mutation
+remain separately gated.
 
 ## Core Value
 
@@ -73,7 +80,10 @@ The 24 canonical P0 requirement IDs are preserved in `.planning/REQUIREMENTS.md`
 - **Removal**: Controlled-fixture removal remains a P0 release gate. Per-session unavailability is allowed, but failure of the controlled gate blocks P0 unless a human explicitly changes the lock.
 - **Security and privacy**: Imagery, geometry, metadata, prompts, and model output are sensitive and untrusted. Credentials remain server-controlled; capture/upload/share require consent and visible state; retention/deletion/share access are explicit.
 - **Evidence**: Physical device, Xcode/signing, compositor, thermal, visual-vote, license, and human confirmation gates require real evidence and cannot be replaced by simulator or model assertions.
-- **Planning boundary**: These drafts initialize planning only. Every phase still requires an approved detailed plan before any implementation action.
+- **Planning boundary**: These files began as planning-only drafts. The human
+  owner authorized the 2026-07-19 Phase 02.1 and Phase 09 implementation plans;
+  every later implementation change still requires an approved detailed plan
+  or direct human instruction.
 - **Solution evolution**: Generated planning intel, named libraries/providers, implementation sketches, and initial framework defaults are evidence and hypotheses, not additional product locks. Phase research may propose a better solution when it preserves the human locks, requirement IDs, contract semantics, acceptance evidence, security/privacy boundaries, license policy, and documented fallbacks/kill gates. A load-bearing architectural change requires an ADR; a human lock change requires explicit recorded human escalation.
 
 ## Key Decisions
@@ -206,4 +216,4 @@ These ADRs are usable only behind their named boundaries. Their thresholds remai
 - Future/stretch work may enter a later roadmap only through explicit human approval and may never weaken P0 acceptance.
 
 ---
-*Last updated: 2026-07-17 after Phase 1.*
+*Last updated: 2026-07-19 during the explicitly authorized Phase 02.1 and AI demo implementation sprint; canonical gate status remains evidence-driven.*
