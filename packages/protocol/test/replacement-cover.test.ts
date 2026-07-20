@@ -3,16 +3,59 @@ import { expect, test } from "bun:test";
 import { evaluateReplacementCover } from "../src/index.ts";
 
 test("accepts opaque asset coverage without requiring a reveal", () => {
-  const result = evaluateReplacementCover([
-    { targetPixels: 1_000, opaqueCoveredPixels: 990, compositeCoveredPixels: 990, largestUncoveredComponentPixels: 5 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 985, compositeCoveredPixels: 985, largestUncoveredComponentPixels: 8 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 995, compositeCoveredPixels: 995, largestUncoveredComponentPixels: 3 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 980, compositeCoveredPixels: 980, largestUncoveredComponentPixels: 10 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 990, compositeCoveredPixels: 990, largestUncoveredComponentPixels: 5 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 985, compositeCoveredPixels: 985, largestUncoveredComponentPixels: 8 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 995, compositeCoveredPixels: 995, largestUncoveredComponentPixels: 3 },
-    { targetPixels: 1_000, opaqueCoveredPixels: 980, compositeCoveredPixels: 980, largestUncoveredComponentPixels: 10 },
-  ], false);
+  const result = evaluateReplacementCover(
+    [
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 990,
+        compositeCoveredPixels: 990,
+        largestUncoveredComponentPixels: 5,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 985,
+        compositeCoveredPixels: 985,
+        largestUncoveredComponentPixels: 8,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 995,
+        compositeCoveredPixels: 995,
+        largestUncoveredComponentPixels: 3,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 980,
+        compositeCoveredPixels: 980,
+        largestUncoveredComponentPixels: 10,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 990,
+        compositeCoveredPixels: 990,
+        largestUncoveredComponentPixels: 5,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 985,
+        compositeCoveredPixels: 985,
+        largestUncoveredComponentPixels: 8,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 995,
+        compositeCoveredPixels: 995,
+        largestUncoveredComponentPixels: 3,
+      },
+      {
+        targetPixels: 1_000,
+        opaqueCoveredPixels: 980,
+        compositeCoveredPixels: 980,
+        largestUncoveredComponentPixels: 10,
+      },
+    ],
+    false,
+  );
 
   expect(result.decision).toBe("asset_only");
   expect(result.requiresReveal).toBeFalse();

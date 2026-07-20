@@ -13,7 +13,9 @@ test("submit_user_turn is a closed non-mutating intent envelope", () => {
     "client_scene_revision",
     "pending_proposal_id",
   ]);
-  expect(Object.keys(submitUserTurn.properties).sort()).toEqual([...submitUserTurn.required].sort());
+  expect(Object.keys(submitUserTurn.properties).sort()).toEqual(
+    [...submitUserTurn.required].sort(),
+  );
 });
 
 test("all native pointing modes share one closed target seed contract", () => {

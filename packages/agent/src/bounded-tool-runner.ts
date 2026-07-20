@@ -83,7 +83,8 @@ export async function runBoundedAgentTurn(
     const step = await planner.next(input, outputs, signal);
     if (step.type === "proposal") return step.proposal;
     assertAllowedCall(step);
-    if (stepIndex === MAX_AGENT_TOOL_CALLS) throw new AgentToolPolicyError("agent_tool_budget_exceeded");
+    if (stepIndex === MAX_AGENT_TOOL_CALLS)
+      throw new AgentToolPolicyError("agent_tool_budget_exceeded");
     const output = await tools.execute(step, input.authoritativeContext, signal);
     outputs.push({ callID: step.callID, name: step.name, output });
   }
@@ -95,7 +96,12 @@ function assertAllowedCall(call: AgentToolCall): void {
   if (call.name !== "search_catalog") return;
   if (!isRecord(call.arguments)) throw new AgentToolPolicyError("invalid_catalog_search");
   const limit = call.arguments.limit;
-  if (typeof limit !== "number" || !Number.isInteger(limit) || limit < 1 || limit > MAX_AGENT_CANDIDATES) {
+  if (
+    typeof limit !== "number" ||
+    !Number.isInteger(limit) ||
+    limit < 1 ||
+    limit > MAX_AGENT_CANDIDATES
+  ) {
     throw new AgentToolPolicyError("invalid_catalog_candidate_limit");
   }
 }

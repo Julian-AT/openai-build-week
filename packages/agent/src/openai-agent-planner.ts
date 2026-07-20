@@ -7,8 +7,8 @@ import {
   type AgentReadToolName,
   type AgentToolCall,
   type AgentToolOutput,
-  type AgentTurnInput,
   AgentToolPolicyError,
+  type AgentTurnInput,
   MAX_AGENT_CANDIDATES,
 } from "./bounded-tool-runner.ts";
 import { PROPOSAL_MODEL, type ProposalOutputSchema } from "./types.ts";
@@ -71,11 +71,15 @@ export const REFRAME_AGENT_TOOLS: readonly AgentFunctionToolDefinition[] = [
     material: nullableString(),
     limit: { type: "integer", minimum: 1, maximum: MAX_AGENT_CANDIDATES },
   }),
-  closedTool("validate_candidate", "Validate physical fit, clearance, cover, and artifact readiness.", {
-    target_id: boundedString(1, 128),
-    asset_id: boundedString(1, 128),
-    constraints: constraintArray(),
-  }),
+  closedTool(
+    "validate_candidate",
+    "Validate physical fit, clearance, cover, and artifact readiness.",
+    {
+      target_id: boundedString(1, 128),
+      asset_id: boundedString(1, 128),
+      constraints: constraintArray(),
+    },
+  ),
   closedTool("prepare_edit_preview", "Prepare one revision-neutral preview after validation.", {
     intent: { type: "string", enum: ["place", "replace", "remove", "restore"] },
     target_id: nullableString(),
@@ -123,8 +127,12 @@ export function createOpenAIResponsesAgentPlanner(
       pendingCalls.push(...parseToolCalls(response.outputItems));
       const call = pendingCalls.shift();
       if (call !== undefined) return call;
-      if (response.outputText.length === 0) throw new AgentToolPolicyError("missing_agent_proposal");
-      return { type: "proposal", proposal: parseJSON(response.outputText, "invalid_agent_proposal") };
+      if (response.outputText.length === 0)
+        throw new AgentToolPolicyError("missing_agent_proposal");
+      return {
+        type: "proposal",
+        proposal: parseJSON(response.outputText, "invalid_agent_proposal"),
+      };
     },
   };
 }
@@ -224,7 +232,10 @@ function parseToolCalls(items: readonly unknown[]): AgentToolCall[] {
 
 function boundedJSONStringify(value: unknown): string {
   const encoded = JSON.stringify(value);
-  if (encoded === undefined || new TextEncoder().encode(encoded).byteLength > MAX_TOOL_OUTPUT_BYTES) {
+  if (
+    encoded === undefined ||
+    new TextEncoder().encode(encoded).byteLength > MAX_TOOL_OUTPUT_BYTES
+  ) {
     throw new AgentToolPolicyError("agent_tool_output_too_large");
   }
   return encoded;
