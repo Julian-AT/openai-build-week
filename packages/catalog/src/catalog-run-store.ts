@@ -163,6 +163,12 @@ export interface CatalogRunStore {
     frontier: CatalogFrontierIdentity,
   ): Promise<CatalogRunCheckpoint | undefined>;
   recordDiscovery(observation: CatalogDiscoveryObservation): Promise<CatalogDiscoveryReceipt>;
+  advanceCheckpoint(options: {
+    runID: string;
+    cursor: string;
+    rawRecordSHA256: string;
+    nowMs: number;
+  }): Promise<void>;
   recordStage(update: CatalogStageUpdate): Promise<void>;
   recordAcquisitionOutcome(options: {
     runID: string;
@@ -334,10 +340,10 @@ export async function createFilesystemCatalogRunStore(
         rawRecordSHA256,
       };
       await writeAtomically(discoveryPath, canonicalJSON(nextDiscovery));
-      await updateRun(observation.runID, (record) => {
-        assertRunning(record);
-        const counters = structuredClone(record.counters);
-        if (previous === undefined) {
+      if (previous === undefined) {
+        await updateRun(observation.runID, (record) => {
+          assertRunning(record);
+          const counters = structuredClone(record.counters);
           counters.productPagesDiscovered += 1;
           counters.canonicalProductsDiscovered += 1;
           counters.variantsDiscovered += variantIDs.length;
@@ -345,23 +351,32 @@ export async function createFilesystemCatalogRunStore(
           if (observation.categoryPage) counters.categoryPagesDiscovered += 1;
           if (observation.productHasModelReference) counters.productsWithModelReference += 1;
           else counters.productsWithoutModelReference += 1;
-        }
+          return { ...record, updatedAtMs: observation.nowMs, counters };
+        });
+      }
+      return { cursor: observation.cursor, rawRecordSHA256 };
+    },
+    advanceCheckpoint: async ({ runID, cursor, rawRecordSHA256, nowMs }) => {
+      assertCursor(cursor);
+      if (!SHA256.test(rawRecordSHA256)) throw new Error("invalid_catalog_raw_record_hash");
+      assertTimestamp(nowMs);
+      const record = await updateRun(runID, (current) => {
+        assertRunning(current);
         return {
-          ...record,
-          updatedAtMs: observation.nowMs,
-          counters,
+          ...current,
+          updatedAtMs: nowMs,
           lastCheckpoint: {
-            ...record.lastCheckpoint,
-            cursor: observation.cursor,
+            ...current.lastCheckpoint,
+            cursor,
             lastRawRecordSHA256: rawRecordSHA256,
-            updatedAtMs: observation.nowMs,
+            updatedAtMs: nowMs,
           },
         };
       });
-      const checkpoint = (await loadRun(observation.runID))?.lastCheckpoint;
-      if (checkpoint === undefined) throw new Error("catalog_run_not_found");
-      await writeAtomically(frontierPath(frontierDirectory, checkpoint), canonicalJSON(checkpoint));
-      return { cursor: observation.cursor, rawRecordSHA256 };
+      await writeAtomically(
+        frontierPath(frontierDirectory, record.lastCheckpoint),
+        canonicalJSON(record.lastCheckpoint),
+      );
     },
     recordStage: async (update) => {
       assertTimestamp(update.nowMs);
@@ -603,6 +618,13 @@ function assertFinalizable(
   reconciliation: CatalogRunReconciliation,
 ): void {
   if (!record.lastCheckpoint.complete) throw new Error("catalog_discovery_incomplete");
+  if (
+    record.configuration.profile === "full" &&
+    record.counters.canonicalProductsDiscovered > 0 &&
+    record.counters.placementEligible === 0
+  ) {
+    throw new Error("catalog_zero_injection_ready");
+  }
   if (record.counters.placementEligible > 0) {
     if (reconciliation.eligibleRetrievalProbes < 1)
       throw new Error("catalog_retrieval_probe_missing");

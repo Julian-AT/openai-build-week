@@ -120,7 +120,7 @@ export class QdrantCatalogStore implements CatalogSink {
     await this.#client.upsert(this.#collection, {
       wait: true,
       points: products.map((product) => ({
-        id: stableUUID(product.id),
+        id: stableUUID(product.preparedAsset?.assetID ?? product.id),
         vector: { [SEMANTIC_VECTOR_NAME]: product.textVector },
         payload: catalogPayload(product),
       })),
@@ -164,6 +164,10 @@ function catalogPayload(product: EmbeddedCatalogProduct): Record<string, unknown
     catalog_id: product.id,
     source: product.source,
     source_product_id: product.sourceProductID,
+    ...(product.variantID === undefined ? {} : { variant_id: product.variantID }),
+    ...(product.parentProductID === undefined
+      ? {}
+      : { parent_product_id: product.parentProductID }),
     locale: product.locale,
     name: product.name,
     description: product.description,

@@ -84,6 +84,26 @@ test("Qdrant preparation and payload use the fixed semantic vector and derived r
   assert.equal(JSON.stringify(points[0]?.payload).includes("storageKey"), false);
 });
 
+test("Qdrant preserves sibling prepared variants under distinct point identities", async () => {
+  const calls: Array<{ method: string; args: unknown[] }> = [];
+  const store = new QdrantCatalogStore({ url: "http://qdrant.test", client: fakeClient(calls) });
+  const first = readyAsset();
+  const second = { ...readyAsset(), assetID: "ikea-us-00000001-v2" };
+
+  await store.upsert([product(first), product(second)]);
+
+  const upsertCall = calls.find((call) => call.method === "upsert");
+  assert.ok(upsertCall);
+  const points = (
+    upsertCall.args[1] as {
+      points: Array<{ id: string; payload: Record<string, unknown> }>;
+    }
+  ).points;
+  assert.notEqual(points[0]?.id, points[1]?.id);
+  assert.equal(points[0]?.payload.catalog_id, "ikea-us-00000001");
+  assert.equal(points[1]?.payload.catalog_id, "ikea-us-00000001");
+});
+
 test("eligible search filters before ranking and returns only stable asset references", async () => {
   const calls: Array<{ method: string; args: unknown[] }> = [];
   const client = fakeClient(calls, [

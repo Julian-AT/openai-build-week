@@ -83,8 +83,13 @@ export async function runCatalogOperation<TDiscovery extends CatalogOperationDis
       signal: options.signal,
     })) {
       throwIfAborted(options.signal);
-      await options.store.recordDiscovery({ ...discovery, runID: run.runID, nowMs: now() });
+      const receipt = await options.store.recordDiscovery({
+        ...discovery,
+        runID: run.runID,
+        nowMs: now(),
+      });
       await options.process(discovery, progress);
+      await options.store.advanceCheckpoint({ ...receipt, runID: run.runID, nowMs: now() });
     }
     throwIfAborted(options.signal);
     await options.store.completeDiscovery({ runID: run.runID, nowMs: now() });

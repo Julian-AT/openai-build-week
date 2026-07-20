@@ -36,6 +36,11 @@ test("persists a frontier checkpoint, raw record hash, counters, and terminal re
       nowMs: 1_100,
     });
     assert.equal(discovery.rawRecordSHA256.length, 64);
+    await store.advanceCheckpoint({
+      runID: run.runID,
+      ...discovery,
+      nowMs: 1_125,
+    });
 
     await store.recordAcquisitionOutcome({
       runID: run.runID,
@@ -92,6 +97,47 @@ test("persists a frontier checkpoint, raw record hash, counters, and terminal re
     });
     assert.deepEqual(resumed, finalized.lastCheckpoint);
     assert.equal((await store.loadRun(run.runID))?.status, "succeeded");
+  } finally {
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+test("a full frontier fails its completion gate when it discovers products but prepares no injectable assets", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-catalog-zero-ready-"));
+  try {
+    const store = await createFilesystemCatalogRunStore({ dataDirectory });
+    const run = await store.createRun({
+      configuration: runConfiguration("full"),
+      nowMs: 1_000,
+      runID: "run_catalog_zero_ready_001",
+    });
+    const discovery = await store.recordDiscovery({
+      runID: run.runID,
+      cursor: "product:1",
+      sourceProductID: "99017186",
+      canonicalProductID: "ikea-us-99017186",
+      variantIDs: [],
+      categoryPage: true,
+      productHasModelReference: false,
+      modelURLsObserved: 0,
+      rawRecord: { name: "No model" },
+      nowMs: 1_100,
+    });
+    await store.advanceCheckpoint({ runID: run.runID, ...discovery, nowMs: 1_110 });
+    await store.completeDiscovery({ runID: run.runID, nowMs: 1_200 });
+    await assert.rejects(
+      store.finalizeRun({
+        runID: run.runID,
+        nowMs: 1_300,
+        reconciliation: {
+          durablePreparedAssets: 0,
+          qdrantPoints: 0,
+          deliveryProbeVerified: false,
+          eligibleRetrievalProbes: 0,
+        },
+      }),
+      /catalog_zero_injection_ready/,
+    );
   } finally {
     await rm(dataDirectory, { recursive: true, force: true });
   }

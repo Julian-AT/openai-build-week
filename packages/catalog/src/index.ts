@@ -103,6 +103,8 @@ export {
   assertIkeaSourceAuthorization,
   REFRAME_IKEA_US_AUTHORIZATION,
 } from "./ikea-authorization.ts";
+export type { IkeaCatalogOperationEnvironment } from "./ikea-catalog-operation.ts";
+export { runIkeaCatalogOperationFromEnvironment } from "./ikea-catalog-operation.ts";
 export type {
   IkeaDownloaderContentStore,
   IkeaDownloaderImportReport,

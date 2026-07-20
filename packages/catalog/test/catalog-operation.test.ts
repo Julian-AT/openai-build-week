@@ -76,6 +76,59 @@ test("orchestrates a source-only frontier through durable lifecycle records befo
   }
 });
 
+test("does not advance an incremental cursor when processing a discovered product fails", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-catalog-operation-failure-"));
+  try {
+    const store = await createFilesystemCatalogRunStore({ dataDirectory });
+    await assert.rejects(
+      runCatalogOperation({
+        store,
+        configuration: configuration(),
+        runID: "run_catalog_operation_failure_001",
+        now: () => 2_000,
+        verifyInfrastructure: async () => {},
+        source: {
+          discover: async function* () {
+            yield discovery();
+          },
+        },
+        process: async () => {
+          throw new Error("processor_unavailable");
+        },
+        reconcile: async () => ({
+          durablePreparedAssets: 0,
+          qdrantPoints: 0,
+          deliveryProbeVerified: false,
+          eligibleRetrievalProbes: 0,
+        }),
+      }),
+      /processor_unavailable/,
+    );
+    const checkpoint = await store.loadLatestCheckpoint({
+      source: "ikea-us",
+      market: "us",
+      locale: "en-US",
+      frontierRevision: "ikea-us-en-v1",
+    });
+    assert.equal(checkpoint?.cursor, undefined);
+  } finally {
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+function discovery(): CatalogOperationDiscovery {
+  return {
+    cursor: "product:1",
+    sourceProductID: "99017186",
+    canonicalProductID: "ikea-us-99017186",
+    variantIDs: ["ikea-us-99017186-white"],
+    categoryPage: true,
+    productHasModelReference: true,
+    modelURLsObserved: 1,
+    rawRecord: { source: "untrusted", name: "KALLAX" },
+  };
+}
+
 function configuration(): CatalogRunConfiguration {
   return {
     schemaVersion: 1,

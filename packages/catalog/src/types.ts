@@ -46,7 +46,11 @@ export interface CatalogAssetRecord {
 }
 
 export interface CatalogProduct {
+  /** Stable canonical product identity exposed across public boundaries. */
   id: string;
+  /** Optional stable source variant identity; asset records remain individually indexable. */
+  variantID?: string;
+  parentProductID?: string;
   source: "ikea-us";
   sourceProductID: string;
   locale: "en-US";
