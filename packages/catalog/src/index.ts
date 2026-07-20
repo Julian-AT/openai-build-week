@@ -1,3 +1,16 @@
+export type {
+  AcquireCatalogBinaryOptions,
+  AcquiredContentReference,
+  AcquisitionCheckpoint,
+  AcquisitionContentStore,
+  AcquisitionDownloadRequest,
+  AcquisitionDownloadResponse,
+  AcquisitionPhase,
+  AcquisitionResult,
+  AcquisitionStateStore,
+  AcquisitionTransport,
+} from "./acquisition.ts";
+export { acquireCatalogBinary } from "./acquisition.ts";
 export type { AssetBytes, AssetManifest } from "./asset-validator.ts";
 export { validateAssetDerivatives, validateGLB, validateUSDZ } from "./asset-validator.ts";
 export type {
@@ -5,6 +18,15 @@ export type {
   InjectionReadinessFailure,
 } from "./catalog-eligibility.ts";
 export { assessAssetInjectionReadiness } from "./catalog-eligibility.ts";
+export type {
+  CachedAssetBinary,
+  CatalogDerivativeKind,
+  LocalAssetCache,
+  LocalAssetCacheRequest,
+  LocalAssetDelivery,
+  LocalAssetDeliveryRequest,
+} from "./delivery.ts";
+export { resolveLocalAssetDelivery } from "./delivery.ts";
 export type { IkeaSourceOptions, SitemapResult } from "./ikea-source.ts";
 export {
   crawlIkeaUSProducts,
