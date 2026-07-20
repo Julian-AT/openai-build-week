@@ -1,0 +1,1681 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:schema:transaction:1",
+  "title": "Reframe Transaction v1",
+  "description": "Deterministic validate/preview/commit contract. Restore is a new compensating transaction. Each revision branch has exactly one authority; Mode A uses the native device and B0 may use a distinct gateway-owned replay branch. Canonical lifecycle is independent of synchronization state.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "transaction_id",
+    "idempotency_key",
+    "request_fingerprint_algorithm",
+    "request_fingerprint_scope",
+    "request_fingerprint_sha256",
+    "session_id",
+    "revision_authority",
+    "base_scene_revision",
+    "target_context",
+    "intent",
+    "proposed_operations",
+    "validation",
+    "canonical_state",
+    "sync_state",
+    "created_at_utc"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "transaction_id": {
+      "type": "string",
+      "pattern": "^tx_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "idempotency_key": {
+      "type": "string",
+      "pattern": "^txidem_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "request_fingerprint_algorithm": { "const": "RF-JCS-SHA256-1" },
+    "request_fingerprint_scope": {
+      "const": "schema_version_session_id_revision_authority_base_scene_revision_target_context_intent_proposed_operations",
+      "description": "JCS object containing exactly these top-level members and no transaction/idempotency IDs, timestamps, lifecycle, validation, preview, commit, inverse, sync, failure, or reconciliation results."
+    },
+    "request_fingerprint_sha256": { "$ref": "#/$defs/sha256" },
+    "session_id": {
+      "type": "string",
+      "pattern": "^session_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "revision_authority": { "$ref": "#/$defs/revisionAuthority" },
+    "base_scene_revision": { "type": "integer", "minimum": 0 },
+    "target_context": { "$ref": "#/$defs/targetContext" },
+    "intent": { "$ref": "#/$defs/intent" },
+    "proposed_operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/operation" }
+    },
+    "validation": { "$ref": "#/$defs/validation" },
+    "preview": { "$ref": "#/$defs/preview" },
+    "commit": { "$ref": "#/$defs/commit" },
+    "inverse_operations": { "type": "array", "items": { "$ref": "#/$defs/operation" } },
+    "local_undo_token": {
+      "type": "string",
+      "pattern": "^undo_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "compensates_transaction_id": {
+      "type": "string",
+      "pattern": "^tx_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "canonical_state": {
+      "enum": ["draft", "validated", "previewed", "committed", "rejected", "cancelled"]
+    },
+    "sync_state": { "enum": ["local_only", "pending_sync", "synced", "conflict", "sync_failed"] },
+    "failure_reasons": { "type": "array", "items": { "$ref": "#/$defs/failure" } },
+    "reconciliation": { "$ref": "#/$defs/reconciliation" },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "updated_at_utc": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "canonical_state": { "const": "committed" } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "required": ["preview", "commit", "inverse_operations", "local_undo_token"],
+        "properties": {
+          "validation": {
+            "type": "object",
+            "required": ["state"],
+            "properties": {
+              "state": { "const": "passed" },
+              "checks": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "scene_revision" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "artifact_integrity" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            }
+          },
+          "inverse_operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1,
+            "items": {
+              "properties": {
+                "kind": { "const": "restore_snapshot" },
+                "before": {
+                  "properties": { "projection_origin": { "const": "captured_exact" } },
+                  "required": ["projection_origin"]
+                },
+                "after": {
+                  "properties": { "projection_origin": { "const": "captured_exact" } },
+                  "required": ["projection_origin"]
+                }
+              },
+              "required": ["kind", "before", "after"]
+            }
+          },
+          "local_undo_token": {
+            "type": "string",
+            "pattern": "^undo_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "properties": { "operation": { "const": "restore" } },
+            "required": ["operation"]
+          }
+        }
+      },
+      "then": {
+        "required": ["compensates_transaction_id"],
+        "properties": {
+          "compensates_transaction_id": {
+            "type": "string",
+            "pattern": "^tx_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        }
+      },
+      "else": { "not": { "required": ["compensates_transaction_id"] } }
+    },
+    {
+      "if": {
+        "properties": { "canonical_state": { "enum": ["validated", "previewed", "committed"] } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "type": "object",
+            "required": ["state"],
+            "properties": { "state": { "const": "passed" } }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "canonical_state": { "const": "previewed" } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "required": ["preview"],
+        "not": {
+          "anyOf": [
+            { "required": ["commit"] },
+            { "required": ["inverse_operations"] },
+            { "required": ["local_undo_token"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "canonical_state": { "const": "draft" } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "properties": {
+          "validation": { "properties": { "state": { "const": "not_run" } }, "required": ["state"] }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["preview"] },
+            { "required": ["commit"] },
+            { "required": ["inverse_operations"] },
+            { "required": ["local_undo_token"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "canonical_state": { "const": "validated" } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["preview"] },
+            { "required": ["commit"] },
+            { "required": ["inverse_operations"] },
+            { "required": ["local_undo_token"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "canonical_state": { "const": "rejected" } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "required": ["failure_reasons"],
+        "properties": {
+          "validation": { "properties": { "state": { "const": "failed" } }, "required": ["state"] },
+          "failure_reasons": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "$ref": "#/$defs/failure" }
+          }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["preview"] },
+            { "required": ["commit"] },
+            { "required": ["inverse_operations"] },
+            { "required": ["local_undo_token"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "canonical_state": { "const": "cancelled" } },
+        "required": ["canonical_state"]
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            { "required": ["commit"] },
+            { "required": ["inverse_operations"] },
+            { "required": ["local_undo_token"] }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "properties": { "operation": { "const": "place" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["intent"]
+      },
+      "then": {
+        "properties": {
+          "proposed_operations": {
+            "minItems": 1,
+            "maxItems": 1,
+            "prefixItems": [
+              {
+                "properties": { "kind": { "const": "create_asset_instance" } },
+                "required": ["kind"]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "properties": { "operation": { "const": "replace" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["intent"]
+      },
+      "then": {
+        "properties": {
+          "proposed_operations": {
+            "oneOf": [
+              {
+                "minItems": 2,
+                "maxItems": 2,
+                "prefixItems": [
+                  {
+                    "properties": {
+                      "kind": { "const": "set_object_visibility" },
+                      "before": {
+                        "properties": { "visible": { "const": true } },
+                        "required": ["visible"]
+                      },
+                      "after": {
+                        "properties": { "visible": { "const": false } },
+                        "required": ["visible"]
+                      }
+                    },
+                    "required": ["kind", "before", "after"]
+                  },
+                  {
+                    "properties": { "kind": { "const": "create_asset_instance" } },
+                    "required": ["kind"]
+                  }
+                ]
+              },
+              {
+                "minItems": 3,
+                "maxItems": 3,
+                "prefixItems": [
+                  {
+                    "properties": {
+                      "kind": { "const": "set_reveal_bundle" },
+                      "after": { "$ref": "#/$defs/revealArtifactSnapshot" }
+                    },
+                    "required": ["kind", "after"]
+                  },
+                  {
+                    "properties": {
+                      "kind": { "const": "set_object_visibility" },
+                      "before": {
+                        "properties": { "visible": { "const": true } },
+                        "required": ["visible"]
+                      },
+                      "after": {
+                        "properties": { "visible": { "const": false } },
+                        "required": ["visible"]
+                      }
+                    },
+                    "required": ["kind", "before", "after"]
+                  },
+                  {
+                    "properties": { "kind": { "const": "create_asset_instance" } },
+                    "required": ["kind"]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "properties": { "operation": { "const": "remove" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["intent"]
+      },
+      "then": {
+        "properties": {
+          "proposed_operations": {
+            "minItems": 2,
+            "maxItems": 2,
+            "prefixItems": [
+              {
+                "properties": {
+                  "kind": { "const": "set_reveal_bundle" },
+                  "after": { "$ref": "#/$defs/revealArtifactSnapshot" }
+                },
+                "required": ["kind", "after"]
+              },
+              {
+                "properties": {
+                  "kind": { "const": "set_object_visibility" },
+                  "before": {
+                    "properties": { "visible": { "const": true } },
+                    "required": ["visible"]
+                  },
+                  "after": {
+                    "properties": { "visible": { "const": false } },
+                    "required": ["visible"]
+                  }
+                },
+                "required": ["kind", "before", "after"]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "intent": {
+            "properties": { "operation": { "const": "restore" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["intent"]
+      },
+      "then": {
+        "properties": {
+          "proposed_operations": {
+            "minItems": 1,
+            "maxItems": 1,
+            "prefixItems": [
+              {
+                "properties": {
+                  "kind": { "const": "restore_snapshot" },
+                  "before": {
+                    "properties": { "projection_origin": { "const": "captured_exact" } },
+                    "required": ["projection_origin"]
+                  },
+                  "after": {
+                    "properties": { "projection_origin": { "const": "restore_rebase" } },
+                    "required": ["projection_origin"]
+                  }
+                },
+                "required": ["kind", "before", "after"]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canonical_state": { "enum": ["validated", "previewed", "committed"] },
+          "intent": {
+            "properties": { "operation": { "const": "place" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["canonical_state", "intent"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "scene_revision" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "artifact_integrity" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "support" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "collision_proxy" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "asset_license" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canonical_state": { "enum": ["validated", "previewed", "committed"] },
+          "intent": {
+            "properties": { "operation": { "const": "replace" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["canonical_state", "intent"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "scene_revision" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "artifact_integrity" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "target_exists" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "capability_ready" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "support" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "collision_proxy" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "asset_license" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canonical_state": { "enum": ["validated", "previewed", "committed"] },
+          "intent": {
+            "properties": { "operation": { "const": "remove" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["canonical_state", "intent"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "scene_revision" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "artifact_integrity" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "target_exists" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "capability_ready" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "view_envelope" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canonical_state": { "enum": ["validated", "previewed", "committed"] },
+          "intent": {
+            "properties": { "operation": { "const": "restore" } },
+            "required": ["operation"]
+          }
+        },
+        "required": ["canonical_state", "intent"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "scene_revision" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "artifact_integrity" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "snapshot_integrity" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "properties": {
+                        "check_id": { "const": "compensation_eligibility" },
+                        "result": { "const": "pass" }
+                      },
+                      "required": ["check_id", "result"]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "canonical_state": { "enum": ["validated", "previewed", "committed"] },
+          "intent": {
+            "properties": { "operation": { "const": "replace" } },
+            "required": ["operation"]
+          },
+          "proposed_operations": {
+            "contains": {
+              "properties": { "kind": { "const": "set_reveal_bundle" } },
+              "required": ["kind"]
+            }
+          }
+        },
+        "required": ["canonical_state", "intent", "proposed_operations"]
+      },
+      "then": {
+        "properties": {
+          "validation": {
+            "properties": {
+              "checks": {
+                "contains": {
+                  "properties": {
+                    "check_id": { "const": "view_envelope" },
+                    "result": { "const": "pass" }
+                  },
+                  "required": ["check_id", "result"]
+                },
+                "minContains": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "finiteNumber": {
+      "type": "number",
+      "minimum": -3.4028234663852886e38,
+      "maximum": 3.4028234663852886e38,
+      "description": "Finite binary32-range JSON number; deterministic validation applies RF-FLOAT-1 conversion and semantic checks."
+    },
+    "revisionAuthority": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "authority_id", "revision_branch_id"],
+          "properties": {
+            "kind": { "const": "native_device" },
+            "authority_id": {
+              "type": "string",
+              "pattern": "^device_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "revision_branch_id": {
+              "type": "string",
+              "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "authority_id", "revision_branch_id"],
+          "properties": {
+            "kind": { "const": "replay_gateway" },
+            "authority_id": {
+              "type": "string",
+              "pattern": "^gateway_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "revision_branch_id": {
+              "type": "string",
+              "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            }
+          }
+        }
+      ]
+    },
+    "matrix4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "scalar_type", "math_convention", "units", "values"],
+      "properties": {
+        "layout": { "const": "row_major" },
+        "scalar_type": { "const": "float32" },
+        "math_convention": { "const": "column_vector" },
+        "units": { "const": "meters" },
+        "values": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/finiteNumber" }
+        }
+      }
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_type", "artifact_revision", "sha256"],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "artifact_type": {
+          "enum": [
+            "mask_volume",
+            "surface_mesh",
+            "obb",
+            "occluder_chunk",
+            "reveal_bundle",
+            "asset_manifest",
+            "world_frame_correction"
+          ]
+        },
+        "artifact_revision": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "assetManifestArtifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_type", "artifact_revision", "sha256"],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "artifact_type": { "const": "asset_manifest" },
+        "artifact_revision": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "targetContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captured_at_frame_id",
+        "captured_scene_revision",
+        "world_frame_id",
+        "world_frame_version",
+        "camera_pose",
+        "screen_point_encoded_pixels",
+        "candidate_object_ids",
+        "selected_object_id",
+        "artifact_refs"
+      ],
+      "properties": {
+        "captured_at_frame_id": {
+          "type": "string",
+          "pattern": "^frame_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "captured_scene_revision": { "type": "integer", "minimum": 0 },
+        "world_frame_id": {
+          "type": "string",
+          "pattern": "^world_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "world_frame_version": { "type": "integer", "minimum": 1 },
+        "camera_pose": { "$ref": "#/$defs/matrix4" },
+        "screen_point_encoded_pixels": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "$ref": "#/$defs/finiteNumber" }
+        },
+        "candidate_object_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        },
+        "selected_object_id": {
+          "type": ["string", "null"],
+          "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "artifact_refs": { "type": "array", "items": { "$ref": "#/$defs/artifactRef" } }
+      }
+    },
+    "assetIntentArguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 2,
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "catalog_query": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "anyOf": [{ "required": ["asset_id"] }, { "required": ["catalog_query"] }]
+    },
+    "emptyIntentArguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
+    "typedConstraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["style_tag", "color_tag"] },
+            "value": { "type": "string", "minLength": 1, "maxLength": 64 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["preserve_walkway", "support_required"] },
+            "value": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "max_footprint_m2" },
+            "value": { "$ref": "#/$defs/finiteNumber", "exclusiveMinimum": 0, "maximum": 20 }
+          }
+        }
+      ]
+    },
+    "intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "source", "arguments", "constraints"],
+      "properties": {
+        "operation": { "enum": ["place", "replace", "remove", "restore"] },
+        "source": { "enum": ["tap", "typed", "voice", "replay"] },
+        "arguments": { "type": "object" },
+        "constraints": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "$ref": "#/$defs/typedConstraint" }
+        },
+        "semantic_model": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["provider", "model", "response_id"],
+          "properties": {
+            "provider": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "model": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "response_id": { "type": "string", "minLength": 1, "maxLength": 128 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "operation": { "const": "place" },
+                "arguments": { "$ref": "#/$defs/assetIntentArguments" }
+              },
+              "required": ["operation", "arguments"]
+            },
+            {
+              "properties": {
+                "operation": { "const": "replace" },
+                "arguments": { "$ref": "#/$defs/assetIntentArguments" }
+              },
+              "required": ["operation", "arguments"]
+            },
+            {
+              "properties": {
+                "operation": { "const": "remove" },
+                "arguments": { "$ref": "#/$defs/emptyIntentArguments" }
+              },
+              "required": ["operation", "arguments"]
+            },
+            {
+              "properties": {
+                "operation": { "const": "restore" },
+                "arguments": { "$ref": "#/$defs/emptyIntentArguments" }
+              },
+              "required": ["operation", "arguments"]
+            }
+          ]
+        }
+      ]
+    },
+    "assetInstanceSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "manifest_artifact_ref", "world_from_asset", "support_relation"],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "manifest_artifact_ref": { "$ref": "#/$defs/assetManifestArtifactRef" },
+        "world_from_asset": { "$ref": "#/$defs/matrix4" },
+        "support_relation": { "$ref": "#/$defs/assetSupportRelationSnapshot" }
+      },
+      "description": "create_asset_instance uses operation.entity_id as placed_asset_id and support subject_id, creates the support relation atomically, sets state=committed, and sets source_transaction_id to the containing transaction_id."
+    },
+    "assetSupportRelationSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "surface_id", "confidence", "method"],
+      "properties": {
+        "relation_id": {
+          "type": "string",
+          "pattern": "^support_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "surface_id": {
+          "type": "string",
+          "pattern": "^surface_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "confidence": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+        "method": { "enum": ["arkit_plane", "proxy_contact", "user_confirmed", "dense_estimate"] }
+      }
+    },
+    "visibilitySnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible"],
+      "properties": { "visible": { "type": "boolean" } }
+    },
+    "revealArtifactSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_type", "artifact_revision", "sha256"],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "artifact_type": { "const": "reveal_bundle" },
+        "artifact_revision": { "type": "integer", "minimum": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "editProjectionObjectState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["object_id", "visible", "active_reveal"],
+      "properties": {
+        "object_id": {
+          "type": "string",
+          "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "visible": { "type": "boolean" },
+        "active_reveal": {
+          "oneOf": [{ "$ref": "#/$defs/revealArtifactSnapshot" }, { "type": "null" }]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "active_reveal": { "type": "object" } },
+            "required": ["active_reveal"]
+          },
+          "then": { "properties": { "visible": { "const": false } } }
+        }
+      ]
+    },
+    "editProjectionPlacedAsset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "placed_asset_id",
+        "asset_id",
+        "manifest_artifact_ref",
+        "world_from_asset",
+        "state",
+        "support_relation_id",
+        "source_transaction_id"
+      ],
+      "properties": {
+        "placed_asset_id": {
+          "type": "string",
+          "pattern": "^assetinst_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "asset_id": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "manifest_artifact_ref": { "$ref": "#/$defs/assetManifestArtifactRef" },
+        "world_from_asset": { "$ref": "#/$defs/matrix4" },
+        "state": { "enum": ["committed", "hidden", "restored"] },
+        "support_relation_id": {
+          "type": "string",
+          "pattern": "^support_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_transaction_id": {
+          "type": "string",
+          "pattern": "^tx_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "editProjectionAssetSupportRelation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation_id", "subject_id", "surface_id", "confidence", "method"],
+      "properties": {
+        "relation_id": {
+          "type": "string",
+          "pattern": "^support_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "subject_id": {
+          "type": "string",
+          "pattern": "^assetinst_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "surface_id": {
+          "type": "string",
+          "pattern": "^surface_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "confidence": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
+        "method": { "enum": ["arkit_plane", "proxy_contact", "user_confirmed", "dense_estimate"] }
+      }
+    },
+    "editProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_version",
+        "scene_id",
+        "revision_branch_id",
+        "world_frame_id",
+        "world_frame_version",
+        "object_edit_states",
+        "placed_assets",
+        "asset_support_relations"
+      ],
+      "properties": {
+        "projection_version": { "const": "RF-EDIT-PROJECTION-1" },
+        "scene_id": {
+          "type": "string",
+          "pattern": "^scene_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "revision_branch_id": {
+          "type": "string",
+          "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "world_frame_id": {
+          "type": "string",
+          "pattern": "^world_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "world_frame_version": { "type": "integer", "minimum": 1 },
+        "object_edit_states": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/editProjectionObjectState" },
+          "description": "Complete object/edit_state projection, sorted lexicographically by object_id with unique IDs."
+        },
+        "placed_assets": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/editProjectionPlacedAsset" },
+          "description": "Complete placed_assets projection, sorted lexicographically by placed_asset_id with unique IDs."
+        },
+        "asset_support_relations": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/editProjectionAssetSupportRelation" },
+          "description": "Complete support_relations subset whose subject_id is assetinst_, sorted lexicographically by relation_id with unique IDs."
+        }
+      },
+      "description": "Exact edit-managed projection of CON-003. It excludes session/schema/authority/revision envelopes, surfaces, non-edit object evidence/readiness, non-asset support relations, edit_history, and updated_at_utc."
+    },
+    "restoreRebaseDerivation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rule",
+        "source_transaction_id",
+        "source_inverse_before_projection_sha256",
+        "source_inverse_after_projection_sha256",
+        "touched_object_ids",
+        "touched_placed_asset_ids",
+        "touched_asset_support_relation_ids"
+      ],
+      "properties": {
+        "rule": { "const": "RF-RESTORE-REBASE-1" },
+        "source_transaction_id": {
+          "type": "string",
+          "pattern": "^tx_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_inverse_before_projection_sha256": { "$ref": "#/$defs/sha256" },
+        "source_inverse_after_projection_sha256": { "$ref": "#/$defs/sha256" },
+        "touched_object_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "description": "Lexicographically sorted IDs whose edit-state values differ between the persisted source inverse before/after projections."
+        },
+        "touched_placed_asset_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^assetinst_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "description": "Lexicographically sorted placed-asset IDs whose presence/value differs in the persisted source inverse."
+        },
+        "touched_asset_support_relation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^support_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "description": "Lexicographically sorted asset-support IDs whose presence/value differs in the persisted source inverse."
+        }
+      },
+      "description": "Derive the restore after-projection from the current complete projection. First require every touched ID's current value/presence to equal the persisted source inverse before-value/presence; unexpected touched-entity drift rejects. Then, for exactly the touched IDs, apply the persisted source inverse after-value (or remove when absent); preserve current values/membership for every untouched or newly tracked ID. Validate touched sets against the source transaction's exact ordered operations and inverse diff."
+    },
+    "editProjectionSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "captured_scene_revision",
+        "projection_origin",
+        "derivation",
+        "projection_sha256_algorithm",
+        "projection_sha256_scope",
+        "projection_sha256",
+        "projection"
+      ],
+      "properties": {
+        "captured_scene_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Provenance outside the projection digest; applying projection content never copies this value into the output SceneState envelope."
+        },
+        "projection_origin": { "enum": ["captured_exact", "restore_rebase"] },
+        "derivation": {
+          "oneOf": [{ "$ref": "#/$defs/restoreRebaseDerivation" }, { "type": "null" }]
+        },
+        "projection_sha256_algorithm": { "const": "RF-JCS-SHA256-1" },
+        "projection_sha256_scope": { "const": "entire_rr_edit_projection_1" },
+        "projection_sha256": { "$ref": "#/$defs/sha256" },
+        "projection": { "$ref": "#/$defs/editProjection" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "projection_origin": { "const": "captured_exact" } },
+            "required": ["projection_origin"]
+          },
+          "then": { "properties": { "derivation": { "type": "null" } } }
+        },
+        {
+          "if": {
+            "properties": { "projection_origin": { "const": "restore_rebase" } },
+            "required": ["projection_origin"]
+          },
+          "then": { "properties": { "derivation": { "$ref": "#/$defs/restoreRebaseDerivation" } } }
+        }
+      ],
+      "description": "Offline-complete inverse/rebase content. Hash exactly the JCS projection member. A restore proposal rebases only persisted touched edit IDs onto the current complete projection, then creates a fresh monotonic SceneState envelope and appends history."
+    },
+    "operation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entity_id", "before", "after", "required_artifact_refs"],
+          "properties": {
+            "kind": { "const": "create_asset_instance" },
+            "entity_id": {
+              "type": "string",
+              "pattern": "^assetinst_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before": { "type": "null" },
+            "after": { "$ref": "#/$defs/assetInstanceSnapshot" },
+            "required_artifact_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": { "$ref": "#/$defs/artifactRef" },
+              "contains": {
+                "properties": { "artifact_type": { "const": "asset_manifest" } },
+                "required": ["artifact_type"]
+              },
+              "minContains": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entity_id", "before", "after"],
+          "properties": {
+            "kind": { "const": "set_asset_transform" },
+            "entity_id": {
+              "type": "string",
+              "pattern": "^assetinst_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before": { "$ref": "#/$defs/matrix4" },
+            "after": { "$ref": "#/$defs/matrix4" },
+            "required_artifact_refs": {
+              "type": "array",
+              "maxItems": 16,
+              "items": { "$ref": "#/$defs/artifactRef" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entity_id", "before", "after"],
+          "properties": {
+            "kind": { "const": "set_object_visibility" },
+            "entity_id": {
+              "type": "string",
+              "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before": { "$ref": "#/$defs/visibilitySnapshot" },
+            "after": { "$ref": "#/$defs/visibilitySnapshot" },
+            "required_artifact_refs": {
+              "type": "array",
+              "maxItems": 16,
+              "items": { "$ref": "#/$defs/artifactRef" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entity_id", "before", "after", "required_artifact_refs"],
+          "properties": {
+            "kind": { "const": "set_reveal_bundle" },
+            "entity_id": {
+              "type": "string",
+              "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before": {
+              "oneOf": [{ "$ref": "#/$defs/revealArtifactSnapshot" }, { "type": "null" }]
+            },
+            "after": {
+              "oneOf": [{ "$ref": "#/$defs/revealArtifactSnapshot" }, { "type": "null" }]
+            },
+            "required_artifact_refs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 16,
+              "items": { "$ref": "#/$defs/artifactRef" },
+              "contains": {
+                "type": "object",
+                "properties": { "artifact_type": { "const": "reveal_bundle" } },
+                "required": ["artifact_type"]
+              },
+              "minContains": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entity_id", "before", "after", "required_artifact_refs"],
+          "properties": {
+            "kind": { "const": "restore_snapshot" },
+            "entity_id": {
+              "type": "string",
+              "pattern": "^scene_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "before": { "$ref": "#/$defs/editProjectionSnapshot" },
+            "after": { "$ref": "#/$defs/editProjectionSnapshot" },
+            "required_artifact_refs": {
+              "type": "array",
+              "maxItems": 64,
+              "items": { "$ref": "#/$defs/artifactRef" },
+              "description": "Exact locally durable artifact-reference union needed to render after.projection. Deterministic validation rejects a missing, extra, stale, wrong-branch/world, or digest-mismatched reference; an empty union is represented by []."
+            }
+          }
+        }
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "checks",
+        "validator_version",
+        "input_sha256_algorithm",
+        "input_sha256_scope",
+        "input_sha256"
+      ],
+      "properties": {
+        "state": { "enum": ["not_run", "passed", "failed"] },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check_id", "result", "measured", "threshold"],
+            "properties": {
+              "check_id": {
+                "enum": [
+                  "scene_revision",
+                  "target_exists",
+                  "capability_ready",
+                  "support",
+                  "collision_proxy",
+                  "room_boundary_proxy",
+                  "walkway_proxy",
+                  "asset_license",
+                  "artifact_integrity",
+                  "view_envelope",
+                  "snapshot_integrity",
+                  "compensation_eligibility"
+                ]
+              },
+              "result": { "enum": ["pass", "fail", "not_applicable"] },
+              "measured": {
+                "oneOf": [
+                  { "$ref": "#/$defs/finiteNumber" },
+                  { "type": "string" },
+                  { "type": "boolean" },
+                  { "type": "null" }
+                ]
+              },
+              "threshold": {
+                "oneOf": [
+                  { "$ref": "#/$defs/finiteNumber" },
+                  { "type": "string" },
+                  { "type": "boolean" },
+                  { "type": "null" }
+                ]
+              }
+            }
+          }
+        },
+        "validator_version": { "type": "string", "minLength": 1 },
+        "input_sha256_algorithm": { "const": "RF-JCS-SHA256-1" },
+        "input_sha256_scope": {
+          "const": "request_fingerprint_object_plus_validation_checks_without_validation_results"
+        },
+        "input_sha256": { "$ref": "#/$defs/sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "state": { "const": "not_run" } }, "required": ["state"] },
+          "then": { "properties": { "checks": { "maxItems": 0 } } }
+        },
+        {
+          "if": { "properties": { "state": { "const": "passed" } }, "required": ["state"] },
+          "then": {
+            "properties": {
+              "checks": {
+                "minItems": 1,
+                "items": {
+                  "properties": { "result": { "enum": ["pass", "not_applicable"] } },
+                  "required": ["result"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "state": { "const": "failed" } }, "required": ["state"] },
+          "then": {
+            "properties": {
+              "checks": {
+                "minItems": 1,
+                "contains": {
+                  "properties": { "result": { "const": "fail" } },
+                  "required": ["result"]
+                },
+                "minContains": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "preview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preview_id", "base_scene_revision", "expires_at_utc", "artifact_refs"],
+      "properties": {
+        "preview_id": {
+          "type": "string",
+          "pattern": "^preview_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "base_scene_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Must equal transaction base; preview never advances scene_revision."
+        },
+        "expires_at_utc": { "type": "string", "format": "date-time" },
+        "artifact_refs": { "type": "array", "items": { "$ref": "#/$defs/artifactRef" } }
+      }
+    },
+    "commit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_id",
+        "revision_branch_id",
+        "compare_and_swap_base_revision",
+        "committed_scene_revision",
+        "confirmation",
+        "committed_at_utc",
+        "local_durable_before_visible_ack",
+        "result_sha256_algorithm",
+        "result_sha256_scope",
+        "result_sha256"
+      ],
+      "properties": {
+        "authority_id": {
+          "type": "string",
+          "pattern": "^(device|gateway)_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "Must equal revision_authority.authority_id; deterministic validation enforces equality."
+        },
+        "revision_branch_id": {
+          "type": "string",
+          "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "Must equal revision_authority.revision_branch_id; deterministic validation enforces equality."
+        },
+        "compare_and_swap_base_revision": { "type": "integer", "minimum": 0 },
+        "committed_scene_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Must equal compare_and_swap_base_revision + 1."
+        },
+        "confirmation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "actor_id",
+            "source",
+            "preview_id",
+            "confirmation_event_id",
+            "confirmed_at_utc"
+          ],
+          "properties": {
+            "kind": { "const": "explicit_user_confirmation" },
+            "actor_id": {
+              "type": "string",
+              "pattern": "^user_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "Session-scoped pseudonymous user identity; never a model/service identity."
+            },
+            "source": { "enum": ["native_ui", "web_b0_ui"] },
+            "preview_id": {
+              "type": "string",
+              "pattern": "^preview_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "Must equal transaction preview.preview_id; deterministic validation enforces equality."
+            },
+            "confirmation_event_id": {
+              "type": "string",
+              "pattern": "^event_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+            },
+            "confirmed_at_utc": { "type": "string", "format": "date-time" }
+          }
+        },
+        "committed_at_utc": { "type": "string", "format": "date-time" },
+        "local_durable_before_visible_ack": { "const": true },
+        "result_sha256_algorithm": { "const": "RF-JCS-SHA256-1" },
+        "result_sha256_scope": { "const": "commit_object_with_result_sha256_member_omitted" },
+        "result_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": {
+          "enum": [
+            "stale_scene_revision",
+            "idempotency_conflict",
+            "revision_branch_conflict",
+            "authority_conflict",
+            "target_lost",
+            "capability_not_ready",
+            "validation_failed",
+            "artifact_missing",
+            "tracking_lost",
+            "network_unavailable",
+            "unauthorized",
+            "invalid_contract",
+            "internal"
+          ]
+        },
+        "message": { "type": "string" },
+        "retryable": { "type": "boolean" }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "last_known_gateway_revision",
+        "resolution",
+        "automatic_merge_permitted"
+      ],
+      "properties": {
+        "state": { "enum": ["not_required", "pending", "resolved", "manual_required"] },
+        "last_known_gateway_revision": { "type": ["integer", "null"], "minimum": 0 },
+        "resolution": {
+          "enum": [
+            "none",
+            "gateway_confirmed_same_result",
+            "local_journal_replicated",
+            "compensating_transaction",
+            "snapshot_reconciliation_required",
+            "quarantined_divergent_branch",
+            "manual_conflict"
+          ]
+        },
+        "automatic_merge_permitted": { "const": false },
+        "quarantined_branch_id": {
+          "type": ["string", "null"],
+          "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "resolved_transaction_id": {
+          "type": ["string", "null"],
+          "pattern": "^tx_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    }
+  }
+}

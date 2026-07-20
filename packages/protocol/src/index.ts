@@ -1,0 +1,17 @@
+export {
+  type CommitResult,
+  type CommittedTransaction,
+  commitProposal,
+  createEmptyScene,
+  type EditOperation,
+  type EditOperationKind,
+  type EditProposal,
+  IdempotencyConflictError,
+  type PlaceOperation,
+  prepareProposal,
+  type RemoveOperation,
+  type ReplaceOperation,
+  type RestoreOperation,
+  RevisionConflictError,
+  type SceneState,
+} from "./transaction.ts";
