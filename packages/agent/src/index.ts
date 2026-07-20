@@ -1,4 +1,13 @@
 export {
+  type AgentFunctionToolDefinition,
+  type AgentResponseGenerationRequest,
+  type AgentResponseGenerationResult,
+  type AgentResponsesGenerator,
+  createOpenAIResponsesAgentPlanner,
+  type OpenAIResponsesAgentPlannerOptions,
+  REFRAME_AGENT_TOOLS,
+} from "./openai-agent-planner.ts";
+export {
   type AgentPlanner,
   type AgentPlannerStep,
   type AgentProposalStep,
