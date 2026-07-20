@@ -12,6 +12,9 @@ Architecture and product requirements are defined in
 [`MASTER_TECHNICAL_PROMPT.md`](MASTER_TECHNICAL_PROMPT.md). Read
 [`AGENTS.md`](AGENTS.md) before making changes.
 
+The ordered remaining work and acceptance gates are in
+[`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md).
+
 ## Development
 
 Install dependencies with `bun install --frozen-lockfile`, then use the
