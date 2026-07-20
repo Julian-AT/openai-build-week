@@ -2,8 +2,7 @@ import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { validateAssetDerivatives } from "../src/index.ts";
 
-const glb = new Uint8Array(20);
-glb.set([0x67, 0x6c, 0x54, 0x46, 2]);
+const glb = minimalGLB();
 const usdz = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
 
 test("validates derivatives and produces stable hashes", () => {
@@ -38,3 +37,34 @@ test("rejects malformed or implausible assets", () => {
     /invalid_glb_header/,
   );
 });
+
+test("rejects GLBs whose declared binary length does not match their bytes", () => {
+  const malformed = minimalGLB();
+  new DataView(malformed.buffer).setUint32(8, malformed.byteLength + 4, true);
+  assert.throws(
+    () =>
+      validateAssetDerivatives(
+        { glb: malformed },
+        {
+          glbURL: "https://example.invalid/a.glb",
+          units: "meters",
+          origin: "floor",
+          dimensionsM: { width: 1, height: 1, depth: 1 },
+          collision: "aabb",
+        },
+      ),
+    /invalid_glb_length/,
+  );
+});
+
+function minimalGLB(): Uint8Array {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x67, 0x6c, 0x54, 0x46]);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(4, 2, true);
+  view.setUint32(8, bytes.byteLength, true);
+  view.setUint32(12, 4, true);
+  view.setUint32(16, 0x4e4f534a, true);
+  bytes.set([0x7b, 0x7d, 0x20, 0x20], 20);
+  return bytes;
+}

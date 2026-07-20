@@ -68,6 +68,8 @@ export interface AcquireCatalogBinaryOptions {
   baseRetryMs?: number;
   maxResponseBytes?: number;
   maxAssetBytes?: number;
+  /** Runs after all partial bytes are assembled and before immutable CAS commit. */
+  validateCompletedContent?: (bytes: Uint8Array) => void | Promise<void>;
 }
 
 export interface AcquisitionResult {
@@ -196,6 +198,7 @@ export async function acquireCatalogBinary(
 
   const bytes = await options.content.readPartial(options.acquisitionID);
   if (bytes.byteLength !== receivedBytes) throw new Error("acquisition_partial_mismatch");
+  await options.validateCompletedContent?.(bytes);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const storageKey = await options.content.commitContent(sha256, bytes);
   if (storageKey !== `sha256/${sha256}`) throw new Error("invalid_content_address");

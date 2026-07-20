@@ -40,15 +40,34 @@ export function validateAssetDerivatives(
 
 export function validateGLB(bytes: Uint8Array): void {
   if (
-    bytes.byteLength < 20 ||
+    bytes.byteLength < 24 ||
     bytes[0] !== 0x67 ||
     bytes[1] !== 0x6c ||
     bytes[2] !== 0x54 ||
     bytes[3] !== 0x46
   )
     throw new Error("invalid_glb_header");
-  const version = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const version = view.getUint32(4, true);
   if (version !== 2) throw new Error("unsupported_glb_version");
+  const declaredLength = view.getUint32(8, true);
+  if (declaredLength !== bytes.byteLength || declaredLength % 4 !== 0)
+    throw new Error("invalid_glb_length");
+
+  let offset = 12;
+  let chunkIndex = 0;
+  while (offset < bytes.byteLength) {
+    if (offset + 8 > bytes.byteLength) throw new Error("invalid_glb_chunk_header");
+    const chunkLength = view.getUint32(offset, true);
+    const chunkType = view.getUint32(offset + 4, true);
+    const end = offset + 8 + chunkLength;
+    if (chunkLength % 4 !== 0 || end > bytes.byteLength)
+      throw new Error("invalid_glb_chunk_length");
+    if (chunkIndex === 0 && chunkType !== 0x4e4f534a) throw new Error("missing_glb_json_chunk");
+    offset = end;
+    chunkIndex += 1;
+  }
+  if (offset !== bytes.byteLength || chunkIndex === 0) throw new Error("invalid_glb_chunks");
 }
 
 export function validateUSDZ(bytes: Uint8Array): void {

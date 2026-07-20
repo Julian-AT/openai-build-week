@@ -1,3 +1,12 @@
+import { createHash } from "node:crypto";
+import {
+  type AcquisitionContentStore,
+  type AcquisitionResult,
+  type AcquisitionStateStore,
+  type AcquisitionTransport,
+  acquireCatalogBinary,
+} from "./acquisition.ts";
+import { validateGLB } from "./asset-validator.ts";
 import {
   assertIkeaSourceAuthorization,
   type IkeaSourceAuthorization,
@@ -22,6 +31,29 @@ export interface IkeaSourceOptions {
   fetch?: IkeaFetch;
   concurrency?: number;
   authorization?: IkeaSourceAuthorization;
+}
+
+export interface FetchIkeaUSProductOptions {
+  authorization: IkeaSourceAuthorization;
+  productURL: string;
+  fetch?: IkeaFetch;
+}
+
+export interface IkeaUSSourceSmokeOptions extends FetchIkeaUSProductOptions {
+  state: AcquisitionStateStore;
+  content: AcquisitionContentStore;
+  transport: AcquisitionTransport;
+  nowMs: number;
+  maxAttempts?: number;
+  baseRetryMs?: number;
+  maxResponseBytes?: number;
+  maxAssetBytes?: number;
+}
+
+export interface IkeaUSSourceSmokeResult {
+  product: CatalogProduct;
+  sourceGLBURL: string;
+  acquisition: AcquisitionResult;
 }
 
 export function parseSitemap(xml: string, market = "us", language = "en"): SitemapResult {
@@ -73,6 +105,47 @@ export function extractGLBURLs(html: string): string[] {
       }
     })
     .sort();
+}
+
+/** Reads exactly one authorized US-English product page without widening a frontier. */
+export async function fetchIkeaUSProduct(
+  options: FetchIkeaUSProductOptions,
+): Promise<CatalogProduct> {
+  assertIkeaSourceAuthorization(options.authorization);
+  if (!isAllowedProductURL(options.productURL)) throw new Error("invalid_ikea_product_url");
+  const fetchImplementation = options.fetch ?? globalThis.fetch;
+  return extractIkeaProduct(
+    await fetchText(fetchImplementation, options.productURL, "text/html"),
+    options.productURL,
+  );
+}
+
+/**
+ * Bounded first leg of the live source spine. It does not parse or index the
+ * GLB; it persists only an immutable source object or a resumable checkpoint.
+ */
+export async function runIkeaUSSourceSmoke(
+  options: IkeaUSSourceSmokeOptions,
+): Promise<IkeaUSSourceSmokeResult> {
+  const product = await fetchIkeaUSProduct(options);
+  const sourceGLBURL = selectSmokeGLB(product.assetURLs);
+  const suffix = createHash("sha256").update(sourceGLBURL).digest("hex").slice(0, 12);
+  const acquisition = await acquireCatalogBinary({
+    acquisitionID: `${product.id}-source-${suffix}`,
+    sourceURL: sourceGLBURL,
+    state: options.state,
+    content: options.content,
+    transport: options.transport,
+    nowMs: options.nowMs,
+    ...(options.maxAttempts === undefined ? {} : { maxAttempts: options.maxAttempts }),
+    ...(options.baseRetryMs === undefined ? {} : { baseRetryMs: options.baseRetryMs }),
+    ...(options.maxResponseBytes === undefined
+      ? {}
+      : { maxResponseBytes: options.maxResponseBytes }),
+    ...(options.maxAssetBytes === undefined ? {} : { maxAssetBytes: options.maxAssetBytes }),
+    validateCompletedContent: validateGLB,
+  });
+  return { product, sourceGLBURL, acquisition };
 }
 
 export async function* crawlIkeaUSProducts(
@@ -180,6 +253,41 @@ function isAllowedProductURL(value: string): boolean {
 function isAllowedImageURL(value: string): boolean {
   try {
     return new URL(value).origin === IKEA_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+function selectSmokeGLB(assetURLs: readonly string[]): string {
+  const selected = [...assetURLs].sort((left, right) => {
+    const rankDifference = glbQualityRank(left) - glbQualityRank(right);
+    return rankDifference === 0 ? left.localeCompare(right) : rankDifference;
+  })[0];
+  if (selected === undefined || !isAllowedGLBURL(selected))
+    throw new Error("missing_ikea_glb_asset");
+  return selected;
+}
+
+function glbQualityRank(url: string): number {
+  if (url.includes("/rqp3/glb_draco/")) return 0;
+  if (url.includes("/rqp3/glb/")) return 1;
+  if (url.includes("/rqp2/glb_draco/")) return 2;
+  if (url.includes("/rqp2/glb/")) return 3;
+  if (url.includes("/rqp1/glb_draco/")) return 4;
+  if (url.includes("/rqp1/glb/")) return 5;
+  return 6;
+}
+
+function isAllowedGLBURL(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.origin === IKEA_ASSET_ORIGIN &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname.endsWith(".glb")
+    );
   } catch {
     return false;
   }

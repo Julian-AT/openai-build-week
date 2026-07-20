@@ -27,17 +27,43 @@ export type {
   LocalAssetDeliveryRequest,
 } from "./delivery.ts";
 export { resolveLocalAssetDelivery } from "./delivery.ts";
+export type {
+  FilesystemAcquisitionStoreOptions,
+  FilesystemAcquisitionStores,
+} from "./filesystem-acquisition-store.ts";
+export { createFilesystemAcquisitionStores } from "./filesystem-acquisition-store.ts";
 export type { IkeaSourceAuthorization } from "./ikea-authorization.ts";
 export {
   assertIkeaSourceAuthorization,
   REFRAME_IKEA_US_AUTHORIZATION,
 } from "./ikea-authorization.ts";
-export type { IkeaSourceOptions, SitemapResult } from "./ikea-source.ts";
+export type {
+  IkeaDownloaderContentStore,
+  IkeaDownloaderImportReport,
+  ImportedIkeaDownloaderContent,
+  ImportedIkeaDownloaderRecord,
+  ImportPinnedIkeaDownloaderOutputOptions,
+} from "./ikea-downloader-import.ts";
+export {
+  importPinnedIkeaDownloaderOutput,
+  PINNED_IKEA_DOWNLOADER,
+} from "./ikea-downloader-import.ts";
+export type { IkeaGLBFetchTransportOptions } from "./ikea-glb-transport.ts";
+export { createIkeaGLBFetchTransport } from "./ikea-glb-transport.ts";
+export type {
+  FetchIkeaUSProductOptions,
+  IkeaSourceOptions,
+  IkeaUSSourceSmokeOptions,
+  IkeaUSSourceSmokeResult,
+  SitemapResult,
+} from "./ikea-source.ts";
 export {
   crawlIkeaUSProducts,
   extractGLBURLs,
   extractIkeaProduct,
+  fetchIkeaUSProduct,
   parseSitemap,
+  runIkeaUSSourceSmoke,
 } from "./ikea-source.ts";
 export type { OpenAICatalogEnricherOptions } from "./openai-enricher.ts";
 export { createOpenAICatalogEnricher } from "./openai-enricher.ts";
