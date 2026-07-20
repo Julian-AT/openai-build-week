@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reframe:schema:target-seed:1",
+  "title": "Reframe TargetSeed v1",
+  "description": "One calibrated pointer contract shared by reticle dwell, tap, voice capture, and web debugging. Semantic validation requires a normalized ray direction.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["type", "session_id", "frame_id", "pixel_encoded", "ray_world", "arkit_hit", "source"],
+  "properties": {
+    "type": { "const": "target_seed" },
+    "session_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "frame_id": { "type": "integer", "minimum": 0 },
+    "pixel_encoded": { "$ref": "#/$defs/vector2" },
+    "ray_world": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "direction"],
+      "properties": {
+        "origin": { "$ref": "#/$defs/vector3" },
+        "direction": { "$ref": "#/$defs/vector3" }
+      }
+    },
+    "arkit_hit": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["surface_id", "position_world"],
+          "properties": {
+            "surface_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+            "position_world": { "$ref": "#/$defs/vector3" }
+          }
+        }
+      ]
+    },
+    "source": { "enum": ["reticle_dwell", "tap", "voice_capture", "debug_web"] }
+  },
+  "$defs": {
+    "finiteNumber": {
+      "type": "number",
+      "minimum": -3.4028234663852886e38,
+      "maximum": 3.4028234663852886e38
+    },
+    "vector2": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/finiteNumber" }
+    },
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/finiteNumber" }
+    }
+  }
+}

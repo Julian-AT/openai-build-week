@@ -1,3 +1,7 @@
+import submitUserTurnSchema from "@reframe/protocol/schemas/submit-user-turn.schema.json" with {
+  type: "json",
+};
+
 export const REALTIME_MODEL = "gpt-realtime-2.1";
 const MAX_REALTIME_RESPONSE_BYTES = 64_000;
 const MAX_REALTIME_OFFER_BYTES = 64_000;
@@ -10,33 +14,19 @@ transform, and never perform a mutation. The deterministic application owns vali
 explicit spoken or tapped confirmation, commit, reconciliation, and restore. Once the user's turn
 is clear, call submit_user_turn exactly once. Do not claim success before the gateway responds.`;
 
+const {
+  $schema: _schema,
+  $id: _id,
+  title: _title,
+  description: _description,
+  ...submitUserTurnParameters
+} = submitUserTurnSchema;
+
 export const SUBMIT_USER_TURN_TOOL = {
   type: "function",
   name: "submit_user_turn",
   description: "Submit one normalized user turn to Reframe's authoritative gateway.",
-  parameters: {
-    type: "object",
-    additionalProperties: false,
-    required: [
-      "client_turn_id",
-      "utterance",
-      "intent_hint",
-      "pointer_context_id",
-      "client_scene_revision",
-      "pending_proposal_id",
-    ],
-    properties: {
-      client_turn_id: { type: "string", minLength: 1, maxLength: 128 },
-      utterance: { type: "string", minLength: 1, maxLength: 2_000 },
-      intent_hint: {
-        type: ["string", "null"],
-        enum: ["place", "replace", "remove", "restore", null],
-      },
-      pointer_context_id: { type: ["string", "null"], maxLength: 128 },
-      client_scene_revision: { type: "integer", minimum: 0 },
-      pending_proposal_id: { type: ["string", "null"], maxLength: 128 },
-    },
-  },
+  parameters: submitUserTurnParameters,
 } as const;
 
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;

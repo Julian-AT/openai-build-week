@@ -48,6 +48,7 @@
       "name": "@reframe/agent",
       "version": "1.0.0",
       "dependencies": {
+        "@reframe/protocol": "workspace:*",
         "openai": "6.48.0",
       },
       "devDependencies": {

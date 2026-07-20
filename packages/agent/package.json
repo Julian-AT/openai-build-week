@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@reframe/protocol": "workspace:*",
     "openai": "6.48.0"
   },
   "devDependencies": {
