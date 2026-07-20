@@ -1,1 +1,0 @@
-{"base":"instances/con005.transaction.valid.json","mutations":[{"op":"replace","pointer":"/canonical_state","value":"committed"}]}

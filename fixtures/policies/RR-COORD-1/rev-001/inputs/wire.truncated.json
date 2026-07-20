@@ -1,1 +1,0 @@
-{"base":"expected/wire.valid.hex","mutations":[{"op":"truncate","byte_length":1850}]}

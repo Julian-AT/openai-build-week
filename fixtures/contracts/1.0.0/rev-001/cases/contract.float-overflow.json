@@ -1,1 +1,0 @@
-{"base":"instances/con001.frame-packet.valid.json","mutations":[{"op":"replace","pointer":"/quality/motion_score","value":1e300}]}

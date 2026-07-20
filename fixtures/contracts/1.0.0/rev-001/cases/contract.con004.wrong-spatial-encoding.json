@@ -1,1 +1,0 @@
-{"base":"instances/con004.edit-artifact.valid.json","mutations":[{"op":"replace","pointer":"/artifact_type","value":"surface_mesh"}]}

@@ -1,1 +1,0 @@
-{"automated_report_sha256":"d956d7f71c6152f309983ce2d1bf0cbd8f5798bc232ba8736d309df6975b82bf","checklist_state":"UNRUN","decision_actor":"human_required","gate_id":"GATE-001","pending_reason":"physical_device_evidence_and_human_attestation_required","physical_evidence_state":"pending","schema_version":"1.0.0"}

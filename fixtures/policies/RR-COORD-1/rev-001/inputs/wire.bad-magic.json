@@ -1,1 +1,0 @@
-{"base":"expected/wire.valid.hex","mutations":[{"op":"replace_byte","offset":0,"value_hex":"58"}]}

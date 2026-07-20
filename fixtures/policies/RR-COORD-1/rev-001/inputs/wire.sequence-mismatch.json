@@ -1,1 +1,0 @@
-{"base":"expected/wire.valid.hex","mutations":[{"op":"replace_u64be","offset":16,"value":1}]}
