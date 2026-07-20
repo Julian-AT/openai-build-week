@@ -7,9 +7,11 @@ from .providers import (
 )
 from .reveal import (
     DisabledRevealFillProvider,
+    HttpRevealFillProvider,
     RevealAssessment,
     RevealFillProvider,
     RevealFillRequest,
+    RevealFillResult,
     RevealFillUnavailableError,
     RevealMetrics,
     assess_reveal,
@@ -19,12 +21,14 @@ from .target_geometry import TargetView, TargetViewAssessment, assess_target_vie
 __all__ = [
     "DisabledProvider",
     "DisabledRevealFillProvider",
+    "HttpRevealFillProvider",
     "InferenceAppOptions",
     "InferenceProvider",
     "ModelServiceProvider",
     "RevealAssessment",
     "RevealFillProvider",
     "RevealFillRequest",
+    "RevealFillResult",
     "RevealFillUnavailableError",
     "RevealMetrics",
     "TargetView",
