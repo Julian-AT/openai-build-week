@@ -1,4 +1,10 @@
 export {
+  evaluateReplacementCover,
+  ReplacementCoverInputError,
+  type ReplacementCoverResult,
+  type ReplacementViewCoverage,
+} from "./replacement-cover.ts";
+export {
   type CommitResult,
   type CommittedTransaction,
   commitProposal,
