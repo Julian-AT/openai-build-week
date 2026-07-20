@@ -6,9 +6,9 @@ current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: verification_deferred_human
 stopped_at: Phase 02.1 and Phase 09 software slices complete; resume Phase 2 verification
-last_updated: "2026-07-20T00:04:23Z"
+last_updated: "2026-07-20T00:32:01Z"
 last_activity: 2026-07-20
-last_activity_desc: Phase 02.1 exact-source verification passed; full clean native candidate passed 129/129; web audit is zero
+last_activity_desc: Frozen executable candidate passed 129/129 native tests, signed base-iPhone build, local B0 browser smoke, and zero-vulnerability web audit
 progress:
   total_phases: 10
   completed_phases: 1
@@ -32,9 +32,9 @@ Phase: 02 (Atomic Capture and Exact Replay) — VERIFICATION DEFERRED HUMAN
 
 Plan: Phase 02.1 is 4/4 and Phase 09 is 1/1; no implementation plan is active.
 
-Status: Resume `$gsd-verify-work 02`; keep CR-03/04/12 as automated review candidates and all other Phase 2 findings open.
+Status: `$gsd-next` currently routes to `$gsd-ship` because the completed work is committed but unpublished. Publishing remains an owner action; after that decision, resume `$gsd-verify-work 02` and keep all unresolved Phase 2 findings open.
 
-Last activity: 2026-07-20 — Phase 02.1 exact-source verifier passed; the full clean native candidate reached 129/129 and the web production audit reached zero vulnerabilities
+Last activity: 2026-07-20 — executable candidate `476d88f25d0455aea7394ffa72c3188cdb6113ca` passed 129/129 native tests, Debug and Release simulator builds, release-surface verification, a signed arm64 build for the paired base iPhone 17, the local seven-event B0 browser smoke, and zero-vulnerability gateway/web production audits
 
 Progress: [████████████████████] 51/51 implementation plans executed ([██████████] 100%). Canonical verification and gates are not complete.
 
@@ -180,11 +180,11 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-- Resume `$gsd-verify-work 02`, formally judge the three Phase 02.1 candidates, then work the remaining nine blocker and eight warning findings without promoting `GATE-001` early.
-- Freeze a clean candidate and run the exact signed-device camera/catalog/place/replace/restore rehearsal plus the required physical gate campaigns.
+- Let the owner decide whether to run the `$gsd-ship` publication workflow; no push, PR, deployment, or submission was performed autonomously.
+- After that decision, resume `$gsd-verify-work 02`, formally judge the three Phase 02.1 candidates, then work the remaining nine blocker and eight warning findings without promoting `GATE-001` early.
+- Install the signed candidate and run the exact camera/catalog/place/replace/restore rehearsal plus the required physical gate campaigns. A successful signed build is not on-device execution evidence.
 - Run the timeboxed live Sol/one-frame-vision rubric and optional five-turn Realtime rubric; disable optional provider controls on a miss.
-- Repeat the passing local Chromium B0 smoke on the frozen clean candidate,
-  then complete the short honest demo recording and human submission checklist.
+- Complete the short honest demo recording and human submission checklist; the frozen-candidate local Chromium B0 smoke is already green but does not close `GATE-008`.
 - Continue Phase 3 through Phase 8 verification and the formal gate campaigns in dependency order; preserve every incomplete gate as `PENDING`.
 - Complete signed-device derivative parity, human visual review, and the final shipping BOM before `GATE-011` or a shipping claim.
 
@@ -222,9 +222,9 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-20T00:04:23Z
+Last session: 2026-07-20T00:32:01Z
 
-Stopped at: Completed all 51 implementation plans and fresh local candidate verification; Phase 2 formal review plus provider/device/browser/human gates remain.
+Stopped at: Completed all 51 implementation plans and frozen-candidate local verification; `$gsd-next` routes to owner-controlled ship, then Phase 2 formal review plus provider/device/formal-browser/human gates remain.
 
 Resume file: None
 

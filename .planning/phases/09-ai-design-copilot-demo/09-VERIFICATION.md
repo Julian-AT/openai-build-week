@@ -1,6 +1,6 @@
 ---
 phase: 09-ai-design-copilot-demo
-verified: 2026-07-20T00:04:23Z
+verified: 2026-07-20T00:32:01Z
 status: human_needed
 score: 5/5 automated plan truths verified
 behavior_unverified: 0
@@ -64,9 +64,10 @@ cannot receive a canonical `passed` status.
 | Gateway typecheck/build | pass |
 | Gateway production audit | 0 vulnerabilities |
 | CON-006 Python parity | 3/3 pass |
-| Native clean-source full suite | 129/129 pass: 119 unit/integration plus 10 UI, serial simulator |
+| Native frozen-candidate full suite | 129/129 pass at `476d88f25d0455aea7394ffa72c3188cdb6113ca`: 119 unit/integration plus 10 UI, serial iPhone 17 / iOS 26.4 simulator |
+| Native builds | Debug and Release simulator builds pass; signed arm64 base-iPhone build passes, but no install/launch or physical observation is claimed |
 | Full Swift package | 172/172 pass |
-| Web tests/typecheck/build/audit | 10/10 pass on Next.js 16.2.10; production build and zero-vulnerability audit pass; local Chromium render and event traversal pass |
+| Web tests/typecheck/build/audit | 10/10 pass on Next.js 16.2.10; production build and zero-vulnerability audit pass; frozen-candidate local Chromium render, slider, Previous/Next traversal, and empty console/page-error checks pass |
 | CON-004/schema/catalog/provenance | 3/3 schema-valid; 36 native/web files reproducible; digest chain pass |
 | Live Sol/vision/Realtime call | not run; credentials absent |
 
@@ -87,4 +88,4 @@ catalog. If Realtime misses 4/5 or any unsafe case, disable voice and use typed
 input. Neither fallback changes deterministic P0 behavior.
 
 ---
-_Verified: 2026-07-19 (automated/local boundary only)_
+_Verified: 2026-07-20 (automated/local boundary only)_

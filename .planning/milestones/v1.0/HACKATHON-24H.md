@@ -4,9 +4,10 @@
 next 24 hours without weakening deterministic authority or inventing physical
 evidence.
 **Classification:** demo candidate, not canonical P0 release.
-**Current GSD entry:** `$gsd-next`, which currently routes through
-`$gsd-progress`; use its Phase 2 verification continuation and treat
-`.planning/STATE.md` as authoritative.
+**Current GSD entry:** `$gsd-next`, which currently routes to `$gsd-ship`
+because the finished work is committed but unpublished. Publishing is a
+deliberate owner action; after that decision, resume `$gsd-verify-work 02` and
+treat `.planning/STATE.md` as authoritative.
 **Concurrency:** two implementation-critical lanes maximum; join only through
 checked-in contracts/fixtures.
 
@@ -20,14 +21,31 @@ checked-in contracts/fixtures.
   tests, a complete 129/129 serial clean-snapshot native run (119
   unit/integration plus 10 UI), 10 web tests, strict schema parity,
   deterministic regeneration of three asset bundles, and production builds.
-  Live provider, signed-device, formal browser, and human gates remain pending.
-- A local Chromium smoke rendered the accepted seven-event B0 replay and
-  exercised slider plus Previous/Next transitions. Repeat it on the frozen
-  candidate for the handoff; it is not the formal `GATE-008` browser matrix.
+  The frozen executable candidate also passes a signed arm64 build for the
+  paired base iPhone 17. Live provider, actual signed-device execution, formal
+  browser, and human gates remain pending.
+- A local Chromium smoke on the frozen candidate rendered the accepted
+  seven-event B0 replay and exercised keyboard-accessible slider plus
+  Previous/Next transitions with no console or page errors. It is not the
+  formal `GATE-008` browser matrix.
 - The immediate human-visible finish is live Sol/vision (timeboxed), one clean
-  signed-device rehearsal, a frozen-candidate B0 smoke, then the
-  sub-three-minute recording and submission handoff. Optional voice is the
-  first feature cut.
+  signed-device rehearsal, then the sub-three-minute recording and submission
+  handoff. The frozen-candidate B0 smoke is green. Optional voice is the first
+  feature cut.
+
+## Frozen executable candidate
+
+- Revision: `476d88f25d0455aea7394ffa72c3188cdb6113ca`
+- Native: 129/129 tests pass (119 unit/integration and 10 UI) on iPhone 17 / iOS
+  26.4 simulator; Debug and Release simulator builds pass.
+- Device build: the arm64 Debug app signs successfully for paired base iPhone
+  17 `00008150-0014543E3693401C`. It was not installed or launched, so this is
+  not physical camera, microphone, thermal, visual, or UX evidence.
+- Browser: local Chromium traverses the seven-event accepted replay, including
+  slider and both direction controls; console/page errors are empty. Local load
+  observation: TTFB 258 ms, LCP/FCP 300 ms, CLS 0.
+- Provider: no `OPENAI_API_KEY` or gateway token was available; no live Sol,
+  vision, or Realtime result is claimed.
 
 ## Definition of done
 
@@ -70,7 +88,7 @@ claims. A demo can finish while those remain pending.
 
 | Timebox | Work | Exit |
 |---:|---|---|
-| 10–14 h | Freeze the candidate, rerun all software checks, perform one signed-device and one browser smoke. | Exact clean Git revision and check results recorded. |
+| 10–14 h | Freeze the candidate, rerun all software checks, perform one signed build and one browser smoke. | Complete for revision `476d88f`; actual on-device launch/rehearsal remains pending. |
 | 14–18 h | Capture the shortest complete demo: problem → camera-grounded edit → AI proposal boundary → explicit commit/restore → B0 replay. | Usable take under three minutes with audible explanation. |
 | 18–21 h | Produce README/setup, architecture/AI explanation, Codex Session ID, license/access notes, and pending-gate disclosure. | A reviewer can run the local pieces without guessing. |
 | 21–24 h | Regression, backup take, submission checklist, human publish. | No known software regression; submission remains a deliberate human action. |
