@@ -1,8 +1,8 @@
 # ReRoom Master Technical Specification
 
 Status: canonical engineering authority
-Version: 1.0.0  
-Date: 2026-07-13
+Version: 1.1.0
+Date: 2026-07-19
 
 ## 1. Executive architecture decision
 
@@ -54,7 +54,7 @@ flowchart LR
   CAP -->|bounded binary WS frames| GW
   CAP -->|HTTP keyframes / finalized .rrcap| GW
   GW -->|versioned artifacts + proposals| LOCAL
-  UI <-->|WebRTC voice events| GPT
+  UI <-->|WebRTC preferred; bounded WS demo| GPT
   GW <--> REPLAY
   GW <--> INSPECT
   GW <--> TYPED
@@ -121,7 +121,7 @@ Replay determinism means identical ordered captured packets/events/hashes and th
 - Live selected images use one binary WebSocket message per atomic FramePacket; its JSON header and image payload cannot interleave with another frame.
 - That message uses RRFP-WIRE-1 from CON-001: 24-byte big-endian fixed header (`RRFP`, 1.0, zero flags, uint32 JCS-header length, uint32 payload length, uint64 capture sequence), then exact JCS UTF-8 header and exact image bytes with no trailer. Header and payload are capped at 64 KiB and 16 MiB. Duplicate sequence/length and payload SHA must match; truncation, trailing bytes, mismatch, or tamper rejects the whole frame.
 - High-resolution keyframes and finalized `.rrcap` uploads use resumable/idempotent HTTP.
-- Optional voice uses direct client WebRTC to OpenAI after the gateway mints a short-lived scoped client secret; its output re-enters the same nonmutating proposal boundary as typed/tap input.
+- Optional voice uses a short-lived scoped client secret minted by the gateway. WebRTC remains the preferred browser/mobile transport. The hackathon native push-to-talk slice may use a bounded direct WebSocket with that ephemeral credential, fixed PCM format, explicit client turn boundaries, and no standard API key; failure disables voice and leaves typed/tap complete. Its transcript re-enters the same CON-006/CON-005 nonmutating proposal boundary.
 - Each stage has a bounded queue. Inference queues drop stale non-keyframes in favor of the newest useful view; durable journals never reorder accepted entries.
 - Gateway acceptance is idempotent by frame key/fingerprint. Reconnect resumes from the last acknowledged sequence and reconciles gaps; it does not resend unbounded history.
 - Backpressure reduces cadence/quality before local recording or render correctness.
@@ -254,9 +254,11 @@ RR-RESTORE-REBASE-1 prevents an old inverse from deleting a newly tracked object
 
 ## 12. Realtime, GPT, and tool boundary
 
-Typed/tap proposal ingress is the complete P0 path and works without OpenAI or network. If optional voice is enabled, the gateway uses a standard server-only OpenAI key to create an ephemeral Realtime client secret/session and iPhone/browser uses WebRTC for speech. Realtime function calling is a low-latency proposal channel and does not provide the canonical strict state contract by itself.
+Typed/tap proposal ingress is the complete P0 path and works without OpenAI or network. If optional voice is enabled, the gateway uses a standard server-only OpenAI key to create an ephemeral Realtime client secret/session. Browser/mobile WebRTC remains preferred; the bounded native hackathon push-to-talk implementation may use WebSocket with the ephemeral credential under ADR-011's amendment. The native demo consumes only Realtime's completed transcription event and does not issue `response.create` or accept a Realtime tool call directly; Sol/CON-006 provides the separate strict semantic proposal step.
 
-GPT-5.6 Sol through the Responses API may normalize intent, choose among curated designs, explain readiness, and emit a strict typed proposal. Strict schemas improve shape but do not establish semantic authorization. Allowed tools are narrow and non-mutating at the model boundary, such as `propose_place`, `propose_replace`, `propose_remove`, and `propose_restore`. Application code captures utterance-time target context, verifies session/user/operation, validates deterministic checks, presents preview, and requires confirmation.
+GPT-5.6 Sol through the Responses API may inspect one explicitly consented current JPEG, normalize intent, choose among the three repository-owned demo catalog entries, explain readiness, and emit strict CON-006. The live AR/render path never uploads or waits: image encoding and network access happen only after the user taps Ask. Strict schemas improve shape but do not establish semantic authorization. The gateway binds trusted request context and the native client rechecks exact session/branch/revision/world/target context, maps `vision` to frozen CON-005 `typed` plus semantic-model provenance, runs deterministic validation, presents a revision-neutral preview, and requires a separate explicit confirmation.
+
+CON-006 has exactly two outcomes: `ready` with one allowlisted four-operation semantic intent, or `needs_clarification` with no intent. It forbids transforms, URLs, model-supplied target/session context, confirmation, authorization, commit, restore execution, and revision fields. Voice first yields a completed bounded transcript, then uses the same Sol proposal route; incomplete transcript events are ignored.
 
 Model text, tool arguments, asset metadata, replay labels, and Internet research are untrusted. They cannot introduce new tools, change target/session, bypass license/revision/readiness checks, access credentials, deploy, or directly delete/commit.
 
@@ -345,7 +347,7 @@ Dense provider/fusion experiments run only within the bounded gate parallel to S
 
 ## 19. Contract and ADR map
 
-CON-001 FramePacket and CON-002 `.rrcap` govern capture/replay; CON-003 governs scene identity/readiness; CON-004 governs derived edit artifacts/assets/corrections; CON-005 governs edit transactions/reconciliation. The exact `$id` registry and terms live in the glossary/contracts README. Load-bearing choices are ADR-001 through ADR-014. Requirements and gates link back to these authorities rather than duplicating schema definitions.
+CON-001 FramePacket and CON-002 `.rrcap` govern capture/replay; CON-003 governs scene identity/readiness; CON-004 governs derived edit artifacts/assets/corrections; CON-005 governs edit transactions/reconciliation; CON-006 governs optional model semantic proposals without changing frozen CON-005. The exact `$id` registry and terms live in the glossary/contracts README. Load-bearing choices remain ADR-001 through ADR-014, with the dated native-transport amendment in ADR-011. Requirements and gates link back to these authorities rather than duplicating schema definitions.
 
 ## 20. Provisional decisions and benchmark gates
 
@@ -361,4 +363,5 @@ CON-001 FramePacket and CON-002 `.rrcap` govern capture/replay; CON-003 governs 
 
 ## 21. Changelog
 
+- **1.1.0 (2026-07-19):** Added executable CON-006, a three-entry repo-owned hackathon catalog, explicit single-frame consent, Sol Responses proposals, and optional ephemeral Realtime push-to-talk. Preserved native deterministic authority, frozen CON-005, separate confirmation, offline typed/tap completion, and all pending physical/human gates. Recorded bounded native WebSocket as a demo transport while retaining WebRTC as the production-preferred client path.
 - **1.0.0 (2026-07-13):** Replaced the historical multi-service/dense-first plan with a record-first fast path, strict coordinate and transaction contracts, capability readiness, bounded service topology, guaranteed provider-independent B0, quality-gated P0 removal, and isolated B1. All performance values are unmeasured targets.

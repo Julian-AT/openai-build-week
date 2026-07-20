@@ -149,7 +149,7 @@ Common constraints are two developers, one week, a controlled hero scene, a base
 
 1. **Problem:** Make voice/GPT useful without granting spatial or mutation authority.
 2. **Project constraints:** Server-side secrets, strict validation, typed fallback, injection resistance.
-3. **Existing proposed choice:** Realtime intent, gateway, Sol strict tools, deterministic validation.
+3. **Existing proposed choice:** Realtime transcript ingress, gateway, Sol strict output, deterministic validation.
 4. **Alternatives:** Realtime mutations; gateway-only audio; direct WebRTC narrow ingress.
 5. **Criteria:** Security, latency, structure, testability, graceful failure, implementation effort.
 6. **Evidence:** Official Realtime WebRTC and model capability pages; ADR-011.

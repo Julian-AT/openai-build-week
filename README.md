@@ -1,75 +1,128 @@
 # ReRoom
 
-Status: **GSD 1.7 planning ready; product implementation has not started.**
+Status: **working hackathon demo candidate; deterministic software checks pass,
+physical/human gates remain pending.**
 
-ReRoom is a controlled camera-grounded room editor. The native SwiftUI iPhone
-experience uses ARKit authority to place, replace, remove, and restore one
-freestanding chair or small table. A separate Next.js Mode B0 client provides
-deterministic replay, inspection, sessions, sharing, typed proposals, and
-honest fallback behavior.
+ReRoom is a camera-grounded room editor for one controlled chair or small table.
+The native SwiftUI/ARKit app exposes exactly place, replace, remove, and restore;
+a separate web client owns deterministic Mode B0 replay. Optional GPT-5.6 Sol
+and Realtime features propose design intent only. Native deterministic code
+still owns target context, geometry, revisions, preview, confirmation, commit,
+reconciliation, and restore.
 
-## Start on another machine
+## Continue now
 
-Install Node.js 22+ and npm 10+, then clone this repository and open a terminal
-at its root. Keep `FIRECRAWL_API_KEY` in the user environment, never in the
-repository. Add the following global Codex MCP entry to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.firecrawl]
-command = "npx"
-args = ["--yes", "firecrawl-mcp@3.22.3"]
-env_vars = ["FIRECRAWL_API_KEY"]
-```
-
-From the repository root, install GSD Core globally for Codex:
-
-```text
-npx --yes @opengsd/gsd-core@1.7.0 --codex --global
-```
-
-Restart Codex completely, then confirm `codex mcp list` includes `firecrawl`.
-GSD's runtime, agents, skills, hooks, and MCP configuration belong in the
-user's Codex home; they are intentionally not vendored in this repository.
-
-The repository is already initialized. Do not run `$gsd-new-project` or repeat
-new-mode document ingestion. Start with:
+Read [the canonical authority](docs/canonical/README.md), then run:
 
 ```text
 $gsd-next
 ```
 
-GSD 1.7 should route this state to Phase 1 discussion (equivalent to
-`$gsd-discuss-phase 1`).
+GSD must use [.planning/STATE.md](.planning/STATE.md) as the current position.
+Do not restart at Phase 1, run `$gsd-new-project`, or re-ingest the repository.
+The exact remaining hackathon sequence is in
+[HACKATHON-24H.md](.planning/milestones/v1.0/HACKATHON-24H.md).
 
-## Planning entry point
+## Run the local AI gateway
 
-The portable project state is entirely under `.planning/`:
+Use Node `22.22.3` and npm `10.9.8`:
 
-- [PROJECT.md](.planning/PROJECT.md) — scope, authority, constraints, and decisions
-- [REQUIREMENTS.md](.planning/REQUIREMENTS.md) — 24 P0 and 2 stretch requirements
-- [ROADMAP.md](.planning/ROADMAP.md) — eight dependency/risk phases and gate mapping
-- [STATE.md](.planning/STATE.md) — current position and continuation state
-- [config.json](.planning/config.json) — minimal Codex/GSD settings
-- [intel/SYNTHESIS.md](.planning/intel/SYNTHESIS.md) — compact ingest synthesis and limits
+```sh
+nvm use  # when nvm is installed; reads the repository .nvmrc
+cd gateway
+npm ci
+npm test
+npm run typecheck
+```
 
-The config keeps GSD 1.7's `balanced` role allocation while resolving every
-Codex tier to GPT-5.6 Sol. Heavy roles use xhigh effort, standard roles use high,
-and light mapping/checking roles use low, preserving speed without changing the
-model family. It keeps interactive checkpoints and standard plan granularity,
-enables the relevant research, UI, AI, API, review, security, and TDD gates, and
-leaves graph updates manual. Firecrawl is enabled through the user environment.
+Set `OPENAI_API_KEY` and a high-entropy `REROOM_GATEWAY_TOKEN` in the shell
+environment; never put either value in source. For simulator-only use, bind the
+gateway to `127.0.0.1`. For an iPhone, bind to the Mac's LAN interface and enter
+that URL plus the gateway token in the app's **AI design copilot → Gateway
+setup** panel.
 
-## Product authority
+```sh
+npm run build
+npm start
+```
 
-Start with [docs/canonical/README.md](docs/canonical/README.md). Human locks and
-Accepted ADRs outrank provisional choices, contracts/specifications, the PRD,
-and supporting evidence documents.
+The gateway exposes only:
+
+- `GET /health`
+- `POST /v1/proposals` — strict CON-006 Sol proposal, optional explicitly
+  consented JPEG
+- `POST /v1/realtime/client-secret` — short-lived Realtime credential
+
+See [gateway/README.md](gateway/README.md) for exact request shapes and safety
+boundaries. No live OpenAI request occurs without a configured key.
+
+## Run the native app
+
+Open
+[ReRoomDeviceProof.xcodeproj](ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj)
+in the current Xcode, select the checked-in `ReRoomDeviceProof` scheme, and run
+on the base iPhone. The simulator proves compilation and deterministic UI/model
+tests; it cannot prove ARKit, camera, microphone, compositor, thermal, or visual
+quality gates.
+
+The native AI panel supports:
+
+- a typed design request;
+- optional one-frame vision, encoded only after explicit action and consent;
+- a three-entry digest-bound local demo catalog;
+- optional push-to-talk Realtime transcription;
+- strict context-bound proposals that create a preview only;
+- separate deterministic confirmation for commits and restore.
+
+Turning off the gateway/model/network leaves the full local typed/tap journey
+available.
+
+## Run the deterministic checks
+
+```sh
+swift test --package-path ios/Packages/ReRoomContracts
+npm --prefix gateway test
+npm --prefix gateway run typecheck
+npm --prefix gateway run build
+node tools/assets/generate_hackathon_assets.mjs
+npm --prefix gateway audit --omit=dev --audit-level=high
+npm --prefix web test
+npm --prefix web run typecheck
+npm --prefix web run build
+npm --prefix web audit --omit=dev --audit-level=high
+python3 -m unittest tools.python.tests.test_semantic_proposal \
+  tools.verify.tests.test_phase_05_replacement \
+  tools.verify.tests.test_phase_02_1_trust_boundary
+```
+
+The Xcode project contains a provenance guard that intentionally rejects a
+source-dirty evidence build. Commit an approved coherent revision before
+collecting revision-bound device evidence; do not disable the guard.
+
+## Project authority and planning
+
+- [Canonical authority](docs/canonical/README.md)
+- [Archive-to-current coverage](docs/audit/ARCHIVE_MASTER_PLAN_COVERAGE.md)
+- [GSD project](.planning/PROJECT.md)
+- [Requirements](.planning/REQUIREMENTS.md)
+- [Roadmap](.planning/ROADMAP.md)
+- [Current state](.planning/STATE.md)
+- [24-hour finish runbook](.planning/milestones/v1.0/HACKATHON-24H.md)
+- [GSD configuration](.planning/config.json)
+- [GSD configuration rationale](.planning/milestones/v1.0/GSD-CONFIGURATION.md)
 
 The original [Master Technical Plan v3.2](docs/archive/source/ReRoom_Master_Technical_Plan_v3.2.md)
-and [PRD v1.0](docs/archive/source/ReRoom_PRD_v1.0.md) remain byte-preserved
-historical sources. Their useful content was canonicalized; material corrections
-are recorded in [the decision changelog](docs/audit/DECISION_CHANGELOG.md).
+and [PRD v1.0](docs/archive/source/ReRoom_PRD_v1.0.md) are byte-preserved
+historical inputs. They are not implementation authority.
 
-No phase description authorizes implementation by itself. Discuss the phase,
-review its detailed plan, and preserve the canonical requirement, contract,
-gate, security, license, and evidence rules.
+## GSD on another machine
+
+Install GSD Core globally, never inside this repository:
+
+```text
+npx --yes @opengsd/gsd-core@1.7.0 --codex --global
+```
+
+Restart Codex, open the repository root, and run `$gsd-next`. Generated agents,
+skills, hooks, MCP configuration, credentials, and machine paths remain in the
+developer's user environment. Only `.planning/` is shared project state.

@@ -128,8 +128,8 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Source URL:** https://nextjs.org/docs/app/getting-started/server-and-client-components ; https://nextjs.org/docs/app/guides/static-exports
 - **Source type:** Official Next.js documentation.
 - **Publication/release date:** Not stated.
-- **Retrieval date:** 2026-07-13.
-- **Exact version/tag/revision:** Next.js `16.2.9`; official tag https://github.com/vercel/next.js/releases/tag/v16.2.9 ; code license MIT at https://github.com/vercel/next.js/blob/v16.2.9/license.md .
+- **Retrieval date:** 2026-07-20.
+- **Exact version/tag/revision:** Next.js `16.2.10`, npm integrity `sha512-2som5AVXb3kE6Yjine3/mNbBayYF58eguBWIVVUdr1y/L426xyVEgYxgBG+1QC34P2x5E+tcDup6XkuOAX3dCA==`; official source tag https://github.com/vercel/next.js/releases/tag/v16.2.10 ; code license MIT at https://github.com/vercel/next.js/blob/v16.2.10/license.md . The exact lock overrides Next's vulnerable PostCSS `8.4.31` transitive pin with PostCSS `8.5.20`; this compatibility choice is accepted only while the complete web tests, typecheck, production build, and high-severity audit all pass.
 - **Evidence summary:** Camera, IndexedDB, WebCodecs, interactive replay, and capability detection must execute on the client. Secrets and privileged session APIs stay server-side.
 - **Confidence:** High.
 - **Known limitations or ambiguity:** Next.js documentation does not grant ARKit-equivalent pose/plane/intrinsics authority to a browser.
@@ -222,7 +222,7 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Publication/release date:** Page release date not reliably stated in the captured evidence.
 - **Retrieval date:** 2026-07-13.
 - **Exact version/tag/revision:** Model identifier `gpt-realtime-2.1`.
-- **Evidence summary:** Realtime can emit function-call arguments, but ReRoom must expose only the nonmutating `submit_user_intent` boundary and validate every argument.
+- **Evidence summary:** Realtime can emit function-call arguments, but the Phase 09 push-to-talk slice intentionally exposes no Realtime tools. It accepts only a bounded completed transcription event, then sends that transcript through Sol, CON-006, and the existing deterministic CON-005 intent boundary.
 - **Confidence:** High.
 - **Known limitations or ambiguity:** Function calling does not imply authorization, semantic correctness, idempotency, or mutation safety.
 
@@ -532,18 +532,18 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Confidence:** High.
 - **Known limitations or ambiguity:** Codex must be restarted after installation or upgrade.
 
-### CLM-035 — Project config uses GSD 1.7 balanced routing with Sol
+### CLM-035 — Project config uses health-clean GSD 1.7 Sol/Terra/Luna routing
 
-- **Claim:** `.planning/config.json` is the standard project configuration location. GSD 1.7 can keep the `balanced` per-agent tier allocation while `model_profile_overrides.codex` resolves every tier to GPT-5.6 Sol; effort routing can then run heavy, standard, and light roles at xhigh, high, and low effort respectively.
+- **Claim:** `.planning/config.json` is the standard project configuration location. ReRoom uses GSD 1.7's health-clean `balanced` profile, maps Codex `opus`, `sonnet`, and `haiku` tiers to GPT-5.6 Sol, Terra, and Luna, promotes debugger/security roles to Sol, and assigns xhigh, high, and low effort to heavy, standard, and light work respectively.
 - **Status:** `VERIFIED`
 - **Decision or requirement affected:** Project GSD configuration and model selection.
 - **Source title:** GSD 1.7 settings workflow, planning configuration, and model catalog
 - **Source URL:** https://github.com/open-gsd/gsd-core/tree/v1.7.0
 - **Source type:** Official released configuration workflow and machine-readable catalog.
 - **Publication/release date:** GSD 1.7.0 release.
-- **Retrieval date:** 2026-07-15.
-- **Exact version/tag/revision:** GSD 1.7.0; Codex model `gpt-5.6-sol`.
-- **Evidence summary:** The project retains balanced role classification but maps all three Codex tiers to Sol. Heavy architecture/security agents resolve to xhigh effort, normal execution/research/verification agents to high, and mechanical mapping/checking agents to low. Interactive checkpoints remain active; the project also explicitly enables its research, UI, AI, API coverage, review, security, and TDD gates. Firecrawl credentials remain in the user environment and are forwarded by global Codex MCP configuration.
+- **Retrieval date:** 2026-07-19.
+- **Exact version/tag/revision:** GSD 1.7.0; Codex models `gpt-5.6-sol`, `gpt-5.6-terra`, and `gpt-5.6-luna`.
+- **Evidence summary:** `gsd-tools resolve-model` was run against the checked-in config: planner and security-auditor resolve to Sol; executor, code-reviewer, and doc-writer resolve to Terra; codebase-mapper resolves to Luna. Heavy reasoning remains xhigh, standard high, and light low. Interactive checkpoints remain active, with research, UI, AI, API coverage, review, security, TDD, and Nyquist gates enabled. This preserves deep reasoning where it is load-bearing without spending the 24-hour window running mechanical roles on Sol.
 - **Confidence:** High.
 - **Known limitations or ambiguity:** The catalog may change in a later GSD release; consume that release's defaults rather than copying its catalog.
 
@@ -625,6 +625,51 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Evidence summary:** Context7 had no entry for this exact package, so the implementation was verified against the official pinned checkout. The package provides Draft 2020-12 runtime compilation and validation, but unknown keywords are nonasserting and its built-in date-time helper requires fractional seconds. ReRoom therefore scans the exact 35-keyword profile before compilation, forbids remote/dynamic resolution, and supplies a bounded RFC 3339-compatible `date-time` assertion. Five valid schemas and all 18 frozen cases agree exactly. Twenty corpus repetitions plus schema compilation completed in a MEASURED 2.507663833 seconds against a 10-second plan-local timebox; raw evidence SHA-256 is `a7220bfa2ce37a25b76554acd2559f57c73eadf52033fe8d31d3ca68c4da05a4`.
 - **Confidence:** High for the exact pinned macOS contract profile.
 - **Known limitations or ambiguity:** This does not approve another package version, another schema keyword, a remote/dynamic schema, or any physical-device claim. Pin/profile/oracle/timebox drift activates the bounded local fallback rather than widening compatibility.
+
+### CLM-041 — Ephemeral Realtime WebSocket is possible but WebRTC remains the recommended mobile transport
+
+- **Claim:** Current OpenAI documentation recommends WebRTC for browser/mobile Realtime clients, but also documents that a browser WebSocket can authenticate with an ephemeral token. The Realtime client-secret API creates a scoped short-lived session credential, while a standard API key belongs only on the trusted server.
+- **Status:** `VERIFIED`
+- **Decision or requirement affected:** `STR-VOICE-001`, `SEC-CREDENTIAL-001`, `SEC-AGENT-001`; [ADR-011](../adr/ADR-011-agent-and-deterministic-boundary.md); `GATE-010`.
+- **Source title:** Realtime API with WebSocket; Create client secret
+- **Source URL:** https://developers.openai.com/api/docs/guides/realtime-websocket ; https://developers.openai.com/api/reference/resources/realtime/subresources/client_secrets/methods/create
+- **Source type:** Official OpenAI API documentation.
+- **Publication/release date:** Not stated on the captured pages.
+- **Retrieval date:** 2026-07-19.
+- **Exact version/tag/revision:** Current Realtime documentation; `gpt-realtime-2.1` session model; ReRoom demo secret lifetime fixed to 600 seconds.
+- **Evidence summary:** The optional native hackathon push-to-talk slice may use a bounded WebSocket with only the scoped credential. This is an explicit demo tradeoff, not evidence that WebSocket is the preferred production mobile transport. Voice produces a completed transcript that must pass the separate Sol/CON-006/native deterministic boundary.
+- **Confidence:** High for documented connection/authentication capability; unmeasured for mobile robustness and end-to-end ReRoom voice accuracy.
+- **Known limitations or ambiguity:** The native URLSession path, latency, network transitions, audio interruption behavior, and five-utterance quality remain `GATE-010` physical/external-service evidence. Failure activates typed/tap fallback.
+
+### CLM-042 — Structured Sol output constrains proposal shape but never supplies application authority
+
+- **Claim:** GPT-5.6 Sol supports image input and Structured Outputs through the Responses API. JSON Schema can constrain an output shape, but target authorization, revision freshness, catalog allowlisting, confirmation, and mutation remain application responsibilities.
+- **Status:** `VERIFIED`
+- **Decision or requirement affected:** `STR-VOICE-001`, `FR-AGENT-001`, `SEC-AGENT-001`; CON-006; [ADR-011](../adr/ADR-011-agent-and-deterministic-boundary.md).
+- **Source title:** GPT-5.6 Sol Model; Structured model outputs; Images and vision
+- **Source URL:** https://developers.openai.com/api/docs/models/gpt-5.6-sol ; https://developers.openai.com/api/docs/guides/structured-outputs ; https://developers.openai.com/api/docs/guides/images-vision
+- **Source type:** Official OpenAI model/API documentation.
+- **Publication/release date:** Not stated on the captured pages.
+- **Retrieval date:** 2026-07-19.
+- **Exact version/tag/revision:** Model identifier `gpt-5.6-sol`; current Responses API documentation.
+- **Evidence summary:** ReRoom uses strict output for a closed semantic proposal only. Gateway code attaches exact trusted context and checks the server-owned three-entry catalog; native code rejects stale echo/context and re-enters frozen CON-005 through the deterministic preview boundary. One camera frame is encoded only after an explicit Ask action and consent.
+- **Confidence:** High for documented API capability and local boundary design.
+- **Known limitations or ambiguity:** No live request was made without a project credential, so model availability, semantic quality, latency, rate limits, and the 4/5 voice threshold remain unmeasured.
+
+### CLM-043 — The web dependency override closes the disclosed PostCSS advisory
+
+- **Claim:** Next.js 16.2.10 still declares PostCSS 8.4.31, which is below the patched range for `GHSA-qx2v-qp2m-jg93`. The exact npm override to PostCSS 8.5.20 resolves the production tree to a patched MIT release and passes ReRoom's complete web compatibility checks.
+- **Status:** `MEASURED`
+- **Decision or requirement affected:** `FR-WEB-001`, `OPS-LICENSE-001`, `SEC-AGENT-001`; the Phase 09 dependency review.
+- **Source title:** Next.js 16.2.10 npm metadata; PostCSS 8.5.20 npm metadata; GitHub Advisory `GHSA-qx2v-qp2m-jg93`; ReRoom web verification.
+- **Source URL:** https://registry.npmjs.org/next/16.2.10 ; https://registry.npmjs.org/postcss/8.5.20 ; https://github.com/advisories/GHSA-qx2v-qp2m-jg93
+- **Source type:** Official npm registry metadata, GitHub Advisory Database, and reproducible local test/build/audit output.
+- **Publication/release date:** Registry versions as retrieved 2026-07-20.
+- **Retrieval date:** 2026-07-20.
+- **Exact version/tag/revision:** `next@16.2.10`, integrity `sha512-2som5AVXb3kE6Yjine3/mNbBayYF58eguBWIVVUdr1y/L426xyVEgYxgBG+1QC34P2x5E+tcDup6XkuOAX3dCA==`; `postcss@8.5.20`, integrity `sha512-lW616l85ucIQL+FocMmL7pQFPqBmwejrCMg+iPxyImlrANNJG9NHq/RkyCZopDhd8C3LA03PHRJDjkbGu8vvug==`; both MIT.
+- **Evidence summary:** `npm ls next postcss --all` resolves Next.js 16.2.10 with PostCSS 8.5.20 overridden. Ten web tests, `next typegen`, strict TypeScript, and the production build pass. `npm audit --omit=dev` reports zero informational, low, moderate, high, or critical vulnerabilities.
+- **Confidence:** High for the exact locked tree and tested web surface.
+- **Known limitations or ambiguity:** This is an explicit transitive compatibility override, not an upstream Next.js dependency declaration. Any Next.js/PostCSS/lockfile change must rerun the same suite, build, dependency-tree, and audit checks; failure removes the override or activates the static local fallback.
 
 ## 10. Decision summary and unresolved empirical claims
 

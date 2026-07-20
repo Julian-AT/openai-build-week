@@ -1,8 +1,8 @@
 # ReRoom Product Requirements Document
 
 Status: canonical product authority
-Version: 1.0.0  
-Date: 2026-07-13
+Version: 1.1.0
+Date: 2026-07-19
 
 ## 1. Product intent
 
@@ -134,7 +134,7 @@ The stable ID convention is defined in `GLOSSARY_AND_ID_REGISTRY.md`: `FR-*`, `N
 - **Dependencies:** FR-TARGET-001; FR-TRANSACTION-001.
 - **Fallback:** Curated asset picker plus explicit operation controls through the same validated proposal boundary.
 - **Relevant ADRs:** ADR-011.
-- **Contract/spec references:** CON-005; Master Spec §12.
+- **Contract/spec references:** CON-005 and optional CON-006; Master Spec §12.
 - **Recommended slice:** S6 Agent ingress after typed edits pass.
 
 ### FR-B0-001 — Guaranteed `.rrcap` replay
@@ -278,7 +278,7 @@ The stable ID convention is defined in `GLOSSARY_AND_ID_REGISTRY.md`: `FR-*`, `N
 - **Dependencies:** FR-AGENT-001; strict gateway schemas.
 - **Fallback:** Disable model tools and use typed deterministic controls.
 - **Relevant ADRs:** ADR-011.
-- **Contract/spec references:** CON-005; Master Spec §§12 and 16.
+- **Contract/spec references:** CON-005 and optional CON-006; Master Spec §§12 and 16.
 - **Recommended slice:** S6, regression S8.
 
 ### OPS-DEVICE-001 — Device/build readiness
@@ -361,12 +361,12 @@ Primary success metrics are golden-run completion, exact replay/revision traces,
 ### STR-VOICE-001 — Optional Realtime/GPT semantic ingress
 
 - **Priority:** P1/nonblocking stretch
-- **Statement:** Realtime voice and GPT may translate utterances into the same nonmutating typed proposal accepted by FR-AGENT-001.
-- **Acceptance criteria:** At least 4/5 fixed hero utterances produce the expected proposal; every ambiguity/injection fixture rejects or clarifies; disabling model/network leaves the complete typed/tap journey available.
+- **Statement:** Realtime voice and GPT may translate a bounded transcript, typed prompt, or one explicitly consented current camera frame into the same nonmutating semantic proposal accepted by FR-AGENT-001.
+- **Acceptance criteria:** CON-006 rejects stale context, unknown catalog assets, transforms, URLs, confirmation/commit fields, and every unknown property; applying a valid proposal creates only a revision-neutral deterministic preview. At least 4/5 fixed hero utterances produce the expected proposal; every ambiguity/injection fixture rejects or clarifies; disabling model/network leaves the complete typed/tap journey available.
 - **Dependencies:** FR-AGENT-001 and SEC-AGENT-001; server-minted ephemeral Realtime credential.
 - **Fallback:** End voice work and use typed/tap controls; P0 status is unchanged.
 - **Relevant ADRs:** ADR-011.
-- **Contract/spec references:** CON-005; Master Spec §12.
+- **Contract/spec references:** CON-005, CON-006; Master Spec §12.
 - **Recommended slice:** S6 only after typed transactions and injection tests pass.
 
 ### STR-B1-001 — Isolated offline refinement
@@ -382,4 +382,5 @@ Primary success metrics are golden-run completion, exact replay/revision traces,
 
 ## 10. Changelog
 
+- **1.1.0 (2026-07-19):** Made the optional AI slice executable through CON-006, explicit one-frame vision consent, a closed local demo catalog, revision-neutral model proposals, and optional Realtime transcription. P0 scope and deterministic mutation authority are unchanged.
 - **1.0.0 (2026-07-13):** Canonical preparation rewrite. Locked four-operation scope; made removal a real release gate; narrowed guaranteed B0 to deterministic replay/web behavior; separated semantic intent from deterministic mutation; added stable testable IDs and explicit fallbacks; isolated B1.

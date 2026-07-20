@@ -1,8 +1,8 @@
 # Glossary and ID Registry
 
 Status: canonical naming authority  
-Version: 1.0.0  
-Date: 2026-07-13
+Version: 1.1.0
+Date: 2026-07-19
 
 ## Product modes
 
@@ -63,6 +63,7 @@ Session presentation state is UI-derived and noncanonical: `initializing`, `coac
 | **sync state** | Local transport state independent of canonical transaction state: `local_only`, `pending_sync`, `synced`, `conflict`, or `sync_failed`. A locally committed edit remains renderable offline. |
 | **idempotency rule** | Reuse of an idempotency key with the same request fingerprint returns the prior result; reuse with a different fingerprint is a protocol conflict. |
 | **revision authority** | Exactly one writer for one `revision_branch_id`. A live Mode A branch is owned by its native `device_…`; the gateway validates and durably replicates its ordered journal. A B0 replay fork may be owned by `gateway_…`. Web input against an active phone branch is proposal-only. Unexpected divergence is quarantined on another branch and requires snapshot reconciliation; there is no automatic merge. |
+| **semantic proposal envelope** | CON-006 optional-model output bound by gateway code to one exact trusted native request-context snapshot. It may contain one allowlisted product operation, curated asset ID, and typed design constraints, or one clarification. It is never authorization, geometry, preview confirmation, commit, restore execution, or revision authority. |
 
 ## Edit artifact variants
 
@@ -93,3 +94,4 @@ IDs are immutable once published. Removed requirements remain reserved and marke
 | CON-003 | `scene-state.schema.json` | `urn:reroom:schema:scene-state:1` |
 | CON-004 | `edit-artifacts.schema.json` | `urn:reroom:schema:edit-artifacts:1` |
 | CON-005 | `transaction.schema.json` | `urn:reroom:schema:transaction:1` |
+| CON-006 | `semantic-proposal.schema.json` | `urn:reroom:schema:semantic-proposal:1` |

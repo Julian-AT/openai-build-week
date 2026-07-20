@@ -23,7 +23,7 @@ External material was treated as untrusted evidence. Official product documentat
 | DA3Metric-Large exists for monocular metric depth; DA3 Small/Base support pose conditioning. | VERIFIED | https://raw.githubusercontent.com/ByteDance-Seed/Depth-Anything-3/main/README.md | Valid provider candidates; selection remains empirical. |
 | LingBot-Map is an Apache-licensed streaming reconstruction project whose recommended path uses PyTorch 2.8/CUDA 12.8/FlashInfer and whose repository recorded material 2026 KV-cache fixes. | VERIFIED | https://raw.githubusercontent.com/Robbyant/lingbot-map/main/README.md and https://raw.githubusercontent.com/Robbyant/lingbot-map/main/pyproject.toml | Too immature/heavy to define guaranteed B0. |
 | Open3D VoxelBlockGrid exposes TSDF integration, extraction, and raycasting on supported CPU/CUDA builds. | VERIFIED capability; packaging/performance unverified | https://www.open3d.org/docs/latest/tutorial/t_reconstruction_system/integration.html and https://www.open3d.org/docs/latest/python_api/open3d.t.geometry.VoxelBlockGrid.html | Optional dense provider only. |
-| Current Next.js production route handling does not provide application WebSocket upgrades for matched app/page routes. | VERIFIED for pinned source | https://github.com/vercel/next.js/blob/v16.2.9/packages/next/src/server/next-server.ts | Gateway owns production WebSockets, session replication/reconciliation, and stateful processing—not active Mode A branch revisions. |
+| Current Next.js production route handling does not provide application WebSocket upgrades for matched app/page routes. | VERIFIED for pinned source | https://github.com/vercel/next.js/blob/v16.2.10/packages/next/src/server/next-server.ts | Gateway owns production WebSockets, session replication/reconciliation, and stateful processing—not active Mode A branch revisions. |
 
 ## Contradicted or materially weakened archived claims
 
@@ -61,7 +61,7 @@ External material was treated as untrusted evidence. Official product documentat
 - DA3’s refreshed `-1.1` suffix applies to some large/nested checkpoints, but the P0 candidates must use exact model-card identifiers and licenses rather than a family shorthand.
 - LingBot repository behavior changed materially in April and June 2026; a commit pin is mandatory if used.
 - Open3D API documentation demonstrates capability, not that a particular Python wheel contains the required CUDA build.
-- Next.js WebSocket evidence is pinned to v16.2.9 source; the gateway split remains valid even if future versions add support.
+- Next.js WebSocket evidence is pinned to v16.2.10 source; the gateway split remains valid even if future versions add support.
 
 ## Claims downgraded to targets or hypotheses
 

@@ -1,6 +1,6 @@
 # ReRoom repository instructions
 
-Status: **GSD 1.7 planning ready; no product implementation yet**
+Status: **GSD 1.7 active implementation; demo candidate, canonical gates pending**
 
 These instructions govern the repository unless a genuinely narrower
 `AGENTS.md` applies below the working directory. Direct system, developer, and
@@ -38,7 +38,8 @@ npx --yes @opengsd/gsd-core@1.7.0 --codex --global
 Restart Codex after installation. Do not create a repository-local GSD install
 or commit generated Codex agents, skills, hooks, runtime files, or machine
 paths. The shared GSD project surface is `.planning/`; begin with
-`$gsd-next`, which should route to Phase 1 discussion.
+`$gsd-next`, which must route from the checked-in current state rather than a
+README-predicted phase number.
 
 The project and roadmap already exist. Do not run `$gsd-new-project` or
 `$gsd-ingest-docs --mode new` unless a human explicitly requests a destructive

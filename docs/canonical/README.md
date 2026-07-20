@@ -1,7 +1,7 @@
 # ReRoom Canonical Authority
 
-Status: **canonical authority; GSD planning initialized**
-Effective date: 2026-07-15
+Status: **canonical authority; GSD implementation active**
+Effective date: 2026-07-19
 
 ## Authority and precedence
 
@@ -35,6 +35,11 @@ The glossary is the naming authority; JSON Schemas are the field and lifecycle a
 15. The two original project Markdown documents are byte-preserved historical evidence, not current authority.
 16. Canonical project documentation is English.
 
+The human owner directly authorized the 2026-07-19 implementation sprint. That
+authorization permits the approved Phase 02.1 trust-boundary closure and the
+optional AI demo slice, but it does not mark any physical, human, provider,
+license, or release gate green.
+
 Changing any locked decision requires an explicit human escalation in `docs/audit/OPEN_DECISIONS.md`.
 
 ## Provisional decisions
@@ -55,12 +60,12 @@ A `Provisional` ADR is usable only behind its provider/contract boundary. It mus
 
 ## GSD planning handoff
 
-`.planning/` is the initialized GSD 1.7 project entry point. It contains the
-project, 26 requirements (24 P0 and 2 stretch), eight-phase roadmap, state,
-minimal Codex config, and compact source synthesis. The initialization consumed
-the 14 ADRs, seven specifications/contracts, PRD, and six supporting canonical
-documents under the precedence above. It completed with zero blockers and zero
-warnings.
+`.planning/` is the shared GSD 1.7 project entry point. It contains the project,
+26 requirements (24 P0 and 2 stretch), implementation roadmap plus urgent gap
+closures, state, quality-first Codex config, and compact source synthesis. The
+canonical surface now includes 14 ADRs and six versioned JSON contracts,
+including optional nonmutating CON-006. Historical initialization counts are
+not used as current progress evidence.
 
 The archived v3.2 plan and v1.0 PRD remain the historical basis, but were not
 ingested directly because the canonical audit and ADR set deliberately repair

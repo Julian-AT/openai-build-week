@@ -126,6 +126,7 @@ Fixture changes require a new fixture revision and digest. A failing implementat
 | Test ID | Requirements / gate | Procedure | Acceptance |
 |---|---|---|---|
 | `TST-AGENT-001` Typed intent/tool correctness | `FR-AGENT-001`, `SEC-AGENT-001`; `GATE-010` | With network/models disabled, run every golden typed/tap edit and malformed/injection fixture through the local nonmutating proposal boundary. | **TARGET:** `100%` golden typed/tap edits reach a valid preview and every adversarial input rejects; no proposal can confirm or mutate. Typed failure blocks P0. |
+| `TST-AGENT-002` CON-006 Sol/vision proposal boundary | `STR-VOICE-001`, `SEC-AGENT-001`, `SEC-CREDENTIAL-001`; `GATE-010` | Validate gateway and native copies of CON-006 against ready/clarification fixtures; inject stale/native context, unknown catalog asset, unordered/duplicate constraints, transform, URL, confirmation, commit, restore-execution, revision, oversized image/prompt, and unknown fields. Repeat with one explicitly consented current JPEG and with no image. | **TARGET / P1:** every valid fixture binds exact context and can create only a revision-neutral preview; `100%` forbidden fixtures reject before deterministic mutation; no frame is captured/sent without the explicit one-frame action and consent; gateway/model failure leaves local catalog and typed/tap journey complete. |
 | `TST-VOICE-001` Optional voice proposal | `STR-VOICE-001`, `SEC-AGENT-001`; `GATE-010` | Only after `TST-AGENT-001` passes, run five fixed hero utterances through Realtime with the same captured context and compare the nonmutating proposal. | **TARGET / P1:** at least `4 of 5` expected proposals and `100%` injection rejection; failure disables voice and leaves P0 status unchanged. |
 | `TST-INJECTION-001` Prompt/tool injection | `SEC-AGENT-001`, `SEC-CREDENTIAL-001`; [ADR-011](../adr/ADR-011-agent-and-deterministic-boundary.md) | Put hostile instructions in utterances, asset metadata, labels, tool outputs, retrieved content, URLs and model arguments; attempt unlisted tool, target/session switch, transform injection, license bypass, deploy/delete, and secret extraction. | **TARGET:** `100%` adversarial cases reject or safely clarify; **TARGET:** `zero` state mutation, authority expansion, deployment, deletion, or credential disclosure; redacted audit event retained. |
 | `TST-CREDENTIAL-001` Ephemeral/standard keys | `SEC-CREDENTIAL-001`; [ADR-011](../adr/ADR-011-agent-and-deterministic-boundary.md) | Scan repository/bundles/logs/captures; expire/revoke client secret; inspect bootstrap and authorization-header redaction. | **TARGET:** `zero` standard keys in source/client/log/`.rrcap`; expired/invalid scoped credential fails closed while typed/local/replay remains usable. |
@@ -206,7 +207,7 @@ Every test result records:
 | Network loss/reconnect | `TST-NET-001`, `TST-OFFLINE-001` |
 | Tracking loss | `TST-TRACKING-001`, `TST-SEM-001` |
 | Web fallback | `TST-B0-001`, `TST-WEB-001` |
-| Agent intent/tools | `TST-AGENT-001` |
+| Agent intent/tools | `TST-AGENT-001`, `TST-AGENT-002`, `TST-VOICE-001` |
 | Prompt/tool injection | `TST-INJECTION-001`, `TST-CREDENTIAL-001` |
 | Golden-path repeated runs | `TST-GOLDEN-001` |
 | Demo acceptance | `TST-DEMO-001` |

@@ -26,7 +26,7 @@ Adopt alternative 3. SwiftUI owns application flow and UI; a native AR rendering
 ## Evidence
 
 - Apple exposes the AR session through RealityKit’s `ARView`: https://developer.apple.com/documentation/realitykit/arview/session
-- Current Next.js production route handling does not supply application WebSocket upgrades: https://github.com/vercel/next.js/blob/v16.2.9/packages/next/src/server/next-server.ts
+- Current Next.js production route handling does not supply application WebSocket upgrades: https://github.com/vercel/next.js/blob/v16.2.10/packages/next/src/server/next-server.ts
 - Human-locked client split in the governing prompt.
 
 ## Consequences
