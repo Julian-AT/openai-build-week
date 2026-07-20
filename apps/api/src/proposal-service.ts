@@ -1,24 +1,16 @@
 import { randomUUID as systemRandomUUID } from "node:crypto";
 
+import {
+  PROPOSAL_MODEL,
+  type ModelProposalInput,
+  type ProposalModelClient,
+} from "@reroom/ai";
+
 import { CURATED_ASSET_IDS } from "./catalog.ts";
 import type { ProposalRequest, ProposalRequestContext } from "./protocol.ts";
 import type { ProposalService } from "./server.ts";
 
-export const PROPOSAL_MODEL = "gpt-5.6-sol";
-
-export interface ModelProposalInput {
-  prompt: string;
-  image_data_url?: string;
-}
-
-export interface ModelProposalResult {
-  responseID: string;
-  output: unknown;
-}
-
-export interface ProposalModelClient {
-  generate(input: ModelProposalInput, signal: AbortSignal): Promise<ModelProposalResult>;
-}
+export { PROPOSAL_MODEL } from "@reroom/ai";
 
 export type TypedConstraint =
   | { kind: "color_tag" | "style_tag"; value: string }

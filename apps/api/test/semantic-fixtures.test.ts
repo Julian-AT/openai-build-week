@@ -3,9 +3,10 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { test } from "bun:test";
 
+import type { ModelProposalResult } from "@reroom/ai";
+
 import {
   createProposalService,
-  type ModelProposalResult,
   type SemanticProposalEnvelope,
 } from "../src/proposal-service.ts";
 import type { ProposalRequest } from "../src/protocol.ts";

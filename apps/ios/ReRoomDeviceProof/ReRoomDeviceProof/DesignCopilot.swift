@@ -929,7 +929,8 @@ typealias DesignCopilotRealtimeSessionFactory = @MainActor @Sendable (
 struct RealtimeClientSecret: Codable, Equatable, Sendable {
     let value: String
     let expiresAt: Int64
-    let session: RealtimeClientSession
+    let url: URL
+    let model: String
 
     var isUsable: Bool {
         expiresAt > Int64(Date().timeIntervalSince1970) + 5
@@ -948,9 +949,7 @@ struct RealtimeClientSecret: Codable, Equatable, Sendable {
                   maximumDepth: 4
               ),
               let root = try? JSONSerialization.jsonObject(with: canonical) as? [String: Any],
-              Set(root.keys) == ["value", "expires_at", "session"],
-              let session = root["session"] as? [String: Any],
-              Set(session.keys) == ["id", "model"]
+              Set(root.keys) == ["value", "expires_at", "url", "model"]
         else {
             throw DesignCopilotGatewayError.rejected
         }
@@ -961,11 +960,9 @@ struct RealtimeClientSecret: Codable, Equatable, Sendable {
               ) != nil,
               value.expiresAt > nowEpochSeconds + 5,
               value.expiresAt <= nowEpochSeconds + 660,
-              value.session.id.range(
-                  of: "^sess_[A-Za-z0-9_-]{1,123}$",
-                  options: .regularExpression
-              ) != nil,
-              value.session.model == "gpt-realtime-2.1"
+              value.url.absoluteString ==
+                  "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1",
+              value.model == "gpt-realtime-2.1"
         else {
             throw DesignCopilotGatewayError.rejected
         }
@@ -975,13 +972,9 @@ struct RealtimeClientSecret: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case value
         case expiresAt = "expires_at"
-        case session
+        case url
+        case model
     }
-}
-
-struct RealtimeClientSession: Codable, Equatable, Sendable {
-    let id: String
-    let model: String
 }
 
 enum DesignCopilotCredentialStore {
@@ -1113,12 +1106,10 @@ actor DesignCopilotRealtimeSession {
     }
 
     func start() async throws {
-        guard secret.isUsable,
-              let url = URL(string: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1")
-        else {
+        guard secret.isUsable else {
             throw DesignCopilotRealtimeError.expiredCredential
         }
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: secret.url)
         request.timeoutInterval = 15
         request.setValue("Bearer \(secret.value)", forHTTPHeaderField: "Authorization")
         guard sendTimeoutNanoseconds > 0,

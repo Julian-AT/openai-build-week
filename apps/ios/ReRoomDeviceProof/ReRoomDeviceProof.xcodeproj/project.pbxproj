@@ -20,16 +20,16 @@
 		A1000000000000000000000B /* WorldEpochTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* WorldEpochTests.swift */; };
 		A1000000000000000000000C /* FramePacketBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* FramePacketBuilder.swift */; };
 		A1000000000000000000000D /* DiagnosticJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* DiagnosticJournal.swift */; };
-		A1000000000000000000000E /* ../../docs/contracts/frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */; };
-		A1000000000000000000000F /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */; };
-		A10000000000000000000010 /* ../../docs/contracts/scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */; };
-		A10000000000000000000011 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */; };
-		A10000000000000000000012 /* ../../docs/contracts/transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */; };
-		A10000000000000000000013 /* ../../docs/contracts/frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */; };
-		A10000000000000000000014 /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */; };
-		A10000000000000000000015 /* ../../docs/contracts/scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */; };
-		A10000000000000000000016 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */; };
-		A10000000000000000000017 /* ../../docs/contracts/transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */; };
+		A1000000000000000000000E /* ../../../docs/contracts/frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* ../../../docs/contracts/frame-packet.schema.json */; };
+		A1000000000000000000000F /* ../../../docs/contracts/rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../../docs/contracts/rrcap-manifest.schema.json */; };
+		A10000000000000000000010 /* ../../../docs/contracts/scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ../../../docs/contracts/scene-state.schema.json */; };
+		A10000000000000000000011 /* ../../../docs/contracts/edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ../../../docs/contracts/edit-artifacts.schema.json */; };
+		A10000000000000000000012 /* ../../../docs/contracts/transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ../../../docs/contracts/transaction.schema.json */; };
+		A10000000000000000000013 /* ../../../docs/contracts/frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* ../../../docs/contracts/frame-packet.schema.json */; };
+		A10000000000000000000014 /* ../../../docs/contracts/rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../../docs/contracts/rrcap-manifest.schema.json */; };
+		A10000000000000000000015 /* ../../../docs/contracts/scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ../../../docs/contracts/scene-state.schema.json */; };
+		A10000000000000000000016 /* ../../../docs/contracts/edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ../../../docs/contracts/edit-artifacts.schema.json */; };
+		A10000000000000000000017 /* ../../../docs/contracts/transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ../../../docs/contracts/transaction.schema.json */; };
 		B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* EvidenceExporterTests.swift */; };
 		B10000000000000000000002 /* EvidenceExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* EvidenceExporter.swift */; };
 		B10000000000000000000003 /* DiagnosticChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* DiagnosticChecklistView.swift */; };
@@ -101,11 +101,11 @@
 		A2000000000000000000000D /* WorldEpochTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldEpochTests.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* FramePacketBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePacketBuilder.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* DiagnosticJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticJournal.swift; sourceTree = "<group>"; };
-		A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/frame-packet.schema.json"; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/rrcap-manifest.schema.json"; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/scene-state.schema.json"; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/edit-artifacts.schema.json"; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000010 /* ../../../docs/contracts/frame-packet.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../../docs/contracts/frame-packet.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000011 /* ../../../docs/contracts/rrcap-manifest.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../../docs/contracts/rrcap-manifest.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000012 /* ../../../docs/contracts/scene-state.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../../docs/contracts/scene-state.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000013 /* ../../../docs/contracts/edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../../docs/contracts/edit-artifacts.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000014 /* ../../../docs/contracts/transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000001 /* EvidenceExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporterTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* EvidenceExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporter.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* DiagnosticChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticChecklistView.swift; sourceTree = "<group>"; };
@@ -254,11 +254,11 @@
 		A80000000000000000000005 /* Contract Test Resources */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */,
-				A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */,
-				A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */,
-				A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */,
-				A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */,
+				A20000000000000000000010 /* ../../../docs/contracts/frame-packet.schema.json */,
+				A20000000000000000000011 /* ../../../docs/contracts/rrcap-manifest.schema.json */,
+				A20000000000000000000012 /* ../../../docs/contracts/scene-state.schema.json */,
+				A20000000000000000000013 /* ../../../docs/contracts/edit-artifacts.schema.json */,
+				A20000000000000000000014 /* ../../../docs/contracts/transaction.schema.json */,
 			);
 			name = "Contract Test Resources";
 			sourceTree = "<group>";
@@ -386,11 +386,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000013 /* ../../docs/contracts/frame-packet.schema.json in Resources */,
-				A10000000000000000000014 /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */,
-				A10000000000000000000015 /* ../../docs/contracts/scene-state.schema.json in Resources */,
-				A10000000000000000000016 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */,
-				A10000000000000000000017 /* ../../docs/contracts/transaction.schema.json in Resources */,
+				A10000000000000000000013 /* ../../../docs/contracts/frame-packet.schema.json in Resources */,
+				A10000000000000000000014 /* ../../../docs/contracts/rrcap-manifest.schema.json in Resources */,
+				A10000000000000000000015 /* ../../../docs/contracts/scene-state.schema.json in Resources */,
+				A10000000000000000000016 /* ../../../docs/contracts/edit-artifacts.schema.json in Resources */,
+				A10000000000000000000017 /* ../../../docs/contracts/transaction.schema.json in Resources */,
 				G10000000000000000000001 /* asset-manifest.json in Resources */,
 				J10000000000000000000002 /* asset-catalog.json in Resources */,
 				G10000000000000000000002 /* proxy-chair.usda in Resources */,
@@ -419,11 +419,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000000000000000000000E /* ../../docs/contracts/frame-packet.schema.json in Resources */,
-				A1000000000000000000000F /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */,
-				A10000000000000000000010 /* ../../docs/contracts/scene-state.schema.json in Resources */,
-				A10000000000000000000011 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */,
-				A10000000000000000000012 /* ../../docs/contracts/transaction.schema.json in Resources */,
+				A1000000000000000000000E /* ../../../docs/contracts/frame-packet.schema.json in Resources */,
+				A1000000000000000000000F /* ../../../docs/contracts/rrcap-manifest.schema.json in Resources */,
+				A10000000000000000000010 /* ../../../docs/contracts/scene-state.schema.json in Resources */,
+				A10000000000000000000011 /* ../../../docs/contracts/edit-artifacts.schema.json in Resources */,
+				A10000000000000000000012 /* ../../../docs/contracts/transaction.schema.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -454,7 +454,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/sh \"${SRCROOT}/../../scripts/embed-ios-build-provenance\"\n";
+			shellScript = "/bin/sh \"${SRCROOT}/../../../scripts/embed-ios-build-provenance\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

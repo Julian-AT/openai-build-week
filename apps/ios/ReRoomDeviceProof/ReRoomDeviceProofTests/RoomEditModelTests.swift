@@ -494,17 +494,17 @@ struct RoomEditModelTests {
     func realtimeCredentialIsStrictAndEphemeral() throws {
         let nowEpochSeconds: Int64 = 4_102_444_200
         let valid = Data("""
-        {"value":"ek_fixture_only","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+        {"value":"ek_fixture_only","expires_at":4102444800,"url":"wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1","model":"gpt-realtime-2.1"}
         """.utf8)
         let secret = try RealtimeClientSecret.decodeStrict(
             valid,
             nowEpochSeconds: nowEpochSeconds
         )
         #expect(secret.isUsable)
-        #expect(secret.session.model == "gpt-realtime-2.1")
+        #expect(secret.model == "gpt-realtime-2.1")
 
         let injected = Data("""
-        {"value":"ek_fixture_only","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"},"api_key":"forbidden"}
+        {"value":"ek_fixture_only","expires_at":4102444800,"url":"wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1","model":"gpt-realtime-2.1","api_key":"forbidden"}
         """.utf8)
         #expect(throws: DesignCopilotGatewayError.rejected) {
             try RealtimeClientSecret.decodeStrict(
@@ -515,13 +515,16 @@ struct RoomEditModelTests {
 
         let unsafeVariants = [
             Data("""
-            {"\\u0076alue":"ek_attacker","value":"ek_fixture_only","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+            {"\\u0076alue":"ek_attacker","value":"ek_fixture_only","expires_at":4102444800,"url":"wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1","model":"gpt-realtime-2.1"}
             """.utf8),
             Data("""
-            {"value":"ek_bad\\nheader","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+            {"value":"ek_bad\\nheader","expires_at":4102444800,"url":"wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1","model":"gpt-realtime-2.1"}
             """.utf8),
             Data("""
-            {"value":"ek_fixture_only","expires_at":4202444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+            {"value":"ek_fixture_only","expires_at":4202444800,"url":"wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1","model":"gpt-realtime-2.1"}
+            """.utf8),
+            Data("""
+            {"value":"ek_fixture_only","expires_at":4102444800,"url":"wss://attacker.invalid/v1/realtime?model=gpt-realtime-2.1","model":"gpt-realtime-2.1"}
             """.utf8),
         ]
         for bytes in unsafeVariants {
@@ -690,7 +693,8 @@ struct RoomEditModelTests {
         let secret = RealtimeClientSecret(
             value: "ek_test_deadline",
             expiresAt: Int64(Date().timeIntervalSince1970) + 120,
-            session: RealtimeClientSession(id: "sess_test_deadline", model: "gpt-realtime-2.1")
+            url: try #require(URL(string: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1")),
+            model: "gpt-realtime-2.1"
         )
 
         let stalledSend = TestRealtimeSocket(stallSend: true, received: [])
@@ -739,7 +743,8 @@ struct RoomEditModelTests {
         let secret = RealtimeClientSecret(
             value: "ek_test_oversize",
             expiresAt: Int64(Date().timeIntervalSince1970) + 120,
-            session: RealtimeClientSession(id: "sess_test_oversize", model: "gpt-realtime-2.1")
+            url: try #require(URL(string: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1")),
+            model: "gpt-realtime-2.1"
         )
         let socket = TestRealtimeSocket(
             stallSend: false,
@@ -1832,10 +1837,8 @@ private extension RealtimeClientSecret {
         Self(
             value: "ek_test_cancelled_startup",
             expiresAt: Int64(Date().timeIntervalSince1970) + 120,
-            session: RealtimeClientSession(
-                id: "sess_test_cancelled_startup",
-                model: "gpt-realtime-2.1"
-            )
+            url: URL(string: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1")!,
+            model: "gpt-realtime-2.1"
         )
     }
 }

@@ -1,29 +1,26 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
-import {
-  createServer,
-  type IncomingMessage,
-  type Server,
-  type ServerResponse,
-} from "node:http";
+
+import type { RealtimeTokenService } from "@reroom/ai";
+import { Hono, type Context } from "hono";
 
 import { parseProposalRequest, ProtocolError, type ProposalRequest } from "./protocol.ts";
-import type { RealtimeClientSecretService } from "./realtime-client-secret.ts";
 import { parseJSONBytesStrict } from "./strict-json.ts";
 
-const MAX_REQUEST_BYTES = 2_500_000;
+export const MAX_REQUEST_BYTES = 2_500_000;
 
 export interface ProposalService {
   propose(request: ProposalRequest, signal: AbortSignal): Promise<unknown>;
 }
 
-export interface GatewayServerOptions {
+export interface GatewayAppOptions {
   gatewayToken: string;
   proposalService?: ProposalService;
-  realtimeService?: RealtimeClientSecretService;
+  realtimeService?: RealtimeTokenService;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
   nowMilliseconds?: () => number;
   requestTimeoutMilliseconds?: number;
+  protectedRequestsPerMinute?: number;
 }
 
 export interface GatewayLogRecord {
@@ -34,193 +31,194 @@ export interface GatewayLogRecord {
   duration_ms: number;
 }
 
-export function createGatewayServer(options: GatewayServerOptions): Server {
-  return createServer((request, response) => {
-    const url = new URL(request.url ?? "/", "http://gateway.local");
+export function createGatewayApp(options: GatewayAppOptions): Hono {
+  const app = new Hono();
+  const protectedRateLimit = new FixedWindowRateLimit(
+    options.protectedRequestsPerMinute,
+    options.nowMilliseconds,
+  );
+
+  app.use("*", async (context, next) => {
+    const url = new URL(context.req.url);
     const requestID = (options.requestID ?? randomUUID)();
     const nowMilliseconds = options.nowMilliseconds ?? Date.now;
     const startedAt = nowMilliseconds();
-    response.setHeader("x-request-id", requestID);
-    response.once("finish", () => {
-      if (!options.logger) {
-        return;
-      }
-      const record: GatewayLogRecord = {
-        request_id: requestID,
-        method: request.method ?? "UNKNOWN",
-        path: safeLogPath(url.pathname),
-        status: response.statusCode,
-        duration_ms: Math.max(0, nowMilliseconds() - startedAt),
-      };
-      try {
-        options.logger(record);
-      } catch {
-        // Logging must never change the public request outcome.
-      }
-    });
+
+    context.header("x-request-id", requestID);
+    context.header("cache-control", "no-store");
+    context.header("x-content-type-options", "nosniff");
+    context.header("referrer-policy", "no-referrer");
 
     if (url.search !== "") {
-      writeJSON(response, 404, { error: "not_found" });
-      return;
+      context.res = context.json({ error: "not_found" }, 404);
+    } else {
+      await next();
     }
 
-    if (request.method === "GET" && url.pathname === "/health") {
-      const body = JSON.stringify({ status: "ok" });
-      response.writeHead(200, {
-        "cache-control": "no-store",
-        "content-type": "application/json; charset=utf-8",
+    try {
+      options.logger?.({
+        request_id: requestID,
+        method: context.req.method || "UNKNOWN",
+        path: safeLogPath(url.pathname),
+        status: context.res.status,
+        duration_ms: Math.max(0, nowMilliseconds() - startedAt),
       });
-      response.end(body);
-      return;
+    } catch {
+      // Logging is deliberately unable to change the public response.
     }
-
-    if (request.method === "POST" && url.pathname === "/v1/proposals") {
-      if (!hasValidBearer(request.headers.authorization, options.gatewayToken)) {
-        writeJSON(response, 401, { error: "unauthorized" });
-        return;
-      }
-      if (!hasJSONContentType(request.headers["content-type"])) {
-        writeJSON(response, 415, { error: "unsupported_media_type" });
-        return;
-      }
-
-      void handleProposal(
-        request,
-        response,
-        options.proposalService,
-        options.requestTimeoutMilliseconds,
-      );
-      return;
-    }
-
-    if (request.method === "POST" && url.pathname === "/v1/realtime/client-secret") {
-      if (!hasValidBearer(request.headers.authorization, options.gatewayToken)) {
-        writeJSON(response, 401, { error: "unauthorized" });
-        return;
-      }
-      if (!hasJSONContentType(request.headers["content-type"])) {
-        writeJSON(response, 415, { error: "unsupported_media_type" });
-        return;
-      }
-
-      void handleRealtimeSecret(
-        request,
-        response,
-        options.realtimeService,
-        options.requestTimeoutMilliseconds,
-      );
-      return;
-    }
-
-    const allowedMethod = allowedMethodForPath(url.pathname);
-    if (allowedMethod !== undefined) {
-      response.setHeader("allow", allowedMethod);
-      writeJSON(response, 405, { error: "method_not_allowed" });
-      return;
-    }
-
-    writeJSON(response, 404, { error: "not_found" });
   });
+
+  app.use("/v1/*", async (context, next) => {
+    const admission = protectedRateLimit.admit();
+    if (!admission.allowed) {
+      context.header("retry-after", admission.retryAfterSeconds.toString());
+      return context.json({ error: "rate_limited" }, 429);
+    }
+    await next();
+  });
+
+  app.get("/health", (context) => context.json({ status: "ok" }));
+
+  app.post("/v1/proposals", async (context) => {
+    const rejection = authorizeJSONRequest(context, options.gatewayToken);
+    if (rejection !== undefined) return rejection;
+    return handleProposal(context, options);
+  });
+
+  app.post("/v1/realtime/client-secret", async (context) => {
+    const rejection = authorizeJSONRequest(context, options.gatewayToken);
+    if (rejection !== undefined) return rejection;
+    return handleRealtimeSecret(context, options);
+  });
+
+  app.all("/health", (context) => methodNotAllowed(context, "GET"));
+  app.all("/v1/proposals", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/realtime/client-secret", (context) => methodNotAllowed(context, "POST"));
+  app.notFound((context) => context.json({ error: "not_found" }, 404));
+  app.onError((_error, context) => context.json({ error: "internal_failure" }, 500));
+
+  return app;
+}
+
+function authorizeJSONRequest(context: Context, gatewayToken: string): Response | undefined {
+  if (!hasValidBearer(context.req.header("authorization"), gatewayToken)) {
+    return context.json({ error: "unauthorized" }, 401);
+  }
+  if (!hasJSONContentType(context.req.header("content-type"))) {
+    return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  return undefined;
+}
+
+async function handleProposal(context: Context, options: GatewayAppOptions): Promise<Response> {
+  if (!options.proposalService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+
+  const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
+  try {
+    const body = await abortable(readJSON(context.req.raw), deadline.signal);
+    const proposalRequest = parseProposalRequest(body);
+    const result = await abortable(
+      options.proposalService.propose(proposalRequest, deadline.signal),
+      deadline.signal,
+    );
+    return context.json(result);
+  } catch (error) {
+    if (deadline.didTimeout()) {
+      return context.json({ error: "upstream_timeout" }, 504);
+    }
+    if (error instanceof BodyTooLargeError) {
+      return context.json({ error: "payload_too_large" }, 413);
+    }
+    if (error instanceof ProtocolError || error instanceof SyntaxError) {
+      return context.json({ error: "invalid_request" }, 400);
+    }
+    return context.json({ error: "upstream_failure" }, 502);
+  } finally {
+    deadline.dispose();
+  }
 }
 
 async function handleRealtimeSecret(
-  request: IncomingMessage,
-  response: ServerResponse,
-  realtimeService: RealtimeClientSecretService | undefined,
-  requestTimeoutMilliseconds = 15_000,
-): Promise<void> {
-  if (!realtimeService) {
-    writeJSON(response, 503, { error: "service_unavailable" });
-    return;
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.realtimeService) {
+    return context.json({ error: "service_unavailable" }, 503);
   }
-  const deadline = createDeadline(request, requestTimeoutMilliseconds);
+
+  const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
   try {
-    const body = await abortable(readJSON(request), deadline.signal);
+    const body = await abortable(readJSON(context.req.raw), deadline.signal);
     if (!isEmptyRecord(body)) {
-      writeJSON(response, 400, { error: "invalid_request" });
-      return;
+      return context.json({ error: "invalid_request" }, 400);
     }
-    const result = await abortable(realtimeService.mint(deadline.signal), deadline.signal);
-    writeJSON(response, 200, result);
+    const result = await abortable(options.realtimeService.mint(deadline.signal), deadline.signal);
+    return context.json(result);
   } catch (error) {
     if (deadline.didTimeout()) {
-      writeJSON(response, 504, { error: "upstream_timeout" });
-      return;
+      return context.json({ error: "upstream_timeout" }, 504);
     }
     if (error instanceof BodyTooLargeError) {
-      writeJSON(response, 413, { error: "payload_too_large" });
-      return;
+      return context.json({ error: "payload_too_large" }, 413);
     }
     if (error instanceof SyntaxError) {
-      writeJSON(response, 400, { error: "invalid_request" });
-      return;
+      return context.json({ error: "invalid_request" }, 400);
     }
-    writeJSON(response, 502, { error: "upstream_failure" });
+    return context.json({ error: "upstream_failure" }, 502);
   } finally {
     deadline.dispose();
   }
 }
 
-async function handleProposal(
-  request: IncomingMessage,
-  response: ServerResponse,
-  proposalService: ProposalService | undefined,
-  requestTimeoutMilliseconds = 15_000,
-): Promise<void> {
-  if (!proposalService) {
-    writeJSON(response, 503, { error: "service_unavailable" });
-    return;
+async function readJSON(request: Request): Promise<unknown> {
+  const declaredLength = request.headers.get("content-length");
+  if (
+    declaredLength !== null &&
+    (!/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) ||
+      Number(declaredLength) > MAX_REQUEST_BYTES)
+  ) {
+    throw new BodyTooLargeError();
   }
-
-  const deadline = createDeadline(request, requestTimeoutMilliseconds);
-  try {
-    const declaredLength = Number(request.headers["content-length"] ?? 0);
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BYTES) {
-      request.resume();
-      throw new BodyTooLargeError();
-    }
-    const body = await abortable(readJSON(request), deadline.signal);
-    const proposalRequest = parseProposalRequest(body);
-    const result = await abortable(
-      proposalService.propose(proposalRequest, deadline.signal),
-      deadline.signal,
-    );
-    writeJSON(response, 200, result);
-  } catch (error) {
-    if (deadline.didTimeout()) {
-      writeJSON(response, 504, { error: "upstream_timeout" });
-      return;
-    }
-    if (error instanceof BodyTooLargeError) {
-      writeJSON(response, 413, { error: "payload_too_large" });
-      return;
-    }
-    if (error instanceof ProtocolError || error instanceof SyntaxError) {
-      writeJSON(response, 400, { error: "invalid_request" });
-      return;
-    }
-    writeJSON(response, 502, { error: "upstream_failure" });
-  } finally {
-    deadline.dispose();
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.byteLength > MAX_REQUEST_BYTES) {
+    throw new BodyTooLargeError();
   }
-}
-
-async function readJSON(request: IncomingMessage): Promise<unknown> {
-  const chunks: Buffer[] = [];
-  let totalBytes = 0;
-  for await (const chunk of request) {
-    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    totalBytes += bytes.length;
-    if (totalBytes > MAX_REQUEST_BYTES) {
-      request.resume();
-      throw new BodyTooLargeError();
-    }
-    chunks.push(bytes);
-  }
-  return parseJSONBytesStrict(Buffer.concat(chunks));
+  return parseJSONBytesStrict(bytes);
 }
 
 class BodyTooLargeError extends Error {}
+
+class FixedWindowRateLimit {
+  readonly #maximumRequests: number;
+  readonly #nowMilliseconds: () => number;
+  #windowStartedAt: number;
+  #requestCount = 0;
+
+  constructor(maximumRequests = 60, nowMilliseconds: () => number = Date.now) {
+    this.#maximumRequests =
+      Number.isSafeInteger(maximumRequests) && maximumRequests > 0
+        ? Math.min(maximumRequests, 600)
+        : 60;
+    this.#nowMilliseconds = nowMilliseconds;
+    this.#windowStartedAt = nowMilliseconds();
+  }
+
+  admit(): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
+    const now = this.#nowMilliseconds();
+    if (now - this.#windowStartedAt >= 60_000 || now < this.#windowStartedAt) {
+      this.#windowStartedAt = now;
+      this.#requestCount = 0;
+    }
+    this.#requestCount += 1;
+    if (this.#requestCount <= this.#maximumRequests) return { allowed: true };
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil((60_000 - (now - this.#windowStartedAt)) / 1_000)),
+    };
+  }
+}
 
 function isEmptyRecord(value: unknown): boolean {
   return (
@@ -237,7 +235,7 @@ interface RequestDeadline {
   dispose(): void;
 }
 
-function createDeadline(request: IncomingMessage, timeoutMilliseconds: number): RequestDeadline {
+function createDeadline(request: Request, timeoutMilliseconds = 15_000): RequestDeadline {
   const controller = new AbortController();
   let timedOut = false;
   const boundedTimeout =
@@ -249,23 +247,22 @@ function createDeadline(request: IncomingMessage, timeoutMilliseconds: number): 
     controller.abort(new DOMException("deadline exceeded", "TimeoutError"));
   }, boundedTimeout);
   timer.unref();
-  const abortForDisconnect = () => controller.abort(new DOMException("client aborted", "AbortError"));
-  request.once("aborted", abortForDisconnect);
+  const abortForDisconnect = () =>
+    controller.abort(new DOMException("client aborted", "AbortError"));
+  request.signal.addEventListener("abort", abortForDisconnect, { once: true });
 
   return {
     signal: controller.signal,
     didTimeout: () => timedOut,
     dispose: () => {
       clearTimeout(timer);
-      request.off("aborted", abortForDisconnect);
+      request.signal.removeEventListener("abort", abortForDisconnect);
     },
   };
 }
 
 async function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    throw signal.reason;
-  }
+  if (signal.aborted) throw signal.reason;
   return await new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(signal.reason);
     signal.addEventListener("abort", onAbort, { once: true });
@@ -283,9 +280,7 @@ async function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise
 }
 
 function hasValidBearer(authorization: string | undefined, expectedToken: string): boolean {
-  if (!authorization?.startsWith("Bearer ") || expectedToken.length === 0) {
-    return false;
-  }
+  if (!authorization?.startsWith("Bearer ") || expectedToken.length === 0) return false;
   const received = Buffer.from(authorization.slice("Bearer ".length), "utf8");
   const expected = Buffer.from(expectedToken, "utf8");
   return received.length === expected.length && timingSafeEqual(received, expected);
@@ -295,10 +290,13 @@ function hasJSONContentType(contentType: string | undefined): boolean {
   return contentType?.split(";", 1)[0]?.trim().toLowerCase() === "application/json";
 }
 
+function methodNotAllowed(context: Context, allow: "GET" | "POST"): Response {
+  context.header("allow", allow);
+  return context.json({ error: "method_not_allowed" }, 405);
+}
+
 function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
-  if (pathname === "/health") {
-    return "GET";
-  }
+  if (pathname === "/health") return "GET";
   if (pathname === "/v1/proposals" || pathname === "/v1/realtime/client-secret") {
     return "POST";
   }
@@ -307,12 +305,4 @@ function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
 
 function safeLogPath(pathname: string): string {
   return allowedMethodForPath(pathname) === undefined ? "/<unknown>" : pathname;
-}
-
-function writeJSON(response: ServerResponse, status: number, value: unknown): void {
-  response.writeHead(status, {
-    "cache-control": "no-store",
-    "content-type": "application/json; charset=utf-8",
-  });
-  response.end(JSON.stringify(value));
 }

@@ -715,6 +715,52 @@ Exact artifact revision and license are separate questions: a repository code li
   be republished against a new committed source revision; path rewrites alone
   cannot redefine that evidence.
 
+### CLM-045 — Hono and Vercel AI SDK provide the pinned Bun model boundary
+
+- **Claim:** Hono exposes a Web-standard `fetch` application boundary on Bun,
+  while Vercel AI SDK's OpenAI provider supports the Responses API, JSON Schema
+  output, consented image parts, abort signals, non-retained requests, and an
+  experimental Realtime client-token factory without the official `openai`
+  JavaScript package.
+- **Status:** `MEASURED`
+- **Decision or requirement affected:** `FR-AGENT-001`, `STR-VOICE-001`,
+  `SEC-AGENT-001`, `SEC-CREDENTIAL-001`; CON-006; [ADR-011](../adr/ADR-011-agent-and-deterministic-boundary.md).
+- **Source title:** Hono Bun adapter and testing documentation; Vercel AI SDK
+  OpenAI provider, structured output, and Realtime documentation; installed
+  package manifests and locked artifacts.
+- **Source URL:** https://hono.dev/docs/getting-started/bun ;
+  https://hono.dev/docs/guides/testing ;
+  https://ai-sdk.dev/providers/ai-sdk-providers/openai ;
+  https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data ;
+  https://ai-sdk.dev/docs/ai-sdk-core/realtime
+- **Source type:** Official framework/provider documentation, published package
+  metadata, exact lockfile, and reproducible fake-transport tests.
+- **Publication/release date:** Package versions current as retrieved
+  2026-07-20; documentation page dates not stated.
+- **Retrieval date:** 2026-07-20.
+- **Exact version/tag/revision:** `hono@4.12.31`, integrity
+  `sha512-zJIHFrl6bq3RDd2YusFNCDlM8qUprxKswyi/OPzPyzKDdyBXDqWx8bZlZ7R+saTdSTatUmb3O7K4SspGPaEOQg==`,
+  MIT; `ai@7.0.31`, integrity
+  `sha512-pJfwKXjF5kw0rKRTePwYo60EfWb8wfzJAgf3ojln/YkOsVVKttzZAJVcRPsg37Z3a06ZdKkxX+DSrMAFlPm5Mw==`,
+  Apache-2.0; `@ai-sdk/openai@4.0.16`, integrity
+  `sha512-Yh+PsXaf9NbN7oA3oKwOuyjTiHMPD75phf3SqGbDNNKQ3Yj3oTntp/WhO3nCHIPA6gr5/1lyridQokmOpPf9oQ==`,
+  Apache-2.0.
+- **Evidence summary:** In-memory Hono tests exercise closed routes, constant-time
+  bearer validation, strict UTF-8/duplicate-key JSON, a 2.5 MB body cap,
+  process-local admission limiting, deadlines, method/query rejection, and
+  redacted logs. Fake HTTPS transport tests execute the actual Vercel AI SDK
+  providers and pin `gpt-5.6-sol`, strict schema output, `store: false`, low
+  reasoning, consented low-detail JPEG input, and a no-tools 600-second
+  `gpt-realtime-2.1` push-to-talk token. The locked dependency tree contains no
+  official `openai` JavaScript package.
+- **Confidence:** High for local request shape, boundary behavior, exact
+  dependency bytes, and licensing.
+- **Known limitations or ambiguity:** The Realtime provider surface is explicitly
+  experimental. No credentialed provider call or physical-device voice run was
+  made, so availability, latency, model quality, WebSocket robustness, and
+  `GATE-010` remain pending. SDK/version drift requires the same transport tests
+  before adoption.
+
 ## 10. Decision summary and unresolved empirical claims
 
 The evidence establishes safe APIs, versions, provenance, and license boundaries. It does **not** establish the following as facts: sustained base-device FPS/thermal behavior, semantic target quality, learned metric-depth accuracy, reveal credibility, provider latency/VRAM, reconnect recovery, or end-to-end voice reliability. Those are intentionally `REQUIRES_BENCHMARK` and are controlled by `GATE-003`, `GATE-004`, `GATE-006`, `GATE-007`, `GATE-010`, and `GATE-012` in [RISK_AND_KILL_GATES.md](RISK_AND_KILL_GATES.md).

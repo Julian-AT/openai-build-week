@@ -1,49 +1,66 @@
-import OpenAI from "openai";
+import {
+  buildDesignCopilotInstructions,
+  createOpenAIProposalModelClient,
+  createOpenAIRealtimeTokenService,
+} from "@reroom/ai";
 
-import { createOpenAIProposalModelClient } from "./openai-responses-client.ts";
+import { CURATED_CATALOG } from "./catalog.ts";
 import { createProposalService } from "./proposal-service.ts";
-import { createRealtimeClientSecretService } from "./realtime-client-secret.ts";
-import { createGatewayServer, type GatewayLogRecord } from "./server.ts";
+import { MODEL_PROPOSAL_OUTPUT_SCHEMA } from "./semantic-schema.ts";
+import { createGatewayApp, MAX_REQUEST_BYTES, type GatewayLogRecord } from "./server.ts";
 
 const host = process.env.REROOM_GATEWAY_HOST?.trim() || "0.0.0.0";
 const port = parsePort(process.env.REROOM_GATEWAY_PORT);
 const gatewayToken = process.env.REROOM_GATEWAY_TOKEN ?? "";
 const openAIAPIKey = process.env.OPENAI_API_KEY;
 
-const openAI = openAIAPIKey ? new OpenAI({ apiKey: openAIAPIKey }) : undefined;
-const proposalService = openAI
-  ? createProposalService({ modelClient: createOpenAIProposalModelClient(openAI) })
+const proposalService = openAIAPIKey
+  ? createProposalService({
+      modelClient: createOpenAIProposalModelClient({
+        apiKey: openAIAPIKey,
+        instructions: buildDesignCopilotInstructions(
+          CURATED_CATALOG.map((asset) => ({ assetID: asset.asset_id, name: asset.name })),
+        ),
+        outputSchema: MODEL_PROPOSAL_OUTPUT_SCHEMA,
+      }),
+    })
   : undefined;
 const realtimeService = openAIAPIKey
-  ? createRealtimeClientSecretService({ apiKey: openAIAPIKey })
+  ? createOpenAIRealtimeTokenService({ apiKey: openAIAPIKey })
   : undefined;
 
-const server = createGatewayServer({
+const app = createGatewayApp({
   gatewayToken,
   ...(proposalService ? { proposalService } : {}),
   ...(realtimeService ? { realtimeService } : {}),
   logger: writeRequestLog,
 });
 
-server.on("error", () => {
-  process.stderr.write(`${JSON.stringify({ event: "gateway_error" })}\n`);
+const server = Bun.serve({
+  hostname: host,
+  port,
+  fetch: app.fetch,
+  maxRequestBodySize: MAX_REQUEST_BYTES,
+  error() {
+    process.stderr.write(`${JSON.stringify({ event: "gateway_error" })}\n`);
+    return Response.json({ error: "internal_failure" }, { status: 500 });
+  },
 });
 
-server.listen(port, host, () => {
-  process.stdout.write(
-    `${JSON.stringify({
-      event: "gateway_started",
-      host,
-      port,
-      protected_routes_enabled: gatewayToken.length > 0,
-      openai_routes_enabled: openAI !== undefined,
-    })}\n`,
-  );
-});
+process.stdout.write(
+  `${JSON.stringify({
+    event: "gateway_started",
+    host: server.hostname,
+    port: server.port,
+    protected_routes_enabled: gatewayToken.length > 0,
+    openai_routes_enabled: openAIAPIKey !== undefined,
+  })}\n`,
+);
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.once(signal, () => {
-    server.close(() => process.exit(0));
+    server.stop();
+    process.exit(0);
   });
 }
 

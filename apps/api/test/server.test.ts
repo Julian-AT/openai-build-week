@@ -1,24 +1,7 @@
 import assert from "node:assert/strict";
-import { once } from "node:events";
-import { afterEach, test } from "bun:test";
+import { test } from "bun:test";
 
-import { createGatewayServer } from "../src/server.ts";
-
-const activeServers = new Set<ReturnType<typeof createGatewayServer>>();
-
-afterEach(() => {
-  for (const server of activeServers) server.close();
-  activeServers.clear();
-});
-
-async function listen(server: ReturnType<typeof createGatewayServer>): Promise<string> {
-  activeServers.add(server);
-  server.listen(0, "127.0.0.1");
-  await once(server, "listening");
-  const address = server.address();
-  assert(address && typeof address === "object");
-  return `http://127.0.0.1:${address.port}`;
-}
+import { createGatewayApp } from "../src/server.ts";
 
 const validProposalRequest = {
   prompt: "Replace this with a warm chair and preserve the walkway.",
@@ -34,9 +17,8 @@ const validProposalRequest = {
 } as const;
 
 test("GET /health reports readiness without authentication", async () => {
-  const server = createGatewayServer({ gatewayToken: "test-token" });
-  const baseURL = await listen(server);
-  const response = await fetch(`${baseURL}/health`);
+  const app = createGatewayApp({ gatewayToken: "test-token" });
+  const response = await app.request("/health");
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { status: "ok" });
   assert.equal(response.headers.get("access-control-allow-origin"), null);
@@ -44,7 +26,7 @@ test("GET /health reports readiness without authentication", async () => {
 
 test("POST /v1/proposals rejects a missing bearer credential", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -53,8 +35,7 @@ test("POST /v1/proposals rejects a missing bearer credential", async () => {
       },
     },
   });
-  const baseURL = await listen(server);
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: "{}",
@@ -87,7 +68,7 @@ test("POST /v1/proposals validates and forwards a closed trusted request", async
     explanation: "The warm chair fits the requested style.",
     clarification: null,
   };
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async (request) => {
@@ -96,9 +77,8 @@ test("POST /v1/proposals validates and forwards a closed trusted request", async
       },
     },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -114,7 +94,7 @@ test("POST /v1/proposals validates and forwards a closed trusted request", async
 
 test("POST /v1/proposals rejects duplicate JSON member names before validation", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -123,13 +103,12 @@ test("POST /v1/proposals rejects duplicate JSON member names before validation",
       },
     },
   });
-  const baseURL = await listen(server);
   const body = JSON.stringify(validProposalRequest).replace(
     '"prompt":',
     '"\\u0070rompt":"attacker override","prompt":',
   );
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -145,7 +124,7 @@ test("POST /v1/proposals rejects duplicate JSON member names before validation",
 
 test("POST /v1/proposals rejects non-UTF-8 JSON bytes", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -154,13 +133,12 @@ test("POST /v1/proposals rejects non-UTF-8 JSON bytes", async () => {
       },
     },
   });
-  const baseURL = await listen(server);
   const validBody = Buffer.from(JSON.stringify(validProposalRequest), "utf8");
   const promptByte = validBody.indexOf(Buffer.from("Replace", "utf8"));
   assert.notEqual(promptByte, -1);
   validBody[promptByte] = 0xff;
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -176,7 +154,7 @@ test("POST /v1/proposals rejects non-UTF-8 JSON bytes", async () => {
 
 test("POST /v1/proposals rejects client catalog allowlists and unknown fields", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -185,9 +163,8 @@ test("POST /v1/proposals rejects client catalog allowlists and unknown fields", 
       },
     },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -206,7 +183,7 @@ test("POST /v1/proposals rejects client catalog allowlists and unknown fields", 
 
 test("known routes reject query-decorated URLs without invoking services", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -215,9 +192,8 @@ test("known routes reject query-decorated URLs without invoking services", async
       },
     },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals?context=forbidden`, {
+  const response = await app.request("/v1/proposals?context=forbidden", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -232,13 +208,12 @@ test("known routes reject query-decorated URLs without invoking services", async
 });
 
 test("POST /v1/proposals requires a JSON content type", async () => {
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: { propose: async () => ({}) },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -252,13 +227,12 @@ test("POST /v1/proposals requires a JSON content type", async () => {
 });
 
 test("POST /v1/proposals rejects a body over the fixed byte limit", async () => {
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: { propose: async () => ({}) },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -273,7 +247,7 @@ test("POST /v1/proposals rejects a body over the fixed byte limit", async () => 
 
 test("POST /v1/proposals rejects a non-JPEG image data URL", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -282,9 +256,8 @@ test("POST /v1/proposals rejects a non-JPEG image data URL", async () => {
       },
     },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -304,7 +277,7 @@ test("POST /v1/proposals rejects a non-JPEG image data URL", async () => {
 
 test("POST /v1/proposals binds vision ingress to exactly one JPEG", async () => {
   let calls = 0;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -313,7 +286,6 @@ test("POST /v1/proposals binds vision ingress to exactly one JPEG", async () => 
       },
     },
   });
-  const baseURL = await listen(server);
   const jpeg = "data:image/jpeg;base64,/9j/2Q==";
   const mismatches = [
     { ...validProposalRequest, ingress_source: "vision" },
@@ -322,7 +294,7 @@ test("POST /v1/proposals binds vision ingress to exactly one JPEG", async () => 
   ];
 
   for (const body of mismatches) {
-    const response = await fetch(`${baseURL}/v1/proposals`, {
+    const response = await app.request("/v1/proposals", {
       method: "POST",
       headers: {
         authorization: "Bearer test-token",
@@ -337,13 +309,12 @@ test("POST /v1/proposals binds vision ingress to exactly one JPEG", async () => 
 });
 
 test("POST /v1/proposals rejects an empty semantic prompt", async () => {
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: { propose: async () => ({ should_not: "run" }) },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -360,15 +331,15 @@ test("POST /v1/realtime/client-secret returns only the validated ephemeral subse
   const expected = {
     value: "ek_ephemeral",
     expires_at: 1_753_000_600,
-    session: { id: "sess_test", model: "gpt-realtime-2.1" as const },
+    url: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1",
+    model: "gpt-realtime-2.1" as const,
   };
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     realtimeService: { mint: async () => expected },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/realtime/client-secret`, {
+  const response = await app.request("/v1/realtime/client-secret", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -382,15 +353,14 @@ test("POST /v1/realtime/client-secret returns only the validated ephemeral subse
 });
 
 test("known paths reject unsupported methods while unknown paths remain hidden", async () => {
-  const server = createGatewayServer({ gatewayToken: "test-token" });
-  const baseURL = await listen(server);
+  const app = createGatewayApp({ gatewayToken: "test-token" });
 
-  const wrongMethod = await fetch(`${baseURL}/v1/proposals`);
+  const wrongMethod = await app.request("/v1/proposals");
   assert.equal(wrongMethod.status, 405);
   assert.equal(wrongMethod.headers.get("allow"), "POST");
   assert.deepEqual(await wrongMethod.json(), { error: "method_not_allowed" });
 
-  const unknown = await fetch(`${baseURL}/v1/unknown`);
+  const unknown = await app.request("/v1/unknown");
   assert.equal(unknown.status, 404);
   assert.deepEqual(await unknown.json(), { error: "not_found" });
 });
@@ -402,7 +372,7 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
     Buffer.from("PRIVATE_IMAGE_BYTES"),
     Buffer.from([0xff, 0xd9]),
   ]).toString("base64");
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "PRIVATE_GATEWAY_TOKEN",
     requestID: () => "60000000-0000-4000-8000-000000000001",
     logger: (record) => logs.push(record),
@@ -413,13 +383,13 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
       mint: async () => ({
         value: "ek_PRIVATE_EPHEMERAL_VALUE",
         expires_at: 1_753_000_600,
-        session: { id: "sess_test", model: "gpt-realtime-2.1" },
+        url: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1",
+        model: "gpt-realtime-2.1",
       }),
     },
   });
-  const baseURL = await listen(server);
 
-  const proposalResponse = await fetch(`${baseURL}/v1/proposals`, {
+  const proposalResponse = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer PRIVATE_GATEWAY_TOKEN",
@@ -437,7 +407,7 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
     "60000000-0000-4000-8000-000000000001",
   );
   await proposalResponse.json();
-  const secretResponse = await fetch(`${baseURL}/v1/realtime/client-secret`, {
+  const secretResponse = await app.request("/v1/realtime/client-secret", {
     method: "POST",
     headers: {
       authorization: "Bearer PRIVATE_GATEWAY_TOKEN",
@@ -467,7 +437,7 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
 
 test("an upstream deadline aborts work and returns a generic timeout", async () => {
   let observedAbort = false;
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     requestTimeoutMilliseconds: 5,
     proposalService: {
@@ -486,9 +456,8 @@ test("an upstream deadline aborts work and returns a generic timeout", async () 
         }),
     },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -503,7 +472,7 @@ test("an upstream deadline aborts work and returns a generic timeout", async () 
 });
 
 test("upstream failures expose no provider details", async () => {
-  const server = createGatewayServer({
+  const app = createGatewayApp({
     gatewayToken: "test-token",
     proposalService: {
       propose: async () => {
@@ -511,9 +480,8 @@ test("upstream failures expose no provider details", async () => {
       },
     },
   });
-  const baseURL = await listen(server);
 
-  const response = await fetch(`${baseURL}/v1/proposals`, {
+  const response = await app.request("/v1/proposals", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
@@ -526,4 +494,29 @@ test("upstream failures expose no provider details", async () => {
   const publicBody = JSON.stringify(await response.json());
   assert.equal(publicBody, '{"error":"upstream_failure"}');
   assert.doesNotMatch(publicBody, /private|prompt|response/iu);
+});
+
+test("protected routes have a bounded process-local admission rate", async () => {
+  let now = 1_000;
+  const app = createGatewayApp({
+    gatewayToken: "test-token",
+    protectedRequestsPerMinute: 2,
+    nowMilliseconds: () => now,
+  });
+  const request = () =>
+    app.request("/v1/proposals", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+
+  assert.equal((await request()).status, 401);
+  assert.equal((await request()).status, 401);
+  const limited = await request();
+  assert.equal(limited.status, 429);
+  assert.equal(limited.headers.get("retry-after"), "60");
+  assert.deepEqual(await limited.json(), { error: "rate_limited" });
+
+  now += 60_000;
+  assert.equal((await request()).status, 401);
 });

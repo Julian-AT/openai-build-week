@@ -14,10 +14,11 @@ and restore authority.
 
 ```text
 apps/
-  api/        private/public API boundary (migrating to Hono on Bun)
+  api/        single public Hono API running on Bun
   ios/        native SwiftUI/ARKit client and shared Swift packages
   web/        separate Next.js Mode B0 client
 packages/
+  ai/         Vercel AI SDK provider adapters and closed model sessions
   contracts/  JavaScript/TypeScript contract and replay reference runtime
 docs/         canonical authority, contracts, ADRs, evidence, and history
 tools/        Python reference code and repository verification tooling
@@ -62,9 +63,9 @@ or visual-quality gates.
 The API workspace can be checked independently:
 
 ```sh
-bun --cwd apps/api test
-bun --cwd apps/api run typecheck
-bun --cwd apps/api run build
+bun run --cwd apps/api test
+bun run --cwd apps/api typecheck
+bun run --cwd apps/api build
 ```
 
 Live provider use requires `OPENAI_API_KEY` and a high-entropy
