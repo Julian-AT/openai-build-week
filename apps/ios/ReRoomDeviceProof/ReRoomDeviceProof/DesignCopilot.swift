@@ -1513,6 +1513,40 @@ enum DesignCopilotFrameError: Error {
     case encodingFailed
 }
 
+enum DesignCopilotActivity: Equatable, Sendable {
+    case idle
+    case requestingMicrophonePermission
+    case mintingRealtimeCredential
+    case listening
+    case awaitingTranscript
+    case submittingUserIntent
+    case creatingPreview
+
+    var isWorking: Bool {
+        switch self {
+        case .requestingMicrophonePermission,
+             .mintingRealtimeCredential,
+             .submittingUserIntent,
+             .creatingPreview:
+            true
+        case .idle, .listening, .awaitingTranscript:
+            false
+        }
+    }
+
+    var isVoicePipeline: Bool {
+        switch self {
+        case .requestingMicrophonePermission,
+             .mintingRealtimeCredential,
+             .listening,
+             .awaitingTranscript:
+            true
+        case .idle, .submittingUserIntent, .creatingPreview:
+            false
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class DesignCopilotModel {
@@ -1523,12 +1557,10 @@ final class DesignCopilotModel {
     var frameConsentGranted = false
     var gatewayURLText: String
     var pendingGatewayToken = ""
-    private(set) var isWorking = false
+    private(set) var activity = DesignCopilotActivity.idle
     private(set) var hasSavedGatewayToken = false
     private(set) var envelope: SemanticProposalEnvelope?
     private(set) var message = "Offline editing stays available; AI only proposes."
-    private(set) var isVoiceActive = false
-    private(set) var isAwaitingTranscript = false
 
     @ObservationIgnored private let runtime: RoomEditRuntime
     @ObservationIgnored private let gatewayTokenProvider: DesignCopilotGatewayTokenProvider
@@ -1585,18 +1617,18 @@ final class DesignCopilotModel {
         return runtime.catalog.asset(id: assetID)
     }
 
+    var isWorking: Bool { activity.isWorking }
+    var isVoiceActive: Bool { activity == .listening }
+    var isAwaitingTranscript: Bool { activity == .awaitingTranscript }
+
     var canApplyProposal: Bool {
         envelope?.status == .ready
-            && !isWorking
-            && !isVoiceActive
-            && !isAwaitingTranscript
+            && activity == .idle
             && !runtime.model.hasActivePreview
     }
 
     var canAsk: Bool {
-        !isWorking
-            && !isVoiceActive
-            && !isAwaitingTranscript
+        activity == .idle
             && !runtime.model.previewTransitionInFlight
     }
 
@@ -1626,32 +1658,33 @@ final class DesignCopilotModel {
         }
     }
 
+    func submitUserIntent() async {
+        await submitUserIntent(ingressOverride: nil)
+    }
+
+    // Kept as a source-compatible UI/test alias while call sites migrate to
+    // the canonical submit_user_intent terminology from ADR-011.
     func ask() async {
-        await ask(ingressOverride: nil)
+        await submitUserIntent()
     }
 
     func startVoice() async {
-        guard !isWorking, !isVoiceActive, !isAwaitingTranscript else { return }
+        guard activity == .idle else { return }
         voiceAttemptCounter &+= 1
         let attemptID = voiceAttemptCounter
         currentVoiceAttemptID = attemptID
-        isWorking = true
+        activity = .requestingMicrophonePermission
         message = "Requesting microphone access for one push-to-talk turn…"
-        defer {
-            if currentVoiceAttemptID == attemptID {
-                isWorking = false
-            }
-        }
         let microphoneGranted = await microphonePermissionProvider()
         guard currentVoiceAttemptID == attemptID else { return }
         guard !Task.isCancelled else {
             currentVoiceAttemptID = nil
-            isWorking = false
+            activity = .idle
             return
         }
         guard microphoneGranted else {
             currentVoiceAttemptID = nil
-            isWorking = false
+            activity = .idle
             message = "Microphone access is off. Typed/tap editing remains complete."
             return
         }
@@ -1660,17 +1693,18 @@ final class DesignCopilotModel {
               let token = storedToken
         else {
             currentVoiceAttemptID = nil
-            isWorking = false
+            activity = .idle
             message = "Configure the local gateway and bearer token before voice."
             return
         }
+        activity = .mintingRealtimeCredential
         message = "Minting a short-lived Realtime credential…"
         do {
             let secret = try await realtimeSecretProvider(baseURL, token)
             guard currentVoiceAttemptID == attemptID else { return }
             guard !Task.isCancelled else {
                 currentVoiceAttemptID = nil
-                isWorking = false
+                activity = .idle
                 return
             }
             let callbacks = DesignCopilotRealtimeCallbacks(
@@ -1688,34 +1722,33 @@ final class DesignCopilotModel {
                 if currentVoiceAttemptID == attemptID {
                     currentVoiceAttemptID = nil
                     realtimeSession = nil
-                    isWorking = false
+                    activity = .idle
                 }
                 await session.cancel()
                 return
             }
-            isVoiceActive = true
+            activity = .listening
             message = "Listening with Realtime. Tap Stop when your design request is complete."
         } catch {
             guard currentVoiceAttemptID == attemptID else { return }
             realtimeSession = nil
             currentVoiceAttemptID = nil
-            isVoiceActive = false
-            isWorking = false
+            activity = .idle
             message = "Realtime voice is unavailable. Typed/tap editing still works."
         }
     }
 
     func stopVoice() async {
-        guard isVoiceActive, let realtimeSession else { return }
-        isVoiceActive = false
-        isAwaitingTranscript = true
+        guard activity == .listening, let realtimeSession else { return }
+        activity = .awaitingTranscript
         message = "Transcribing the completed push-to-talk turn…"
         do {
             try await realtimeSession.finishInput()
         } catch {
             await realtimeSession.cancel()
             self.realtimeSession = nil
-            isAwaitingTranscript = false
+            currentVoiceAttemptID = nil
+            activity = .idle
             message = "Voice transcription failed. Typed/tap editing remains available."
         }
     }
@@ -1723,17 +1756,14 @@ final class DesignCopilotModel {
     func cancelVoice() async {
         guard currentVoiceAttemptID != nil
             || realtimeSession != nil
-            || isVoiceActive
-            || isAwaitingTranscript
+            || activity.isVoicePipeline
         else { return }
         voiceAttemptCounter &+= 1
         let cancellationGeneration = voiceAttemptCounter
         let session = realtimeSession
         realtimeSession = nil
         currentVoiceAttemptID = nil
-        isWorking = false
-        isVoiceActive = false
-        isAwaitingTranscript = false
+        activity = .idle
         await session?.cancel()
         guard voiceAttemptCounter == cancellationGeneration else { return }
         message = "Voice turn cancelled. Typed/tap editing remains available."
@@ -1743,24 +1773,21 @@ final class DesignCopilotModel {
         guard currentVoiceAttemptID == attemptID else { return }
         realtimeSession = nil
         currentVoiceAttemptID = nil
-        isVoiceActive = false
-        isAwaitingTranscript = false
+        activity = .idle
         prompt = transcript
         message = "Realtime transcript received; asking Sol for the strict proposal…"
-        await ask(ingressOverride: .voice)
+        await submitUserIntent(ingressOverride: .voice)
     }
 
     private func receiveVoiceFailure(attemptID: UInt64) {
         guard currentVoiceAttemptID == attemptID else { return }
         realtimeSession = nil
         currentVoiceAttemptID = nil
-        isVoiceActive = false
-        isAwaitingTranscript = false
-        isWorking = false
+        activity = .idle
         message = "Realtime voice ended safely. Typed/tap editing remains available."
     }
 
-    private func ask(ingressOverride: DesignCopilotIngressSource?) async {
+    private func submitUserIntent(ingressOverride: DesignCopilotIngressSource?) async {
         guard !isWorking else { return }
         if ingressOverride == nil {
             guard !isVoiceActive, !isAwaitingTranscript else {
@@ -1768,6 +1795,7 @@ final class DesignCopilotModel {
                 return
             }
         }
+        guard activity == .idle else { return }
         guard !runtime.model.previewTransitionInFlight else {
             message = "Finish the current local preview transition before asking again."
             return
@@ -1792,14 +1820,18 @@ final class DesignCopilotModel {
             return
         }
 
-        isWorking = true
+        activity = .submittingUserIntent
         envelope = nil
         message = ingressOverride == .voice
             ? "Asking GPT-5.6 Sol to normalize the Realtime transcript…"
             : (includeCurrentFrame
             ? "Encoding one explicit frame for GPT-5.6 Sol…"
             : "Asking GPT-5.6 Sol for typed design intent…")
-        defer { isWorking = false }
+        defer {
+            if activity == .submittingUserIntent {
+                activity = .idle
+            }
+        }
         do {
             let imageDataURL: String?
             if ingressOverride == nil, includeCurrentFrame {
@@ -1845,8 +1877,12 @@ final class DesignCopilotModel {
                 : "Finish the current copilot turn before applying a proposal."
             return
         }
-        isWorking = true
-        defer { isWorking = false }
+        activity = .creatingPreview
+        defer {
+            if activity == .creatingPreview {
+                activity = .idle
+            }
+        }
         do {
             let previewCreated = try await runtime.model.previewSemanticProposal(envelope)
             guard previewCreated else {

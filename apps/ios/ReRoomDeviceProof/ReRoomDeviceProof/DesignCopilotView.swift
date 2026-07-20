@@ -95,7 +95,7 @@ struct DesignCopilotPanel: View {
 
     private var submitButton: some View {
         Button {
-            Task { await copilot.ask() }
+            Task { await copilot.submitUserIntent() }
         } label: {
             HStack {
                 if copilot.isWorking {

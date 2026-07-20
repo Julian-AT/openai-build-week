@@ -862,6 +862,62 @@ struct RoomEditModelTests {
         #expect(copilot.message == "Preview only after deterministic readiness passes.")
     }
 
+    @Test("voice replace re-enters submit-user-intent and stops at a native preview")
+    func voiceReplaceCreatesOnlyARevisionNeutralPreview() async throws {
+        let setup = try designCopilotRuntime(
+            support: .healthyFixture,
+            replacementAssetState: .available
+        )
+        await setup.runtime.model.prepare()
+        await setup.runtime.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        let factory = RealtimeSessionFactoryProbe()
+        var receivedRequest: DesignCopilotProposalRequest?
+        let replacementAssetID = setup.runtime.catalog.assets[1].assetID
+        let copilot = DesignCopilotModel(
+            runtime: setup.runtime,
+            gatewayTokenProvider: { "fixture-gateway-token" },
+            proposalProvider: { _, _, request in
+                receivedRequest = request
+                return try strictSemanticEnvelope(
+                    request: request,
+                    operation: .replace,
+                    assetID: replacementAssetID,
+                    suffix: "115"
+                )
+            },
+            microphonePermissionProvider: { true },
+            realtimeSecretProvider: { _, _ in .validFixture },
+            realtimeSessionFactory: { secret, callbacks in
+                factory.make(secret: secret, callbacks: callbacks)
+            }
+        )
+
+        await copilot.startVoice()
+        #expect(copilot.isVoiceActive)
+        await copilot.stopVoice()
+        #expect(copilot.isAwaitingTranscript)
+        try factory.deliverTranscript("Replace this with the cobalt chair")
+        for _ in 0..<1_000 where copilot.envelope == nil {
+            await Task.yield()
+        }
+
+        #expect(receivedRequest?.prompt == "Replace this with the cobalt chair")
+        #expect(receivedRequest?.ingressSource == .voice)
+        #expect(copilot.envelope?.intent?.operation == .replace)
+        #expect(setup.runtime.model.snapshot.preview == nil)
+        #expect(setup.runtime.model.snapshot.revision == 0)
+
+        await copilot.applyProposal()
+
+        let active = await setup.authority.activeSnapshot()
+        #expect(setup.runtime.model.snapshot.selectedOperation == .replace)
+        #expect(setup.runtime.model.snapshot.preview != nil)
+        #expect(setup.runtime.model.snapshot.canConfirm)
+        #expect(setup.runtime.model.snapshot.revision == 0)
+        #expect(active.transactions.isEmpty)
+        #expect(active.receipts.isEmpty)
+    }
+
     @Test("AI apply rejects an existing manual preview and Cancel still targets the visible preview")
     func semanticProposalCannotCreateASecondPreview() async throws {
         let harness = try TestRoomEditHarness(support: .healthyFixture)
@@ -1817,6 +1873,19 @@ private final class TestRealtimeSocket: @unchecked Sendable, DesignCopilotRealti
         continuations.0?.resume(throwing: CancellationError())
         continuations.1?.resume(throwing: CancellationError())
     }
+
+    func deliver(_ data: Data) {
+        let continuation = lock.withLock { () -> CheckedContinuation<Data, any Error>? in
+            guard !cancelled else { return nil }
+            guard let receiveContinuation else {
+                received.append(data)
+                return nil
+            }
+            self.receiveContinuation = nil
+            return receiveContinuation
+        }
+        continuation?.resume(returning: data)
+    }
 }
 
 private actor RealtimeCallbackProbe {
@@ -1915,6 +1984,7 @@ private final class SuspendedDesignCopilotProposalProvider {
 @MainActor
 private final class RealtimeSessionFactoryProbe {
     private(set) var creations = 0
+    private let socket = TestRealtimeSocket(stallSend: false, received: [])
 
     func make(
         secret: RealtimeClientSecret,
@@ -1926,10 +1996,18 @@ private final class RealtimeSessionFactoryProbe {
             audioCapture: RealtimeAudioCapture(
                 backend: FaultInjectingRealtimeAudioBackend(failure: nil)
             ),
-            socketFactory: { _ in TestRealtimeSocket(stallSend: false, received: []) },
+            socketFactory: { [socket] _ in socket },
             onTranscript: callbacks.onTranscript,
             onFailure: callbacks.onFailure
         )
+    }
+
+    func deliverTranscript(_ transcript: String) throws {
+        let data = try JSONSerialization.data(withJSONObject: [
+            "type": "conversation.item.input_audio_transcription.completed",
+            "transcript": transcript,
+        ])
+        socket.deliver(data)
     }
 }
 
