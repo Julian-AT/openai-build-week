@@ -5,13 +5,12 @@ export {
   type OpenAIProposalModelClientOptions,
 } from "./openai-proposal-client.ts";
 export {
-  createOpenAIRealtimeTokenService,
-  type OpenAIRealtimeTokenServiceOptions,
+  createOpenAIRealtimeSessionService,
+  type OpenAIRealtimeSessionServiceOptions,
   REALTIME_INSTRUCTIONS,
   REALTIME_MODEL,
-  type RealtimeClientToken,
-  type RealtimeTokenService,
-} from "./openai-realtime-token-client.ts";
+  type RealtimeSessionService,
+} from "./openai-realtime-session.ts";
 export {
   type ModelProposalInput,
   type ModelProposalResult,

@@ -1,8 +1,6 @@
-import type { jsonSchema } from "ai";
+export const PROPOSAL_MODEL = "gpt-5.6";
 
-export const PROPOSAL_MODEL = "gpt-5.6-sol";
-
-export type ProposalOutputSchema = Parameters<typeof jsonSchema>[0];
+export type ProposalOutputSchema = Record<string, unknown>;
 
 export interface ModelProposalInput {
   prompt: string;

@@ -1,6 +1,6 @@
 {
-  "name": "@reroom/api",
-  "version": "0.1.0",
+  "name": "@reframe/api",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@reroom/ai": "workspace:*",
+    "@reframe/agent": "workspace:*",
     "hono": "4.12.31"
   },
   "devDependencies": {

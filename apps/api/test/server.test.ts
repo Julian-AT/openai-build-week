@@ -189,7 +189,7 @@ test("POST /v1/proposals validates and forwards a closed trusted request", async
     ingress_source: validProposalRequest.ingress_source,
     semantic_model: {
       provider: "openai",
-      model: "gpt-5.6-sol",
+      model: "gpt-5.6",
       response_id: "resp_test",
     },
     status: "ready",
@@ -460,29 +460,31 @@ test("POST /v1/proposals rejects an empty semantic prompt", async () => {
   assert.deepEqual(await response.json(), { error: "invalid_request" });
 });
 
-test("POST /v1/realtime/client-secret returns only the validated ephemeral subset", async () => {
-  const expected = {
-    value: "ek_ephemeral",
-    expires_at: 1_753_000_600,
-    url: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1",
-    model: "gpt-realtime-2.1" as const,
-  };
+test("POST /v1/realtime/calls exchanges browser SDP without exposing the server key", async () => {
+  let receivedOffer = "";
   const app = createGatewayApp({
     gatewayToken: "test-token",
-    realtimeService: { mint: async () => expected },
+    realtimeService: {
+      exchange: async (offer) => {
+        receivedOffer = offer;
+        return "answer-sdp";
+      },
+    },
   });
 
-  const response = await app.request("/v1/realtime/client-secret", {
+  const response = await app.request("/v1/realtime/calls", {
     method: "POST",
     headers: {
       authorization: "Bearer test-token",
-      "content-type": "application/json",
+      "content-type": "application/sdp",
     },
-    body: "{}",
+    body: "offer-sdp",
   });
 
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), expected);
+  assert.equal(response.headers.get("content-type"), "application/sdp; charset=UTF-8");
+  assert.equal(await response.text(), "answer-sdp");
+  assert.equal(receivedOffer, "offer-sdp");
 });
 
 test("known paths reject unsupported methods while unknown paths remain hidden", async () => {
@@ -513,12 +515,7 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
       propose: async () => ({ status: "needs_clarification" }),
     },
     realtimeService: {
-      mint: async () => ({
-        value: "ek_PRIVATE_EPHEMERAL_VALUE",
-        expires_at: 1_753_000_600,
-        url: "wss://api.openai.com/v1/realtime?model=gpt-realtime-2.1",
-        model: "gpt-realtime-2.1",
-      }),
+      exchange: async () => "PRIVATE_ANSWER_SDP",
     },
   });
 
@@ -540,15 +537,15 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
     "60000000-0000-4000-8000-000000000001",
   );
   await proposalResponse.json();
-  const secretResponse = await app.request("/v1/realtime/client-secret", {
+  const secretResponse = await app.request("/v1/realtime/calls", {
     method: "POST",
     headers: {
       authorization: "Bearer PRIVATE_GATEWAY_TOKEN",
-      "content-type": "application/json",
+      "content-type": "application/sdp",
     },
-    body: "{}",
+    body: "PRIVATE_OFFER_SDP",
   });
-  await secretResponse.json();
+  await secretResponse.text();
   await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(logs.length, 2);
@@ -556,7 +553,7 @@ test("structured request logs exclude credentials, prompts, images, and ephemera
   assert.doesNotMatch(serializedLogs, /PRIVATE_GATEWAY_TOKEN/u);
   assert.doesNotMatch(serializedLogs, /PRIVATE_PROMPT_TEXT/u);
   assert.doesNotMatch(serializedLogs, /PRIVATE_IMAGE_BYTES/u);
-  assert.doesNotMatch(serializedLogs, /PRIVATE_EPHEMERAL_VALUE/u);
+  assert.doesNotMatch(serializedLogs, /PRIVATE_(?:OFFER|ANSWER)_SDP/u);
   for (const record of logs) {
     assert.deepEqual(Object.keys(record as Record<string, unknown>).sort(), [
       "duration_ms",

@@ -1,12 +1,12 @@
 import { randomUUID as systemRandomUUID } from "node:crypto";
 
-import { type ModelProposalInput, PROPOSAL_MODEL, type ProposalModelClient } from "@reroom/ai";
+import { type ModelProposalInput, PROPOSAL_MODEL, type ProposalModelClient } from "@reframe/agent";
 
 import { CURATED_ASSET_IDS } from "./catalog.ts";
 import type { ProposalRequest, ProposalRequestContext } from "./protocol.ts";
 import type { ProposalService } from "./server.ts";
 
-export { PROPOSAL_MODEL } from "@reroom/ai";
+export { PROPOSAL_MODEL } from "@reframe/agent";
 
 export type TypedConstraint =
   | { kind: "color_tag" | "style_tag"; value: string }

@@ -1,6 +1,6 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 
-import type { RealtimeTokenService } from "@reroom/ai";
+import type { RealtimeSessionService } from "@reframe/agent";
 import { type Context, Hono } from "hono";
 
 import { type InferenceService, InferenceWorkerError } from "./inference-client.ts";
@@ -17,7 +17,7 @@ export interface ProposalService {
 export interface GatewayAppOptions {
   gatewayToken: string;
   proposalService?: ProposalService;
-  realtimeService?: RealtimeTokenService;
+  realtimeService?: RealtimeSessionService;
   inferenceService?: InferenceService;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
@@ -88,8 +88,8 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
     return handleProposal(context, options);
   });
 
-  app.post("/v1/realtime/client-secret", async (context) => {
-    const rejection = authorizeJSONRequest(context, options.gatewayToken);
+  app.post("/v1/realtime/calls", async (context) => {
+    const rejection = authorizeSDPRequest(context, options.gatewayToken);
     if (rejection !== undefined) return rejection;
     return handleRealtimeSecret(context, options);
   });
@@ -108,7 +108,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
 
   app.all("/health", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/proposals", (context) => methodNotAllowed(context, "POST"));
-  app.all("/v1/realtime/client-secret", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/realtime/calls", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/inference/status", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/inference/jobs", (context) => methodNotAllowed(context, "POST"));
   app.notFound((context) => context.json({ error: "not_found" }, 404));
@@ -121,6 +121,15 @@ function authorizeJSONRequest(context: Context, gatewayToken: string): Response 
   const bearerRejection = authorizeBearerRequest(context, gatewayToken);
   if (bearerRejection !== undefined) return bearerRejection;
   if (!hasJSONContentType(context.req.header("content-type"))) {
+    return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  return undefined;
+}
+
+function authorizeSDPRequest(context: Context, gatewayToken: string): Response | undefined {
+  const bearerRejection = authorizeBearerRequest(context, gatewayToken);
+  if (bearerRejection !== undefined) return bearerRejection;
+  if (context.req.header("content-type")?.split(";", 1)[0]?.trim() !== "application/sdp") {
     return context.json({ error: "unsupported_media_type" }, 415);
   }
   return undefined;
@@ -173,12 +182,12 @@ async function handleRealtimeSecret(
 
   const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
   try {
-    const body = await abortable(readJSON(context.req.raw), deadline.signal);
-    if (!isEmptyRecord(body)) {
-      return context.json({ error: "invalid_request" }, 400);
-    }
-    const result = await abortable(options.realtimeService.mint(deadline.signal), deadline.signal);
-    return context.json(result);
+    const offer = await abortable(readText(context.req.raw), deadline.signal);
+    const answer = await abortable(
+      options.realtimeService.exchange(offer, deadline.signal),
+      deadline.signal,
+    );
+    return context.body(answer, 200, { "content-type": "application/sdp; charset=UTF-8" });
   } catch (error) {
     if (deadline.didTimeout()) {
       return context.json({ error: "upstream_timeout" }, 504);
@@ -265,6 +274,21 @@ async function readJSON(request: Request): Promise<unknown> {
   return parseJSONBytesStrict(bytes);
 }
 
+async function readText(request: Request): Promise<string> {
+  const declaredLength = request.headers.get("content-length");
+  if (
+    declaredLength !== null &&
+    (!/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) || Number(declaredLength) > MAX_REQUEST_BYTES)
+  ) {
+    throw new BodyTooLargeError();
+  }
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_REQUEST_BYTES) {
+    throw new BodyTooLargeError();
+  }
+  return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
 class BodyTooLargeError extends Error {}
 
 class FixedWindowRateLimit {
@@ -295,15 +319,6 @@ class FixedWindowRateLimit {
       retryAfterSeconds: Math.max(1, Math.ceil((60_000 - (now - this.#windowStartedAt)) / 1_000)),
     };
   }
-}
-
-function isEmptyRecord(value: unknown): boolean {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.keys(value).length === 0
-  );
 }
 
 interface RequestDeadline {
@@ -376,7 +391,7 @@ function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
   if (pathname === "/health" || pathname === "/v1/inference/status") return "GET";
   if (
     pathname === "/v1/proposals" ||
-    pathname === "/v1/realtime/client-secret" ||
+    pathname === "/v1/realtime/calls" ||
     pathname === "/v1/inference/jobs"
   ) {
     return "POST";

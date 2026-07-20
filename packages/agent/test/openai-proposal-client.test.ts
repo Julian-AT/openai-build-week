@@ -96,6 +96,8 @@ test("the production AI SDK path sends a non-retained strict Responses request",
       capturedInit = init;
       return Response.json({
         id: "resp_sdk",
+        object: "response",
+        status: "completed",
         created_at: 1_750_000_000,
         model: PROPOSAL_MODEL,
         output: [
@@ -140,28 +142,25 @@ test("the production AI SDK path sends a non-retained strict Responses request",
 
   assert.deepEqual(result, { responseID: "resp_sdk", output: { status: "ready" } });
   assert.equal(capturedURL, "https://api.openai.com/v1/responses");
-  assert.equal(capturedInit?.signal, controller.signal);
+  assert(capturedInit?.signal instanceof AbortSignal);
+  assert.equal(capturedInit.signal.aborted, false);
   assert(capturedInit?.body !== undefined && capturedInit.body !== null);
   const body = JSON.parse(capturedInit.body.toString()) as Record<string, unknown>;
   assert.equal(body.model, PROPOSAL_MODEL);
   assert.equal(body.store, false);
   assert.equal(body.max_output_tokens, 800);
-  assert.deepEqual(body.reasoning, { effort: "low", summary: "detailed" });
+  assert.deepEqual(body.reasoning, { effort: "low" });
   assert.deepEqual(body.text, {
     format: {
       type: "json_schema",
-      name: "response",
+      name: "semantic_proposal",
       strict: true,
       schema: outputSchema,
     },
     verbosity: "low",
   });
-  assert.equal(body.instructions, undefined);
+  assert.equal(body.instructions, "Return only the semantic proposal.");
   assert.deepEqual(body.input, [
-    {
-      role: "developer",
-      content: "Return only the semantic proposal.",
-    },
     {
       role: "user",
       content: [

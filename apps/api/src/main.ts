@@ -1,8 +1,8 @@
 import {
   buildDesignCopilotInstructions,
   createOpenAIProposalModelClient,
-  createOpenAIRealtimeTokenService,
-} from "@reroom/ai";
+  createOpenAIRealtimeSessionService,
+} from "@reframe/agent";
 
 import { CURATED_CATALOG } from "./catalog.ts";
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
@@ -27,7 +27,7 @@ const proposalService = openAIAPIKey
     })
   : undefined;
 const realtimeService = openAIAPIKey
-  ? createOpenAIRealtimeTokenService({ apiKey: openAIAPIKey })
+  ? createOpenAIRealtimeSessionService({ apiKey: openAIAPIKey })
   : undefined;
 const inferenceService = createInferenceWorkerClientFromEnvironment({
   REROOM_INFERENCE_URL: process.env.REROOM_INFERENCE_URL,
