@@ -25,6 +25,33 @@ const request: InferenceJobRequest = {
   prompt: { kind: "point", x: 0, y: 0, label: "foreground" },
 };
 
+const metricDepthRequest: InferenceJobRequest = {
+  protocol_version: "1.0.0",
+  request_id: "inference_00000000-0000-4000-8000-000000000002",
+  task: "metric_depth",
+  image: request.image,
+  intrinsics_encoded_pixels: {
+    fx: 1,
+    fy: 1,
+    cx: 0.5,
+    cy: 0.5,
+    width: 1,
+    height: 1,
+    units: "encoded_pixels",
+  },
+};
+
+const reconstructionRequest: InferenceJobRequest = {
+  protocol_version: "1.0.0",
+  request_id: "inference_00000000-0000-4000-8000-000000000003",
+  task: "reconstruct",
+  archive_sha256: "0".repeat(64),
+  frame_ids: [
+    "frame_00000000-0000-4000-8000-000000000001",
+    "frame_00000000-0000-4000-8000-000000000002",
+  ],
+};
+
 const readiness = {
   protocol_version: "1.0.0",
   status: "disabled",
@@ -121,8 +148,36 @@ test("worker job responses are request-bound and cancellation is forwarded", asy
   assert.equal(result.request_id, request.request_id);
   assert.equal(observed?.url, "https://private-worker.example/v1/jobs");
   assert.equal(observed?.headers.get("content-type"), "application/json");
-  assert.equal(observed?.signal, controller.signal);
+  assert.equal(observed?.signal.aborted, false);
   assert.deepEqual(await observed?.json(), request);
+});
+
+test("worker client uses the gateway GPU priority lane before dispatching private jobs", async () => {
+  const started: string[] = [];
+  let releaseBackground: (() => void) | undefined;
+  const client = createInferenceWorkerClient({
+    baseURL: "http://127.0.0.1:8790",
+    token: "internal-worker-token",
+    fetch: async (input, init) => {
+      const submitted = (await new Request(input, init).json()) as InferenceJobRequest;
+      started.push(submitted.task);
+      if (submitted.task === "reconstruct") {
+        await new Promise<void>((resolve) => {
+          releaseBackground = resolve;
+        });
+      }
+      return Response.json(responseFor(submitted));
+    },
+  });
+
+  const background = client.run(reconstructionRequest, new AbortController().signal);
+  await eventually(() => started.length === 1);
+  const depth = client.run(metricDepthRequest, new AbortController().signal);
+  const target = client.run(request, new AbortController().signal);
+
+  releaseBackground?.();
+  await Promise.all([background, target, depth]);
+  assert.deepEqual(started, ["reconstruct", "segment", "metric_depth"]);
 });
 
 test("worker client bounds responses and hides upstream error bodies", async () => {
@@ -167,3 +222,68 @@ test("worker client bounds responses and hides upstream error bodies", async () 
       error.publicCode === "upstream_timeout",
   );
 });
+
+function responseFor(submitted: InferenceJobRequest): object {
+  const provider = {
+    provider_id: "sam3",
+    provider_revision: "unmeasured-local",
+    evidence_class: "unmeasured",
+  } as const;
+  if (submitted.task === "segment") {
+    const mask = Buffer.from([1]);
+    return {
+      protocol_version: "1.0.0",
+      request_id: submitted.request_id,
+      task: submitted.task,
+      provider,
+      result: {
+        kind: "mask",
+        width: 1,
+        height: 1,
+        encoding: "binary_rle",
+        counts: [0, 1],
+        foreground_pixels: 1,
+        sha256: createHash("sha256").update(mask).digest("hex"),
+      },
+    };
+  }
+  if (submitted.task === "metric_depth") {
+    const depth = Buffer.alloc(4);
+    return {
+      protocol_version: "1.0.0",
+      request_id: submitted.request_id,
+      task: submitted.task,
+      provider,
+      result: {
+        kind: "metric_depth",
+        width: 1,
+        height: 1,
+        encoding: "float32_le_base64",
+        unit: "metre",
+        data_base64: depth.toString("base64"),
+        sha256: createHash("sha256").update(depth).digest("hex"),
+      },
+    };
+  }
+  const pointCloud = Buffer.from("ply\nformat binary_little_endian 1.0\n");
+  return {
+    protocol_version: "1.0.0",
+    request_id: submitted.request_id,
+    task: submitted.task,
+    provider,
+    result: {
+      kind: "point_cloud",
+      encoding: "ply_binary_little_endian",
+      data_base64: pointCloud.toString("base64"),
+      sha256: createHash("sha256").update(pointCloud).digest("hex"),
+    },
+  };
+}
+
+async function eventually(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  assert.fail("condition was not reached");
+}

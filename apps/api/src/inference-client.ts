@@ -1,3 +1,4 @@
+import { GpuLaneCoordinator, type GpuWorkKind } from "./gpu-lane-coordinator.ts";
 import {
   type InferenceJobRequest,
   type InferenceJobResponse,
@@ -21,6 +22,7 @@ export interface InferenceWorkerClientOptions {
   baseURL: string;
   token: string;
   fetch?: WorkerFetch;
+  gpuLaneCoordinator?: GpuLaneCoordinator;
 }
 
 export type WorkerFetch = (input: URL, init: RequestInit) => Promise<Response>;
@@ -79,6 +81,7 @@ export function createInferenceWorkerClient(
     throw new Error("invalid_inference_token");
   }
   const fetchImplementation: WorkerFetch = options.fetch ?? ((input, init) => fetch(input, init));
+  const gpuLaneCoordinator = options.gpuLaneCoordinator ?? new GpuLaneCoordinator();
 
   return {
     async readiness(signal) {
@@ -97,21 +100,44 @@ export function createInferenceWorkerClient(
     },
 
     async run(request, signal) {
-      const value = await requestWorker({
-        url: new URL("/v1/jobs", baseURL),
-        token: options.token,
+      let response: InferenceJobResponse | undefined;
+      let failure: unknown;
+      const scheduled = await gpuLaneCoordinator.submit({
+        id: request.request_id,
+        kind: gpuWorkKind(request),
         signal,
-        maximumResponseBytes: MAX_JOB_RESPONSE_BYTES,
-        fetchImplementation,
-        body: JSON.stringify(request),
+        run: async (workerSignal) => {
+          try {
+            const value = await requestWorker({
+              url: new URL("/v1/jobs", baseURL),
+              token: options.token,
+              signal: workerSignal,
+              maximumResponseBytes: MAX_JOB_RESPONSE_BYTES,
+              fetchImplementation,
+              body: JSON.stringify(request),
+            });
+            response = parseInferenceJobResponse(value, request);
+          } catch (error) {
+            failure = error;
+            throw error;
+          }
+        },
       });
-      try {
-        return parseInferenceJobResponse(value, request);
-      } catch (error) {
-        throw invalidWorkerResponse(error);
+      if (scheduled.status === "completed" && response !== undefined) return response;
+      if (scheduled.status === "cancelled") {
+        throw signal.reason ?? new DOMException("inference request cancelled", "AbortError");
       }
+      if (scheduled.status === "dropped") throw new InferenceWorkerError("worker_busy", 429);
+      if (failure instanceof InferenceWorkerError) throw failure;
+      throw invalidWorkerResponse(failure);
     },
   };
+}
+
+function gpuWorkKind(request: InferenceJobRequest): GpuWorkKind {
+  if (request.task === "segment") return "target_semantics";
+  if (request.task === "metric_depth") return "live_depth";
+  return "b0_batch";
 }
 
 interface WorkerRequestOptions {
