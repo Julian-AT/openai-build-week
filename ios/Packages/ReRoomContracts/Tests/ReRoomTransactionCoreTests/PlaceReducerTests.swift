@@ -37,6 +37,24 @@ struct PlaceReducerTests {
         #expect(scene.editHistory.isEmpty)
     }
 
+    @Test("model-attributed voice uses the same revision-neutral preview reducer")
+    func modelAttributedVoicePreview() throws {
+        let proposal = PlaceFixtures.proposal(
+            operation: .place,
+            source: "voice",
+            semanticModel: PlaceFixtures.semanticModel
+        )
+        let preview = try PlaceReducer.preview(
+            proposal: proposal,
+            currentScene: PlaceFixtures.scene,
+            candidate: PlaceFixtures.candidate,
+            seed: PlaceFixtures.seed
+        )
+        #expect(preview.proposal.intent.source == "voice")
+        #expect(preview.proposal.intent.semanticModel == PlaceFixtures.semanticModel)
+        #expect(preview.canonicalSceneRevision == PlaceFixtures.scene.sceneRevision)
+    }
+
     @Test(
         "support asset revision world authority and policy failures reject without mutation",
         arguments: PlaceFailureCase.allCases
@@ -212,7 +230,9 @@ enum PlaceFixtures {
     static func proposal(
         operation: ProductOperation,
         baseRevision: UInt64 = 8,
-        authority: RevisionAuthority? = nil
+        authority: RevisionAuthority? = nil,
+        source: String = "typed",
+        semanticModel: SemanticModelReference? = nil
     ) -> BoundProposal {
         let target = TargetContext(
             contractCapturedAtFrameID: TransactionTestFixtures.frameID,
@@ -232,12 +252,19 @@ enum PlaceFixtures {
             targetContext: target,
             intent: TransactionIntent(
                 contractOperation: operation,
-                source: "typed",
+                source: source,
                 arguments: operation == .place ? IntentArguments(assetID: assetID) : IntentArguments(),
-                constraints: []
+                constraints: [],
+                semanticModel: semanticModel
             )
         )
     }
+
+    static let semanticModel = SemanticModelReference(
+        contractProvider: "openai",
+        model: "gpt-5.6-sol",
+        responseID: "resp_30000000-0000-4000-8000-000000000099"
+    )
 
     static var candidate: DeterministicPlaceCandidate {
         candidateValue()

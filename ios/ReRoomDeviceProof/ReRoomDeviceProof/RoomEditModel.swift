@@ -595,6 +595,7 @@ enum RoomEditRenderProxyKind: String, Equatable, Sendable {
 
 struct RoomEditRenderProxySnapshot: Equatable, Sendable {
     let objectID: String
+    let assetID: String?
     let worldFrameVersion: UInt64
     let worldFromProxy: Matrix4
     let kind: RoomEditRenderProxyKind
@@ -624,6 +625,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
     let canRestore: Bool
     let target: TargetGroundingSnapshot
     let targetContext: TargetContext?
+    let catalogAssetID: String
     let status: String
     var removeDemo: RoomEditRemoveDemoSnapshot? = nil
     var removeOriginalVisible: Bool = false
@@ -633,6 +635,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
         if let target = target.target {
             proxy = RoomEditRenderProxySnapshot(
                 objectID: target.objectID,
+                assetID: nil,
                 worldFrameVersion: target.frozenProxy.worldFrameVersion,
                 worldFromProxy: target.frozenProxy.worldFromTarget,
                 kind: .frozenTarget
@@ -640,6 +643,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
         } else if removeOriginalVisible {
             proxy = RoomEditRenderProxySnapshot(
                 objectID: RoomEditIdentity.targetObjectID,
+                assetID: nil,
                 worldFrameVersion: target.worldFrameVersion,
                 worldFromProxy: .phase3ProxyPlacement,
                 kind: .frozenTarget
@@ -647,6 +651,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
         } else if preview != nil || placedAssetVisible {
             proxy = RoomEditRenderProxySnapshot(
                 objectID: RoomEditIdentity.placedAssetID,
+                assetID: catalogAssetID,
                 worldFrameVersion: target.worldFrameVersion,
                 worldFromProxy: .phase3ProxyPlacement,
                 kind: placedAssetVisible ? .committedPlace : .provisionalPlace
@@ -671,6 +676,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
         guard isPreview || replacementAssetVisible else { return nil }
         return RoomEditRenderProxySnapshot(
             objectID: RoomEditIdentity.replacementPlacedAssetID,
+            assetID: catalogAssetID,
             worldFrameVersion: target.worldFrameVersion,
             worldFromProxy: .phase3ProxyPlacement,
             kind: replacementAssetVisible ? .committedReplacement : .provisionalReplacement
@@ -692,6 +698,7 @@ struct RoomEditSnapshot: Equatable, Sendable {
         canRestore: false,
         target: .loading,
         targetContext: nil,
+        catalogAssetID: "asset_53000000-0000-4000-8000-000000000002",
         status: "Loading local room state"
     )
 }
@@ -715,6 +722,15 @@ struct RoomEditSupportContext: Equatable, Sendable {
 }
 
 typealias RoomEditSupportProvider = @MainActor @Sendable (SceneState) async -> RoomEditSupportContext?
+
+enum RoomEditPreviewTransitionOwner: Equatable, Sendable {
+    case semanticProposal
+    case select(RoomEditOperation)
+    case cancel
+    case confirm(RoomEditOperation)
+    case retry(RoomEditOperation)
+    case restoreAutomation
+}
 
 /// Local P0 demo policy only. The bounds are explicit HYPOTHESIS values, not measured claims.
 enum RoomEditSupportedViewPolicy: Equatable, Sendable {
@@ -970,6 +986,7 @@ final class RoomEditLiveTargetSession: RoomEditTargetSession {
 @MainActor
 final class RoomEditRuntime {
     let model: RoomEditModel
+    let catalog: RoomEditAssetCatalog
     let sharedSession: SharedRealityKitSession?
     let deviceProof: DeviceProofModel?
     let fixtureScenario: RoomEditTargetFixtureScenario?
@@ -977,12 +994,14 @@ final class RoomEditRuntime {
 
     init(
         model: RoomEditModel,
+        catalog: RoomEditAssetCatalog,
         sharedSession: SharedRealityKitSession?,
         deviceProof: DeviceProofModel?,
         fixtureScenario: RoomEditTargetFixtureScenario?,
         removeDemoEnabled: Bool = false
     ) {
         self.model = model
+        self.catalog = catalog
         self.sharedSession = sharedSession
         self.deviceProof = deviceProof
         self.fixtureScenario = fixtureScenario
@@ -990,13 +1009,18 @@ final class RoomEditRuntime {
     }
 }
 
-struct Phase3ProxyManifest: Codable, Equatable, Sendable {
+struct Phase3ProxyManifest: Equatable, Sendable {
     let schemaVersion: String
     let proxyID: String
     let contractAssetID: String
     let artifactID: String
     let artifactType: String
     let artifactRevision: UInt64
+    let artifactContentSHA256: String
+    let canonicalManifestFile: String
+    let collisionProxyPassed: Bool
+    let assetLicensePassed: Bool
+    let artifactIntegrityPassed: Bool
     let sourceFile: String
     let sourceSHA256: String
     let provenanceFile: String
@@ -1015,7 +1039,7 @@ struct Phase3ProxyManifest: Codable, Equatable, Sendable {
             artifactID: artifactID,
             artifactType: artifactType,
             artifactRevision: artifactRevision,
-            sha256: sourceSHA256
+            sha256: artifactContentSHA256
         )
     }
 
@@ -1025,49 +1049,97 @@ struct Phase3ProxyManifest: Codable, Equatable, Sendable {
         else { throw RoomEditSetupError.missingProxyResource }
         let data = try Data(contentsOf: manifestURL)
         guard let raw = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              Set(raw.keys) == Set(CodingKeys.allCases.map(\.rawValue))
+              Set(raw.keys) == Set(LegacyManifest.CodingKeys.allCases.map(\.rawValue))
         else { throw RoomEditSetupError.openProxyManifest }
-        let manifest = try JSONDecoder().decode(Self.self, from: data)
-        guard manifest.schemaVersion == "1.0.0",
-              manifest.proxyID == "asset_proxy-chair-phase3",
-              manifest.artifactType == "asset_manifest",
-              manifest.artifactRevision == 1,
-              manifest.sourceFile == "proxy-chair.usda",
-              manifest.provenanceFile == "PROVENANCE.md",
-              manifest.qualification == "phase3_local_demo_proxy_only",
-              manifest.units == "metres",
-              manifest.upAxis == "Y",
-              manifest.floorContactYM == 0,
-              manifest.boundsM == [0.6, 1.0, 0.6],
-              manifest.cubeCount == 6,
-              manifest.assumptionStatus == "HYPOTHESIS",
-              manifest.gate011Status == "PENDING",
-              manifest.contractAssetID.hasPrefix("asset_"),
-              manifest.artifactID.hasPrefix("artifact_"),
-              manifest.sourceSHA256 == CanonicalJSON.sha256Hex(try Data(contentsOf: sourceURL))
+        let legacy = try JSONDecoder().decode(LegacyManifest.self, from: data)
+        guard legacy.schemaVersion == "1.0.0",
+              legacy.proxyID == "asset_proxy-chair-phase3",
+              legacy.artifactType == "asset_manifest",
+              legacy.artifactRevision == 1,
+              legacy.sourceFile == "proxy-chair.usda",
+              legacy.provenanceFile == "PROVENANCE.md",
+              legacy.qualification == "phase3_local_demo_proxy_only",
+              legacy.units == "metres",
+              legacy.upAxis == "Y",
+              legacy.floorContactYM == 0,
+              legacy.boundsM == [0.6, 1.0, 0.6],
+              legacy.cubeCount == 6,
+              legacy.assumptionStatus == "HYPOTHESIS",
+              legacy.gate011Status == "PENDING",
+              legacy.contractAssetID.hasPrefix("asset_"),
+              legacy.artifactID.hasPrefix("artifact_"),
+              legacy.sourceSHA256 == CanonicalJSON.sha256Hex(try Data(contentsOf: sourceURL)),
+              let primary = try RoomEditAssetCatalog.load(bundle: bundle).assets.first,
+              primary.assetID == legacy.contractAssetID,
+              primary.artifactID == legacy.artifactID
         else { throw RoomEditSetupError.invalidProxyManifest }
-        return manifest
+        return Phase3ProxyManifest(
+            schemaVersion: legacy.schemaVersion,
+            proxyID: legacy.proxyID,
+            contractAssetID: legacy.contractAssetID,
+            artifactID: legacy.artifactID,
+            artifactType: legacy.artifactType,
+            artifactRevision: legacy.artifactRevision,
+            artifactContentSHA256: primary.canonicalManifestContentSHA256,
+            canonicalManifestFile: primary.canonicalManifestFile,
+            collisionProxyPassed: primary.collisionProxyPassed,
+            assetLicensePassed: primary.assetLicensePassed,
+            artifactIntegrityPassed: primary.artifactIntegrityPassed,
+            sourceFile: legacy.sourceFile,
+            sourceSHA256: legacy.sourceSHA256,
+            provenanceFile: legacy.provenanceFile,
+            generationRecipe: legacy.generationRecipe,
+            qualification: legacy.qualification,
+            units: legacy.units,
+            upAxis: legacy.upAxis,
+            floorContactYM: legacy.floorContactYM,
+            boundsM: legacy.boundsM,
+            cubeCount: legacy.cubeCount,
+            assumptionStatus: legacy.assumptionStatus,
+            gate011Status: legacy.gate011Status
+        )
     }
 
-    enum CodingKeys: String, CodingKey, CaseIterable {
-        case schemaVersion = "schema_version"
-        case proxyID = "proxy_id"
-        case contractAssetID = "contract_asset_id"
-        case artifactID = "artifact_id"
-        case artifactType = "artifact_type"
-        case artifactRevision = "artifact_revision"
-        case sourceFile = "source_file"
-        case sourceSHA256 = "source_sha256"
-        case provenanceFile = "provenance_file"
-        case generationRecipe = "generation_recipe"
-        case qualification
-        case units
-        case upAxis = "up_axis"
-        case floorContactYM = "floor_contact_y_m"
-        case boundsM = "bounds_m"
-        case cubeCount = "cube_count"
-        case assumptionStatus = "assumption_status"
-        case gate011Status = "gate_011_status"
+    private struct LegacyManifest: Codable {
+        let schemaVersion: String
+        let proxyID: String
+        let contractAssetID: String
+        let artifactID: String
+        let artifactType: String
+        let artifactRevision: UInt64
+        let sourceFile: String
+        let sourceSHA256: String
+        let provenanceFile: String
+        let generationRecipe: String
+        let qualification: String
+        let units: String
+        let upAxis: String
+        let floorContactYM: Double
+        let boundsM: [Double]
+        let cubeCount: UInt64
+        let assumptionStatus: String
+        let gate011Status: String
+
+        enum CodingKeys: String, CodingKey, CaseIterable {
+            case schemaVersion = "schema_version"
+            case proxyID = "proxy_id"
+            case contractAssetID = "contract_asset_id"
+            case artifactID = "artifact_id"
+            case artifactType = "artifact_type"
+            case artifactRevision = "artifact_revision"
+            case sourceFile = "source_file"
+            case sourceSHA256 = "source_sha256"
+            case provenanceFile = "provenance_file"
+            case generationRecipe = "generation_recipe"
+            case qualification
+            case units
+            case upAxis = "up_axis"
+            case floorContactYM = "floor_contact_y_m"
+            case boundsM = "bounds_m"
+            case cubeCount = "cube_count"
+            case assumptionStatus = "assumption_status"
+            case gate011Status = "gate_011_status"
+        }
     }
 }
 
@@ -1077,12 +1149,16 @@ final class RoomEditModel {
     private(set) var snapshot: RoomEditSnapshot = .loading
 
     @ObservationIgnored private let authority: NativeBranchAuthority
-    @ObservationIgnored private let manifest: Phase3ProxyManifest
+    @ObservationIgnored private var manifest: Phase3ProxyManifest
+    @ObservationIgnored private let catalog: RoomEditAssetCatalog?
     @ObservationIgnored private let supportProvider: RoomEditSupportProvider
     @ObservationIgnored private let targetSession: (any RoomEditTargetSession)?
     @ObservationIgnored private var placePreview: PlacePreviewReduction?
     @ObservationIgnored private var replacePreview: ReplacePreviewReduction?
     @ObservationIgnored private var removePreview: RemovePreviewReduction?
+    @ObservationIgnored private var restorePreview: RestorePreviewReduction?
+    @ObservationIgnored private var semanticProposal: BoundProposal?
+    private(set) var previewTransitionOwner: RoomEditPreviewTransitionOwner?
     @ObservationIgnored private var lastCommittedReplacePreview: ReplacePreviewReduction?
     @ObservationIgnored private var lastCommittedRemovePreview: RemovePreviewReduction?
     @ObservationIgnored private var targetGrounding: TargetGroundingSnapshot = .loading
@@ -1098,6 +1174,7 @@ final class RoomEditModel {
     init(
         authority: NativeBranchAuthority,
         manifest: Phase3ProxyManifest,
+        catalog: RoomEditAssetCatalog? = nil,
         supportProvider: @escaping RoomEditSupportProvider,
         targetSession: (any RoomEditTargetSession)? = nil,
         replacementAssetState: RoomEditReplacementAssetState = .loading,
@@ -1109,6 +1186,7 @@ final class RoomEditModel {
     ) {
         self.authority = authority
         self.manifest = manifest
+        self.catalog = catalog
         self.supportProvider = supportProvider
         self.targetSession = targetSession
         self.replacementAssetState = replacementAssetState
@@ -1124,6 +1202,115 @@ final class RoomEditModel {
         }
     }
 
+    var hasActivePreview: Bool {
+        placePreview != nil
+            || replacePreview != nil
+            || removePreview != nil
+            || restorePreview != nil
+            || previewTransitionOwner != nil
+    }
+
+    var previewTransitionInFlight: Bool {
+        previewTransitionOwner != nil
+    }
+
+    private func claimPreviewTransition(_ owner: RoomEditPreviewTransitionOwner) -> Bool {
+        guard previewTransitionOwner == nil else { return false }
+        previewTransitionOwner = owner
+        return true
+    }
+
+    private func releasePreviewTransition(_ owner: RoomEditPreviewTransitionOwner) {
+        guard previewTransitionOwner == owner else { return }
+        previewTransitionOwner = nil
+    }
+
+    func selectCatalogAsset(_ assetID: String) async {
+        guard !hasActivePreview else {
+            await refresh(status: "Cancel the current preview before changing its catalog asset")
+            return
+        }
+        guard let asset = catalog?.asset(id: assetID) else {
+            await refresh(
+                blocker: .transactionRejected("unknown_catalog_asset"),
+                status: "Unknown catalog asset rejected locally"
+            )
+            return
+        }
+        manifest = asset.transactionManifest
+        await refresh(status: "Selected \(asset.displayName); preview remains revision-neutral")
+    }
+
+    func designCopilotRequestContext() async -> DesignCopilotRequestContext {
+        let active = await authority.activeSnapshot()
+        return DesignCopilotRequestContext(
+            scene: active.scene,
+            targetContext: targetGrounding.targetContext
+        )
+    }
+
+    @discardableResult
+    func previewSemanticProposal(_ envelope: SemanticProposalEnvelope) async throws -> Bool {
+        let owner = RoomEditPreviewTransitionOwner.semanticProposal
+        guard !hasActivePreview, claimPreviewTransition(owner) else {
+            throw SemanticProposalRejection.previewAlreadyActive
+        }
+        defer { releasePreviewTransition(owner) }
+        let active = await authority.activeSnapshot()
+        guard placePreview == nil,
+              replacePreview == nil,
+              removePreview == nil,
+              restorePreview == nil
+        else {
+            throw SemanticProposalRejection.previewAlreadyActive
+        }
+        let targetContext = trustedTargetContext(for: active.scene)
+        let trusted = TrustedIntentContext(
+            sessionID: active.scene.sessionID,
+            revisionAuthority: active.scene.revisionAuthority,
+            baseSceneRevision: active.scene.sceneRevision,
+            targetContext: targetContext
+        )
+        let expected = DesignCopilotRequestContext(
+            scene: active.scene,
+            targetContext: targetContext
+        )
+        guard let proposal = try envelope.bind(
+            expectedContext: expected,
+            trustedContext: trusted,
+            currentScene: active.scene,
+            catalog: catalog ?? .single(manifest: manifest)
+        ) else {
+            publish(
+                active,
+                status: envelope.clarification ?? "The design copilot needs clarification"
+            )
+            return false
+        }
+        if let assetID = proposal.intent.arguments.assetID {
+            guard let asset = catalog?.asset(id: assetID) else {
+                throw SemanticProposalRejection.unknownAsset
+            }
+            manifest = asset.transactionManifest
+        }
+        semanticProposal = proposal
+        defer { semanticProposal = nil }
+        switch proposal.intent.operation {
+        case .place:
+            await proposePlace()
+        case .replace:
+            await proposeReplace()
+        case .remove:
+            await proposeRemove()
+        case .restore:
+            await proposeRestore()
+        }
+        return placePreview != nil
+            || replacePreview != nil
+            || removePreview != nil
+            || restorePreview != nil
+    }
+
     func prepare() async {
         guard hasPrepared == false else { return }
         hasPrepared = true
@@ -1131,6 +1318,8 @@ final class RoomEditModel {
         placePreview = nil
         replacePreview = nil
         removePreview = nil
+        restorePreview = nil
+        semanticProposal = nil
         let active = await authority.activeSnapshot()
         currentWorldFrameID = active.scene.worldFrame.worldFrameID
         currentWorldFrameVersion = active.scene.worldFrame.worldFrameVersion
@@ -1298,9 +1487,14 @@ final class RoomEditModel {
     }
 
     func selectOperation(_ operation: RoomEditOperation) async {
+        let owner = RoomEditPreviewTransitionOwner.select(operation)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         placePreview = nil
         replacePreview = nil
         removePreview = nil
+        restorePreview = nil
+        semanticProposal = nil
         switch operation {
         case .place:
             await proposePlace()
@@ -1309,19 +1503,14 @@ final class RoomEditModel {
         case .remove:
             await proposeRemove()
         case .restore:
-            let active = await authority.activeSnapshot()
-            publish(
-                active,
-                selected: operation,
-                blocker: hasEligibleRestore(in: active) ? nil : .restoreSourceRequired,
-                status: hasEligibleRestore(in: active)
-                    ? "Restore is ready offline"
-                    : "Restore needs a committed place"
-            )
+            await proposeRestore()
         }
     }
 
     func cancelPreview() async {
+        let owner = RoomEditPreviewTransitionOwner.cancel
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         do {
             let active = await authority.activeSnapshot()
             if let preview = placePreview {
@@ -1336,6 +1525,9 @@ final class RoomEditModel {
                 _ = try RemoveReducer.cancel(preview, currentScene: active.scene)
                 removePreview = nil
                 publish(active, selected: .remove, status: "Demo reveal preview cancelled; original retained")
+            } else if restorePreview != nil {
+                restorePreview = nil
+                publish(active, selected: .restore, status: "Restore preview cancelled; revision unchanged")
             }
         } catch {
             await fail(error)
@@ -1355,6 +1547,9 @@ final class RoomEditModel {
 
     /// Sole native replacement confirmation ingress.
     func confirmReplacementFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.confirm(.replace)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         guard let preview = replacePreview else { return }
         do {
             let active = await authority.activeSnapshot()
@@ -1390,6 +1585,9 @@ final class RoomEditModel {
 
     /// Replays the identical request; authority idempotency must return the prior receipt.
     func retryReplacementFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.retry(.replace)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         guard let preview = lastCommittedReplacePreview else { return }
         do {
             _ = try await authority.commitReplace(
@@ -1406,6 +1604,9 @@ final class RoomEditModel {
 
     /// Sole launch-gated degraded removal confirmation ingress.
     func confirmRemovalFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.confirm(.remove)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         guard let preview = removePreview else { return }
         do {
             let active = await authority.activeSnapshot()
@@ -1439,6 +1640,9 @@ final class RoomEditModel {
 
     /// Replays the identical remove request through sole authority idempotency.
     func retryRemovalFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.retry(.remove)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         guard let preview = lastCommittedRemovePreview else { return }
         do {
             _ = try await authority.commitRemove(
@@ -1455,6 +1659,9 @@ final class RoomEditModel {
 
     /// This is the sole place-confirmation ingress. RoomEditView invokes it only from a native Button.
     func confirmPlacementFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.confirm(.place)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
         guard let preview = placePreview else { return }
         do {
             _ = try await authority.commitPlace(
@@ -1480,8 +1687,16 @@ final class RoomEditModel {
         }
     }
 
-    /// This is the sole restore-confirmation ingress. RoomEditView invokes it only from a native Button.
+    /// Backward-compatible automation helper. Product UI uses separate preview and confirmation calls.
     func restoreFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.restoreAutomation
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
+        await proposeRestore()
+        await confirmRestore()
+    }
+
+    private func proposeRestore() async {
         do {
             let active = await authority.activeSnapshot()
             guard let source = eligibleRestoreSource(in: active) else {
@@ -1506,6 +1721,47 @@ final class RoomEditModel {
                     expiresAtUTC: RoomEditIdentity.previewExpiry
                 )
             )
+            restorePreview = reduction
+            assignSnapshot(RoomEditSnapshot(
+                operations: RoomEditOperation.allCases,
+                selectedOperation: .restore,
+                revision: active.scene.sceneRevision,
+                preview: RoomEditPreviewSnapshot(
+                    proxyID: RoomEditIdentity.restorePreviewID,
+                    baseRevision: reduction.preview.baseSceneRevision,
+                    currentRevision: active.scene.sceneRevision,
+                    supportStatus: "Verified captured-exact compensating inverse"
+                ),
+                blocker: nil,
+                localState: active.receipts.isEmpty ? .ready : .durable,
+                placedAssetVisible: active.scene.placedAssets.isEmpty == false,
+                replacementAssetVisible: replacementVisible(in: active),
+                replacementAssetState: replacementAssetState,
+                canConfirm: true,
+                canRetryReplacement: lastCommittedReplacePreview != nil,
+                canRetryRemove: lastCommittedRemovePreview != nil,
+                canRestore: true,
+                target: targetGrounding,
+                targetContext: targetGrounding.targetContext,
+                catalogAssetID: active.scene.placedAssets.last?.assetID ?? manifest.contractAssetID,
+                status: "Restore preview is revision-neutral; Confirm or Cancel"
+            ))
+        } catch {
+            await fail(error)
+        }
+    }
+
+    /// Sole product restore-confirmation ingress.
+    func confirmRestoreFromButton() async {
+        let owner = RoomEditPreviewTransitionOwner.confirm(.restore)
+        guard claimPreviewTransition(owner) else { return }
+        defer { releasePreviewTransition(owner) }
+        await confirmRestore()
+    }
+
+    private func confirmRestore() async {
+        guard let reduction = restorePreview else { return }
+        do {
             _ = try await authority.commitRestore(
                 reduction,
                 confirmation: ExplicitConfirmation(
@@ -1518,6 +1774,7 @@ final class RoomEditModel {
                 idempotencyKey: RoomEditIdentity.restoreIdempotencyKey,
                 localUndoToken: RoomEditIdentity.restoreUndoToken
             )
+            restorePreview = nil
             await refresh(selected: .restore, status: "Restore committed as a new local revision")
         } catch {
             await fail(error)
@@ -1555,9 +1812,9 @@ final class RoomEditModel {
                         placedAssetID: RoomEditIdentity.placedAssetID,
                         manifestArtifactRef: manifest.artifactReference,
                         allowlisted: true,
-                        collisionProxyPassed: true,
-                        assetLicensePassed: true,
-                        artifactIntegrityPassed: true
+                        collisionProxyPassed: manifest.collisionProxyPassed,
+                        assetLicensePassed: manifest.assetLicensePassed,
+                        artifactIntegrityPassed: manifest.artifactIntegrityPassed
                     ),
                     support: DeterministicSupportCandidate(
                         relationID: RoomEditIdentity.supportRelationID,
@@ -1602,6 +1859,7 @@ final class RoomEditModel {
                 canRestore: hasEligibleRestore(in: active),
                 target: targetGrounding,
                 targetContext: targetGrounding.targetContext,
+                catalogAssetID: manifest.contractAssetID,
                 status: "Provisional Phase 3 proxy; confirm or cancel"
             ))
         } catch {
@@ -1678,7 +1936,7 @@ final class RoomEditModel {
                 return
             }
             let reduction = try await authority.previewReplace(
-                proposal: RoomEditFactory.replaceProposal(
+                proposal: semanticProposal ?? RoomEditFactory.replaceProposal(
                     scene: active.scene,
                     targetContext: targetContext,
                     manifest: manifest
@@ -1711,6 +1969,7 @@ final class RoomEditModel {
                 canRestore: hasEligibleRestore(in: active),
                 target: targetGrounding,
                 targetContext: targetContext,
+                catalogAssetID: manifest.contractAssetID,
                 status: "Local six-cube demo proxy preview; Confirm or Cancel. GATE-011 PENDING"
             ))
         } catch {
@@ -1761,17 +2020,10 @@ final class RoomEditModel {
                 )
                 return
             }
-            let proposal = BoundProposal(
-                sessionID: active.scene.sessionID,
-                revisionAuthority: active.scene.revisionAuthority,
-                baseSceneRevision: active.scene.sceneRevision,
-                targetContext: targetContext,
-                intent: TransactionIntent(
-                    contractOperation: .remove,
-                    source: "tap",
-                    arguments: IntentArguments(),
-                    constraints: []
-                )
+            let proposal = semanticProposal ?? proposal(
+                for: .remove,
+                scene: active.scene,
+                support: support
             )
             let reduction = try await authority.previewRemove(
                 proposal: proposal,
@@ -1817,6 +2069,7 @@ final class RoomEditModel {
                 canRestore: hasEligibleRestore(in: active),
                 target: targetGrounding,
                 targetContext: targetContext,
+                catalogAssetID: active.scene.placedAssets.last?.assetID ?? manifest.contractAssetID,
                 status: "Degraded demo reveal preview; GATE-006 PENDING",
                 removeDemo: RoomEditRemoveDemoSnapshot(
                     classification: fixture.classification,
@@ -1849,6 +2102,13 @@ final class RoomEditModel {
         scene: SceneState,
         support: RoomEditSupportContext?
     ) -> BoundProposal {
+        if let semanticProposal,
+           semanticProposal.intent.operation == operation,
+           semanticProposal.sessionID == scene.sessionID,
+           semanticProposal.revisionAuthority == scene.revisionAuthority,
+           semanticProposal.baseSceneRevision == scene.sceneRevision {
+            return semanticProposal
+        }
         let groundedContext: TargetContext?
         switch operation {
         case .replace, .remove:
@@ -1879,6 +2139,20 @@ final class RoomEditModel {
                     : IntentArguments(),
                 constraints: []
             )
+        )
+    }
+
+    private func trustedTargetContext(for scene: SceneState) -> TargetContext {
+        targetGrounding.targetContext ?? TargetContext(
+            contractCapturedAtFrameID: RoomEditIdentity.frameID,
+            capturedSceneRevision: scene.sceneRevision,
+            worldFrameID: scene.worldFrame.worldFrameID,
+            worldFrameVersion: scene.worldFrame.worldFrameVersion,
+            cameraPose: .identity,
+            screenPointEncodedPixels: [1, 1],
+            candidateObjectIDs: [],
+            selectedObjectID: nil,
+            artifactRefs: []
         )
     }
 
@@ -1924,6 +2198,7 @@ final class RoomEditModel {
             canRestore: hasEligibleRestore(in: active),
             target: targetGrounding,
             targetContext: targetGrounding.targetContext,
+            catalogAssetID: active.scene.placedAssets.last?.assetID ?? manifest.contractAssetID,
             status: status,
             removeDemo: demo,
             removeOriginalVisible: removeLaunchMode == .degradedDemoFixture
@@ -2226,9 +2501,9 @@ enum RoomEditFactory {
                 placedAssetID: RoomEditIdentity.replacementPlacedAssetID,
                 manifestArtifactRef: manifest.artifactReference,
                 allowlisted: true,
-                collisionProxyPassed: true,
-                assetLicensePassed: true,
-                artifactIntegrityPassed: true
+                collisionProxyPassed: manifest.collisionProxyPassed,
+                assetLicensePassed: manifest.assetLicensePassed,
+                artifactIntegrityPassed: manifest.artifactIntegrityPassed
             ),
             support: DeterministicSupportCandidate(
                 relationID: RoomEditIdentity.replacementSupportRelationID,
@@ -2263,6 +2538,7 @@ enum RoomEditFactory {
         }
     ) throws -> RoomEditRuntime {
         let manifest = try Phase3ProxyManifest.load(bundle: .main)
+        let catalog = try RoomEditAssetCatalog.load(bundle: .main)
         let demoReveal = removeLaunchMode == .degradedDemoFixture
             ? try? RoomEditDemoRevealFixture.decodeExact(bytes: removeFixtureBytesProvider())
             : nil
@@ -2287,13 +2563,15 @@ enum RoomEditFactory {
         let authority = try NativeBranchAuthority(
             store: store,
             bootstrap: bootstrap(manifest: manifest),
-            locallyAvailableArtifacts: [manifest.artifactReference] + [demoReveal?.revealReference].compactMap { $0 }
+            locallyAvailableArtifacts: catalog.assets.map(\.artifactReference)
+                + [demoReveal?.revealReference].compactMap { $0 }
         )
         if useFixtureSupport {
             let targetSession = RoomEditFixtureTargetSession(scenario: fixtureScenario)
             let model = RoomEditModel(
                 authority: authority,
                 manifest: manifest,
+                catalog: catalog,
                 supportProvider: { _ in
                     if removeDemoOutOfView {
                         var pose = Matrix4.identity.values
@@ -2316,6 +2594,7 @@ enum RoomEditFactory {
             )
             return RoomEditRuntime(
                 model: model,
+                catalog: catalog,
                 sharedSession: nil,
                 deviceProof: nil,
                 fixtureScenario: fixtureScenario,
@@ -2332,6 +2611,7 @@ enum RoomEditFactory {
         let model = RoomEditModel(
             authority: authority,
             manifest: manifest,
+            catalog: catalog,
             supportProvider: { _ in
                 guard deviceProof.state.visualFrameCaptureAvailable,
                       deviceProof.state.horizontalPlaneObserved,
@@ -2357,6 +2637,7 @@ enum RoomEditFactory {
         )
         return RoomEditRuntime(
             model: model,
+            catalog: catalog,
             sharedSession: sharedSession,
             deviceProof: deviceProof,
             fixtureScenario: nil

@@ -76,6 +76,23 @@ struct RemoveReducerTests {
         }
     }
 
+    @Test("model-attributed voice uses the same degraded-fixture preview boundary")
+    func modelAttributedVoicePreview() throws {
+        let proposal = RemoveFixtures.proposalValue(
+            source: "voice",
+            semanticModel: RemoveFixtures.semanticModel
+        )
+        let preview = try RemoveReducer.preview(
+            proposal: proposal,
+            currentScene: RemoveFixtures.scene,
+            candidate: RemoveFixtures.candidate,
+            seed: RemoveFixtures.seed
+        )
+        #expect(preview.proposal.intent.source == "voice")
+        #expect(preview.proposal.intent.semanticModel == RemoveFixtures.semanticModel)
+        #expect(preview.canonicalSceneRevision == RemoveFixtures.scene.sceneRevision)
+    }
+
     @Test(
         "target authority capability view artifact and proposal failures reject without mutation",
         arguments: RemoveFailureCase.allCases
@@ -369,6 +386,7 @@ enum RemoveFixtures {
         candidateObjectIDs: [String] = [targetObjectID],
         operation: ProductOperation = .remove,
         source: String = "tap",
+        semanticModel: SemanticModelReference? = nil,
         assetID: String? = nil,
         targetArtifactRefs: [ArtifactReference] = []
     ) -> BoundProposal {
@@ -391,10 +409,17 @@ enum RemoveFixtures {
                 contractOperation: operation,
                 source: source,
                 arguments: IntentArguments(assetID: assetID, catalogQuery: nil),
-                constraints: []
+                constraints: [],
+                semanticModel: semanticModel
             )
         )
     }
+
+    static let semanticModel = SemanticModelReference(
+        contractProvider: "openai",
+        model: "gpt-5.6-sol",
+        responseID: "resp_60000000-0000-4000-8000-000000000099"
+    )
 
     static var candidate: DeterministicRemoveCandidate { candidateValue() }
 

@@ -21,9 +21,16 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>NSCameraUsageDescription</key>
-	<string>ReRoom uses the camera for this device check. No test frame is captured until you allow access.</string>
+	<string>ReRoom uses the camera for local room editing. A single frame is shared with the configured AI gateway only after you enable frame sharing and tap Ask.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>ReRoom connects to your explicitly configured local Mac gateway for optional AI design suggestions and short-lived Realtime credentials.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>ReRoom optionally checks microphone permission readiness. It never records audio and this permission never blocks the camera device check.</string>
+	<string>ReRoom uses the microphone only while you hold the optional design voice control. Typed and tap editing work without microphone access.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

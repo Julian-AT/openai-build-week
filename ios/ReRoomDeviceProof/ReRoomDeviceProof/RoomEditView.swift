@@ -107,12 +107,14 @@ struct RoomEditContainer: View {
 
 struct RoomEditView: View {
     @Bindable var model: RoomEditModel
+    @State private var designCopilot: DesignCopilotModel
     let runtime: RoomEditRuntime
     let replacementLoadForcedFailure: Bool
     @State private var lastTapPoint = CGPoint(x: 160, y: 180)
 
     init(runtime: RoomEditRuntime, replacementLoadForcedFailure: Bool = false) {
         self.model = runtime.model
+        _designCopilot = State(initialValue: DesignCopilotModel(runtime: runtime))
         self.runtime = runtime
         self.replacementLoadForcedFailure = replacementLoadForcedFailure
     }
@@ -126,8 +128,13 @@ struct RoomEditView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     RoomEditHeader()
                     RoomEditRevisionPanel(snapshot: model.snapshot)
+                    DesignCopilotPanel(
+                        copilot: designCopilot,
+                        catalog: runtime.catalog
+                    )
                     RoomEditOperationGrid(
                         snapshot: model.snapshot,
+                        transitionInFlight: model.previewTransitionInFlight,
                         select: selectOperation
                     )
                     RoomEditStatePanel(snapshot: model.snapshot)
@@ -140,6 +147,7 @@ struct RoomEditView: View {
                         liveView: runtime.sharedSession?.view,
                         fixtureScenario: runtime.fixtureScenario,
                         snapshot: model.snapshot.render,
+                        catalog: runtime.catalog,
                         replacementLoadForcedFailure: replacementLoadForcedFailure,
                         replacementAssetStateChanged: updateReplacementAssetState,
                         tap: groundTarget
@@ -163,11 +171,7 @@ struct RoomEditView: View {
 
     private func selectOperation(_ operation: RoomEditOperation) {
         Task {
-            if operation == .restore, model.snapshot.canRestore {
-                await model.restoreFromButton()
-            } else {
-                await model.selectOperation(operation)
-            }
+            await model.selectOperation(operation)
         }
     }
 
@@ -205,6 +209,7 @@ private struct RoomEditCameraStage: View {
     let liveView: ARView?
     let fixtureScenario: RoomEditTargetFixtureScenario?
     let snapshot: RoomEditRenderSnapshot
+    let catalog: RoomEditAssetCatalog
     let replacementLoadForcedFailure: Bool
     let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
     let tap: (CGPoint) -> Void
@@ -215,6 +220,7 @@ private struct RoomEditCameraStage: View {
                 liveView: liveView,
                 fixtureScenario: fixtureScenario,
                 snapshot: snapshot,
+                catalog: catalog,
                 replacementLoadForcedFailure: replacementLoadForcedFailure,
                 replacementAssetStateChanged: replacementAssetStateChanged,
                 tap: tap
@@ -498,6 +504,7 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
     let liveView: ARView?
     let fixtureScenario: RoomEditTargetFixtureScenario?
     let snapshot: RoomEditRenderSnapshot
+    let catalog: RoomEditAssetCatalog
     let replacementLoadForcedFailure: Bool
     let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
     let tap: (CGPoint) -> Void
@@ -505,6 +512,7 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
     func makeCoordinator() -> Coordinator {
         Coordinator(
             tap: tap,
+            catalog: catalog,
             forceReplacementLoadFailure: replacementLoadForcedFailure,
             replacementAssetStateChanged: replacementAssetStateChanged
         )
@@ -540,13 +548,14 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
         private var targetAnchor: AnchorEntity?
         private var replacementAnchor: AnchorEntity?
         private let revealAnchors: [String: AnchorEntity]
-        private let replacementTemplate: Entity?
+        private let assetTemplates: [String: Entity]
         private let replacementAssetState: RoomEditReplacementAssetState
         private let replacementAssetStateChanged: (RoomEditReplacementAssetState) -> Void
         private var didPublishReplacementAssetState = false
 
         init(
             tap: @escaping (CGPoint) -> Void,
+            catalog: RoomEditAssetCatalog,
             forceReplacementLoadFailure: Bool,
             replacementAssetStateChanged: @escaping (RoomEditReplacementAssetState) -> Void
         ) {
@@ -569,24 +578,22 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
                 revealAnchors[id] = anchor
             }
             self.revealAnchors = revealAnchors
-            if forceReplacementLoadFailure {
-                replacementTemplate = nil
-                replacementAssetState = .unavailable(.realityKitLoadFailed)
-            } else {
-                do {
-                    let loaded = try Entity.load(named: "proxy-chair.usda", in: .main)
-                    guard Self.modelEntityCount(in: loaded) == 6 else {
-                        replacementTemplate = nil
-                        replacementAssetState = .unavailable(.realityKitLoadFailed)
-                        return
+            var templates: [String: Entity] = [:]
+            if !forceReplacementLoadFailure {
+                for asset in catalog.assets {
+                    guard let loaded = try? Entity.load(named: asset.nativeFile, in: .main),
+                          Self.modelEntityCount(in: loaded) == asset.modelEntityCount
+                    else {
+                        templates.removeAll()
+                        break
                     }
-                    replacementTemplate = loaded
-                    replacementAssetState = .available
-                } catch {
-                    replacementTemplate = nil
-                    replacementAssetState = .unavailable(.realityKitLoadFailed)
+                    templates[asset.assetID] = loaded
                 }
             }
+            assetTemplates = templates
+            replacementAssetState = templates.count == catalog.assets.count
+                ? .available
+                : .unavailable(.realityKitLoadFailed)
         }
 
         func publishReplacementAssetStateOnce() {
@@ -633,21 +640,27 @@ private struct RoomEditRenderSurface: UIViewRepresentable {
 
             if let target = snapshot.targetProxy {
                 let anchor = AnchorEntity(world: Self.matrix(target.worldFromProxy))
-                let mesh = MeshResource.generateBox(width: 0.72, height: 0.82, depth: 0.72)
-                let material = SimpleMaterial(
-                    color: UIColor.systemTeal.withAlphaComponent(0.28),
-                    roughness: 0.8,
-                    isMetallic: false
-                )
-                let coverage = ModelEntity(mesh: mesh, materials: [material])
-                coverage.position.y = 0.41
-                anchor.addChild(coverage)
+                if target.kind == .frozenTarget {
+                    let mesh = MeshResource.generateBox(width: 0.72, height: 0.82, depth: 0.72)
+                    let material = SimpleMaterial(
+                        color: UIColor.systemTeal.withAlphaComponent(0.28),
+                        roughness: 0.8,
+                        isMetallic: false
+                    )
+                    let coverage = ModelEntity(mesh: mesh, materials: [material])
+                    coverage.position.y = 0.41
+                    anchor.addChild(coverage)
+                } else if let assetID = target.assetID,
+                          let template = assetTemplates[assetID] {
+                    anchor.addChild(template.clone(recursive: true))
+                }
                 arView.scene.addAnchor(anchor)
                 targetAnchor = anchor
             }
 
             if let replacement = snapshot.replacementProxy,
-               let replacementTemplate {
+               let assetID = replacement.assetID,
+               let replacementTemplate = assetTemplates[assetID] {
                 let anchor = AnchorEntity(world: Self.matrix(replacement.worldFromProxy))
                 anchor.addChild(replacementTemplate.clone(recursive: true))
                 arView.scene.addAnchor(anchor)
@@ -777,6 +790,7 @@ private struct RoomEditRevisionPanel: View {
 
 private struct RoomEditOperationGrid: View {
     let snapshot: RoomEditSnapshot
+    let transitionInFlight: Bool
     let select: (RoomEditOperation) -> Void
 
     private let columns = [
@@ -798,6 +812,7 @@ private struct RoomEditOperationGrid: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(snapshot.selectedOperation == operation ? .blue : .gray.opacity(0.55))
+                    .disabled(transitionInFlight)
                     .accessibilityIdentifier("roomedit.operation.\(operation.rawValue)")
                     .accessibilityAddTraits(snapshot.selectedOperation == operation ? .isSelected : [])
                 }
@@ -953,16 +968,21 @@ private struct RoomEditActionTray: View {
                 }
                 .buttonStyle(.bordered)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                .disabled(model.previewTransitionInFlight)
                 .accessibilityIdentifier("roomedit.action.cancel")
 
                 Button(snapshot.selectedOperation == .remove
                     ? "Confirm demo removal"
-                    : (snapshot.selectedOperation == .replace ? "Confirm replacement" : "Confirm placement")) {
+                    : (snapshot.selectedOperation == .replace
+                        ? "Confirm replacement"
+                        : (snapshot.selectedOperation == .restore ? "Confirm restore" : "Confirm placement"))) {
                     Task {
                         if snapshot.selectedOperation == .remove {
                             await model.confirmRemovalFromButton()
                         } else if snapshot.selectedOperation == .replace {
                             await model.confirmReplacementFromButton()
+                        } else if snapshot.selectedOperation == .restore {
+                            await model.confirmRestoreFromButton()
                         } else {
                             await model.confirmPlacementFromButton()
                         }
@@ -970,13 +990,15 @@ private struct RoomEditActionTray: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity, minHeight: 44)
-                .disabled(!snapshot.canConfirm)
+                .disabled(!snapshot.canConfirm || model.previewTransitionInFlight)
                 .accessibilityIdentifier(
                     snapshot.selectedOperation == .remove
                         ? "roomedit.action.confirm.remove"
                         : (snapshot.selectedOperation == .replace
                             ? "roomedit.action.confirm.replace"
-                            : "roomedit.action.confirm")
+                            : (snapshot.selectedOperation == .restore
+                                ? "roomedit.action.confirm.restore"
+                                : "roomedit.action.confirm"))
                 )
             }
             }
@@ -987,6 +1009,7 @@ private struct RoomEditActionTray: View {
                 }
                 .buttonStyle(.bordered)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                .disabled(model.previewTransitionInFlight)
                 .accessibilityHint("Reuses the same idempotency key and cannot create another revision")
                 .accessibilityIdentifier("roomedit.action.retry.replace")
             }
@@ -998,6 +1021,7 @@ private struct RoomEditActionTray: View {
                 }
                 .buttonStyle(.bordered)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                .disabled(model.previewTransitionInFlight)
                 .accessibilityHint("Reuses the same idempotency key and cannot create another revision")
                 .accessibilityIdentifier("roomedit.action.retry.remove")
             }

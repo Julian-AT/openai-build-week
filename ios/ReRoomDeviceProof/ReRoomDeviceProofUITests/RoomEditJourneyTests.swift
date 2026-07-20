@@ -1,10 +1,15 @@
 import XCTest
 
 final class RoomEditJourneyTests: XCTestCase {
+    override func setUp() {
+        super.setUp()
+        continueAfterFailure = false
+    }
+
     @MainActor
     func testNormalLaunchKeepsRemoveUnavailableWithoutDemoEnablement() {
         let app = launch(reset: true)
-        element("roomedit.operation.remove", in: app).tap()
+        tapOperation("remove", in: app)
         XCTAssertTrue(element("roomedit.blocker.remove", in: app).waitForExistence(timeout: 2))
         XCTAssertFalse(element("roomedit.remove.demo.banner", in: app).exists)
         XCTAssertFalse(element("roomedit.action.confirm.remove", in: app).exists)
@@ -19,7 +24,7 @@ final class RoomEditJourneyTests: XCTestCase {
             "DEMO REVEAL FIXTURE - GATE-006 PENDING"
         )
         tapTargetSurface(in: app)
-        element("roomedit.operation.remove", in: app).tap()
+        tapOperation("remove", in: app)
         XCTAssertTrue(element("roomedit.preview.remove", in: app).waitForExistence(timeout: 2))
         XCTAssertTrue(element("roomedit.render.reveal.floor", in: app).exists)
         XCTAssertTrue(element("roomedit.render.reveal.wall", in: app).exists)
@@ -36,7 +41,9 @@ final class RoomEditJourneyTests: XCTestCase {
         app = launch(reset: false, scenario: "healthy", demoReveal: true)
         XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
         XCTAssertTrue(element("roomedit.render.reveal.floor", in: app).exists)
-        element("roomedit.operation.restore", in: app).tap()
+        tapOperation("restore", in: app)
+        XCTAssertTrue(element("roomedit.action.confirm.restore", in: app).waitForExistence(timeout: 2))
+        element("roomedit.action.confirm.restore", in: app).tap()
         XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
         XCTAssertFalse(element("roomedit.render.reveal.floor", in: app).exists)
         XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists)
@@ -52,7 +59,7 @@ final class RoomEditJourneyTests: XCTestCase {
                 demoRevealFailure: configuration
             )
             tapTargetSurface(in: app)
-            element("roomedit.operation.remove", in: app).tap()
+            tapOperation("remove", in: app)
             XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists, configuration)
             XCTAssertFalse(element("roomedit.render.reveal.floor", in: app).exists, configuration)
             XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r0")
@@ -69,7 +76,7 @@ final class RoomEditJourneyTests: XCTestCase {
         XCTAssertTrue(element("roomedit.replace.gate.pending", in: app).exists)
 
         tapTargetSurface(in: app)
-        element("roomedit.operation.replace", in: app).tap()
+        tapOperation("replace", in: app)
         XCTAssertTrue(element("roomedit.preview.replacement", in: app).waitForExistence(timeout: 2))
         XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists)
         XCTAssertTrue(element("roomedit.render.replacement", in: app).exists)
@@ -86,7 +93,9 @@ final class RoomEditJourneyTests: XCTestCase {
         app = launch(reset: false, scenario: "healthy")
         XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
         XCTAssertTrue(element("roomedit.asset.replacement.committed", in: app).exists)
-        element("roomedit.operation.restore", in: app).tap()
+        tapOperation("restore", in: app)
+        XCTAssertTrue(element("roomedit.action.confirm.restore", in: app).waitForExistence(timeout: 2))
+        element("roomedit.action.confirm.restore", in: app).tap()
         XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
         XCTAssertTrue(element("roomedit.restore.committed", in: app).exists)
         XCTAssertFalse(element("roomedit.asset.replacement.committed", in: app).exists)
@@ -105,14 +114,16 @@ final class RoomEditJourneyTests: XCTestCase {
                 element("roomedit.target.id", in: app).label,
                 "Target ID object_53000000-0000-4000-8000-000000000030"
             )
-            element("roomedit.operation.replace", in: app).tap()
+            tapOperation("replace", in: app)
             XCTAssertTrue(element("roomedit.action.confirm.replace", in: app).waitForExistence(timeout: 2))
             element("roomedit.action.confirm.replace", in: app).tap()
             XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
             element("roomedit.action.retry.replace", in: app).tap()
             XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r1")
             XCTAssertTrue(element("roomedit.asset.replacement.committed", in: app).exists)
-            element("roomedit.operation.restore", in: app).tap()
+            tapOperation("restore", in: app)
+            XCTAssertTrue(element("roomedit.action.confirm.restore", in: app).waitForExistence(timeout: 2))
+            element("roomedit.action.confirm.restore", in: app).tap()
             XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
             XCTAssertFalse(element("roomedit.asset.replacement.committed", in: app).exists)
             app.terminate()
@@ -124,7 +135,7 @@ final class RoomEditJourneyTests: XCTestCase {
         let app = launch(reset: true, scenario: "healthy", failReplacementLoad: true)
         tapTargetSurface(in: app)
         XCTAssertTrue(element("roomedit.asset.proxy.failed", in: app).waitForExistence(timeout: 5))
-        element("roomedit.operation.replace", in: app).tap()
+        tapOperation("replace", in: app)
         XCTAssertTrue(element("roomedit.blocker.replace.asset", in: app).waitForExistence(timeout: 2))
         XCTAssertTrue(element("roomedit.render.target.coverage", in: app).exists)
         XCTAssertFalse(element("roomedit.render.replacement", in: app).exists)
@@ -182,18 +193,19 @@ final class RoomEditJourneyTests: XCTestCase {
     func testPlaceCancelConfirmRelaunchAndOfflineRestore() {
         var app = launch(reset: true)
         XCTAssertTrue(element("roomedit.root", in: app).waitForExistence(timeout: 5))
+        materializeOperationGrid(in: app)
 
         for operation in ["place", "replace", "remove", "restore"] {
             XCTAssertTrue(element("roomedit.operation.\(operation)", in: app).exists)
         }
         XCTAssertFalse(element("roomedit.operation.undo", in: app).exists)
 
-        element("roomedit.operation.replace", in: app).tap()
+        tapOperation("replace", in: app)
         XCTAssertTrue(element("roomedit.blocker.replace", in: app).waitForExistence(timeout: 2))
-        element("roomedit.operation.remove", in: app).tap()
+        tapOperation("remove", in: app)
         XCTAssertTrue(element("roomedit.blocker.remove", in: app).waitForExistence(timeout: 2))
 
-        element("roomedit.operation.place", in: app).tap()
+        tapOperation("place", in: app)
         XCTAssertTrue(element("roomedit.preview.proxy", in: app).waitForExistence(timeout: 2))
         XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r0")
         XCTAssertEqual(element("roomedit.preview.base", in: app).label, "Preview base r0")
@@ -202,7 +214,7 @@ final class RoomEditJourneyTests: XCTestCase {
         XCTAssertFalse(element("roomedit.preview.proxy", in: app).exists)
         XCTAssertEqual(element("roomedit.revision.current", in: app).label, "Current revision r0")
 
-        element("roomedit.operation.place", in: app).tap()
+        tapOperation("place", in: app)
         XCTAssertTrue(element("roomedit.action.confirm", in: app).waitForExistence(timeout: 2))
         element("roomedit.action.confirm", in: app).tap()
         XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
@@ -216,7 +228,9 @@ final class RoomEditJourneyTests: XCTestCase {
         XCTAssertTrue(waitForLabel("Current revision r1", on: element("roomedit.revision.current", in: app)))
         XCTAssertTrue(element("roomedit.asset.committed", in: app).exists)
 
-        element("roomedit.operation.restore", in: app).tap()
+        tapOperation("restore", in: app)
+        XCTAssertTrue(element("roomedit.action.confirm.restore", in: app).waitForExistence(timeout: 2))
+        element("roomedit.action.confirm.restore", in: app).tap()
         XCTAssertTrue(waitForLabel("Current revision r2", on: element("roomedit.revision.current", in: app)))
         XCTAssertTrue(element("roomedit.restore.committed", in: app).exists)
         XCTAssertFalse(element("roomedit.asset.committed", in: app).exists)
@@ -300,5 +314,45 @@ final class RoomEditJourneyTests: XCTestCase {
         }
         XCTAssertTrue(surface.isHittable)
         surface.tap()
+    }
+
+    @MainActor
+    private func tapOperation(_ operation: String, in app: XCUIApplication) {
+        materializedOperation(operation, in: app).tap()
+    }
+
+    @MainActor
+    private func materializedOperation(
+        _ operation: String,
+        in app: XCUIApplication
+    ) -> XCUIElement {
+        let operationButton = element("roomedit.operation.\(operation)", in: app)
+
+        // The operation grid intentionally follows the optional copilot card. SwiftUI's
+        // LazyVGrid does not materialize off-screen buttons until the enclosing scroll view
+        // approaches them, so an identifier lookup alone is not a reliable UI-test action.
+        if operationButton.exists == false {
+            for _ in 0..<4 {
+                app.swipeUp()
+                if operationButton.exists { break }
+            }
+        }
+        if operationButton.exists == false {
+            for _ in 0..<8 {
+                app.swipeDown()
+                if operationButton.exists { break }
+            }
+        }
+
+        XCTAssertTrue(
+            operationButton.waitForExistence(timeout: 2),
+            "Operation \(operation) never entered the accessibility tree"
+        )
+        return operationButton
+    }
+
+    @MainActor
+    private func materializeOperationGrid(in app: XCUIApplication) {
+        _ = materializedOperation("place", in: app)
     }
 }

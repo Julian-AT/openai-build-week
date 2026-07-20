@@ -20,16 +20,16 @@
 		A1000000000000000000000B /* WorldEpochTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* WorldEpochTests.swift */; };
 		A1000000000000000000000C /* FramePacketBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* FramePacketBuilder.swift */; };
 		A1000000000000000000000D /* DiagnosticJournal.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* DiagnosticJournal.swift */; };
-		A1000000000000000000000E /* frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* frame-packet.schema.json */; };
-		A1000000000000000000000F /* rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* rrcap-manifest.schema.json */; };
-		A10000000000000000000010 /* scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* scene-state.schema.json */; };
-		A10000000000000000000011 /* edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
-		A10000000000000000000012 /* transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
-		A10000000000000000000013 /* frame-packet.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* frame-packet.schema.json */; };
-		A10000000000000000000014 /* rrcap-manifest.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* rrcap-manifest.schema.json */; };
-		A10000000000000000000015 /* scene-state.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* scene-state.schema.json */; };
-		A10000000000000000000016 /* edit-artifacts.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* edit-artifacts.schema.json */; };
-		A10000000000000000000017 /* transaction.schema.json in App Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* transaction.schema.json */; };
+		A1000000000000000000000E /* ../../docs/contracts/frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */; };
+		A1000000000000000000000F /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */; };
+		A10000000000000000000010 /* ../../docs/contracts/scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */; };
+		A10000000000000000000011 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */; };
+		A10000000000000000000012 /* ../../docs/contracts/transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */; };
+		A10000000000000000000013 /* ../../docs/contracts/frame-packet.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */; };
+		A10000000000000000000014 /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */; };
+		A10000000000000000000015 /* ../../docs/contracts/scene-state.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */; };
+		A10000000000000000000016 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */; };
+		A10000000000000000000017 /* ../../docs/contracts/transaction.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */; };
 		B10000000000000000000001 /* EvidenceExporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* EvidenceExporterTests.swift */; };
 		B10000000000000000000002 /* EvidenceExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* EvidenceExporter.swift */; };
 		B10000000000000000000003 /* DiagnosticChecklistView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000003 /* DiagnosticChecklistView.swift */; };
@@ -46,6 +46,26 @@
 		G10000000000000000000003 /* PROVENANCE.md in Resources */ = {isa = PBXBuildFile; fileRef = G20000000000000000000003 /* PROVENANCE.md */; };
 		H10000000000000000000001 /* RoomEditJourneyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = H20000000000000000000001 /* RoomEditJourneyTests.swift */; };
 		I10000000000000000000001 /* RoomEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = I20000000000000000000001 /* RoomEditView.swift */; };
+		J10000000000000000000001 /* DesignCopilot.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000001 /* DesignCopilot.swift */; };
+		J10000000000000000000002 /* asset-catalog.json in Resources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000002 /* asset-catalog.json */; };
+		J10000000000000000000003 /* proxy-cobalt-chair.usda in Resources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000003 /* proxy-cobalt-chair.usda */; };
+		J10000000000000000000004 /* proxy-halo-table.usda in Resources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000004 /* proxy-halo-table.usda */; };
+		J10000000000000000000005 /* DesignCopilotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = J20000000000000000000005 /* DesignCopilotView.swift */; };
+		K10000000000000000000001 /* ASSET-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000001 /* ASSET-LICENSE.txt */; };
+		K10000000000000000000002 /* CON004-PROVENANCE.md in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000002 /* CON004-PROVENANCE.md */; };
+		K10000000000000000000003 /* asset-validation-evidence.json in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000003 /* asset-validation-evidence.json */; };
+		K10000000000000000000004 /* proxy-chair.asset-manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000004 /* proxy-chair.asset-manifest.json */; };
+		K10000000000000000000005 /* proxy-chair.usdz in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000005 /* proxy-chair.usdz */; };
+		K10000000000000000000006 /* proxy-chair.glb in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000006 /* proxy-chair.glb */; };
+		K10000000000000000000007 /* proxy-chair-collision.glb in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000007 /* proxy-chair-collision.glb */; };
+		K10000000000000000000008 /* proxy-cobalt-chair.asset-manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000008 /* proxy-cobalt-chair.asset-manifest.json */; };
+		K10000000000000000000009 /* proxy-cobalt-chair.usdz in Resources */ = {isa = PBXBuildFile; fileRef = K20000000000000000000009 /* proxy-cobalt-chair.usdz */; };
+		K1000000000000000000000A /* proxy-cobalt-chair.glb in Resources */ = {isa = PBXBuildFile; fileRef = K2000000000000000000000A /* proxy-cobalt-chair.glb */; };
+		K1000000000000000000000B /* proxy-cobalt-chair-collision.glb in Resources */ = {isa = PBXBuildFile; fileRef = K2000000000000000000000B /* proxy-cobalt-chair-collision.glb */; };
+		K1000000000000000000000C /* proxy-halo-table.asset-manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = K2000000000000000000000C /* proxy-halo-table.asset-manifest.json */; };
+		K1000000000000000000000D /* proxy-halo-table.usdz in Resources */ = {isa = PBXBuildFile; fileRef = K2000000000000000000000D /* proxy-halo-table.usdz */; };
+		K1000000000000000000000E /* proxy-halo-table.glb in Resources */ = {isa = PBXBuildFile; fileRef = K2000000000000000000000E /* proxy-halo-table.glb */; };
+		K1000000000000000000000F /* proxy-halo-table-collision.glb in Resources */ = {isa = PBXBuildFile; fileRef = K2000000000000000000000F /* proxy-halo-table-collision.glb */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -81,11 +101,11 @@
 		A2000000000000000000000D /* WorldEpochTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorldEpochTests.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* FramePacketBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FramePacketBuilder.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* DiagnosticJournal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticJournal.swift; sourceTree = "<group>"; };
-		A20000000000000000000010 /* frame-packet.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/frame-packet.schema.json; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000011 /* rrcap-manifest.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/rrcap-manifest.schema.json; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000012 /* scene-state.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/scene-state.schema.json; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000013 /* edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/edit-artifacts.schema.json; sourceTree = SOURCE_ROOT; };
-		A20000000000000000000014 /* transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/frame-packet.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/rrcap-manifest.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/scene-state.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "../../docs/contracts/edit-artifacts.schema.json"; sourceTree = SOURCE_ROOT; };
+		A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ../../docs/contracts/transaction.schema.json; sourceTree = SOURCE_ROOT; };
 		B20000000000000000000001 /* EvidenceExporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporterTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* EvidenceExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceExporter.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* DiagnosticChecklistView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticChecklistView.swift; sourceTree = "<group>"; };
@@ -101,6 +121,26 @@
 		G20000000000000000000003 /* PROVENANCE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Resources/Phase3Proxy/PROVENANCE.md"; sourceTree = "<group>"; };
 		H20000000000000000000001 /* RoomEditJourneyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditJourneyTests.swift; sourceTree = "<group>"; };
 		I20000000000000000000001 /* RoomEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomEditView.swift; sourceTree = "<group>"; };
+		J20000000000000000000001 /* DesignCopilot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignCopilot.swift; sourceTree = "<group>"; };
+		J20000000000000000000002 /* asset-catalog.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Resources/Phase3Proxy/asset-catalog.json"; sourceTree = "<group>"; };
+		J20000000000000000000003 /* proxy-cobalt-chair.usda */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Resources/Phase3Proxy/proxy-cobalt-chair.usda"; sourceTree = "<group>"; };
+		J20000000000000000000004 /* proxy-halo-table.usda */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Resources/Phase3Proxy/proxy-halo-table.usda"; sourceTree = "<group>"; };
+		J20000000000000000000005 /* DesignCopilotView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignCopilotView.swift; sourceTree = "<group>"; };
+		K20000000000000000000001 /* ASSET-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "Resources/Phase3Proxy/ASSET-LICENSE.txt"; sourceTree = "<group>"; };
+		K20000000000000000000002 /* CON004-PROVENANCE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = "Resources/Phase3Proxy/CON004-PROVENANCE.md"; sourceTree = "<group>"; };
+		K20000000000000000000003 /* asset-validation-evidence.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Resources/Phase3Proxy/asset-validation-evidence.json"; sourceTree = "<group>"; };
+		K20000000000000000000004 /* proxy-chair.asset-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Resources/Phase3Proxy/proxy-chair.asset-manifest.json"; sourceTree = "<group>"; };
+		K20000000000000000000005 /* proxy-chair.usdz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-chair.usdz"; sourceTree = "<group>"; };
+		K20000000000000000000006 /* proxy-chair.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-chair.glb"; sourceTree = "<group>"; };
+		K20000000000000000000007 /* proxy-chair-collision.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-chair-collision.glb"; sourceTree = "<group>"; };
+		K20000000000000000000008 /* proxy-cobalt-chair.asset-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Resources/Phase3Proxy/proxy-cobalt-chair.asset-manifest.json"; sourceTree = "<group>"; };
+		K20000000000000000000009 /* proxy-cobalt-chair.usdz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-cobalt-chair.usdz"; sourceTree = "<group>"; };
+		K2000000000000000000000A /* proxy-cobalt-chair.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-cobalt-chair.glb"; sourceTree = "<group>"; };
+		K2000000000000000000000B /* proxy-cobalt-chair-collision.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-cobalt-chair-collision.glb"; sourceTree = "<group>"; };
+		K2000000000000000000000C /* proxy-halo-table.asset-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "Resources/Phase3Proxy/proxy-halo-table.asset-manifest.json"; sourceTree = "<group>"; };
+		K2000000000000000000000D /* proxy-halo-table.usdz */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-halo-table.usdz"; sourceTree = "<group>"; };
+		K2000000000000000000000E /* proxy-halo-table.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-halo-table.glb"; sourceTree = "<group>"; };
+		K2000000000000000000000F /* proxy-halo-table-collision.glb */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Resources/Phase3Proxy/proxy-halo-table-collision.glb"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -148,9 +188,29 @@
 				A20000000000000000000001 /* App.swift */,
 				F20000000000000000000001 /* RoomEditModel.swift */,
 				I20000000000000000000001 /* RoomEditView.swift */,
+				J20000000000000000000001 /* DesignCopilot.swift */,
+				J20000000000000000000005 /* DesignCopilotView.swift */,
 				G20000000000000000000001 /* asset-manifest.json */,
+				J20000000000000000000002 /* asset-catalog.json */,
 				G20000000000000000000002 /* proxy-chair.usda */,
+				J20000000000000000000003 /* proxy-cobalt-chair.usda */,
+				J20000000000000000000004 /* proxy-halo-table.usda */,
 				G20000000000000000000003 /* PROVENANCE.md */,
+				K20000000000000000000001 /* ASSET-LICENSE.txt */,
+				K20000000000000000000002 /* CON004-PROVENANCE.md */,
+				K20000000000000000000003 /* asset-validation-evidence.json */,
+				K20000000000000000000004 /* proxy-chair.asset-manifest.json */,
+				K20000000000000000000005 /* proxy-chair.usdz */,
+				K20000000000000000000006 /* proxy-chair.glb */,
+				K20000000000000000000007 /* proxy-chair-collision.glb */,
+				K20000000000000000000008 /* proxy-cobalt-chair.asset-manifest.json */,
+				K20000000000000000000009 /* proxy-cobalt-chair.usdz */,
+				K2000000000000000000000A /* proxy-cobalt-chair.glb */,
+				K2000000000000000000000B /* proxy-cobalt-chair-collision.glb */,
+				K2000000000000000000000C /* proxy-halo-table.asset-manifest.json */,
+				K2000000000000000000000D /* proxy-halo-table.usdz */,
+				K2000000000000000000000E /* proxy-halo-table.glb */,
+				K2000000000000000000000F /* proxy-halo-table-collision.glb */,
 				E20000000000000000000002 /* CaptureSessionAdapter.swift */,
 				A20000000000000000000002 /* DeviceProofModel.swift */,
 				A20000000000000000000003 /* PermissionController.swift */,
@@ -194,11 +254,11 @@
 		A80000000000000000000005 /* Contract Test Resources */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000010 /* frame-packet.schema.json */,
-				A20000000000000000000011 /* rrcap-manifest.schema.json */,
-				A20000000000000000000012 /* scene-state.schema.json */,
-				A20000000000000000000013 /* edit-artifacts.schema.json */,
-				A20000000000000000000014 /* transaction.schema.json */,
+				A20000000000000000000010 /* ../../docs/contracts/frame-packet.schema.json */,
+				A20000000000000000000011 /* ../../docs/contracts/rrcap-manifest.schema.json */,
+				A20000000000000000000012 /* ../../docs/contracts/scene-state.schema.json */,
+				A20000000000000000000013 /* ../../docs/contracts/edit-artifacts.schema.json */,
+				A20000000000000000000014 /* ../../docs/contracts/transaction.schema.json */,
 			);
 			name = "Contract Test Resources";
 			sourceTree = "<group>";
@@ -326,14 +386,32 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000013 /* frame-packet.schema.json in App Resources */,
-				A10000000000000000000014 /* rrcap-manifest.schema.json in App Resources */,
-				A10000000000000000000015 /* scene-state.schema.json in App Resources */,
-				A10000000000000000000016 /* edit-artifacts.schema.json in App Resources */,
-				A10000000000000000000017 /* transaction.schema.json in App Resources */,
+				A10000000000000000000013 /* ../../docs/contracts/frame-packet.schema.json in Resources */,
+				A10000000000000000000014 /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */,
+				A10000000000000000000015 /* ../../docs/contracts/scene-state.schema.json in Resources */,
+				A10000000000000000000016 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */,
+				A10000000000000000000017 /* ../../docs/contracts/transaction.schema.json in Resources */,
 				G10000000000000000000001 /* asset-manifest.json in Resources */,
+				J10000000000000000000002 /* asset-catalog.json in Resources */,
 				G10000000000000000000002 /* proxy-chair.usda in Resources */,
+				J10000000000000000000003 /* proxy-cobalt-chair.usda in Resources */,
+				J10000000000000000000004 /* proxy-halo-table.usda in Resources */,
 				G10000000000000000000003 /* PROVENANCE.md in Resources */,
+				K10000000000000000000001 /* ASSET-LICENSE.txt in Resources */,
+				K10000000000000000000002 /* CON004-PROVENANCE.md in Resources */,
+				K10000000000000000000003 /* asset-validation-evidence.json in Resources */,
+				K10000000000000000000004 /* proxy-chair.asset-manifest.json in Resources */,
+				K10000000000000000000005 /* proxy-chair.usdz in Resources */,
+				K10000000000000000000006 /* proxy-chair.glb in Resources */,
+				K10000000000000000000007 /* proxy-chair-collision.glb in Resources */,
+				K10000000000000000000008 /* proxy-cobalt-chair.asset-manifest.json in Resources */,
+				K10000000000000000000009 /* proxy-cobalt-chair.usdz in Resources */,
+				K1000000000000000000000A /* proxy-cobalt-chair.glb in Resources */,
+				K1000000000000000000000B /* proxy-cobalt-chair-collision.glb in Resources */,
+				K1000000000000000000000C /* proxy-halo-table.asset-manifest.json in Resources */,
+				K1000000000000000000000D /* proxy-halo-table.usdz in Resources */,
+				K1000000000000000000000E /* proxy-halo-table.glb in Resources */,
+				K1000000000000000000000F /* proxy-halo-table-collision.glb in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -341,11 +419,11 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A1000000000000000000000E /* frame-packet.schema.json in Resources */,
-				A1000000000000000000000F /* rrcap-manifest.schema.json in Resources */,
-				A10000000000000000000010 /* scene-state.schema.json in Resources */,
-				A10000000000000000000011 /* edit-artifacts.schema.json in Resources */,
-				A10000000000000000000012 /* transaction.schema.json in Resources */,
+				A1000000000000000000000E /* ../../docs/contracts/frame-packet.schema.json in Resources */,
+				A1000000000000000000000F /* ../../docs/contracts/rrcap-manifest.schema.json in Resources */,
+				A10000000000000000000010 /* ../../docs/contracts/scene-state.schema.json in Resources */,
+				A10000000000000000000011 /* ../../docs/contracts/edit-artifacts.schema.json in Resources */,
+				A10000000000000000000012 /* ../../docs/contracts/transaction.schema.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -389,6 +467,8 @@
 				A10000000000000000000001 /* App.swift in Sources */,
 				F10000000000000000000001 /* RoomEditModel.swift in Sources */,
 				I10000000000000000000001 /* RoomEditView.swift in Sources */,
+				J10000000000000000000001 /* DesignCopilot.swift in Sources */,
+				J10000000000000000000005 /* DesignCopilotView.swift in Sources */,
 				E10000000000000000000004 /* CaptureSessionAdapter.swift in Sources */,
 				A10000000000000000000002 /* DeviceProofModel.swift in Sources */,
 				A10000000000000000000005 /* PermissionController.swift in Sources */,
@@ -448,7 +528,7 @@
 				BUNDLE_LOADER = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ReRoomDeviceProof/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -473,7 +553,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				EXCLUDED_SOURCE_FILE_NAMES = (
 					DiagnosticChecklistView.swift,
 					EvidenceExporter.swift,
@@ -502,6 +582,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -524,6 +605,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				EXCLUDED_SOURCE_FILE_NAMES = (
 					ARSessionPolicyTests.swift,
 					CaptureAttemptTests.swift,
@@ -587,6 +669,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -608,6 +691,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (

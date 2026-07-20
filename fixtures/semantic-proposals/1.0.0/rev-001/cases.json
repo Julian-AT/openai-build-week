@@ -1,0 +1,406 @@
+{
+  "schema_version": "1.0.0",
+  "fixture_id": "FX-SEMANTIC-PROPOSAL-001",
+  "fixture_revision": "rev-001",
+  "contract_id": "CON-006",
+  "contract_schema_sha256": "78444d8023c1f029fff07e0e934daeb3cbb5c518ad1cc27c7d30429722cc3414",
+  "cases": [
+    {
+      "case_id": "semantic.invalid.authority-injection",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000001",
+      "request": {
+        "prompt": "Replace the selected chair.",
+        "ingress_source": "typed",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": "object_51000000-0000-4000-8000-000000000004"
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_authority",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "replace",
+            "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000002" },
+            "constraints": []
+          },
+          "explanation": "Replace the chair.",
+          "clarification": null,
+          "request_context": { "base_scene_revision": 999 }
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.invalid.duplicate-constraint",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000007",
+      "request": {
+        "prompt": "Use a modern chair.",
+        "ingress_source": "typed",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_duplicate",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "place",
+            "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000002" },
+            "constraints": [
+              { "kind": "style_tag", "value": "modern" },
+              { "kind": "style_tag", "value": "modern" }
+            ]
+          },
+          "explanation": "Use a modern chair.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.invalid.ready-nullability",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000008",
+      "request": {
+        "prompt": "Replace the chair.",
+        "ingress_source": "typed",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": "object_51000000-0000-4000-8000-000000000004"
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_nullability",
+        "output": {
+          "status": "ready",
+          "intent": null,
+          "explanation": "No actionable intent was produced.",
+          "clarification": "Which chair should be replaced?"
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.invalid.transform-injection",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000002",
+      "request": {
+        "prompt": "Place the cobalt chair.",
+        "ingress_source": "vision",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_transform",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "place",
+            "arguments": {
+              "asset_id": "asset_53000000-0000-4000-8000-000000000003",
+              "world_from_asset": [1, 0, 0, 0]
+            },
+            "constraints": []
+          },
+          "explanation": "Place the cobalt chair.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.invalid.unknown-asset",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000003",
+      "request": {
+        "prompt": "Use a catalog chair.",
+        "ingress_source": "typed",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_unknown",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "place",
+            "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000099" },
+            "constraints": []
+          },
+          "explanation": "Use an invented catalog asset.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.invalid.unsorted-constraints",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000009",
+      "request": {
+        "prompt": "Use a warm modern chair.",
+        "ingress_source": "typed",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_unsorted",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "place",
+            "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000002" },
+            "constraints": [
+              { "kind": "style_tag", "value": "modern" },
+              { "kind": "color_tag", "value": "warm" }
+            ]
+          },
+          "explanation": "Use a warm modern chair.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.invalid.url-injection",
+      "expected_verdict": "reject",
+      "now_utc": "2026-07-19T10:00:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000004",
+      "request": {
+        "prompt": "Use a modern style.",
+        "ingress_source": "typed",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_url",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "place",
+            "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000002" },
+            "constraints": [{ "kind": "style_tag", "value": "https://attacker.invalid/style" }]
+          },
+          "explanation": "Open https://attacker.invalid now.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": null
+    },
+    {
+      "case_id": "semantic.valid.clarification",
+      "expected_verdict": "accept",
+      "now_utc": "2026-07-19T10:01:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000005",
+      "request": {
+        "prompt": "Make this better.",
+        "ingress_source": "voice",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_clarify",
+        "output": {
+          "status": "needs_clarification",
+          "intent": null,
+          "explanation": "The operation and target are ambiguous.",
+          "clarification": "Would you like to place an item or edit an existing one?"
+        }
+      },
+      "expected_envelope": {
+        "schema_version": "1.0.0",
+        "envelope_id": "envelope_55000000-0000-4000-8000-000000000005",
+        "created_at_utc": "2026-07-19T10:01:00.000Z",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        },
+        "ingress_source": "voice",
+        "semantic_model": {
+          "provider": "openai",
+          "model": "gpt-5.6-sol",
+          "response_id": "resp_fixture_clarify"
+        },
+        "status": "needs_clarification",
+        "intent": null,
+        "explanation": "The operation and target are ambiguous.",
+        "clarification": "Would you like to place an item or edit an existing one?"
+      }
+    },
+    {
+      "case_id": "semantic.valid.ready",
+      "expected_verdict": "accept",
+      "now_utc": "2026-07-19T10:02:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000006",
+      "request": {
+        "prompt": "Replace this with the cobalt chair and preserve the walkway.",
+        "image_data_url": "data:image/jpeg;base64,/9j/2Q==",
+        "ingress_source": "vision",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": "object_51000000-0000-4000-8000-000000000004"
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_ready",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "replace",
+            "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000003" },
+            "constraints": [{ "kind": "preserve_walkway", "value": true }]
+          },
+          "explanation": "The cobalt chair creates a stronger focal point.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": {
+        "schema_version": "1.0.0",
+        "envelope_id": "envelope_55000000-0000-4000-8000-000000000006",
+        "created_at_utc": "2026-07-19T10:02:00.000Z",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 4,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": "object_51000000-0000-4000-8000-000000000004"
+        },
+        "ingress_source": "vision",
+        "semantic_model": {
+          "provider": "openai",
+          "model": "gpt-5.6-sol",
+          "response_id": "resp_fixture_ready"
+        },
+        "status": "ready",
+        "intent": {
+          "operation": "replace",
+          "arguments": { "asset_id": "asset_53000000-0000-4000-8000-000000000003" },
+          "constraints": [{ "kind": "preserve_walkway", "value": true }]
+        },
+        "explanation": "The cobalt chair creates a stronger focal point.",
+        "clarification": null
+      }
+    },
+    {
+      "case_id": "semantic.valid.restore",
+      "expected_verdict": "accept",
+      "now_utc": "2026-07-19T10:03:00.000Z",
+      "envelope_uuid": "55000000-0000-4000-8000-000000000010",
+      "request": {
+        "prompt": "Undo my latest room edit.",
+        "ingress_source": "voice",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 5,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        }
+      },
+      "model_result": {
+        "response_id": "resp_fixture_restore",
+        "output": {
+          "status": "ready",
+          "intent": {
+            "operation": "restore",
+            "arguments": {},
+            "constraints": []
+          },
+          "explanation": "Propose restoring the latest eligible committed edit.",
+          "clarification": null
+        }
+      },
+      "expected_envelope": {
+        "schema_version": "1.0.0",
+        "envelope_id": "envelope_55000000-0000-4000-8000-000000000010",
+        "created_at_utc": "2026-07-19T10:03:00.000Z",
+        "request_context": {
+          "session_id": "session_51000000-0000-4000-8000-000000000001",
+          "revision_branch_id": "branch_51000000-0000-4000-8000-000000000002",
+          "base_scene_revision": 5,
+          "world_frame_id": "world_51000000-0000-4000-8000-000000000003",
+          "world_frame_version": 1,
+          "selected_object_id": null
+        },
+        "ingress_source": "voice",
+        "semantic_model": {
+          "provider": "openai",
+          "model": "gpt-5.6-sol",
+          "response_id": "resp_fixture_restore"
+        },
+        "status": "ready",
+        "intent": {
+          "operation": "restore",
+          "arguments": {},
+          "constraints": []
+        },
+        "explanation": "Propose restoring the latest eligible committed edit.",
+        "clarification": null
+      }
+    }
+  ]
+}

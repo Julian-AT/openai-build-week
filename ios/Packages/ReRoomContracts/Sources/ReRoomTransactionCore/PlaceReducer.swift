@@ -163,7 +163,7 @@ public enum PlaceReducer {
     ) throws -> PlacePreviewReduction {
         try validateContext(proposal, currentScene: currentScene)
         guard proposal.intent.operation == .place,
-              ["typed", "tap"].contains(proposal.intent.source),
+              validIngress(proposal.intent),
               proposal.intent.arguments.assetID == candidate.asset.assetID,
               proposal.intent.arguments.catalogQuery == nil,
               proposal.targetContext.selectedObjectID == nil,
@@ -262,6 +262,14 @@ public enum PlaceReducer {
             committedProjection: committedProjection,
             networkReads: 0
         )
+    }
+
+    private static func validIngress(_ intent: TransactionIntent) -> Bool {
+        if ["typed", "tap"].contains(intent.source) { return true }
+        guard intent.source == "voice", let model = intent.semanticModel else { return false }
+        return model.provider == "openai"
+            && !model.model.isEmpty
+            && !model.responseID.isEmpty
     }
 
     public static func cancel(

@@ -120,7 +120,7 @@ public enum RemoveReducer {
     ) throws -> RemovePreviewReduction {
         try validateContext(proposal, currentScene: currentScene)
         guard proposal.intent.operation == .remove,
-              ["typed", "tap"].contains(proposal.intent.source),
+              validIngress(proposal.intent),
               proposal.intent.arguments.assetID == nil,
               proposal.intent.arguments.catalogQuery == nil,
               proposal.intent.constraints.isEmpty,
@@ -238,6 +238,14 @@ public enum RemoveReducer {
             committedProjection: committedProjection,
             networkReads: 0
         )
+    }
+
+    private static func validIngress(_ intent: TransactionIntent) -> Bool {
+        if ["typed", "tap"].contains(intent.source) { return true }
+        guard intent.source == "voice", let model = intent.semanticModel else { return false }
+        return model.provider == "openai"
+            && !model.model.isEmpty
+            && !model.responseID.isEmpty
     }
 
     public static func cancel(

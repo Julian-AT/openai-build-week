@@ -85,9 +85,12 @@ public enum IntentBoundary {
         _ bytes: Data,
         source: IntentIngressSource,
         trustedContext: TrustedIntentContext,
-        currentScene: SceneState
+        currentScene: SceneState,
+        semanticModel: SemanticModelReference? = nil
     ) throws -> BoundProposal {
-        guard source != .voice else { throw IntentBoundaryRejection.voiceUnavailable }
+        if source == .voice, semanticModel == nil {
+            throw IntentBoundaryRejection.voiceUnavailable
+        }
         guard !bytes.isEmpty else { throw IntentBoundaryRejection.emptyInput }
         guard bytes.count <= maximumIntentBytes else { throw IntentBoundaryRejection.oversized }
 
@@ -123,6 +126,7 @@ public enum IntentBoundary {
         }
         try validateSemantics(input)
         try validateContext(trustedContext, against: currentScene)
+        try validateSemanticModel(semanticModel)
 
         return BoundProposal(
             sessionID: trustedContext.sessionID,
@@ -133,9 +137,27 @@ public enum IntentBoundary {
                 contractOperation: input.operation,
                 source: source.rawValue,
                 arguments: input.arguments,
-                constraints: input.constraints
+                constraints: input.constraints,
+                semanticModel: semanticModel
             )
         )
+    }
+
+    private static func validateSemanticModel(_ reference: SemanticModelReference?) throws {
+        guard let reference else { return }
+        guard reference.provider == "openai",
+              isSafeModelToken(reference.model, maximumLength: 128),
+              isSafeModelToken(reference.responseID, maximumLength: 128)
+        else {
+            throw IntentBoundaryRejection.invalidValue
+        }
+    }
+
+    private static func isSafeModelToken(_ value: String, maximumLength: Int) -> Bool {
+        guard !value.isEmpty, value.count <= maximumLength else { return false }
+        return value.allSatisfy {
+            $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_")
+        }
     }
 
     private static func validateShape(_ object: [String: Any]) throws {
@@ -196,7 +218,9 @@ public enum IntentBoundary {
     private static func validateConstraint(_ constraint: TypedConstraint) throws {
         switch (constraint.kind, constraint.value) {
         case ("color_tag", .string(let value)), ("style_tag", .string(let value)):
-            guard !value.isEmpty, value.count <= 64 else { throw IntentBoundaryRejection.invalidValue }
+            guard isSafeUntrustedString(value, maximumLength: 64) else {
+                throw IntentBoundaryRejection.invalidValue
+            }
         case ("support_required", .boolean), ("preserve_walkway", .boolean):
             break
         case ("max_footprint_m2", .number(let value)):
@@ -204,6 +228,18 @@ public enum IntentBoundary {
         default:
             throw IntentBoundaryRejection.invalidValue
         }
+    }
+
+    private static func isSafeUntrustedString(_ value: String, maximumLength: Int) -> Bool {
+        guard !value.isEmpty,
+              value.count <= maximumLength,
+              !value.contains("\r"),
+              !value.contains("\n")
+        else { return false }
+        return value.range(
+            of: "(?:[A-Za-z][A-Za-z0-9+.-]*://|www\\.)",
+            options: .regularExpression
+        ) == nil
     }
 
     private static func constraintStableKey(_ constraint: TypedConstraint) throws -> String {

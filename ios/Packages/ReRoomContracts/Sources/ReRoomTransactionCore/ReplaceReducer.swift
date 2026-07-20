@@ -100,7 +100,7 @@ public enum ReplaceReducer {
     ) throws -> ReplacePreviewReduction {
         try validateContext(proposal, currentScene: currentScene)
         guard proposal.intent.operation == .replace,
-              ["typed", "tap"].contains(proposal.intent.source),
+              validIngress(proposal.intent),
               proposal.intent.arguments.assetID == candidate.asset.assetID,
               proposal.intent.arguments.catalogQuery == nil,
               validID(seed.transactionID, prefix: "tx_"),
@@ -233,6 +233,14 @@ public enum ReplaceReducer {
             committedProjection: committedProjection,
             networkReads: 0
         )
+    }
+
+    private static func validIngress(_ intent: TransactionIntent) -> Bool {
+        if ["typed", "tap"].contains(intent.source) { return true }
+        guard intent.source == "voice", let model = intent.semanticModel else { return false }
+        return model.provider == "openai"
+            && !model.model.isEmpty
+            && !model.responseID.isEmpty
     }
 
     public static func cancel(

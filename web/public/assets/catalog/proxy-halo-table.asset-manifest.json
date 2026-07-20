@@ -1,0 +1,104 @@
+{
+  "activation_revision_branch_id": "branch_53000000-0000-4000-8000-000000000013",
+  "artifact_id": "artifact_53000000-0000-4000-8000-000000000003",
+  "artifact_revision": 1,
+  "artifact_type": "asset_manifest",
+  "asset_id": "asset_53000000-0000-4000-8000-000000000004",
+  "canonical_dimensions_m": [
+    0.68,
+    0.68,
+    0.68
+  ],
+  "collision": {
+    "byte_length": 1004,
+    "codec": "glb2",
+    "media_type": "model/gltf-binary",
+    "relative_path": "assets/catalog/proxy-halo-table-collision.glb",
+    "sha256": "f457c33339ad5125c5036c67e4d255332b3fcdf76168c237cde9982e96817b91"
+  },
+  "content_sha256": "0d9674fbf9c17611b14c72fbaf303baed6a6b44425cc29c923173f1bab620a08",
+  "content_sha256_algorithm": "RR-JCS-SHA256-1",
+  "content_sha256_scope": "entire_artifact_record_with_content_sha256_member_omitted",
+  "created_at_utc": "2026-07-19T20:00:00Z",
+  "delivery": {
+    "native_verified": true,
+    "network_required_at_edit_time": false,
+    "state": "bundled_local",
+    "web_verified": true
+  },
+  "display_name": "Halo Side Table",
+  "forward_axis": "minus_z",
+  "glb": {
+    "byte_length": 1540,
+    "codec": "glb2",
+    "media_type": "model/gltf-binary",
+    "relative_path": "assets/catalog/proxy-halo-table.glb",
+    "sha256": "4195c30e9cfd67e5b1cf548b4da08ec93e2054841e6600299a67edb0a2100ec1"
+  },
+  "license": {
+    "approval_evidence_sha256": "099bb7f13866d815811a2a4fd245f8cadc0074caaa56eb9f9904e08019d4d69f",
+    "attribution": "",
+    "attribution_required": false,
+    "redistribution_allowed": true,
+    "source_url": "https://github.com/Julian-AT/openai-build-week/blob/main/LICENSE",
+    "spdx_or_terms": "MIT",
+    "terms_revision": "ReRoom-MIT-2026",
+    "use_approved": true
+  },
+  "lods": [
+    {
+      "byte_length": 1540,
+      "codec": "glb2",
+      "media_type": "model/gltf-binary",
+      "relative_path": "assets/catalog/proxy-halo-table.glb",
+      "sha256": "4195c30e9cfd67e5b1cf548b4da08ec93e2054841e6600299a67edb0a2100ec1"
+    }
+  ],
+  "origin_convention": "floor_center_y_up",
+  "origin_revision_branch_id": "branch_53000000-0000-4000-8000-000000000013",
+  "producing_authority_id": "device_53000000-0000-4000-8000-000000000012",
+  "provider": {
+    "configuration_sha256": "1af7f099c2e2266e90eb1caf837ee0c07bd4ff6dcd786ff55a6caacd6c181a73",
+    "name": "reroom_primitive_asset_generator",
+    "provenance": "deterministic_local",
+    "version": "1"
+  },
+  "readiness": "degraded",
+  "scene_revision": 0,
+  "schema_version": "1.0.0",
+  "source": {
+    "author": "ReRoom contributors",
+    "source_revision": "sha256:f7b6287ba551e8cda6762530a0a72d20f2643f39b480a5f71c72355155d5ad30",
+    "source_sha256": "f7b6287ba551e8cda6762530a0a72d20f2643f39b480a5f71c72355155d5ad30",
+    "source_url": "https://github.com/Julian-AT/openai-build-week/blob/main/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/proxy-halo-table.usda"
+  },
+  "texture_budget": {
+    "allowed_formats": [
+      "png"
+    ],
+    "max_dimension_px": 1,
+    "max_total_bytes": 1
+  },
+  "usdz": {
+    "byte_length": 1800,
+    "codec": "usdz",
+    "media_type": "model/vnd.usdz+zip",
+    "relative_path": "assets/catalog/proxy-halo-table.usdz",
+    "sha256": "2f8da5927cea5050750d226437ff547868f2036dac40f83c463341c9b0e6953b"
+  },
+  "validation_evidence_sha256": "aca482d61fa3255d3f3955954a852579e83260f01db8796c335de103ddd1450a",
+  "visual_bounds_m": {
+    "maximum": [
+      0.31,
+      0.66,
+      0.31
+    ],
+    "minimum": [
+      -0.31,
+      0,
+      -0.31
+    ]
+  },
+  "world_frame_id": "world_53000000-0000-4000-8000-000000000014",
+  "world_frame_version": 1
+}

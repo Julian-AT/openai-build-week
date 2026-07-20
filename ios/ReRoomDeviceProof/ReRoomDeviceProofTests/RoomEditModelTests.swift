@@ -1,10 +1,15 @@
 import Foundation
 import CoreGraphics
+import RealityKit
 import ReRoomCaptureCore
 import ReRoomContracts
 import ReRoomTransactionCore
 import Testing
 @testable import ReRoomDeviceProof
+
+private enum RoomEditTestFixtureError: Error {
+    case repositoryRootNotFound
+}
 
 @Suite("Phase 3 room-edit presentation boundary")
 @MainActor
@@ -201,6 +206,874 @@ struct RoomEditModelTests {
         #expect(manifest.artifactReference.artifactType == "asset_manifest")
     }
 
+    @Test("curated hackathon catalog contains exactly three digest-bound local assets")
+    func curatedCatalogIsClosedAndLocal() throws {
+        let bundle = Bundle(for: RoomEditModel.self)
+        let catalog = try RoomEditAssetCatalog.load(bundle: bundle)
+
+        #expect(catalog.assets.map(\.assetID) == [
+            "asset_53000000-0000-4000-8000-000000000002",
+            "asset_53000000-0000-4000-8000-000000000003",
+            "asset_53000000-0000-4000-8000-000000000004",
+        ])
+        #expect(catalog.assets.map(\.displayName) == [
+            "Warm Arc Chair",
+            "Cobalt Lounge Chair",
+            "Halo Side Table",
+        ])
+
+        for asset in catalog.assets {
+            let source = try #require(bundle.url(
+                forResource: asset.sourceResourceName,
+                withExtension: "usda"
+            ))
+            #expect(asset.sourceSHA256 == CanonicalJSON.sha256Hex(try Data(contentsOf: source)))
+            let native = try #require(bundle.url(
+                forResource: asset.nativeResourceName,
+                withExtension: "usdz"
+            ))
+            #expect(asset.nativeSHA256 == CanonicalJSON.sha256Hex(try Data(contentsOf: native)))
+            #expect(asset.artifactReference.sha256 == asset.canonicalManifestContentSHA256)
+            #expect(asset.artifactReference.sha256 != asset.sourceSHA256)
+            _ = try Entity.load(named: asset.nativeFile, in: bundle)
+            #expect(asset.qualification == "hackathon_repo_owned_demo_proxy_only")
+            #expect(asset.gate011Status == "PENDING")
+        }
+    }
+
+    @Test("CON-004 manifest reference invalidates every load-bearing mutation")
+    func assetManifestDigestCoversIdentityAndQualification() throws {
+        let bundle = Bundle(for: RoomEditModel.self)
+        let asset = try #require(RoomEditAssetCatalog.load(bundle: bundle).assets.first)
+        let name = URL(fileURLWithPath: asset.canonicalManifestFile)
+            .deletingPathExtension().lastPathComponent
+        let url = try #require(bundle.url(forResource: name, withExtension: "json"))
+        let data = try Data(contentsOf: url)
+        try RoomEditAssetManifestVerifier.verifyContentDigest(
+            manifestData: data,
+            expectedContentSHA256: asset.canonicalManifestContentSHA256
+        )
+        let original = try #require(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+        let mutations: [(String, ([String: Any]) throws -> [String: Any])] = [
+            ("identity", { root in
+                var root = root
+                root["asset_id"] = "asset_53000000-0000-4000-8000-000000000099"
+                return root
+            }),
+            ("dimensions", { root in
+                var root = root
+                root["canonical_dimensions_m"] = [0.61, 1.0, 0.6]
+                return root
+            }),
+            ("license", { root in
+                var root = root
+                var license = try #require(root["license"] as? [String: Any])
+                license["spdx_or_terms"] = "Apache-2.0"
+                root["license"] = license
+                return root
+            }),
+            ("provenance", { root in
+                var root = root
+                var provider = try #require(root["provider"] as? [String: Any])
+                provider["provenance"] = "human_validated"
+                root["provider"] = provider
+                return root
+            }),
+            ("collision", { root in
+                var root = root
+                var collision = try #require(root["collision"] as? [String: Any])
+                collision["sha256"] = String(repeating: "f", count: 64)
+                root["collision"] = collision
+                return root
+            }),
+            ("delivery", { root in
+                var root = root
+                var delivery = try #require(root["delivery"] as? [String: Any])
+                delivery["state"] = "preloaded_cache"
+                root["delivery"] = delivery
+                return root
+            }),
+            ("payload", { root in
+                var root = root
+                var glb = try #require(root["glb"] as? [String: Any])
+                glb["sha256"] = String(repeating: "e", count: 64)
+                root["glb"] = glb
+                return root
+            }),
+        ]
+
+        for (name, mutate) in mutations {
+            let mutated = try JSONSerialization.data(
+                withJSONObject: mutate(original),
+                options: [.sortedKeys, .withoutEscapingSlashes]
+            )
+            #expect(throws: RoomEditAssetManifestError.contentDigestMismatch) {
+                try RoomEditAssetManifestVerifier.verifyContentDigest(
+                    manifestData: mutated,
+                    expectedContentSHA256: asset.canonicalManifestContentSHA256
+                )
+            }
+            #expect(!name.isEmpty)
+        }
+    }
+
+    @Test("CON-006 proposal echoes trusted context and remains revision-neutral")
+    func semanticProposalBindsExactNativeContext() throws {
+        let catalog = try RoomEditAssetCatalog.load(bundle: Bundle(for: RoomEditModel.self))
+        let scene = RoomEditFactory.bootstrap(manifest: catalog.assets[0].transactionManifest).scene
+        let target = TargetContext(
+            contractCapturedAtFrameID: RoomEditIdentity.frameID,
+            capturedSceneRevision: scene.sceneRevision,
+            worldFrameID: scene.worldFrame.worldFrameID,
+            worldFrameVersion: scene.worldFrame.worldFrameVersion,
+            cameraPose: .identity,
+            screenPointEncodedPixels: [1, 1],
+            candidateObjectIDs: [],
+            selectedObjectID: nil,
+            artifactRefs: []
+        )
+        let trusted = TrustedIntentContext(
+            sessionID: scene.sessionID,
+            revisionAuthority: scene.revisionAuthority,
+            baseSceneRevision: scene.sceneRevision,
+            targetContext: target
+        )
+        let context = DesignCopilotRequestContext(scene: scene, targetContext: target)
+        let envelope = SemanticProposalEnvelope(
+            schemaVersion: "1.0.0",
+            envelopeID: "envelope_54000000-0000-4000-8000-000000000001",
+            createdAtUTC: "2026-07-19T18:00:00Z",
+            requestContext: context,
+            ingressSource: .vision,
+            semanticModel: SemanticModelReference(
+                contractProvider: "openai",
+                model: "gpt-5.6-sol",
+                responseID: "resp_54000000-0000-4000-8000-000000000002"
+            ),
+            status: .ready,
+            intent: SemanticProposalIntent(
+                operation: .place,
+                arguments: IntentArguments(assetID: catalog.assets[1].assetID),
+                constraints: [TypedConstraint(contractKind: "style_tag", value: .string("modern"))]
+            ),
+            explanation: "The cobalt chair gives the room a stronger focal point.",
+            clarification: nil
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let decoded = try SemanticProposalEnvelope.decodeStrict(encoder.encode(envelope))
+        let bound = try decoded.bind(
+            expectedContext: context,
+            trustedContext: trusted,
+            currentScene: scene,
+            catalog: catalog
+        )
+        let proposal = try #require(bound)
+
+        #expect(proposal.intent.operation == .place)
+        #expect(proposal.intent.arguments.assetID == catalog.assets[1].assetID)
+        #expect(proposal.intent.source == "typed")
+        #expect(proposal.intent.semanticModel?.model == "gpt-5.6-sol")
+        #expect(proposal.baseSceneRevision == scene.sceneRevision)
+        #expect(scene.editHistory.isEmpty)
+    }
+
+    @Test("native decoder consumes the same immutable CON-006 accept vectors")
+    func semanticProposalFixtureRevisionIsSharedAcrossRuntimes() throws {
+        let root = try repositoryRoot()
+        let fixtureData = try Data(contentsOf: root.appending(path:
+            "fixtures/semantic-proposals/1.0.0/rev-001/cases.json"
+        ))
+        let schemaData = try Data(contentsOf: root.appending(path:
+            "docs/contracts/semantic-proposal.schema.json"
+        ))
+        let fixture = try #require(
+            JSONSerialization.jsonObject(with: fixtureData) as? [String: Any]
+        )
+        let cases = try #require(fixture["cases"] as? [[String: Any]])
+        let caseIDs = try cases.map { try #require($0["case_id"] as? String) }
+
+        #expect(fixture["contract_id"] as? String == "CON-006")
+        #expect(fixture["contract_schema_sha256"] as? String == CanonicalJSON.sha256Hex(schemaData))
+        #expect(caseIDs.count == 10)
+        #expect(caseIDs == caseIDs.sorted())
+        #expect(Set(caseIDs).count == caseIDs.count)
+
+        var accepted = 0
+        for fixtureCase in cases where fixtureCase["expected_verdict"] as? String == "accept" {
+            let object = try #require(fixtureCase["expected_envelope"] as? [String: Any])
+            let bytes = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+            let envelope = try SemanticProposalEnvelope.decodeStrict(bytes)
+            #expect(envelope.schemaVersion == "1.0.0")
+            accepted += 1
+        }
+        #expect(accepted == 3)
+    }
+
+    @Test("CON-006 rejects an injected model-supplied authority field")
+    func semanticProposalRejectsForbiddenShape() throws {
+        let bytes = Data("""
+        {
+          "schema_version":"1.0.0",
+          "envelope_id":"envelope_54000000-0000-4000-8000-000000000001",
+          "created_at_utc":"2026-07-19T18:00:00Z",
+          "request_context":{
+            "session_id":"session_41000000-0000-4000-8000-000000000001",
+            "revision_branch_id":"branch_41000000-0000-4000-8000-000000000002",
+            "base_scene_revision":0,
+            "world_frame_id":"world_41000000-0000-4000-8000-000000000003",
+            "world_frame_version":1,
+            "selected_object_id":null
+          },
+          "ingress_source":"typed",
+          "semantic_model":{"provider":"openai","model":"gpt-5.6-sol","response_id":"resp_safe"},
+          "status":"ready",
+          "intent":{
+            "operation":"place",
+            "arguments":{"asset_id":"asset_53000000-0000-4000-8000-000000000002"},
+            "constraints":[],
+            "world_from_asset":[1,0,0,0]
+          },
+          "explanation":"Injected transform must fail.",
+          "clarification":null
+        }
+        """.utf8)
+
+        #expect(throws: SemanticProposalRejection.invalidShape) {
+            try SemanticProposalEnvelope.decodeStrict(bytes)
+        }
+    }
+
+    @Test("CON-006 native decoder enforces response and safe-copy schema bounds")
+    func semanticProposalRejectsUnsafeCopyAndOversizedResponseID() throws {
+        func envelope(responseID: String, explanation: String) -> Data {
+            Data("""
+            {
+              "schema_version":"1.0.0",
+              "envelope_id":"envelope_54000000-0000-4000-8000-000000000001",
+              "created_at_utc":"2026-07-19T18:00:00Z",
+              "request_context":{
+                "session_id":"session_41000000-0000-4000-8000-000000000001",
+                "revision_branch_id":"branch_41000000-0000-4000-8000-000000000002",
+                "base_scene_revision":0,
+                "world_frame_id":"world_41000000-0000-4000-8000-000000000003",
+                "world_frame_version":1,
+                "selected_object_id":null
+              },
+              "ingress_source":"typed",
+              "semantic_model":{"provider":"openai","model":"gpt-5.6-sol","response_id":"\(responseID)"},
+              "status":"ready",
+              "intent":{
+                "operation":"place",
+                "arguments":{"asset_id":"asset_53000000-0000-4000-8000-000000000002"},
+                "constraints":[]
+              },
+              "explanation":"\(explanation)",
+              "clarification":null
+            }
+            """.utf8)
+        }
+
+        #expect(throws: SemanticProposalRejection.invalidEnvelope) {
+            try SemanticProposalEnvelope.decodeStrict(envelope(
+                responseID: String(repeating: "r", count: 129),
+                explanation: "Safe copy"
+            ))
+        }
+        #expect(throws: SemanticProposalRejection.invalidEnvelope) {
+            try SemanticProposalEnvelope.decodeStrict(envelope(
+                responseID: "resp_safe",
+                explanation: "Open https://example.invalid"
+            ))
+        }
+    }
+
+    @Test("Realtime bootstrap accepts only the short-lived closed credential response")
+    func realtimeCredentialIsStrictAndEphemeral() throws {
+        let nowEpochSeconds: Int64 = 4_102_444_200
+        let valid = Data("""
+        {"value":"ek_fixture_only","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+        """.utf8)
+        let secret = try RealtimeClientSecret.decodeStrict(
+            valid,
+            nowEpochSeconds: nowEpochSeconds
+        )
+        #expect(secret.isUsable)
+        #expect(secret.session.model == "gpt-realtime-2.1")
+
+        let injected = Data("""
+        {"value":"ek_fixture_only","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"},"api_key":"forbidden"}
+        """.utf8)
+        #expect(throws: DesignCopilotGatewayError.rejected) {
+            try RealtimeClientSecret.decodeStrict(
+                injected,
+                nowEpochSeconds: nowEpochSeconds
+            )
+        }
+
+        let unsafeVariants = [
+            Data("""
+            {"\\u0076alue":"ek_attacker","value":"ek_fixture_only","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+            """.utf8),
+            Data("""
+            {"value":"ek_bad\\nheader","expires_at":4102444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+            """.utf8),
+            Data("""
+            {"value":"ek_fixture_only","expires_at":4202444800,"session":{"id":"sess_fixture_only","model":"gpt-realtime-2.1"}}
+            """.utf8),
+        ]
+        for bytes in unsafeVariants {
+            #expect(throws: DesignCopilotGatewayError.rejected) {
+                try RealtimeClientSecret.decodeStrict(
+                    bytes,
+                    nowEpochSeconds: nowEpochSeconds
+                )
+            }
+        }
+    }
+
+    @Test("gateway credentials can use HTTPS or local cleartext roots only")
+    func gatewayURLBoundaryRejectsPublicCleartextAndDecoratedURLs() throws {
+        let local = try DesignCopilotGatewayClient(
+            baseURL: try #require(URL(string: "http://192.168.1.20:8787/")),
+            bearerToken: "fixture-token"
+        )
+        #expect(local.baseURL.host == "192.168.1.20")
+
+        let secure = try DesignCopilotGatewayClient(
+            baseURL: try #require(URL(string: "https://gateway.example.test/")),
+            bearerToken: "fixture-token"
+        )
+        #expect(secure.baseURL.scheme == "https")
+
+        for rawURL in [
+            "http://gateway.example.test:8787/",
+            "http://fcorp.example.test:8787/",
+            "http://192.168.1.20:8787/proxy",
+            "http://user@192.168.1.20:8787/",
+            "http://192.168.1.20:8787/?token=leak",
+        ] {
+            #expect(throws: DesignCopilotGatewayError.invalidConfiguration) {
+                try DesignCopilotGatewayClient(
+                    baseURL: try #require(URL(string: rawURL)),
+                    bearerToken: "fixture-token"
+                )
+            }
+        }
+    }
+
+    private func repositoryRoot() throws -> URL {
+        var cursor = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        while !FileManager.default.fileExists(atPath: cursor.appending(path: ".git").path) {
+            let parent = cursor.deletingLastPathComponent()
+            guard parent.path != cursor.path else {
+                throw RoomEditTestFixtureError.repositoryRootNotFound
+            }
+            cursor = parent
+        }
+        return cursor
+    }
+
+    private func designCopilotRuntime(
+        support: RoomEditSupportContext?,
+        replacementAssetState: RoomEditReplacementAssetState = .loading
+    ) throws -> (runtime: RoomEditRuntime, authority: NativeBranchAuthority) {
+        let harness = try TestRoomEditHarness(support: support)
+        let catalog = try RoomEditAssetCatalog.load(bundle: Bundle(for: RoomEditModel.self))
+        let model = RoomEditModel(
+            authority: harness.authority,
+            manifest: harness.manifest,
+            catalog: catalog,
+            supportProvider: { _ in support },
+            replacementAssetState: replacementAssetState,
+            replacementSupportedViewPolicy: .fixtureDemoHypothesis
+        )
+        return (
+            RoomEditRuntime(
+                model: model,
+                catalog: catalog,
+                sharedSession: nil,
+                deviceProof: nil,
+                fixtureScenario: .healthy
+            ),
+            harness.authority
+        )
+    }
+
+    private func strictSemanticEnvelope(
+        request: DesignCopilotProposalRequest,
+        operation: ProductOperation,
+        assetID: String?,
+        suffix: String
+    ) throws -> SemanticProposalEnvelope {
+        let envelope = SemanticProposalEnvelope(
+            schemaVersion: "1.0.0",
+            envelopeID: "envelope_54000000-0000-4000-8000-000000000\(suffix)",
+            createdAtUTC: "2026-07-19T18:00:00Z",
+            requestContext: request.requestContext,
+            ingressSource: request.ingressSource,
+            semanticModel: SemanticModelReference(
+                contractProvider: "openai",
+                model: "gpt-5.6-sol",
+                responseID: "resp_no_preview_\(suffix)"
+            ),
+            status: .ready,
+            intent: SemanticProposalIntent(
+                operation: operation,
+                arguments: IntentArguments(assetID: assetID),
+                constraints: []
+            ),
+            explanation: "Preview only after deterministic readiness passes.",
+            clarification: nil
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return try SemanticProposalEnvelope.decodeStrict(encoder.encode(envelope))
+    }
+
+    @Test("Realtime accepts only the completed bounded transcript event")
+    func realtimeTranscriptEventIsClosed() {
+        let valid = Data("""
+        {"type":"conversation.item.input_audio_transcription.completed","transcript":"Try the cobalt lounge chair"}
+        """.utf8)
+        #expect(DesignCopilotRealtimeSession.event(from: valid) == .transcript("Try the cobalt lounge chair"))
+
+        let partial = Data("""
+        {"type":"conversation.item.input_audio_transcription.delta","transcript":"Try"}
+        """.utf8)
+        #expect(DesignCopilotRealtimeSession.event(from: partial) == .ignored)
+
+        let duplicateType = Data("""
+        {"type":"error","\\u0074ype":"conversation.item.input_audio_transcription.completed","transcript":"unsafe"}
+        """.utf8)
+        #expect(DesignCopilotRealtimeSession.event(from: duplicateType) == .invalid)
+        #expect(DesignCopilotRealtimeSession.event(from: Data(repeating: 0x20, count: 32_769)) == .invalid)
+        #expect(DesignCopilotRealtimeSession.event(from: Data([0xff, 0xfe])) == .invalid)
+
+        let providerError = Data("""
+        {"type":"error"}
+        """.utf8)
+        #expect(DesignCopilotRealtimeSession.event(from: providerError) == .providerError)
+    }
+
+    @Test("partial audio acquisition rolls back and a retry releases every resource exactly once")
+    func realtimeAudioSetupRollsBackEveryFailureStep() throws {
+        for failure in FaultInjectingRealtimeAudioBackend.Step.allCases {
+            let backend = FaultInjectingRealtimeAudioBackend(failure: failure)
+            let capture = RealtimeAudioCapture(backend: backend)
+
+            #expect(throws: DesignCopilotRealtimeError.audioUnavailable) {
+                try capture.start { _ in }
+            }
+            #expect(!backend.sessionActive)
+            #expect(!backend.tapInstalled)
+            #expect(!backend.engineStarted)
+
+            backend.failure = nil
+            try capture.start { _ in }
+            capture.stop()
+            capture.stop()
+
+            #expect(!backend.sessionActive)
+            #expect(!backend.tapInstalled)
+            #expect(!backend.engineStarted)
+            #expect(backend.successfulEngineStarts == 1)
+            #expect(backend.successfulTapRemovals == (failure == .startEngine ? 2 : 1))
+            #expect(backend.successfulDeactivations == (failure == .activateSession ? 1 : 2))
+        }
+    }
+
+    @Test("Realtime send and transcript deadlines close once and preserve fallback")
+    func realtimeDeadlinesTerminateStalledSocket() async throws {
+        let secret = RealtimeClientSecret(
+            value: "ek_test_deadline",
+            expiresAt: Int64(Date().timeIntervalSince1970) + 120,
+            session: RealtimeClientSession(id: "sess_test_deadline", model: "gpt-realtime-2.1")
+        )
+
+        let stalledSend = TestRealtimeSocket(stallSend: true, received: [])
+        let sendAudio = FaultInjectingRealtimeAudioBackend(failure: nil, bytesOnInstall: Data([1, 2]))
+        let sendFailures = RealtimeCallbackProbe()
+        let sendSession = DesignCopilotRealtimeSession(
+            secret: secret,
+            audioCapture: RealtimeAudioCapture(backend: sendAudio),
+            socketFactory: { _ in stalledSend },
+            sendTimeoutNanoseconds: 15_000_000,
+            transcriptTimeoutNanoseconds: 15_000_000,
+            maximumSessionNanoseconds: 1_000_000_000,
+            onTranscript: { _ in await sendFailures.recordTranscript() },
+            onFailure: { await sendFailures.recordFailure() }
+        )
+        try await sendSession.start()
+        try await Task.sleep(nanoseconds: 80_000_000)
+        #expect(await sendFailures.failures == 1)
+        #expect(await sendFailures.transcripts == 0)
+        #expect(stalledSend.cancelCount == 1)
+
+        let stalledReceive = TestRealtimeSocket(stallSend: false, received: [])
+        let receiveFailures = RealtimeCallbackProbe()
+        let receiveSession = DesignCopilotRealtimeSession(
+            secret: secret,
+            audioCapture: RealtimeAudioCapture(
+                backend: FaultInjectingRealtimeAudioBackend(failure: nil)
+            ),
+            socketFactory: { _ in stalledReceive },
+            sendTimeoutNanoseconds: 15_000_000,
+            transcriptTimeoutNanoseconds: 15_000_000,
+            maximumSessionNanoseconds: 1_000_000_000,
+            onTranscript: { _ in await receiveFailures.recordTranscript() },
+            onFailure: { await receiveFailures.recordFailure() }
+        )
+        try await receiveSession.start()
+        try await receiveSession.finishInput()
+        try await Task.sleep(nanoseconds: 80_000_000)
+        #expect(await receiveFailures.failures == 1)
+        #expect(await receiveFailures.transcripts == 0)
+        #expect(stalledReceive.cancelCount == 1)
+    }
+
+    @Test("Realtime rejects an oversized inbound event before JSON parsing")
+    func realtimeOversizedInboundEventFailsClosed() async throws {
+        let secret = RealtimeClientSecret(
+            value: "ek_test_oversize",
+            expiresAt: Int64(Date().timeIntervalSince1970) + 120,
+            session: RealtimeClientSession(id: "sess_test_oversize", model: "gpt-realtime-2.1")
+        )
+        let socket = TestRealtimeSocket(
+            stallSend: false,
+            received: [Data(repeating: 0x20, count: 32_769)]
+        )
+        let callbacks = RealtimeCallbackProbe()
+        let session = DesignCopilotRealtimeSession(
+            secret: secret,
+            audioCapture: RealtimeAudioCapture(
+                backend: FaultInjectingRealtimeAudioBackend(failure: nil)
+            ),
+            socketFactory: { _ in socket },
+            sendTimeoutNanoseconds: 100_000_000,
+            transcriptTimeoutNanoseconds: 100_000_000,
+            maximumSessionNanoseconds: 1_000_000_000,
+            onTranscript: { _ in await callbacks.recordTranscript() },
+            onFailure: { await callbacks.recordFailure() }
+        )
+
+        try await session.start()
+        try await Task.sleep(nanoseconds: 80_000_000)
+        #expect(await callbacks.failures == 1)
+        #expect(await callbacks.transcripts == 0)
+        #expect(socket.cancelCount == 1)
+    }
+
+    @Test("voice cancellation invalidates delayed permission before any Realtime session exists")
+    func voiceCancellationDuringPermissionCannotStartAudio() async throws {
+        let setup = try designCopilotRuntime(support: .healthyFixture)
+        await setup.runtime.model.prepare()
+        let permission = SuspendedMicrophonePermission()
+        let factory = RealtimeSessionFactoryProbe()
+        let copilot = DesignCopilotModel(
+            runtime: setup.runtime,
+            gatewayTokenProvider: { "fixture-gateway-token" },
+            microphonePermissionProvider: { await permission.request() },
+            realtimeSecretProvider: { _, _ in .validFixture },
+            realtimeSessionFactory: { secret, callbacks in
+                factory.make(secret: secret, callbacks: callbacks)
+            }
+        )
+
+        let startup = Task { @MainActor in await copilot.startVoice() }
+        await permission.waitUntilRequested()
+        await copilot.cancelVoice()
+        permission.resolve(true)
+        await startup.value
+
+        #expect(factory.creations == 0)
+        #expect(!copilot.isWorking)
+        #expect(!copilot.isVoiceActive)
+        #expect(!copilot.isAwaitingTranscript)
+        #expect(copilot.message == "Voice turn cancelled. Typed/tap editing remains available.")
+    }
+
+    @Test("voice cancellation invalidates delayed credential mint before socket or audio creation")
+    func voiceCancellationDuringSecretMintCannotStartAudio() async throws {
+        let setup = try designCopilotRuntime(support: .healthyFixture)
+        await setup.runtime.model.prepare()
+        let secret = SuspendedRealtimeSecretProvider()
+        let factory = RealtimeSessionFactoryProbe()
+        let copilot = DesignCopilotModel(
+            runtime: setup.runtime,
+            gatewayTokenProvider: { "fixture-gateway-token" },
+            microphonePermissionProvider: { true },
+            realtimeSecretProvider: { _, _ in try await secret.request() },
+            realtimeSessionFactory: { value, callbacks in
+                factory.make(secret: value, callbacks: callbacks)
+            }
+        )
+
+        let startup = Task { @MainActor in await copilot.startVoice() }
+        await secret.waitUntilRequested()
+        await copilot.cancelVoice()
+        secret.resolve(.validFixture)
+        await startup.value
+
+        #expect(factory.creations == 0)
+        #expect(!copilot.isWorking)
+        #expect(!copilot.isVoiceActive)
+        #expect(!copilot.isAwaitingTranscript)
+        #expect(copilot.message == "Voice turn cancelled. Typed/tap editing remains available.")
+    }
+
+    @Test("voice cleanup cannot release or overwrite a suspended typed Ask")
+    func voiceCleanupDoesNotInterfereWithTypedAsk() async throws {
+        let setup = try designCopilotRuntime(support: .healthyFixture)
+        await setup.runtime.model.prepare()
+        let proposal = SuspendedDesignCopilotProposalProvider()
+        let copilot = DesignCopilotModel(
+            runtime: setup.runtime,
+            gatewayTokenProvider: { "fixture-gateway-token" },
+            proposalProvider: { _, _, request in try await proposal.provide(request) }
+        )
+
+        let ask = Task { @MainActor in await copilot.ask() }
+        await proposal.waitUntilRequested()
+        #expect(copilot.isWorking)
+        let messageBeforeCleanup = copilot.message
+        await copilot.cancelVoice()
+        #expect(copilot.isWorking)
+        #expect(copilot.message == messageBeforeCleanup)
+
+        let request = try #require(proposal.request)
+        proposal.resolve(try strictSemanticEnvelope(
+            request: request,
+            operation: .place,
+            assetID: setup.runtime.catalog.assets[0].assetID,
+            suffix: "114"
+        ))
+        await ask.value
+
+        #expect(!copilot.isWorking)
+        #expect(copilot.envelope?.envelopeID.hasSuffix("114") == true)
+        #expect(copilot.message == "Preview only after deterministic readiness passes.")
+    }
+
+    @Test("AI apply rejects an existing manual preview and Cancel still targets the visible preview")
+    func semanticProposalCannotCreateASecondPreview() async throws {
+        let harness = try TestRoomEditHarness(support: .healthyFixture)
+        await harness.model.prepare()
+        await harness.model.selectOperation(.place)
+        let visiblePreview = try #require(harness.model.snapshot.preview)
+        let context = await harness.model.designCopilotRequestContext()
+        let envelope = SemanticProposalEnvelope(
+            schemaVersion: "1.0.0",
+            envelopeID: "envelope_54000000-0000-4000-8000-000000000099",
+            createdAtUTC: "2026-07-19T18:00:00Z",
+            requestContext: context,
+            ingressSource: .typed,
+            semanticModel: SemanticModelReference(
+                contractProvider: "openai",
+                model: "gpt-5.6-sol",
+                responseID: "resp_preview_collision"
+            ),
+            status: .ready,
+            intent: SemanticProposalIntent(
+                operation: .place,
+                arguments: IntentArguments(assetID: harness.manifest.contractAssetID),
+                constraints: []
+            ),
+            explanation: "Keep the deterministic preview singular.",
+            clarification: nil
+        )
+
+        do {
+            try await harness.model.previewSemanticProposal(envelope)
+            Issue.record("AI apply created a second preview")
+        } catch {
+            #expect(error as? SemanticProposalRejection == .previewAlreadyActive)
+        }
+
+        #expect(harness.model.snapshot.preview == visiblePreview)
+        #expect(harness.model.snapshot.revision == 0)
+        await harness.model.cancelPreview()
+        #expect(harness.model.snapshot.preview == nil)
+        #expect((await harness.authority.activeSnapshot()).transactions.isEmpty)
+    }
+
+    @Test("AI Ask to Apply creates only a deterministic revision-neutral preview")
+    func designCopilotAskApplyEndsAtNativePreview() async throws {
+        let harness = try TestRoomEditHarness(support: .healthyFixture)
+        let catalog = try RoomEditAssetCatalog.load(bundle: Bundle(for: RoomEditModel.self))
+        let model = RoomEditModel(
+            authority: harness.authority,
+            manifest: harness.manifest,
+            catalog: catalog,
+            supportProvider: { _ in .healthyFixture }
+        )
+        let runtime = RoomEditRuntime(
+            model: model,
+            catalog: catalog,
+            sharedSession: nil,
+            deviceProof: nil,
+            fixtureScenario: .healthy
+        )
+        let proposedAssetID = catalog.assets[1].assetID
+        let copilot = DesignCopilotModel(
+            runtime: runtime,
+            gatewayTokenProvider: { "fixture-gateway-token" },
+            proposalProvider: { _, token, request in
+                guard token == "fixture-gateway-token" else {
+                    throw DesignCopilotGatewayError.rejected
+                }
+                let envelope = SemanticProposalEnvelope(
+                    schemaVersion: "1.0.0",
+                    envelopeID: "envelope_54000000-0000-4000-8000-000000000100",
+                    createdAtUTC: "2026-07-19T18:00:00Z",
+                    requestContext: request.requestContext,
+                    ingressSource: request.ingressSource,
+                    semanticModel: SemanticModelReference(
+                        contractProvider: "openai",
+                        model: "gpt-5.6-sol",
+                        responseID: "resp_54000000-0000-4000-8000-000000000101"
+                    ),
+                    status: .ready,
+                    intent: SemanticProposalIntent(
+                        operation: .place,
+                        arguments: IntentArguments(assetID: proposedAssetID),
+                        constraints: []
+                    ),
+                    explanation: "Use the curated cobalt chair.",
+                    clarification: nil
+                )
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                return try SemanticProposalEnvelope.decodeStrict(encoder.encode(envelope))
+            }
+        )
+
+        await model.prepare()
+        let revisionBeforeAsk = model.snapshot.revision
+        await copilot.ask()
+
+        #expect(copilot.envelope?.status == .ready)
+        #expect(copilot.proposedAsset?.assetID == proposedAssetID)
+        #expect(copilot.canApplyProposal)
+        #expect(model.snapshot.preview == nil)
+        #expect(model.snapshot.revision == revisionBeforeAsk)
+
+        await copilot.applyProposal()
+
+        let active = await harness.authority.activeSnapshot()
+        #expect(copilot.envelope == nil)
+        #expect(model.snapshot.preview != nil)
+        #expect(model.snapshot.canConfirm)
+        #expect(model.snapshot.selectedOperation == .place)
+        #expect(model.snapshot.revision == revisionBeforeAsk)
+        #expect(active.scene.sceneRevision == revisionBeforeAsk)
+        #expect(active.scene.editHistory.isEmpty)
+        #expect(active.receipts.isEmpty)
+    }
+
+    @Test("rapid double Apply owns one native preview transition")
+    func designCopilotDoubleApplyCreatesOnePreview() async throws {
+        let support = SuspendedRoomEditSupportProvider(defaultValue: .healthyFixture)
+        let harness = try TestRoomEditHarness(support: .healthyFixture)
+        let catalog = try RoomEditAssetCatalog.load(bundle: Bundle(for: RoomEditModel.self))
+        let model = RoomEditModel(
+            authority: harness.authority,
+            manifest: harness.manifest,
+            catalog: catalog,
+            supportProvider: { _ in await support.provide() }
+        )
+        let runtime = RoomEditRuntime(
+            model: model,
+            catalog: catalog,
+            sharedSession: nil,
+            deviceProof: nil,
+            fixtureScenario: .healthy
+        )
+        let proposedAssetID = catalog.assets[1].assetID
+        let copilot = DesignCopilotModel(
+            runtime: runtime,
+            gatewayTokenProvider: { "fixture-gateway-token" },
+            proposalProvider: { _, _, request in
+                try strictSemanticEnvelope(
+                    request: request,
+                    operation: .place,
+                    assetID: proposedAssetID,
+                    suffix: "113"
+                )
+            }
+        )
+        await model.prepare()
+        await copilot.ask()
+        let pendingEnvelopeID = try #require(copilot.envelope?.envelopeID)
+        support.suspendNext()
+
+        let firstApply = Task { @MainActor in await copilot.applyProposal() }
+        await support.waitUntilSuspended()
+        #expect(model.previewTransitionOwner == .semanticProposal)
+        #expect(copilot.isWorking)
+        await copilot.ask()
+        #expect(copilot.envelope?.envelopeID == pendingEnvelopeID)
+        await copilot.applyProposal()
+        #expect(copilot.envelope?.envelopeID == pendingEnvelopeID)
+
+        support.resolve(.healthyFixture)
+        await firstApply.value
+
+        let active = await harness.authority.activeSnapshot()
+        #expect(copilot.envelope == nil)
+        #expect(model.previewTransitionOwner == nil)
+        #expect(model.snapshot.preview != nil)
+        #expect(model.snapshot.revision == 0)
+        #expect(active.transactions.isEmpty)
+        #expect(active.receipts.isEmpty)
+    }
+
+    @Test("AI Apply retains its proposal and reports local blockers when no preview exists")
+    func designCopilotApplyCannotReportFalsePreviewSuccess() async throws {
+        let cases: [(ProductOperation, RoomEditSupportContext?, RoomEditReplacementAssetState, String)] = [
+            (.place, nil, .loading, "110"),
+            (.replace, .healthyFixture, .available, "111"),
+            (.restore, .healthyFixture, .loading, "112"),
+        ]
+
+        for (operation, support, replacementState, suffix) in cases {
+            let setup = try designCopilotRuntime(
+                support: support,
+                replacementAssetState: replacementState
+            )
+            let proposedAssetID = setup.runtime.catalog.assets[1].assetID
+            let copilot = DesignCopilotModel(
+                runtime: setup.runtime,
+                gatewayTokenProvider: { "fixture-gateway-token" },
+                proposalProvider: { _, _, request in
+                    try strictSemanticEnvelope(
+                        request: request,
+                        operation: operation,
+                        assetID: operation == .place || operation == .replace
+                            ? proposedAssetID
+                            : nil,
+                        suffix: suffix
+                    )
+                }
+            )
+            await setup.runtime.model.prepare()
+            await copilot.ask()
+            let envelopeID = try #require(copilot.envelope?.envelopeID)
+
+            await copilot.applyProposal()
+
+            let active = await setup.authority.activeSnapshot()
+            #expect(copilot.envelope?.envelopeID == envelopeID)
+            #expect(copilot.message.hasPrefix("No preview was created:"))
+            #expect(setup.runtime.model.snapshot.preview == nil)
+            #expect(setup.runtime.model.snapshot.revision == 0)
+            #expect(active.scene.editHistory.isEmpty)
+            #expect(active.receipts.isEmpty)
+        }
+    }
+
     @Test("missing healthy support blocks place without changing canonical revision")
     func supportFailureIsTypedAndNonmutating() async throws {
         let harness = try TestRoomEditHarness(support: nil)
@@ -237,6 +1110,79 @@ struct RoomEditModelTests {
         #expect((await harness.authority.activeSnapshot()).transactions.count == 1)
     }
 
+    @Test("Confirm owns one preview transition across Cancel, manual select, and double tap")
+    func confirmationTransitionIsLinearizedAcrossSuspension() async throws {
+        let support = SuspendedRoomEditSupportProvider(defaultValue: .healthyFixture)
+        let harness = try TestRoomEditHarness(
+            support: nil,
+            supportProvider: { _ in await support.provide() },
+            replacementAssetState: .available,
+            replacementSupportedViewPolicy: .fixtureDemoHypothesis
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await harness.model.selectOperation(.replace)
+        let preview = try #require(harness.model.snapshot.preview)
+        support.suspendNext()
+
+        let confirmation = Task { @MainActor in
+            await harness.model.confirmReplacementFromButton()
+        }
+        await support.waitUntilSuspended()
+        #expect(harness.model.previewTransitionOwner == .confirm(.replace))
+
+        await harness.model.cancelPreview()
+        await harness.model.selectOperation(.place)
+        await harness.model.confirmReplacementFromButton()
+        #expect(harness.model.snapshot.preview == preview)
+        #expect(harness.model.snapshot.revision == 0)
+
+        support.resolve(.healthyFixture)
+        await confirmation.value
+
+        let active = await harness.authority.activeSnapshot()
+        #expect(harness.model.previewTransitionOwner == nil)
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.revision == 1)
+        #expect(active.transactions.count == 1)
+        #expect(active.receipts.count == 1)
+    }
+
+    @Test("Manual selection owns the transition and cannot leave a stale confirmed preview")
+    func manualSelectionTransitionRejectsStaleConfirmation() async throws {
+        let support = SuspendedRoomEditSupportProvider(defaultValue: .healthyFixture)
+        let harness = try TestRoomEditHarness(
+            support: nil,
+            supportProvider: { _ in await support.provide() },
+            replacementAssetState: .available,
+            replacementSupportedViewPolicy: .fixtureDemoHypothesis
+        )
+        await harness.model.prepare()
+        await harness.model.groundTarget(candidates: [.heroFixture], tracking: .normal)
+        await harness.model.selectOperation(.replace)
+        support.suspendNext()
+
+        let selection = Task { @MainActor in
+            await harness.model.selectOperation(.place)
+        }
+        await support.waitUntilSuspended()
+        #expect(harness.model.previewTransitionOwner == .select(.place))
+        await harness.model.confirmReplacementFromButton()
+        await harness.model.cancelPreview()
+        #expect(harness.model.snapshot.revision == 0)
+
+        support.resolve(.healthyFixture)
+        await selection.value
+
+        let active = await harness.authority.activeSnapshot()
+        #expect(harness.model.previewTransitionOwner == nil)
+        #expect(harness.model.snapshot.selectedOperation == .place)
+        #expect(harness.model.snapshot.preview != nil)
+        #expect(harness.model.snapshot.revision == 0)
+        #expect(active.transactions.isEmpty)
+        #expect(active.receipts.isEmpty)
+    }
+
     @Test("restart recovers r1 and offline restore creates a compensating r2")
     func restartAndOfflineRestoreAreDurable() async throws {
         let harness = try TestRoomEditHarness(support: .healthyFixture)
@@ -257,6 +1203,29 @@ struct RoomEditModelTests {
         let canonical = await restarted.authority.activeSnapshot()
         #expect(canonical.transactions.count == 2)
         #expect(canonical.transactions.last?.compensatesTransactionID == canonical.transactions.first?.transactionID)
+    }
+
+    @Test("restore selection previews without mutation until explicit confirmation")
+    func restoreRequiresExplicitConfirmation() async throws {
+        let harness = try TestRoomEditHarness(support: .healthyFixture)
+        await harness.model.prepare()
+        await harness.model.selectOperation(.place)
+        await harness.model.confirmPlacementFromButton()
+
+        await harness.model.selectOperation(.restore)
+        #expect(harness.model.snapshot.preview != nil)
+        #expect(harness.model.snapshot.canConfirm)
+        #expect(harness.model.snapshot.revision == 1)
+        #expect((await harness.authority.activeSnapshot()).transactions.count == 1)
+
+        await harness.model.cancelPreview()
+        #expect(harness.model.snapshot.preview == nil)
+        #expect(harness.model.snapshot.revision == 1)
+
+        await harness.model.selectOperation(.restore)
+        await harness.model.confirmRestoreFromButton()
+        #expect(harness.model.snapshot.revision == 2)
+        #expect((await harness.authority.activeSnapshot()).transactions.count == 2)
     }
 
     @Test("replace preview, cancel, confirm, retry, and restore remain exact")
@@ -719,6 +1688,248 @@ struct RoomEditModelTests {
     }
 }
 
+private final class FaultInjectingRealtimeAudioBackend: @unchecked Sendable, RealtimeAudioCaptureBackend {
+    enum Step: CaseIterable {
+        case activateSession
+        case installTap
+        case startEngine
+    }
+
+    var failure: Step?
+    private let bytesOnInstall: Data?
+    private(set) var sessionActive = false
+    private(set) var tapInstalled = false
+    private(set) var engineStarted = false
+    private(set) var successfulEngineStarts = 0
+    private(set) var successfulTapRemovals = 0
+    private(set) var successfulDeactivations = 0
+
+    init(failure: Step?, bytesOnInstall: Data? = nil) {
+        self.failure = failure
+        self.bytesOnInstall = bytesOnInstall
+    }
+
+    func activateSession() throws {
+        if failure == .activateSession { throw DesignCopilotRealtimeError.audioUnavailable }
+        sessionActive = true
+    }
+
+    func installTap(yield: @escaping @Sendable (Data) -> Void) throws {
+        if failure == .installTap { throw DesignCopilotRealtimeError.audioUnavailable }
+        tapInstalled = true
+        if let bytesOnInstall {
+            yield(bytesOnInstall)
+        }
+    }
+
+    func startEngine() throws {
+        if failure == .startEngine { throw DesignCopilotRealtimeError.audioUnavailable }
+        engineStarted = true
+        successfulEngineStarts += 1
+    }
+
+    func stopEngine() {
+        engineStarted = false
+    }
+
+    func removeTap() {
+        guard tapInstalled else { return }
+        tapInstalled = false
+        successfulTapRemovals += 1
+    }
+
+    func deactivateSession() {
+        guard sessionActive else { return }
+        sessionActive = false
+        successfulDeactivations += 1
+    }
+}
+
+private final class TestRealtimeSocket: @unchecked Sendable, DesignCopilotRealtimeSocket {
+    private let lock = NSLock()
+    private let stallSend: Bool
+    private var received: [Data]
+    private var sendContinuation: CheckedContinuation<Void, any Error>?
+    private var receiveContinuation: CheckedContinuation<Data, any Error>?
+    private var cancelled = false
+    private var cancellationCount = 0
+
+    init(stallSend: Bool, received: [Data]) {
+        self.stallSend = stallSend
+        self.received = received
+    }
+
+    var cancelCount: Int {
+        lock.withLock { cancellationCount }
+    }
+
+    func resume() {}
+
+    func send(_: Data) async throws {
+        if !stallSend { return }
+        try await withCheckedThrowingContinuation { continuation in
+            let cancelImmediately = lock.withLock {
+                if cancelled { return true }
+                sendContinuation = continuation
+                return false
+            }
+            if cancelImmediately {
+                continuation.resume(throwing: CancellationError())
+            }
+        }
+    }
+
+    func receive() async throws -> Data {
+        if let next = lock.withLock({ received.isEmpty ? nil : received.removeFirst() }) {
+            return next
+        }
+        return try await withCheckedThrowingContinuation { continuation in
+            let cancelImmediately = lock.withLock {
+                if cancelled { return true }
+                receiveContinuation = continuation
+                return false
+            }
+            if cancelImmediately {
+                continuation.resume(throwing: CancellationError())
+            }
+        }
+    }
+
+    func cancel() {
+        let continuations = lock.withLock { () -> (
+            CheckedContinuation<Void, any Error>?,
+            CheckedContinuation<Data, any Error>?
+        ) in
+            guard !cancelled else { return (nil, nil) }
+            cancelled = true
+            cancellationCount += 1
+            defer {
+                sendContinuation = nil
+                receiveContinuation = nil
+            }
+            return (sendContinuation, receiveContinuation)
+        }
+        continuations.0?.resume(throwing: CancellationError())
+        continuations.1?.resume(throwing: CancellationError())
+    }
+}
+
+private actor RealtimeCallbackProbe {
+    private(set) var failures = 0
+    private(set) var transcripts = 0
+
+    func recordFailure() {
+        failures += 1
+    }
+
+    func recordTranscript() {
+        transcripts += 1
+    }
+}
+
+private extension RealtimeClientSecret {
+    static var validFixture: Self {
+        Self(
+            value: "ek_test_cancelled_startup",
+            expiresAt: Int64(Date().timeIntervalSince1970) + 120,
+            session: RealtimeClientSession(
+                id: "sess_test_cancelled_startup",
+                model: "gpt-realtime-2.1"
+            )
+        )
+    }
+}
+
+@MainActor
+private final class SuspendedMicrophonePermission {
+    private var continuation: CheckedContinuation<Bool, Never>?
+    private(set) var requested = false
+
+    func request() async -> Bool {
+        requested = true
+        return await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilRequested() async {
+        while !requested {
+            await Task.yield()
+        }
+    }
+
+    func resolve(_ granted: Bool) {
+        let pending = continuation
+        continuation = nil
+        pending?.resume(returning: granted)
+    }
+}
+
+@MainActor
+private final class SuspendedRealtimeSecretProvider {
+    private var continuation: CheckedContinuation<RealtimeClientSecret, any Error>?
+    private(set) var requested = false
+
+    func request() async throws -> RealtimeClientSecret {
+        requested = true
+        return try await withCheckedThrowingContinuation { continuation = $0 }
+    }
+
+    func waitUntilRequested() async {
+        while !requested {
+            await Task.yield()
+        }
+    }
+
+    func resolve(_ secret: RealtimeClientSecret) {
+        let pending = continuation
+        continuation = nil
+        pending?.resume(returning: secret)
+    }
+}
+
+@MainActor
+private final class SuspendedDesignCopilotProposalProvider {
+    private var continuation: CheckedContinuation<SemanticProposalEnvelope, any Error>?
+    private(set) var request: DesignCopilotProposalRequest?
+
+    func provide(_ request: DesignCopilotProposalRequest) async throws -> SemanticProposalEnvelope {
+        self.request = request
+        return try await withCheckedThrowingContinuation { continuation = $0 }
+    }
+
+    func waitUntilRequested() async {
+        while request == nil {
+            await Task.yield()
+        }
+    }
+
+    func resolve(_ envelope: SemanticProposalEnvelope) {
+        let pending = continuation
+        continuation = nil
+        pending?.resume(returning: envelope)
+    }
+}
+
+@MainActor
+private final class RealtimeSessionFactoryProbe {
+    private(set) var creations = 0
+
+    func make(
+        secret: RealtimeClientSecret,
+        callbacks: DesignCopilotRealtimeCallbacks
+    ) -> DesignCopilotRealtimeSession {
+        creations += 1
+        return DesignCopilotRealtimeSession(
+            secret: secret,
+            audioCapture: RealtimeAudioCapture(
+                backend: FaultInjectingRealtimeAudioBackend(failure: nil)
+            ),
+            socketFactory: { _ in TestRealtimeSocket(stallSend: false, received: []) },
+            onTranscript: callbacks.onTranscript,
+            onFailure: callbacks.onFailure
+        )
+    }
+}
+
 private struct TestRoomEditHarness {
     let fileSystem: RoomEditMemoryFileSystem
     let manifest: Phase3ProxyManifest
@@ -860,6 +2071,43 @@ private final class RoomEditSupportProbe {
 
     init(_ value: RoomEditSupportContext?) {
         self.value = value
+    }
+}
+
+@MainActor
+private final class SuspendedRoomEditSupportProvider {
+    private let defaultValue: RoomEditSupportContext?
+    private var shouldSuspend = false
+    private var isSuspended = false
+    private var continuation: CheckedContinuation<RoomEditSupportContext?, Never>?
+
+    init(defaultValue: RoomEditSupportContext?) {
+        self.defaultValue = defaultValue
+    }
+
+    func suspendNext() {
+        shouldSuspend = true
+        isSuspended = false
+    }
+
+    func provide() async -> RoomEditSupportContext? {
+        guard shouldSuspend else { return defaultValue }
+        shouldSuspend = false
+        isSuspended = true
+        return await withCheckedContinuation { continuation = $0 }
+    }
+
+    func waitUntilSuspended() async {
+        while !isSuspended {
+            await Task.yield()
+        }
+    }
+
+    func resolve(_ value: RoomEditSupportContext?) {
+        let pending = continuation
+        continuation = nil
+        isSuspended = false
+        pending?.resume(returning: value)
     }
 }
 

@@ -41,6 +41,11 @@ Thumbs.db
 dist/
 build/
 coverage/
+.build/
+.swiftpm/
+**/*.xcodeproj/project.xcworkspace/
+**/*.xcodeproj/xcuserdata/
+*.xcuserstate
 *.log
 *.trace
 *.trace/

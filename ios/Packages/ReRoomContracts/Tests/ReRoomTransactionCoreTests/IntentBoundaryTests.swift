@@ -75,6 +75,64 @@ struct IntentBoundaryTests {
         }
     }
 
+    @Test("model-assisted voice binds provenance without gaining trusted authority")
+    func modelAssistedVoiceBindsProvenance() throws {
+        let model = SemanticModelReference(
+            contractProvider: "openai",
+            model: "gpt-realtime-2.1",
+            responseID: "resp_10000000-0000-4000-8000-000000000001"
+        )
+
+        let proposal = try IntentBoundary.submitUserIntent(
+            IntentFixtures.placeIntent,
+            source: .voice,
+            trustedContext: IntentFixtures.context,
+            currentScene: IntentFixtures.scene,
+            semanticModel: model
+        )
+
+        #expect(proposal.intent.source == "voice")
+        #expect(proposal.intent.semanticModel == model)
+        #expect(proposal.sessionID == IntentFixtures.context.sessionID)
+        #expect(proposal.baseSceneRevision == IntentFixtures.context.baseSceneRevision)
+        #expect(proposal.targetContext == IntentFixtures.context.targetContext)
+        #expect(IntentFixtures.scene.editHistory.isEmpty)
+    }
+
+    @Test("invalid model provenance rejects before a proposal is created")
+    func invalidModelProvenanceRejects() {
+        let invalid = SemanticModelReference(
+            contractProvider: "openai",
+            model: "",
+            responseID: "resp_10000000-0000-4000-8000-000000000001"
+        )
+
+        #expect(throws: IntentBoundaryRejection.invalidValue) {
+            try IntentBoundary.submitUserIntent(
+                IntentFixtures.placeIntent,
+                source: .voice,
+                trustedContext: IntentFixtures.context,
+                currentScene: IntentFixtures.scene,
+                semanticModel: invalid
+            )
+        }
+
+        let oversizedResponse = SemanticModelReference(
+            contractProvider: "openai",
+            model: "gpt-5.6-sol",
+            responseID: String(repeating: "r", count: 129)
+        )
+        #expect(throws: IntentBoundaryRejection.invalidValue) {
+            try IntentBoundary.submitUserIntent(
+                IntentFixtures.placeIntent,
+                source: .voice,
+                trustedContext: IntentFixtures.context,
+                currentScene: IntentFixtures.scene,
+                semanticModel: oversizedResponse
+            )
+        }
+    }
+
     @Test("parallel local submissions remain deterministic and isolated")
     func concurrentSubmissionsAreDeterministic() async throws {
         let proposals = try await withThrowingTaskGroup(of: BoundProposal.self) { group in
@@ -143,6 +201,7 @@ enum IntentAttack: String, CaseIterable, Sendable, CustomTestStringConvertible {
     case oversized
     case transformInjection
     case urlInjection
+    case constraintURLInjection
     case confirmationInjection
     case authorityInjection
     case revisionInjection
@@ -159,7 +218,7 @@ enum IntentAttack: String, CaseIterable, Sendable, CustomTestStringConvertible {
         case .empty: .emptyInput
         case .malformed, .duplicateKey: .malformedJSON
         case .oversized: .oversized
-        case .emptyAsset, .urlInjection: .invalidValue
+        case .emptyAsset, .urlInjection, .constraintURLInjection: .invalidValue
         case .unsortedConstraints, .duplicateConstraints: .invalidConstraintOrder
         default: .unknownOrForbiddenField
         }
@@ -175,6 +234,8 @@ enum IntentAttack: String, CaseIterable, Sendable, CustomTestStringConvertible {
         case .oversized: Data(repeating: 0x20, count: IntentBoundary.maximumIntentBytes + 1)
         case .transformInjection: IntentFixtures.inject("world_from_asset", value: [1, 0, 0, 0])
         case .urlInjection: Data("{\"operation\":\"place\",\"arguments\":{\"catalog_query\":\"https://example.invalid/chair\"},\"constraints\":[]}".utf8)
+        case .constraintURLInjection:
+            Data("{\"operation\":\"place\",\"arguments\":{\"asset_id\":\"asset_10000000-0000-4000-8000-000000000020\"},\"constraints\":[{\"kind\":\"style_tag\",\"value\":\"https://example.invalid/style\"}]}".utf8)
         case .confirmationInjection: IntentFixtures.inject("confirmed", value: true)
         case .authorityInjection: IntentFixtures.inject("revision_authority", value: ["kind": "native_device"])
         case .revisionInjection: IntentFixtures.inject("committed_scene_revision", value: 99)

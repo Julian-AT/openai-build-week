@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:reroom:schema:semantic-proposal:1",
+  "title": "ReRoom Semantic Proposal Envelope (CON-006)",
+  "description": "A nonmutating semantic/design proposal from an optional model, bound by gateway code to an exact trusted native request-context snapshot. This contract never authorizes targets, transforms, confirmation, commits, revision changes, restore execution, or URLs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "envelope_id",
+    "created_at_utc",
+    "request_context",
+    "ingress_source",
+    "semantic_model",
+    "status",
+    "intent",
+    "explanation",
+    "clarification"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "envelope_id": {
+      "type": "string",
+      "pattern": "^envelope_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "created_at_utc": { "type": "string", "format": "date-time" },
+    "request_context": { "$ref": "#/$defs/requestContext" },
+    "ingress_source": { "enum": ["typed", "vision", "voice"] },
+    "semantic_model": { "$ref": "#/$defs/semanticModel" },
+    "status": { "enum": ["ready", "needs_clarification"] },
+    "intent": {
+      "oneOf": [
+        { "$ref": "#/$defs/semanticIntent" },
+        { "type": "null" }
+      ]
+    },
+    "explanation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280,
+      "pattern": "^(?!.*(?:[A-Za-z][A-Za-z0-9+.-]*://|www\\.))[^\\r\\n]+$"
+    },
+    "clarification": {
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 280,
+          "pattern": "^(?!.*(?:[A-Za-z][A-Za-z0-9+.-]*://|www\\.))[^\\r\\n]+$"
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "ready" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "intent": { "$ref": "#/$defs/semanticIntent" },
+          "clarification": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "status": { "const": "needs_clarification" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "intent": { "type": "null" },
+          "clarification": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 280,
+            "pattern": "^(?!.*(?:[A-Za-z][A-Za-z0-9+.-]*://|www\\.))[^\\r\\n]+$"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "requestContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "revision_branch_id",
+        "base_scene_revision",
+        "world_frame_id",
+        "world_frame_version",
+        "selected_object_id"
+      ],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "pattern": "^session_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "revision_branch_id": {
+          "type": "string",
+          "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "base_scene_revision": { "type": "integer", "minimum": 0 },
+        "world_frame_id": {
+          "type": "string",
+          "pattern": "^world_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "world_frame_version": { "type": "integer", "minimum": 1 },
+        "selected_object_id": {
+          "type": ["string", "null"],
+          "pattern": "^object_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        }
+      }
+    },
+    "semanticModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "response_id"],
+      "properties": {
+        "provider": { "const": "openai" },
+        "model": { "const": "gpt-5.6-sol" },
+        "response_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        }
+      }
+    },
+    "catalogArguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id"],
+      "properties": {
+        "asset_id": {
+          "enum": [
+            "asset_53000000-0000-4000-8000-000000000002",
+            "asset_53000000-0000-4000-8000-000000000003",
+            "asset_53000000-0000-4000-8000-000000000004"
+          ]
+        }
+      }
+    },
+    "emptyArguments": {
+      "type": "object",
+      "additionalProperties": false,
+      "maxProperties": 0
+    },
+    "typedConstraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["color_tag", "style_tag"] },
+            "value": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^(?!.*(?:[A-Za-z][A-Za-z0-9+.-]*://|www\\.))[^\\r\\n]+$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "enum": ["preserve_walkway", "support_required"] },
+            "value": { "type": "boolean" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "max_footprint_m2" },
+            "value": { "type": "number", "exclusiveMinimum": 0, "maximum": 20 }
+          }
+        }
+      ]
+    },
+    "constraints": {
+      "type": "array",
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/typedConstraint" },
+      "description": "Normative order is ascending lexicographic kind plus U+0000 plus the JCS serialization of the complete constraint object. Runtime validators reject noncanonical order and duplicates."
+    },
+    "semanticIntent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "arguments", "constraints"],
+          "properties": {
+            "operation": { "const": "place" },
+            "arguments": { "$ref": "#/$defs/catalogArguments" },
+            "constraints": { "$ref": "#/$defs/constraints" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "arguments", "constraints"],
+          "properties": {
+            "operation": { "const": "replace" },
+            "arguments": { "$ref": "#/$defs/catalogArguments" },
+            "constraints": { "$ref": "#/$defs/constraints" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "arguments", "constraints"],
+          "properties": {
+            "operation": { "const": "remove" },
+            "arguments": { "$ref": "#/$defs/emptyArguments" },
+            "constraints": { "$ref": "#/$defs/constraints" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operation", "arguments", "constraints"],
+          "properties": {
+            "operation": { "const": "restore" },
+            "arguments": { "$ref": "#/$defs/emptyArguments" },
+            "constraints": { "$ref": "#/$defs/constraints" }
+          }
+        }
+      ]
+    }
+  }
+}

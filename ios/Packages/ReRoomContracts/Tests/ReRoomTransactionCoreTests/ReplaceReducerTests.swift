@@ -66,6 +66,23 @@ struct ReplaceReducerTests {
         #expect(scene.editHistory.isEmpty)
     }
 
+    @Test("model-attributed voice uses the same deterministic replacement preview")
+    func modelAttributedVoicePreview() throws {
+        let proposal = ReplaceFixtures.proposalValue(
+            source: "voice",
+            semanticModel: ReplaceFixtures.semanticModel
+        )
+        let preview = try ReplaceReducer.preview(
+            proposal: proposal,
+            currentScene: ReplaceFixtures.scene,
+            candidate: ReplaceFixtures.candidate,
+            seed: ReplaceFixtures.seed
+        )
+        #expect(preview.proposal.intent.source == "voice")
+        #expect(preview.proposal.intent.semanticModel == ReplaceFixtures.semanticModel)
+        #expect(preview.canonicalSceneRevision == ReplaceFixtures.scene.sceneRevision)
+    }
+
     @Test(
         "target visibility readiness view support asset world and revision failures reject atomically",
         arguments: ReplaceFailureCase.allCases
@@ -271,7 +288,9 @@ enum ReplaceFixtures {
         selectedObjectID: String? = targetObjectID,
         candidateObjectIDs: [String] = [targetObjectID],
         assetID: String? = assetID,
-        catalogQuery: String? = nil
+        catalogQuery: String? = nil,
+        source: String = "typed",
+        semanticModel: SemanticModelReference? = nil
     ) -> BoundProposal {
         BoundProposal(
             sessionID: TransactionTestFixtures.sessionID,
@@ -290,12 +309,19 @@ enum ReplaceFixtures {
             ),
             intent: TransactionIntent(
                 contractOperation: .replace,
-                source: "typed",
+                source: source,
                 arguments: IntentArguments(assetID: assetID, catalogQuery: catalogQuery),
-                constraints: []
+                constraints: [],
+                semanticModel: semanticModel
             )
         )
     }
+
+    static let semanticModel = SemanticModelReference(
+        contractProvider: "openai",
+        model: "gpt-5.6-sol",
+        responseID: "resp_50000000-0000-4000-8000-000000000099"
+    )
 
     static var candidate: DeterministicReplaceCandidate { candidateValue() }
 
