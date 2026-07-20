@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
+import { canonicalizePreviewPNG, canonicalizeUSDZ } from "./asset-canonicalizer.ts";
 import type {
   AssetPreparationBudgets,
   CatalogAssetProcessor,
@@ -109,13 +110,15 @@ export function createBlenderAssetProcessor(
           ...(request.signal === undefined ? {} : { signal: request.signal }),
         });
 
-        const [glb, usdz, collision, preview, manifest] = await Promise.all([
+        const [glb, rawUSDZ, collision, rawPreview, manifest] = await Promise.all([
           readBounded(glbPath, configuration.budgets.glbBytes),
           readBounded(usdzPath, configuration.budgets.usdzBytes),
           readBounded(collisionPath, configuration.budgets.collisionBytes),
           readBounded(previewPath, configuration.budgets.previewBytes),
           readManifest(manifestPath),
         ]);
+        const usdz = canonicalizeUSDZ(rawUSDZ);
+        const preview = canonicalizePreviewPNG(rawPreview);
         validateGLB(glb);
         validateUSDZ(usdz);
         validateGLB(collision);

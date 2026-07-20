@@ -102,10 +102,43 @@ function minimalUSDZ(): Uint8Array {
 }
 
 function png(): Uint8Array {
-  return new Uint8Array([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x08, 0x02, 0x00, 0x00, 0x00,
-  ]);
+  const signature = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return concat(
+    signature,
+    chunk("IHDR", new Uint8Array([0, 0, 0, 2, 0, 0, 0, 2, 8, 2, 0, 0, 0])),
+    chunk("IDAT", new Uint8Array([0x78, 0x9c, 0x63, 0x60, 0x60, 0x60, 0, 0, 0, 4, 0, 1])),
+    chunk("IEND", new Uint8Array()),
+  );
+}
+
+function chunk(type: string, data: Uint8Array): Uint8Array {
+  const typeBytes = new TextEncoder().encode(type);
+  const bytes = new Uint8Array(12 + data.byteLength);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(0, data.byteLength, false);
+  bytes.set(typeBytes, 4);
+  bytes.set(data, 8);
+  view.setUint32(8 + data.byteLength, crc32(concat(typeBytes, data)), false);
+  return bytes;
+}
+
+function concat(...values: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(values.reduce((total, value) => total + value.byteLength, 0));
+  let offset = 0;
+  for (const value of values) {
+    result.set(value, offset);
+    offset += value.byteLength;
+  }
+  return result;
+}
+
+function crc32(bytes: Uint8Array): number {
+  let value = 0xffffffff;
+  for (const byte of bytes) {
+    value ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
+  }
+  return (value ^ 0xffffffff) >>> 0;
 }
 
 function hash(bytes: Uint8Array): string {

@@ -123,6 +123,7 @@ export async function runIkeaPreparedSmokeFromEnvironment(
     processor,
     processorRevision: configuration.processorRevision,
     processorConfiguration: {
+      canonicalization: "png-essential-chunks-usdz-dos-epoch-v1",
       collision: "aabb",
       preview: "png-512",
       units: "meters",
