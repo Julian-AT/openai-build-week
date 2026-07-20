@@ -24,8 +24,8 @@
         "typescript": "6.0.2",
       },
     },
-    "apps/inference": {
-      "name": "@reroom/inference",
+    "apps/vision": {
+      "name": "@reframe/vision",
       "version": "0.1.0",
     },
     "apps/web": {
@@ -68,7 +68,7 @@
       },
     },
     "packages/contracts": {
-      "name": "@reroom/contracts",
+      "name": "@reframe/contracts",
       "version": "0.1.0",
       "dependencies": {
         "ajv": "8.20.0",
@@ -184,13 +184,13 @@
 
     "@reframe/catalog": ["@reframe/catalog@workspace:packages/catalog"],
 
+    "@reframe/contracts": ["@reframe/contracts@workspace:packages/contracts"],
+
     "@reframe/protocol": ["@reframe/protocol@workspace:packages/protocol"],
 
+    "@reframe/vision": ["@reframe/vision@workspace:apps/vision"],
+
     "@reframe/web": ["@reframe/web@workspace:apps/web"],
-
-    "@reroom/contracts": ["@reroom/contracts@workspace:packages/contracts"],
-
-    "@reroom/inference": ["@reroom/inference@workspace:apps/inference"],
 
     "@swc/helpers": ["@swc/helpers@0.5.15", "", { "dependencies": { "tslib": "^2.8.0" } }, "sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g=="],
 

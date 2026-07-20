@@ -1,6 +1,6 @@
-# ReRoom Hono API
+# Reframe Hono API
 
-This Bun service is ReRoom's single public application API. Hono owns routing,
+This Bun service is Reframe's single public application API. Hono owns routing,
 bounded ingress, authentication, admission rate limiting, deadlines, and
 redacted request logs. The package keeps the standard OpenAI API key off the
 iPhone and exposes narrowly scoped, bearer-protected LAN routes. It is not
@@ -73,7 +73,7 @@ Hono knows its bearer credential.
 
 The image is optional; no client asset allowlist is accepted. The gateway owns the three-item catalog and rejects unknown model-selected assets, noncanonical constraints, model-supplied context, transforms, URLs, confirmation, and mutation fields. Gateway request JSON rejects malformed UTF-8 and duplicate member names before shape validation; SDK output then passes the closed semantic validator before envelope construction. CORS headers are intentionally absent. Request logs contain only request ID, method, path, status, and duration—never bearer headers, prompts, image bytes, API keys, or ephemeral values.
 
-All model-facing calls are implemented in `@reroom/ai` with Vercel AI SDK and
+All model-facing calls are implemented in `@reframe/agent` with the OpenAI SDK and
 `@ai-sdk/openai`; the official `openai` JavaScript package is not installed.
 The exact SDK transport is covered by local fake-HTTPS tests, including strict
 Structured Outputs, `store: false`, consented image input, the closed Realtime

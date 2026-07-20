@@ -14,7 +14,7 @@ export default function ReplayError({
             RR
           </span>
           <div>
-            <span className="brand-name">ReRoom</span>
+            <span className="brand-name">Reframe</span>
             <span className="brand-subtitle">Fallback inspection console</span>
           </div>
         </div>
