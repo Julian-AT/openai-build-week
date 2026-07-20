@@ -14,6 +14,7 @@ from .reveal import (
     RevealMetrics,
     assess_reveal,
 )
+from .target_geometry import TargetView, TargetViewAssessment, assess_target_views
 
 __all__ = [
     "DisabledProvider",
@@ -26,7 +27,10 @@ __all__ = [
     "RevealFillRequest",
     "RevealFillUnavailableError",
     "RevealMetrics",
+    "TargetView",
+    "TargetViewAssessment",
     "VisionServiceEndpoints",
     "assess_reveal",
+    "assess_target_views",
     "create_inference_app",
 ]

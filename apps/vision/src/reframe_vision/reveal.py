@@ -4,6 +4,11 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
+MIN_COVERAGE_P10 = 0.95
+MIN_COVERAGE_MEDIAN = 0.98
+MAX_UNCOVERED_COMPONENT_FRACTION = 0.01
+MIN_OBSERVED_FRACTION_OUTSIDE_HOLE = 0.80
+
 
 class RevealFillRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
@@ -47,13 +52,13 @@ class RevealAssessment(BaseModel):
 
 def assess_reveal(metrics: RevealMetrics) -> RevealAssessment:
     rejection_codes: list[str] = []
-    if metrics.coverage_p10 < 0.95:
+    if metrics.coverage_p10 < MIN_COVERAGE_P10:
         rejection_codes.append("coverage_p10")
-    if metrics.coverage_median < 0.98:
+    if metrics.coverage_median < MIN_COVERAGE_MEDIAN:
         rejection_codes.append("coverage_median")
-    if metrics.largest_uncovered_component_fraction > 0.01:
+    if metrics.largest_uncovered_component_fraction > MAX_UNCOVERED_COMPONENT_FRACTION:
         rejection_codes.append("uncovered_component")
-    if metrics.observed_fraction_outside_hole < 0.80:
+    if metrics.observed_fraction_outside_hole < MIN_OBSERVED_FRACTION_OUTSIDE_HOLE:
         rejection_codes.append("observed_fraction")
     if metrics.foreground_overwrite_fraction > 0.0:
         rejection_codes.append("foreground_overwrite")
