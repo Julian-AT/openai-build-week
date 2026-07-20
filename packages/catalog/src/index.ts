@@ -36,6 +36,11 @@ export {
 } from "./ikea-source.ts";
 export type { OpenAICatalogEnricherOptions } from "./openai-enricher.ts";
 export { createOpenAICatalogEnricher } from "./openai-enricher.ts";
+export type { OpenAICatalogQueryVectorizerOptions } from "./openai-vectorizer.ts";
+export {
+  CATALOG_EMBEDDING_MODEL,
+  createOpenAICatalogQueryVectorizer,
+} from "./openai-vectorizer.ts";
 export type { CatalogSyncOptions, CatalogSyncResult } from "./pipeline.ts";
 export { syncCatalog } from "./pipeline.ts";
 export type {
@@ -45,6 +50,13 @@ export type {
   QdrantCatalogStoreOptions,
 } from "./qdrant-store.ts";
 export { CATALOG_COLLECTION, QdrantCatalogStore } from "./qdrant-store.ts";
+export type {
+  CatalogQueryVectorizer,
+  CatalogRetrievalRequest,
+  CatalogRetriever,
+  CatalogSearchStore,
+} from "./retrieval.ts";
+export { createCatalogRetriever, MAX_CATALOG_RETRIEVAL_RESULTS } from "./retrieval.ts";
 export type {
   AssetAuthorizationStatus,
   AssetSupportType,

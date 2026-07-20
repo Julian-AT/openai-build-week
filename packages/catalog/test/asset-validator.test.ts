@@ -24,10 +24,17 @@ test("validates derivatives and produces stable hashes", () => {
 
 test("rejects malformed or implausible assets", () => {
   assert.throws(
-    () => validateAssetDerivatives({ glb: new Uint8Array(20) }, {
-      glbURL: "https://example.invalid/a.glb", units: "meters", origin: "floor",
-      dimensionsM: { width: 0, height: 1, depth: 1 }, collision: "aabb",
-    }),
+    () =>
+      validateAssetDerivatives(
+        { glb: new Uint8Array(20) },
+        {
+          glbURL: "https://example.invalid/a.glb",
+          units: "meters",
+          origin: "floor",
+          dimensionsM: { width: 0, height: 1, depth: 1 },
+          collision: "aabb",
+        },
+      ),
     /invalid_glb_header/,
   );
 });
