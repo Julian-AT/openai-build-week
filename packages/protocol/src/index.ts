@@ -1,4 +1,10 @@
 export {
+  createFloorPlacementPreview,
+  type FloorPlacementPreview,
+  type FloorPlacementPreviewInput,
+  PlacementPreviewInputError,
+} from "./placement-preview.ts";
+export {
   evaluateReplacementCover,
   ReplacementCoverInputError,
   type ReplacementCoverResult,

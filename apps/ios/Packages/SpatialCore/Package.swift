@@ -9,14 +9,17 @@ let package = Package(
     .library(name: "SpatialProtocol", targets: ["SpatialProtocol"]),
     .library(name: "CaptureCore", targets: ["CaptureCore"]),
     .library(name: "EditCore", targets: ["EditCore"]),
+    .library(name: "RenderCore", targets: ["RenderCore"]),
   ],
   targets: [
     .target(name: "SpatialProtocol"),
     .target(name: "CaptureCore", dependencies: ["SpatialProtocol"]),
     .target(name: "EditCore", dependencies: ["SpatialProtocol"]),
+    .target(name: "RenderCore", dependencies: ["SpatialProtocol"]),
     .testTarget(name: "SpatialProtocolTests", dependencies: ["SpatialProtocol"]),
     .testTarget(name: "CaptureCoreTests", dependencies: ["CaptureCore"]),
     .testTarget(name: "EditCoreTests", dependencies: ["EditCore"]),
+    .testTarget(name: "RenderCoreTests", dependencies: ["RenderCore"]),
   ],
   swiftLanguageModes: [.v6]
 )
