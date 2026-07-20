@@ -102,7 +102,7 @@ InferenceJob = Annotated[
 class ProviderIdentity(StrictModel):
     provider_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
     provider_revision: str = Field(pattern=r"^[A-Za-z0-9._-]{1,128}$")
-    evidence_class: Literal["fixture_only", "unmeasured", "measured"]
+    evidence_class: Literal["unmeasured", "measured"]
 
 
 class TorchReadiness(StrictModel):

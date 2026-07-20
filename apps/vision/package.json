@@ -1,10 +1,10 @@
 {
-  "name": "@reroom/inference",
+  "name": "@reframe/vision",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "build": "uv run --frozen python -m compileall -q src tests",
-    "dev": "uv run --frozen python -m reroom_inference.main",
+    "dev": "uv run --frozen python -m reframe_vision.main",
     "format": "uv run --frozen ruff format --check .",
     "lint": "uv run --frozen ruff check .",
     "test": "uv run --frozen pytest -q",

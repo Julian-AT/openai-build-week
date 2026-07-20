@@ -1,4 +1,4 @@
-# ReRoom private inference worker
+# Reframe vision worker
 
 This FastAPI process is the one private, selected computer-vision worker behind
 the public Hono API. It validates digest-bound input, admits exactly one job at
@@ -26,15 +26,15 @@ uv run --frozen ruff check .
 uv run --frozen basedpyright
 ```
 
-Set a high-entropy `REROOM_INFERENCE_TOKEN` and keep the default loopback bind,
+Set a high-entropy `REFRAME_VISION_TOKEN` and keep the default loopback bind,
 then start the fail-closed worker:
 
 ```sh
-REROOM_INFERENCE_TOKEN=local-only-secret \
-  uv run --frozen python -m reroom_inference.main
+REFRAME_VISION_TOKEN=local-only-secret \
+  uv run --frozen python -m reframe_vision.main
 ```
 
-Use `REROOM_INFERENCE_PROFILE=fixture` only for local end-to-end contract
+Use `REFRAME_VISION_PROFILE=fixture` only for local end-to-end contract
 tests. `GET /healthz` is public process liveness. `GET /readyz` and `POST
 /v1/jobs` require the private bearer token. Do not expose port `8790` outside
 the host; clients use the Hono routes instead.

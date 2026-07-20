@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-import base64
-import hashlib
-import struct
+from dataclasses import dataclass
 from typing import Protocol
+
+import httpx
 
 from .contracts import (
     InferenceJob,
     InferenceJobResponse,
-    MaskResult,
-    MetricDepthResult,
     ProviderIdentity,
-    ReconstructionResult,
     TaskReadiness,
     WorkerReadiness,
 )
 from .runtime import probe_torch
+
+HTTP_OK = 200
 
 
 class InferenceProvider(Protocol):
@@ -50,66 +49,71 @@ class DisabledProvider:
         raise ProviderUnavailableError
 
 
-class FixtureProvider:
+@dataclass(frozen=True, slots=True)
+class VisionServiceEndpoints:
+    segmentation: str
+    metric_depth: str
+    reconstruction: str
+
+    def for_task(self, task: str) -> str:
+        return {
+            "segment": self.segmentation,
+            "metric_depth": self.metric_depth,
+            "reconstruct": self.reconstruction,
+        }[task]
+
+
+class ModelServiceProvider:
     identity = ProviderIdentity(
-        provider_id="fixture",
-        provider_revision="fixture-v1",
-        evidence_class="fixture_only",
+        provider_id="reframe_vision",
+        provider_revision="sam3.1-da3metric-lingbotdepth",
+        evidence_class="unmeasured",
     )
 
-    def __init__(self) -> None:
-        self.calls = 0
+    def __init__(
+        self,
+        endpoints: VisionServiceEndpoints,
+        *,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self._endpoints = endpoints
+        self._client = client or httpx.AsyncClient(
+            timeout=httpx.Timeout(110.0, connect=5.0),
+            limits=httpx.Limits(max_connections=3, max_keepalive_connections=3),
+        )
 
     async def readiness(self) -> WorkerReadiness:
+        checks: list[bool] = []
+        for url in (
+            self._endpoints.segmentation,
+            self._endpoints.metric_depth,
+            self._endpoints.reconstruction,
+        ):
+            try:
+                response = await self._client.get(f"{url.rstrip('/')}/readyz")
+                checks.append(response.status_code == HTTP_OK)
+            except httpx.HTTPError:
+                checks.append(False)
+        tasks = TaskReadiness(
+            segment=checks[0],
+            metric_depth=checks[1],
+            reconstruct=checks[2],
+        )
         return WorkerReadiness(
-            status="ready",
+            status="ready" if all(checks) else "degraded",
             provider=self.identity,
-            tasks=TaskReadiness(segment=True, metric_depth=True, reconstruct=True),
+            tasks=tasks,
             torch=probe_torch(),
         )
 
     async def run(self, job: InferenceJob) -> InferenceJobResponse:
-        self.calls += 1
-        return self.response_for(job)
-
-    @classmethod
-    def response_for(cls, job: InferenceJob) -> InferenceJobResponse:
-        if job.task == "segment":
-            mask = b"\x01" * (job.image.width * job.image.height)
-            result = MaskResult(
-                kind="mask",
-                width=job.image.width,
-                height=job.image.height,
-                encoding="binary_rle",
-                counts=(0, len(mask)),
-                foreground_pixels=len(mask),
-                sha256=hashlib.sha256(mask).hexdigest(),
-            )
-        elif job.task == "metric_depth":
-            depth = struct.pack(
-                f"<{job.image.width * job.image.height}f",
-                *([1.0] * (job.image.width * job.image.height)),
-            )
-            result = MetricDepthResult(
-                kind="metric_depth",
-                width=job.image.width,
-                height=job.image.height,
-                encoding="float32_le_base64",
-                unit="metre",
-                data_base64=base64.b64encode(depth).decode("ascii"),
-                sha256=hashlib.sha256(depth).hexdigest(),
-            )
-        else:
-            point_cloud = b"ply\nformat binary_little_endian 1.0\nend_header\n"
-            result = ReconstructionResult(
-                kind="point_cloud",
-                encoding="ply_binary_little_endian",
-                data_base64=base64.b64encode(point_cloud).decode("ascii"),
-                sha256=hashlib.sha256(point_cloud).hexdigest(),
-            )
-        return InferenceJobResponse(
-            request_id=job.request_id,
-            task=job.task,
-            provider=cls.identity,
-            result=result,
-        )
+        url = f"{self._endpoints.for_task(job.task).rstrip('/')}/infer"
+        try:
+            response = await self._client.post(url, content=job.model_dump_json())
+            response.raise_for_status()
+            parsed = InferenceJobResponse.model_validate_json(response.content)
+        except (httpx.HTTPError, ValueError) as error:
+            raise ProviderUnavailableError from error
+        if parsed.request_id != job.request_id or parsed.task != job.task:
+            raise ProviderUnavailableError
+        return parsed
