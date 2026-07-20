@@ -12,6 +12,7 @@
 		B10000000000000000000004 /* CameraSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* CameraSurface.swift */; };
 		B10000000000000000000005 /* SpatialProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000001 /* SpatialProtocol */; };
 		B10000000000000000000006 /* EditCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000002 /* EditCore */; };
+		B10000000000000000000007 /* CaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000003 /* CaptureCore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +31,7 @@
 			files = (
 				B10000000000000000000005 /* SpatialProtocol in Frameworks */,
 				B10000000000000000000006 /* EditCore in Frameworks */,
+				B10000000000000000000007 /* CaptureCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -81,6 +83,7 @@
 			packageProductDependencies = (
 				D10000000000000000000001 /* SpatialProtocol */,
 				D10000000000000000000002 /* EditCore */,
+				D10000000000000000000003 /* CaptureCore */,
 			);
 			productName = Reframe;
 			productReference = F10000000000000000000006 /* Reframe.app */;
@@ -241,6 +244,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		D10000000000000000000001 /* SpatialProtocol */ = {isa = XCSwiftPackageProductDependency; productName = SpatialProtocol; };
 		D10000000000000000000002 /* EditCore */ = {isa = XCSwiftPackageProductDependency; productName = EditCore; };
+		D10000000000000000000003 /* CaptureCore */ = {isa = XCSwiftPackageProductDependency; productName = CaptureCore; };
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = J10000000000000000000001 /* Project object */;

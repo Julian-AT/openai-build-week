@@ -15,6 +15,7 @@ let package = Package(
     .target(name: "CaptureCore", dependencies: ["SpatialProtocol"]),
     .target(name: "EditCore", dependencies: ["SpatialProtocol"]),
     .testTarget(name: "SpatialProtocolTests", dependencies: ["SpatialProtocol"]),
+    .testTarget(name: "CaptureCoreTests", dependencies: ["CaptureCore"]),
     .testTarget(name: "EditCoreTests", dependencies: ["EditCore"]),
   ],
   swiftLanguageModes: [.v6]

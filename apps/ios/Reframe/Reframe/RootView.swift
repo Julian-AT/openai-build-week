@@ -7,11 +7,15 @@ struct RootView: View {
   @State private var spatialSession = SpatialSession()
   @State private var prompt = ""
   @State private var isListening = false
+  @State private var targetCaptureRequest: TargetCaptureRequest?
 
   var body: some View {
     ZStack {
-      CameraSurface(session: spatialSession.session)
-        .ignoresSafeArea()
+      CameraSurface(
+        spatialSession: spatialSession,
+        captureRequest: targetCaptureRequest
+      )
+      .ignoresSafeArea()
 
       LinearGradient(
         colors: [.black.opacity(0.62), .clear, .black.opacity(0.8)],
@@ -21,10 +25,22 @@ struct RootView: View {
       .ignoresSafeArea()
       .allowsHitTesting(false)
 
+      TargetReticle(
+        isTracking: spatialSession.phase == .tracking,
+        lastSource: spatialSession.lastTargetSeed?.source
+      )
+      .allowsHitTesting(false)
+
       VStack(spacing: 0) {
         SessionHeader(phase: spatialSession.phase)
         Spacer()
-        AgentComposer(prompt: $prompt, isListening: $isListening)
+        AgentComposer(
+          prompt: $prompt,
+          isListening: $isListening,
+          captureVoiceTarget: {
+            targetCaptureRequest = TargetCaptureRequest(source: .voiceCapture)
+          }
+        )
       }
       .padding(.horizontal, 18)
       .padding(.vertical, 12)
@@ -34,6 +50,31 @@ struct RootView: View {
       if scenePhase != .active { spatialSession.pause() }
     }
     .preferredColorScheme(.dark)
+  }
+}
+
+private struct TargetReticle: View {
+  let isTracking: Bool
+  let lastSource: TargetSeedSource?
+
+  var body: some View {
+    ZStack {
+      Circle()
+        .strokeBorder(color.opacity(0.9), lineWidth: 2)
+        .frame(width: 30, height: 30)
+      Circle()
+        .fill(color)
+        .frame(width: 4, height: 4)
+    }
+    .shadow(color: .black.opacity(0.7), radius: 2)
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Target reticle")
+    .accessibilityValue(isTracking ? "Ready" : "Waiting for spatial tracking")
+  }
+
+  private var color: Color {
+    guard isTracking else { return .white.opacity(0.45) }
+    return lastSource == nil ? .white : .green
   }
 }
 
@@ -74,6 +115,7 @@ private struct SessionHeader: View {
 private struct AgentComposer: View {
   @Binding var prompt: String
   @Binding var isListening: Bool
+  let captureVoiceTarget: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
@@ -92,6 +134,7 @@ private struct AgentComposer: View {
           isListening ? "Stop listening" : "Start voice",
           systemImage: isListening ? "stop.fill" : "waveform"
         ) {
+          if !isListening { captureVoiceTarget() }
           isListening.toggle()
         }
         .labelStyle(.iconOnly)
