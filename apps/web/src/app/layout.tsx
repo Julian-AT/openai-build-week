@@ -4,13 +4,13 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ReRoom · Mode B0 Recorded Replay",
-  description: "Provider-independent local inspection of a verified ReRoom golden capture.",
+  title: "Reframe · Spatial Design Intelligence",
+  description: "A realtime spatial design system for understanding and reshaping real rooms.",
 };
 
 export const viewport: Viewport = {
   colorScheme: "dark",
-  themeColor: "#08100f",
+  themeColor: "#10120f",
   width: "device-width",
   initialScale: 1,
 };

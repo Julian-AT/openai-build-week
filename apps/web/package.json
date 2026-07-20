@@ -1,5 +1,5 @@
 {
-  "name": "@reroom/mode-b0-web",
+  "name": "@reframe/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,10 +11,9 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "bun test test"
+    "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@reroom/contracts": "workspace:*",
     "next": "16.2.10",
     "react": "19.2.7",
     "react-dom": "19.2.7",

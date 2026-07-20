@@ -1,80 +1,43 @@
-import { ReplayExplorer } from "../components/replay-explorer";
-import { loadGoldenCapture } from "../lib/replay/load-golden-capture.server.ts";
+const capabilities = [
+  ["Capture", "Native spatial understanding on iPhone"],
+  ["Design", "Realtime voice and visual collaboration"],
+  ["Preview", "Reversible edits before every commit"],
+];
 
-export const dynamic = "force-dynamic";
-
-function ProductHeader() {
+export default function HomePage() {
   return (
-    <header className="product-header">
-      <div className="brand-lockup">
-        <span className="brand-mark" aria-hidden="true">
-          RR
-        </span>
-        <div>
-          <span className="brand-name">ReRoom</span>
-          <span className="brand-subtitle">Fallback inspection console</span>
+    <main className="shell">
+      <nav className="navigation" aria-label="Primary navigation">
+        <a className="wordmark" href="/" aria-label="Reframe home">
+          Reframe
+        </a>
+        <span className="status">System ready</span>
+      </nav>
+
+      <section className="hero" aria-labelledby="hero-title">
+        <p className="eyebrow">Spatial design intelligence</p>
+        <h1 id="hero-title">See your space differently.</h1>
+        <p className="lede">
+          Reframe understands a real room, finds objects that belong in it, and lets you shape the
+          result through a live conversation.
+        </p>
+        <div className="actions">
+          <a className="primary-action" href="#capabilities">
+            Explore the system
+          </a>
+          <span>iPhone capture · browser collaboration</span>
         </div>
-      </div>
-      <div className="mode-lockup">
-        <p className="mode-title">MODE B0 — RECORDED REPLAY</p>
-        <div className="mode-badges">
-          <span>PROVIDER-INDEPENDENT</span>
-          <span>LOCAL DEMO FIXTURE</span>
-          <span className="mode-badge--pending">GATE-008 PENDING</span>
-        </div>
-      </div>
-    </header>
-  );
-}
+      </section>
 
-function VerificationFailure() {
-  return (
-    <section className="closed-state" aria-labelledby="verification-failed-title">
-      <div className="closed-state__icon" aria-hidden="true">
-        !
-      </div>
-      <span className="eyebrow">Fail-closed boundary</span>
-      <h1 id="verification-failed-title">Archive verification failed</h1>
-      <p>
-        The local replay fixture could not be verified. Timeline, frame, manifest, and inspector
-        data remain hidden.
-      </p>
-      <p className="closed-state__note">
-        No partial capture data is trusted or rendered. GATE-008 remains pending.
-      </p>
-    </section>
-  );
-}
-
-export default async function HomePage() {
-  const result = await loadGoldenCapture();
-
-  return (
-    <main className="app-shell">
-      <ProductHeader />
-      {result.status === "verified" ? (
-        <>
-          <section className="intro-copy" aria-labelledby="replay-heading">
-            <div>
-              <span className="eyebrow">Automated evidence</span>
-              <h1 id="replay-heading">Verified capture, inspection-only controls.</h1>
-            </div>
-            <p>
-              The exact Phase 2 runner accepted this fixed capture. That acceptance does not close
-              the full GATE-008 browser, ordinary-video, retention, or fault-evidence matrix.
-            </p>
-          </section>
-          <ReplayExplorer replay={result.replay} />
-          <footer className="page-footer">
-            <p>
-              Local fixture · in-memory selection · no upload · no provider · no account · no cloud
-            </p>
-            <p>Closing this tab discards UI selection. The repository fixture is unchanged.</p>
-          </footer>
-        </>
-      ) : (
-        <VerificationFailure />
-      )}
+      <section className="capabilities" id="capabilities" aria-label="Core capabilities">
+        {capabilities.map(([title, description], index) => (
+          <article key={title}>
+            <span className="capability-number">0{index + 1}</span>
+            <h2>{title}</h2>
+            <p>{description}</p>
+          </article>
+        ))}
+      </section>
     </main>
   );
 }
