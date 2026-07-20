@@ -5,6 +5,7 @@ import {
 } from "@reroom/ai";
 
 import { CURATED_CATALOG } from "./catalog.ts";
+import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
 import { createProposalService } from "./proposal-service.ts";
 import { MODEL_PROPOSAL_OUTPUT_SCHEMA } from "./semantic-schema.ts";
 import { createGatewayApp, MAX_REQUEST_BYTES, type GatewayLogRecord } from "./server.ts";
@@ -28,11 +29,16 @@ const proposalService = openAIAPIKey
 const realtimeService = openAIAPIKey
   ? createOpenAIRealtimeTokenService({ apiKey: openAIAPIKey })
   : undefined;
+const inferenceService = createInferenceWorkerClientFromEnvironment({
+  REROOM_INFERENCE_URL: process.env.REROOM_INFERENCE_URL,
+  REROOM_INFERENCE_TOKEN: process.env.REROOM_INFERENCE_TOKEN,
+});
 
 const app = createGatewayApp({
   gatewayToken,
   ...(proposalService ? { proposalService } : {}),
   ...(realtimeService ? { realtimeService } : {}),
+  ...(inferenceService ? { inferenceService } : {}),
   logger: writeRequestLog,
 });
 
@@ -54,6 +60,7 @@ process.stdout.write(
     port: server.port,
     protected_routes_enabled: gatewayToken.length > 0,
     openai_routes_enabled: openAIAPIKey !== undefined,
+    inference_routes_enabled: inferenceService !== undefined,
   })}\n`,
 );
 

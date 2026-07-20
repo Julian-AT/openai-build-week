@@ -803,14 +803,18 @@ Exact artifact revision and license are separate questions: a repository code li
   `33449899ce5496c1b84b4853179d94fd102028ae1407314d9fb956bb79e70d09`
   (BSD-style). The complete cross-platform resolution is retained in
   `apps/inference/uv.lock`.
-- **Evidence summary:** Eight in-process ASGI tests verify private bearer
+- **Evidence summary:** Nine in-process ASGI tests verify private bearer
   readiness, exact JSON/media/query admission, strict unknown-field and digest
   rejection before provider use, bounded request bytes, deterministic
   fixture-only artifacts, a no-backlog single inference lane, provider
   unavailability, and deadline cancellation. Ruff, strict BasedPyright, and
-  CPython compilation pass. The default profile is disabled; the fixture
-  profile is explicitly non-evidentiary. PyTorch is locked as an optional
-  extra and was not downloaded or selected by these checks.
+  CPython compilation pass. Forty Hono API tests include independent
+  cross-language request/response validation and internal-client failure
+  mapping. A live loopback smoke test started both processes and returned a
+  fixture-labeled, digest-bound mask through the public Hono route. The default
+  profile is disabled; the fixture profile is explicitly non-evidentiary.
+  PyTorch is locked as an optional extra and was not downloaded or selected by
+  these checks.
 - **Confidence:** High for the exact local protocol, scheduling, dependency,
   and failure behavior; none for unrun model quality or hardware suitability.
 - **Known limitations or ambiguity:** No SAM or DA3 adapter/checkpoint is wired,

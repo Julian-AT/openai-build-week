@@ -21,7 +21,14 @@ from reroom_inference import (
 if TYPE_CHECKING:
     from reroom_inference.contracts import InferenceJob, InferenceJobResponse, WorkerReadiness
 
-from reroom_inference.contracts import MetricDepthResult, ReconstructionResult
+from reroom_inference.contracts import (
+    InferenceJobResponse,
+    MaskResult,
+    MetricDepthResult,
+    ProviderIdentity,
+    ReconstructionJob,
+    ReconstructionResult,
+)
 
 TOKEN: Final = "fixture-internal-token"
 JPEG_BYTES: Final = b"\xff\xd8\xff\xd9"
@@ -267,4 +274,48 @@ def test_binary_results_require_canonical_base64_and_matching_digests() -> None:
             encoding="ply_binary_little_endian",
             data_base64="not+canonical===",
             sha256="0" * 64,
+        )
+
+    with pytest.raises(ValidationError):
+        MaskResult(
+            kind="mask",
+            width=1,
+            height=1,
+            encoding="binary_rle",
+            counts=(0, 1),
+            foreground_pixels=1,
+            sha256="0" * 64,
+        )
+
+
+def test_reconstruction_ids_and_response_task_result_kind_are_bound() -> None:
+    frame_id = "frame_00000000-0000-4000-8000-000000000001"
+    with pytest.raises(ValidationError):
+        ReconstructionJob(
+            protocol_version="1.0.0",
+            request_id="inference_00000000-0000-4000-8000-000000000001",
+            task="reconstruct",
+            archive_sha256="0" * 64,
+            frame_ids=(frame_id, frame_id),
+        )
+
+    depth_bytes = b"\x00\x00\x80?"
+    with pytest.raises(ValidationError):
+        InferenceJobResponse(
+            request_id="inference_00000000-0000-4000-8000-000000000001",
+            task="segment",
+            provider=ProviderIdentity(
+                provider_id="fixture",
+                provider_revision="fixture-v1",
+                evidence_class="fixture_only",
+            ),
+            result=MetricDepthResult(
+                kind="metric_depth",
+                width=1,
+                height=1,
+                encoding="float32_le_base64",
+                unit="metre",
+                data_base64=base64.b64encode(depth_bytes).decode("ascii"),
+                sha256=hashlib.sha256(depth_bytes).hexdigest(),
+            ),
         )

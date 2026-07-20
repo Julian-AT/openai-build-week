@@ -3,6 +3,8 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import type { RealtimeTokenService } from "@reroom/ai";
 import { Hono, type Context } from "hono";
 
+import { InferenceWorkerError, type InferenceService } from "./inference-client.ts";
+import { parseInferenceJobRequest } from "./inference-protocol.ts";
 import { parseProposalRequest, ProtocolError, type ProposalRequest } from "./protocol.ts";
 import { parseJSONBytesStrict } from "./strict-json.ts";
 
@@ -16,6 +18,7 @@ export interface GatewayAppOptions {
   gatewayToken: string;
   proposalService?: ProposalService;
   realtimeService?: RealtimeTokenService;
+  inferenceService?: InferenceService;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
   nowMilliseconds?: () => number;
@@ -91,9 +94,23 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
     return handleRealtimeSecret(context, options);
   });
 
+  app.get("/v1/inference/status", async (context) => {
+    const rejection = authorizeBearerRequest(context, options.gatewayToken);
+    if (rejection !== undefined) return rejection;
+    return handleInferenceReadiness(context, options);
+  });
+
+  app.post("/v1/inference/jobs", async (context) => {
+    const rejection = authorizeJSONRequest(context, options.gatewayToken);
+    if (rejection !== undefined) return rejection;
+    return handleInferenceJob(context, options);
+  });
+
   app.all("/health", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/proposals", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/realtime/client-secret", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/inference/status", (context) => methodNotAllowed(context, "GET"));
+  app.all("/v1/inference/jobs", (context) => methodNotAllowed(context, "POST"));
   app.notFound((context) => context.json({ error: "not_found" }, 404));
   app.onError((_error, context) => context.json({ error: "internal_failure" }, 500));
 
@@ -101,11 +118,17 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
 }
 
 function authorizeJSONRequest(context: Context, gatewayToken: string): Response | undefined {
-  if (!hasValidBearer(context.req.header("authorization"), gatewayToken)) {
-    return context.json({ error: "unauthorized" }, 401);
-  }
+  const bearerRejection = authorizeBearerRequest(context, gatewayToken);
+  if (bearerRejection !== undefined) return bearerRejection;
   if (!hasJSONContentType(context.req.header("content-type"))) {
     return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  return undefined;
+}
+
+function authorizeBearerRequest(context: Context, gatewayToken: string): Response | undefined {
+  if (!hasValidBearer(context.req.header("authorization"), gatewayToken)) {
+    return context.json({ error: "unauthorized" }, 401);
   }
   return undefined;
 }
@@ -170,6 +193,68 @@ async function handleRealtimeSecret(
   } finally {
     deadline.dispose();
   }
+}
+
+async function handleInferenceReadiness(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.inferenceService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
+  try {
+    const result = await abortable(
+      options.inferenceService.readiness(deadline.signal),
+      deadline.signal,
+    );
+    return context.json(result);
+  } catch (error) {
+    return inferenceFailureResponse(context, error, deadline.didTimeout());
+  } finally {
+    deadline.dispose();
+  }
+}
+
+async function handleInferenceJob(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.inferenceService) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  const deadline = createDeadline(context.req.raw, options.requestTimeoutMilliseconds);
+  try {
+    const body = await abortable(readJSON(context.req.raw), deadline.signal);
+    const request = parseInferenceJobRequest(body);
+    const result = await abortable(
+      options.inferenceService.run(request, deadline.signal),
+      deadline.signal,
+    );
+    return context.json(result);
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) {
+      return context.json({ error: "payload_too_large" }, 413);
+    }
+    if (error instanceof ProtocolError || error instanceof SyntaxError) {
+      return context.json({ error: "invalid_request" }, 400);
+    }
+    return inferenceFailureResponse(context, error, deadline.didTimeout());
+  } finally {
+    deadline.dispose();
+  }
+}
+
+function inferenceFailureResponse(
+  context: Context,
+  error: unknown,
+  didTimeout: boolean,
+): Response {
+  if (didTimeout) return context.json({ error: "upstream_timeout" }, 504);
+  if (error instanceof InferenceWorkerError) {
+    return context.json({ error: error.publicCode }, error.status);
+  }
+  return context.json({ error: "upstream_failure" }, 502);
 }
 
 async function readJSON(request: Request): Promise<unknown> {
@@ -296,8 +381,12 @@ function methodNotAllowed(context: Context, allow: "GET" | "POST"): Response {
 }
 
 function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
-  if (pathname === "/health") return "GET";
-  if (pathname === "/v1/proposals" || pathname === "/v1/realtime/client-secret") {
+  if (pathname === "/health" || pathname === "/v1/inference/status") return "GET";
+  if (
+    pathname === "/v1/proposals" ||
+    pathname === "/v1/realtime/client-secret" ||
+    pathname === "/v1/inference/jobs"
+  ) {
     return "POST";
   }
   return undefined;
