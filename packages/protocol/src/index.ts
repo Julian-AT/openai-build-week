@@ -1,4 +1,25 @@
 export {
+  canonicalJSONSHA256,
+  canonicalJSONStringify,
+} from "./canonical.ts";
+export {
+  C_ARKIT_FROM_OPENCV_ROW_MAJOR,
+  type EncodedImageIntrinsics,
+  projectEncodedPixelToOpenCVRay,
+  RF_COORDINATE_CONVENTION,
+  worldFromCameraOpenCV,
+} from "./coordinates.ts";
+export {
+  encodeFramePacket,
+  FRAME_PACKET_HEADER_BYTES,
+  FRAME_PACKET_MAGIC,
+  FRAME_PACKET_VERSION,
+  type FramePacket,
+  type FramePacketHeader,
+  type FramePacketMetadata,
+  parseFramePacket,
+} from "./frame-packet.ts";
+export {
   createFloorPlacementPreview,
   type FloorPlacementPreview,
   type FloorPlacementPreviewInput,
