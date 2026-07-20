@@ -77,6 +77,12 @@ test("worker readiness is closed and internally consistent", () => {
     }),
   );
   assert.throws(() => parseWorkerReadiness({ ...readiness, queue_depth: 12 }));
+  assert.throws(() =>
+    parseWorkerReadiness({
+      ...readiness,
+      provider: { ...readiness.provider, evidence_class: "fixture_only" },
+    }),
+  );
 });
 
 test("inference responses bind request, task, RLE bytes, and provider evidence", () => {
@@ -86,9 +92,9 @@ test("inference responses bind request, task, RLE bytes, and provider evidence",
     request_id: requestID,
     task: "segment",
     provider: {
-      provider_id: "fixture",
-      provider_revision: "fixture-v1",
-      evidence_class: "fixture_only",
+      provider_id: "sam3",
+      provider_revision: "unmeasured-local",
+      evidence_class: "unmeasured",
     },
     result: {
       kind: "mask",

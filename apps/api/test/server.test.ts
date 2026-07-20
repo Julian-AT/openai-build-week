@@ -86,9 +86,9 @@ test("POST /v1/inference/jobs validates and proxies the typed job", async () => 
     request_id: validInferenceRequest.request_id,
     task: "segment" as const,
     provider: {
-      provider_id: "fixture",
-      provider_revision: "fixture-v1",
-      evidence_class: "fixture_only" as const,
+      provider_id: "sam3",
+      provider_revision: "unmeasured-local",
+      evidence_class: "unmeasured" as const,
     },
     result: {
       kind: "mask" as const,

@@ -59,7 +59,7 @@ export type InferenceTask = InferenceJobRequest["task"];
 export interface InferenceProviderIdentity {
   provider_id: string;
   provider_revision: string;
-  evidence_class: "fixture_only" | "unmeasured" | "measured";
+  evidence_class: "unmeasured" | "measured";
 }
 
 export interface WorkerReadiness {
@@ -252,7 +252,7 @@ function parseProvider(value: unknown): InferenceProviderIdentity {
     !hasExactKeys(value, ["provider_id", "provider_revision", "evidence_class"]) ||
     !matchesString(value.provider_id, /^[a-z][a-z0-9_-]{0,63}$/u) ||
     !matchesString(value.provider_revision, /^[A-Za-z0-9._-]{1,128}$/u) ||
-    !["fixture_only", "unmeasured", "measured"].includes(value.evidence_class as string)
+    !["unmeasured", "measured"].includes(value.evidence_class as string)
   ) {
     throw invalidProtocol();
   }

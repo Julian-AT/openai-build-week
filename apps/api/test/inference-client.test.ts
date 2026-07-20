@@ -100,9 +100,9 @@ test("worker job responses are request-bound and cancellation is forwarded", asy
         request_id: request.request_id,
         task: "segment",
         provider: {
-          provider_id: "fixture",
-          provider_revision: "fixture-v1",
-          evidence_class: "fixture_only",
+          provider_id: "sam3",
+          provider_revision: "unmeasured-local",
+          evidence_class: "unmeasured",
         },
         result: {
           kind: "mask",
