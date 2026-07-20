@@ -23,26 +23,33 @@ BOUND_REVISION = "f53ba72c4d723871f37258be0cf8c3816331e7df"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 REPORT_SCHEMA_REVISION = "1.0.0"
 EVIDENCE_RELATIVE_PATH = "evidence/replacement/phase-05/automated-preflight.json"
-XCODE_PROJECT = "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
+XCODE_PROJECT = "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
 XCODE_SCHEME = "ReRoomDeviceProof"
 SIMULATOR_NAME = "iPhone 17"
 COMMAND_TIMEOUT_SECONDS = 900
 
 SOURCE_BINDING_PATHS = {
-    "replace_reducer_sha256": "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore/ReplaceReducer.swift",
-    "transaction_authority_sha256": "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore/TransactionAuthority.swift",
-    "replace_reducer_tests_sha256": "ios/Packages/ReRoomContracts/Tests/ReRoomTransactionCoreTests/ReplaceReducerTests.swift",
-    "authority_tests_sha256": "ios/Packages/ReRoomContracts/Tests/ReRoomTransactionCoreTests/TransactionAuthorityTests.swift",
-    "room_edit_model_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift",
-    "room_edit_view_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
-    "model_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift",
-    "ui_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/RoomEditJourneyTests.swift",
-    "proxy_asset_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/proxy-chair.usda",
-    "asset_manifest_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/asset-manifest.json",
-    "asset_provenance_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/PROVENANCE.md",
+    "replace_reducer_sha256": "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore/ReplaceReducer.swift",
+    "transaction_authority_sha256": "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore/TransactionAuthority.swift",
+    "replace_reducer_tests_sha256": "apps/ios/Packages/ReRoomContracts/Tests/ReRoomTransactionCoreTests/ReplaceReducerTests.swift",
+    "authority_tests_sha256": "apps/ios/Packages/ReRoomContracts/Tests/ReRoomTransactionCoreTests/TransactionAuthorityTests.swift",
+    "room_edit_model_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift",
+    "room_edit_view_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
+    "model_tests_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift",
+    "ui_tests_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/RoomEditJourneyTests.swift",
+    "proxy_asset_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/proxy-chair.usda",
+    "asset_manifest_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/asset-manifest.json",
+    "asset_provenance_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/PROVENANCE.md",
     "orchestrator_sha256": "scripts/verify-phase-05-replacement",
     "mutation_tests_sha256": "tools/verify/tests/test_phase_05_replacement.py",
 }
+
+
+def path_at_bound_revision(relative: str) -> str:
+    """Resolve a current workspace path in the immutable pre-migration commit."""
+    if relative.startswith("apps/ios/"):
+        return relative.removeprefix("apps/")
+    return relative
 SOURCE_CONTRACT_PATH_KEYS = (
     "replace_reducer_sha256",
     "transaction_authority_sha256",
@@ -687,9 +694,9 @@ def _xcode_common(identifier: str) -> list[str]:
 def _quick(root: Path, identifier: str) -> list[dict[str, str]]:
     checks: list[dict[str, str]] = []
     swift = _executable("swift")
-    reducer = _run([swift, "test", "--package-path", "ios/Packages/ReRoomContracts", "--filter", "ReplaceReducerTests"], root=root, label="replacement_reducer_tests")
+    reducer = _run([swift, "test", "--package-path", "apps/ios/Packages/ReRoomContracts", "--filter", "ReplaceReducerTests"], root=root, label="replacement_reducer_tests")
     checks.append(_check_record("replacement_reducer_tests", reducer))
-    authority = _run([swift, "test", "--package-path", "ios/Packages/ReRoomContracts", "--filter", "TransactionAuthorityTests|RestoreReducerTests"], root=root, label="replacement_authority_tests")
+    authority = _run([swift, "test", "--package-path", "apps/ios/Packages/ReRoomContracts", "--filter", "TransactionAuthorityTests|RestoreReducerTests"], root=root, label="replacement_authority_tests")
     checks.append(_check_record("replacement_authority_tests", authority))
     model = _run([*_xcode_common(identifier), "test", "-only-testing:ReRoomDeviceProofTests/RoomEditModelTests"], root=root, label="room_edit_model_tests")
     checks.append(_check_record("room_edit_model_tests", model))

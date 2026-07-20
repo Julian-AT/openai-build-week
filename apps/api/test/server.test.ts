@@ -1,0 +1,529 @@
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import { afterEach, test } from "bun:test";
+
+import { createGatewayServer } from "../src/server.ts";
+
+const activeServers = new Set<ReturnType<typeof createGatewayServer>>();
+
+afterEach(() => {
+  for (const server of activeServers) server.close();
+  activeServers.clear();
+});
+
+async function listen(server: ReturnType<typeof createGatewayServer>): Promise<string> {
+  activeServers.add(server);
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  assert(address && typeof address === "object");
+  return `http://127.0.0.1:${address.port}`;
+}
+
+const validProposalRequest = {
+  prompt: "Replace this with a warm chair and preserve the walkway.",
+  ingress_source: "typed",
+  request_context: {
+    session_id: "session_10000000-0000-4000-8000-000000000001",
+    revision_branch_id: "branch_20000000-0000-4000-8000-000000000001",
+    base_scene_revision: 7,
+    world_frame_id: "world_30000000-0000-4000-8000-000000000001",
+    world_frame_version: 2,
+    selected_object_id: "object_40000000-0000-4000-8000-000000000001",
+  },
+} as const;
+
+test("GET /health reports readiness without authentication", async () => {
+  const server = createGatewayServer({ gatewayToken: "test-token" });
+  const baseURL = await listen(server);
+  const response = await fetch(`${baseURL}/health`);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { status: "ok" });
+  assert.equal(response.headers.get("access-control-allow-origin"), null);
+});
+
+test("POST /v1/proposals rejects a missing bearer credential", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        throw new Error("must not be called");
+      },
+    },
+  });
+  const baseURL = await listen(server);
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "unauthorized" });
+  assert.equal(calls, 0);
+});
+
+test("POST /v1/proposals validates and forwards a closed trusted request", async () => {
+  let received: unknown;
+  const expectedEnvelope = {
+    schema_version: "1.0.0",
+    envelope_id: "envelope_50000000-0000-4000-8000-000000000001",
+    created_at_utc: "2026-07-19T10:00:00.000Z",
+    request_context: validProposalRequest.request_context,
+    ingress_source: validProposalRequest.ingress_source,
+    semantic_model: {
+      provider: "openai",
+      model: "gpt-5.6-sol",
+      response_id: "resp_test",
+    },
+    status: "ready",
+    intent: {
+      operation: "replace",
+      arguments: { asset_id: "asset_53000000-0000-4000-8000-000000000002" },
+      constraints: [{ kind: "preserve_walkway", value: true }],
+    },
+    explanation: "The warm chair fits the requested style.",
+    clarification: null,
+  };
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async (request) => {
+        received = request;
+        return expectedEnvelope;
+      },
+    },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify(validProposalRequest),
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(received, validProposalRequest);
+  assert.deepEqual(await response.json(), expectedEnvelope);
+});
+
+test("POST /v1/proposals rejects duplicate JSON member names before validation", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        return {};
+      },
+    },
+  });
+  const baseURL = await listen(server);
+  const body = JSON.stringify(validProposalRequest).replace(
+    '"prompt":',
+    '"\\u0070rompt":"attacker override","prompt":',
+  );
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body,
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_request" });
+  assert.equal(calls, 0);
+});
+
+test("POST /v1/proposals rejects non-UTF-8 JSON bytes", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        return {};
+      },
+    },
+  });
+  const baseURL = await listen(server);
+  const validBody = Buffer.from(JSON.stringify(validProposalRequest), "utf8");
+  const promptByte = validBody.indexOf(Buffer.from("Replace", "utf8"));
+  assert.notEqual(promptByte, -1);
+  validBody[promptByte] = 0xff;
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: validBody,
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_request" });
+  assert.equal(calls, 0);
+});
+
+test("POST /v1/proposals rejects client catalog allowlists and unknown fields", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        return {};
+      },
+    },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      ...validProposalRequest,
+      asset_allowlist: ["asset_attacker-controlled"],
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_request" });
+  assert.equal(calls, 0);
+});
+
+test("known routes reject query-decorated URLs without invoking services", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        return {};
+      },
+    },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals?context=forbidden`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(validProposalRequest),
+  });
+
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: "not_found" });
+  assert.equal(calls, 0);
+});
+
+test("POST /v1/proposals requires a JSON content type", async () => {
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: { propose: async () => ({}) },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "text/plain",
+    },
+    body: JSON.stringify(validProposalRequest),
+  });
+
+  assert.equal(response.status, 415);
+  assert.deepEqual(await response.json(), { error: "unsupported_media_type" });
+});
+
+test("POST /v1/proposals rejects a body over the fixed byte limit", async () => {
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: { propose: async () => ({}) },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ ...validProposalRequest, prompt: "x".repeat(2_500_001) }),
+  });
+
+  assert.equal(response.status, 413);
+  assert.deepEqual(await response.json(), { error: "payload_too_large" });
+});
+
+test("POST /v1/proposals rejects a non-JPEG image data URL", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        return {};
+      },
+    },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      ...validProposalRequest,
+      ingress_source: "vision",
+      image_data_url: "data:image/png;base64,iVBORw0KGgo=",
+    }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_request" });
+  assert.equal(calls, 0);
+});
+
+test("POST /v1/proposals binds vision ingress to exactly one JPEG", async () => {
+  let calls = 0;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        calls += 1;
+        return {};
+      },
+    },
+  });
+  const baseURL = await listen(server);
+  const jpeg = "data:image/jpeg;base64,/9j/2Q==";
+  const mismatches = [
+    { ...validProposalRequest, ingress_source: "vision" },
+    { ...validProposalRequest, image_data_url: jpeg },
+    { ...validProposalRequest, ingress_source: "voice", image_data_url: jpeg },
+  ];
+
+  for (const body of mismatches) {
+    const response = await fetch(`${baseURL}/v1/proposals`, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-token",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { error: "invalid_request" });
+  }
+  assert.equal(calls, 0);
+});
+
+test("POST /v1/proposals rejects an empty semantic prompt", async () => {
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: { propose: async () => ({ should_not: "run" }) },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ ...validProposalRequest, prompt: "   " }),
+  });
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "invalid_request" });
+});
+
+test("POST /v1/realtime/client-secret returns only the validated ephemeral subset", async () => {
+  const expected = {
+    value: "ek_ephemeral",
+    expires_at: 1_753_000_600,
+    session: { id: "sess_test", model: "gpt-realtime-2.1" as const },
+  };
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    realtimeService: { mint: async () => expected },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/realtime/client-secret`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: "{}",
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), expected);
+});
+
+test("known paths reject unsupported methods while unknown paths remain hidden", async () => {
+  const server = createGatewayServer({ gatewayToken: "test-token" });
+  const baseURL = await listen(server);
+
+  const wrongMethod = await fetch(`${baseURL}/v1/proposals`);
+  assert.equal(wrongMethod.status, 405);
+  assert.equal(wrongMethod.headers.get("allow"), "POST");
+  assert.deepEqual(await wrongMethod.json(), { error: "method_not_allowed" });
+
+  const unknown = await fetch(`${baseURL}/v1/unknown`);
+  assert.equal(unknown.status, 404);
+  assert.deepEqual(await unknown.json(), { error: "not_found" });
+});
+
+test("structured request logs exclude credentials, prompts, images, and ephemeral values", async () => {
+  const logs: unknown[] = [];
+  const secretImage = Buffer.concat([
+    Buffer.from([0xff, 0xd8, 0xff]),
+    Buffer.from("PRIVATE_IMAGE_BYTES"),
+    Buffer.from([0xff, 0xd9]),
+  ]).toString("base64");
+  const server = createGatewayServer({
+    gatewayToken: "PRIVATE_GATEWAY_TOKEN",
+    requestID: () => "60000000-0000-4000-8000-000000000001",
+    logger: (record) => logs.push(record),
+    proposalService: {
+      propose: async () => ({ status: "needs_clarification" }),
+    },
+    realtimeService: {
+      mint: async () => ({
+        value: "ek_PRIVATE_EPHEMERAL_VALUE",
+        expires_at: 1_753_000_600,
+        session: { id: "sess_test", model: "gpt-realtime-2.1" },
+      }),
+    },
+  });
+  const baseURL = await listen(server);
+
+  const proposalResponse = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer PRIVATE_GATEWAY_TOKEN",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      ...validProposalRequest,
+      ingress_source: "vision",
+      prompt: "PRIVATE_PROMPT_TEXT",
+      image_data_url: `data:image/jpeg;base64,${secretImage}`,
+    }),
+  });
+  assert.equal(
+    proposalResponse.headers.get("x-request-id"),
+    "60000000-0000-4000-8000-000000000001",
+  );
+  await proposalResponse.json();
+  const secretResponse = await fetch(`${baseURL}/v1/realtime/client-secret`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer PRIVATE_GATEWAY_TOKEN",
+      "content-type": "application/json",
+    },
+    body: "{}",
+  });
+  await secretResponse.json();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(logs.length, 2);
+  const serializedLogs = JSON.stringify(logs);
+  assert.doesNotMatch(serializedLogs, /PRIVATE_GATEWAY_TOKEN/u);
+  assert.doesNotMatch(serializedLogs, /PRIVATE_PROMPT_TEXT/u);
+  assert.doesNotMatch(serializedLogs, /PRIVATE_IMAGE_BYTES/u);
+  assert.doesNotMatch(serializedLogs, /PRIVATE_EPHEMERAL_VALUE/u);
+  for (const record of logs) {
+    assert.deepEqual(Object.keys(record as Record<string, unknown>).sort(), [
+      "duration_ms",
+      "method",
+      "path",
+      "request_id",
+      "status",
+    ]);
+  }
+});
+
+test("an upstream deadline aborts work and returns a generic timeout", async () => {
+  let observedAbort = false;
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    requestTimeoutMilliseconds: 5,
+    proposalService: {
+      propose: async (_request, signal) =>
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => resolve({ too_late: true }), 80);
+          signal.addEventListener(
+            "abort",
+            () => {
+              observedAbort = true;
+              clearTimeout(timer);
+              reject(new DOMException("aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        }),
+    },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(validProposalRequest),
+  });
+
+  assert.equal(response.status, 504);
+  assert.deepEqual(await response.json(), { error: "upstream_timeout" });
+  assert.equal(observedAbort, true);
+});
+
+test("upstream failures expose no provider details", async () => {
+  const server = createGatewayServer({
+    gatewayToken: "test-token",
+    proposalService: {
+      propose: async () => {
+        throw new Error("sk-private upstream prompt and response");
+      },
+    },
+  });
+  const baseURL = await listen(server);
+
+  const response = await fetch(`${baseURL}/v1/proposals`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer test-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(validProposalRequest),
+  });
+
+  assert.equal(response.status, 502);
+  const publicBody = JSON.stringify(await response.json());
+  assert.equal(publicBody, '{"error":"upstream_failure"}');
+  assert.doesNotMatch(publicBody, /private|prompt|response/iu);
+});

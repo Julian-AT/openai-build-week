@@ -103,20 +103,20 @@ TOP_LEVEL_KEYS = {
 }
 
 SOURCE_FILE_ROOTS = (
-    "web/src",
-    "web/test",
-    "tools/javascript/src",
-    "tools/javascript/test",
+    "apps/web/src",
+    "apps/web/test",
+    "packages/contracts/src",
+    "packages/contracts/test",
     "fixtures/capture/1.0.0/rev-001",
 )
 SOURCE_FIXED_FILES = (
-    "web/package.json",
-    "web/package-lock.json",
-    "web/next.config.ts",
-    "web/tsconfig.json",
-    "web/next-env.d.ts",
-    "tools/javascript/package.json",
-    "tools/javascript/package-lock.json",
+    "apps/web/package.json",
+    "apps/web/package-lock.json",
+    "apps/web/next.config.ts",
+    "apps/web/tsconfig.json",
+    "apps/web/next-env.d.ts",
+    "packages/contracts/package.json",
+    "packages/contracts/package-lock.json",
     "tools/verify/verify_phase_07_b0.py",
     "tools/verify/tests/test_phase_07_b0_gate.py",
 )
@@ -306,7 +306,7 @@ def _read_json(path: Path, code: str) -> dict[str, Any]:
 
 
 def _validate_dependencies(root: Path) -> None:
-    package = _read_json(root / "web/package.json", "E07_DEPENDENCY")
+    package = _read_json(root / "apps/web/package.json", "E07_DEPENDENCY")
     if package.get("engines") != {"node": "22.22.3"} or package.get("packageManager") != "npm@10.9.8":
         reject("E07_DEPENDENCY")
     if package.get("dependencies") != EXPECTED_WEB_DEPENDENCIES:
@@ -314,7 +314,7 @@ def _validate_dependencies(root: Path) -> None:
     if package.get("devDependencies") != EXPECTED_WEB_DEV_DEPENDENCIES:
         reject("E07_DEPENDENCY")
 
-    lock = _read_json(root / "web/package-lock.json", "E07_DEPENDENCY")
+    lock = _read_json(root / "apps/web/package-lock.json", "E07_DEPENDENCY")
     if lock.get("lockfileVersion") != 3:
         reject("E07_DEPENDENCY")
     packages = lock.get("packages")
@@ -342,8 +342,8 @@ DEFERRED_ACTION_WORDS = re.compile(r"\b(?:upload|share|sign[ -]?in|log[ -]?in|au
 
 
 def _validate_source_scope(root: Path) -> None:
-    source_root = root / "web/src"
-    loader_relative = "web/src/lib/replay/load-golden-capture.server.ts"
+    source_root = root / "apps/web/src"
+    loader_relative = "apps/web/src/lib/replay/load-golden-capture.server.ts"
     for path in sorted(source_root.rglob("*")):
         if path.is_symlink():
             reject("E07_SOURCE_SCOPE")
@@ -369,7 +369,7 @@ def _validate_source_scope(root: Path) -> None:
     required_loader_tokens = (
         "node:child_process",
         "execFile",
-        "tools/javascript/src/replay.ts",
+        "packages/contracts/src/replay.ts",
         "shell: false",
     )
     if any(token not in loader for token in required_loader_tokens):

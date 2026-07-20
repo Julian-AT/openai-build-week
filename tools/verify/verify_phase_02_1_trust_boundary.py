@@ -47,22 +47,22 @@ REMAINING_FINDING_IDS = (
 )
 
 BEHAVIOR_SOURCE_PATHS = (
-    "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/ArchiveVerifier.swift",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/CaptureFileSystem.swift",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/CaptureRecovery.swift",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/DurablePrefixReconstructor.swift",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/RecoveryPublication.swift",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/ReplayCore.swift",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomReplayRunner/main.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/ArchiveVerifierTests.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/CaptureCrashMatrixTests.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/CaptureRecoveryTests.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/RecoveryPublicationRaceTests.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/RecoveryPublicationTests.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/ReplayCoreTests.swift",
-    "ios/Packages/ReRoomContracts/Tests/ReRoomReplayRunnerTests/ReplayRunnerTests.swift",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/CaptureSessionAdapter.swift",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/CaptureSessionAdapterTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/ArchiveVerifier.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/CaptureFileSystem.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/CaptureRecovery.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/DurablePrefixReconstructor.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/RecoveryPublication.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/ReplayCore.swift",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomReplayRunner/main.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/ArchiveVerifierTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/CaptureCrashMatrixTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/CaptureRecoveryTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/RecoveryPublicationRaceTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/RecoveryPublicationTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomCaptureCoreTests/ReplayCoreTests.swift",
+    "apps/ios/Packages/ReRoomContracts/Tests/ReRoomReplayRunnerTests/ReplayRunnerTests.swift",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/CaptureSessionAdapter.swift",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofTests/CaptureSessionAdapterTests.swift",
     "tools/verify/tests/test_phase_02_1_trust_boundary.py",
     "tools/verify/verify_phase_02_1_trust_boundary.py",
 )
@@ -200,7 +200,7 @@ def _bindings(
 
 def _format_binding(revision_reader: Callable[[str], bytes]) -> dict[str, str]:
     implementation_path = (
-        "ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/RecoveryPublication.swift"
+        "apps/ios/Packages/ReRoomContracts/Sources/ReRoomCaptureCore/RecoveryPublication.swift"
     )
     implementation = _binding(implementation_path, revision_reader, "INVENTORY_FORMAT")
     return {
@@ -213,7 +213,7 @@ def _format_binding(revision_reader: Callable[[str], bytes]) -> dict[str, str]:
 
 def command_specs(revision: str) -> tuple[CommandSpec, ...]:
     _require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None, "REVISION_IMMUTABLE", "revision is not a full commit hash")
-    package = "ios/Packages/ReRoomContracts"
+    package = "apps/ios/Packages/ReRoomContracts"
     focused = (
         ("archive_verifier_tests", "ArchiveVerifierTests"),
         ("replay_core_tests", "ReplayCoreTests"),
@@ -243,7 +243,7 @@ def command_specs(revision: str) -> tuple[CommandSpec, ...]:
                 (
                     "xcodebuild",
                     "-project",
-                    "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
+                    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
                     "-scheme",
                     "ReRoomDeviceProof",
                     "-destination",
@@ -258,7 +258,7 @@ def command_specs(revision: str) -> tuple[CommandSpec, ...]:
                 (
                     "xcodebuild",
                     "-project",
-                    "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
+                    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
                     "-scheme",
                     "ReRoomDeviceProof",
                     "-destination",
@@ -272,7 +272,7 @@ def command_specs(revision: str) -> tuple[CommandSpec, ...]:
                 (
                     "xcodebuild",
                     "-project",
-                    "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
+                    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
                     "-scheme",
                     "ReRoomDeviceProof",
                     "-configuration",

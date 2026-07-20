@@ -763,7 +763,7 @@ def verify_gate_paths(
 
 def command_specs(mode: str) -> tuple[CommandSpec, ...]:
     requested = declared_check_ids(mode)
-    package = "ios/Packages/ReRoomContracts"
+    package = "apps/ios/Packages/ReRoomContracts"
     definitions = {
         "contract_package": (
             (
@@ -794,7 +794,7 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
                 "xcodebuild",
                 "test",
                 "-project",
-                "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
+                "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
                 "-scheme",
                 "ReRoomDeviceProof",
                 "-configuration",
@@ -811,7 +811,7 @@ def command_specs(mode: str) -> tuple[CommandSpec, ...]:
                 "xcodebuild",
                 "test",
                 "-project",
-                "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
+                "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj",
                 "-scheme",
                 "ReRoomDeviceProof",
                 "-configuration",
@@ -900,8 +900,8 @@ def _source_tree_digest() -> str:
         "tools/javascript",
         "tools/python",
         "evidence/templates",
-        "ios/Packages/ReRoomContracts",
-        "ios/ReRoomDeviceProof",
+        "apps/ios/Packages/ReRoomContracts",
+        "apps/ios/ReRoomDeviceProof",
     )
     try:
         completed = subprocess.run(

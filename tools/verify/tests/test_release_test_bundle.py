@@ -8,8 +8,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[3]
-PROJECT = ROOT / "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
-TEST_SOURCES = ROOT / "ios/ReRoomDeviceProof/ReRoomDeviceProofTests"
+PROJECT = ROOT / "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
+TEST_SOURCES = ROOT / "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofTests"
 
 
 class ReleaseTestBundleTests(unittest.TestCase):

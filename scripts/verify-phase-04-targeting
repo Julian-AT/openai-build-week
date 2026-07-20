@@ -24,24 +24,24 @@ IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 REPORT_SCHEMA_REVISION = "1.0.0"
 PUBLISH_ONLY_AFTER_CHECK_COUNT = 12
 EVIDENCE_RELATIVE_PATH = "evidence/targeting/phase-04/automated-preflight.json"
-XCODE_PROJECT = "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
+XCODE_PROJECT = "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
 XCODE_SCHEME = "ReRoomDeviceProof"
 SIMULATOR_NAME = "iPhone 17"
 COMMAND_TIMEOUT_SECONDS = 900
 
 SOURCE_BINDING_PATHS = {
-    "ar_session_controller_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift",
-    "room_edit_model_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift",
-    "room_edit_view_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
-    "model_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift",
-    "ar_policy_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofTests/ARSessionPolicyTests.swift",
-    "ui_tests_sha256": "ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/RoomEditJourneyTests.swift",
+    "ar_session_controller_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift",
+    "room_edit_model_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditModel.swift",
+    "room_edit_view_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
+    "model_tests_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofTests/RoomEditModelTests.swift",
+    "ar_policy_tests_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofTests/ARSessionPolicyTests.swift",
+    "ui_tests_sha256": "apps/ios/ReRoomDeviceProof/ReRoomDeviceProofUITests/RoomEditJourneyTests.swift",
     "orchestrator_sha256": "scripts/verify-phase-04-targeting",
     "mutation_tests_sha256": "tools/verify/tests/test_phase_04_targeting.py",
 }
 PRODUCTION_BOUNDARY_PATHS = (
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/ARSessionController.swift",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/RoomEditView.swift",
 )
 FORBIDDEN_PRODUCTION_TOKENS = (
     "URLSession",

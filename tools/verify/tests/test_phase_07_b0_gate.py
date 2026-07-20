@@ -146,7 +146,7 @@ class Phase07EvidenceGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             copy_closed_source(root)
-            package_path = root / "web/package.json"
+            package_path = root / "apps/web/package.json"
             package = json.loads(package_path.read_text(encoding="utf-8"))
             package["dependencies"]["axios"] = "1.7.9"
             package_path.write_text(json.dumps(package), encoding="utf-8")
@@ -155,9 +155,9 @@ class Phase07EvidenceGateTests(unittest.TestCase):
 
     def test_api_route_network_persistence_and_action_controls_reject(self) -> None:
         mutations = (
-            ("web/src/app/api/share/route.ts", "export async function POST() { return fetch('https://example.invalid'); }"),
-            ("web/src/components/persist.tsx", "export const saved = localStorage.getItem('capture');"),
-            ("web/src/components/upload.tsx", "export function Upload() { return <button>Share capture</button>; }"),
+            ("apps/web/src/app/api/share/route.ts", "export async function POST() { return fetch('https://example.invalid'); }"),
+            ("apps/web/src/components/persist.tsx", "export const saved = localStorage.getItem('capture');"),
+            ("apps/web/src/components/upload.tsx", "export function Upload() { return <button>Share capture</button>; }"),
         )
         for relative, source in mutations:
             with self.subTest(relative=relative):
@@ -174,7 +174,7 @@ class Phase07EvidenceGateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             copy_closed_source(root)
-            target = root / "web/src/lib/replay/network.server.ts"
+            target = root / "apps/web/src/lib/replay/network.server.ts"
             target.write_text("import { exec } from 'node:child_process';\nexport const x = exec;\n", encoding="utf-8")
             evidence = valid_evidence(root)
             self.assertEqual(rejected_code(evidence, root), "E07_SOURCE_SCOPE")

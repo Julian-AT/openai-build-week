@@ -15,9 +15,9 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const iosDirectory = join(
   root,
-  "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy",
+  "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy",
 );
-const webDirectory = join(root, "web/public/assets/catalog");
+const webDirectory = join(root, "apps/web/public/assets/catalog");
 const licensePath = join(root, "LICENSE");
 const provenancePath = join(iosDirectory, "CON004-PROVENANCE.md");
 const scriptPath = fileURLToPath(import.meta.url);
@@ -440,7 +440,7 @@ for (const asset of generated) {
     forward_axis: "minus_z",
     source: {
       source_url:
-        "https://github.com/Julian-AT/openai-build-week/blob/main/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/" +
+        "https://github.com/Julian-AT/openai-build-week/blob/main/apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/" +
         asset.slug +
         ".usda",
       source_revision: "sha256:" + asset.sourceSHA256,

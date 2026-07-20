@@ -47,11 +47,11 @@ class FreshTransactionOutputs(unittest.TestCase):
         cls.temporary = tempfile.TemporaryDirectory(prefix="reroom-phase-03-comparator-")
         cls.root = Path(cls.temporary.name)
         _run([
-            "swift", "build", "--package-path", "ios/Packages/ReRoomContracts",
+            "swift", "build", "--package-path", "apps/ios/Packages/ReRoomContracts",
             "--product", "ReRoomTransactionTraceExporter",
         ])
         bin_root = Path(_run([
-            "swift", "build", "--package-path", "ios/Packages/ReRoomContracts",
+            "swift", "build", "--package-path", "apps/ios/Packages/ReRoomContracts",
             "--show-bin-path",
         ]))
         common = [
@@ -60,7 +60,7 @@ class FreshTransactionOutputs(unittest.TestCase):
         ]
         commands = {
             "swift": [str(bin_root / "ReRoomTransactionTraceExporter")],
-            "typescript": ["node", "tools/javascript/src/transaction.ts"],
+            "typescript": ["node", "packages/contracts/src/transaction.ts"],
             "python": [sys.executable, "-m", "tools.python.reroom_verify.transaction"],
         }
         cls.outputs: dict[str, Path] = {}
@@ -313,7 +313,7 @@ class PhaseThreePreflightContract(unittest.TestCase):
         path = REPO_ROOT / "scripts/verify-phase-03-transactions"
         source = path.read_text(encoding="utf-8")
         required = (
-            "v22.22.3", "tools/javascript/src/transaction.ts", "TemporaryDirectory",
+            "v22.22.3", "packages/contracts/src/transaction.ts", "TemporaryDirectory",
             "byte_identical", "quick", "full", "RoomEditModelTests",
             "RoomEditJourneyTests", "Debug", "Release",
             "scripts/verify-reroom-release-surface", "git", "diff", "--check",

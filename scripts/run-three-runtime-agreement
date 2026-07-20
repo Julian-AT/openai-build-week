@@ -21,10 +21,10 @@ BOUND_REVISION = "3d7a1d22da768cbd2551b890a3c30f070d5340c5"
 IMPLEMENTATION_REVISION = f"git:{BOUND_REVISION}"
 COMMAND_TIMEOUT_SECONDS = 120
 PUBLISHER_RELATIVE_PATH = "scripts/run-three-runtime-agreement"
-NODE_PACKAGE_RELATIVE_PATH = "tools/javascript/package.json"
+BUN_PACKAGE_RELATIVE_PATH = "packages/contracts/package.json"
 REPORT_GENERATION_MANIFEST_NAME = "three-runtime-agreement-generation.json"
 REPORT_TRANSACTION_DIRECTORY_NAME = ".three-runtime-agreement-transaction"
-SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "ios/Packages/ReRoomContracts"
+SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "apps/ios/Packages/ReRoomContracts"
 SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH = (
     f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Package.swift"
 )
@@ -70,13 +70,13 @@ RUNNERS = {
 BOUND_SOURCE_SCOPES = (
     "fixtures",
     "docs/contracts",
-    "ios/Packages/ReRoomContracts/Package.swift",
-    "ios/Packages/ReRoomContracts/Package.resolved",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomContractRunner",
-    "tools/javascript/package.json",
-    "tools/javascript/package-lock.json",
-    "tools/javascript/src",
+    "apps/ios/Packages/ReRoomContracts/Package.swift",
+    "apps/ios/Packages/ReRoomContracts/Package.resolved",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomContractRunner",
+    "packages/contracts/package.json",
+    "bun.lock",
+    "packages/contracts/src",
     "tools/python/requirements.in",
     "tools/python/requirements.lock",
     "tools/python/reroom_verify",
@@ -375,31 +375,31 @@ def _version(command: list[str], root: Path, label: str) -> str:
     return lines[0]
 
 
-def _declared_node_version(root: Path) -> str:
+def _declared_bun_version(root: Path) -> str:
     package = _read_json(
-        root / NODE_PACKAGE_RELATIVE_PATH, "bound JavaScript package metadata"
+        root / BUN_PACKAGE_RELATIVE_PATH, "bound JavaScript package metadata"
     )
     engines = package.get("engines")
-    version = engines.get("node") if isinstance(engines, dict) else None
+    version = engines.get("bun") if isinstance(engines, dict) else None
     if not isinstance(version, str) or re.fullmatch(
         r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version
     ) is None:
-        raise AgreementError("bound JavaScript package must declare one exact Node.js version")
-    return f"v{version}"
+        raise AgreementError("bound JavaScript package must declare one exact Bun version")
+    return version
 
 
-def _require_locked_node(root: Path, node: Path) -> str:
-    expected = _declared_node_version(root)
-    actual = _version([str(node), "--version"], root, "Node.js")
+def _require_locked_bun(root: Path, bun: Path) -> str:
+    expected = _declared_bun_version(root)
+    actual = _version([str(bun), "--version"], root, "Bun")
     if actual != expected:
         raise AgreementError(
-            f"Node.js runtime {actual} does not match the bound exact version {expected}"
+            f"Bun runtime {actual} does not match the bound exact version {expected}"
         )
     return actual
 
 
 def _environment(
-    root: Path, *, node_version: str, python: Path
+    root: Path, *, bun_version: str, python: Path
 ) -> dict[str, str]:
     product = _version(["sw_vers", "-productVersion"], root, "operating system version")
     build = _version(["sw_vers", "-buildVersion"], root, "operating system build")
@@ -407,7 +407,7 @@ def _environment(
         "operating_system": f"macOS {product} build {build}",
         "architecture": platform.machine(),
         "swift": _version(["swift", "--version"], root, "Swift"),
-        "node": node_version,
+        "bun": bun_version,
         "python": _version([str(python), "--version"], root, "Python"),
         "command": "scripts/run-three-runtime-agreement",
         "evaluator": "tools/verify/compare_results.py compare --require-runtime swift --require-runtime javascript --require-runtime python",
@@ -434,7 +434,7 @@ def _commands(relative_manifest: str) -> dict[str, object]:
     )
     return {
         "swift": f"ReRoomContractRunner {common}",
-        "javascript": f"node tools/javascript/src/runner.mjs {common}",
+        "javascript": f"bun packages/contracts/src/runner.mjs {common}",
         "python": f".venv/bin/python -m tools.python.reroom_verify.runner {common}",
         "comparator": (
             f"python3 tools/verify/compare_results.py compare --manifest {relative_manifest} "
@@ -874,24 +874,24 @@ def run() -> tuple[str, ...]:
     root = _repo_root()
     os.chdir(root)
     publisher_sha256 = _sha256((root / PUBLISHER_RELATIVE_PATH).read_bytes())
-    node = _resolve_executable("node", "node")
+    bun = _resolve_executable("bun", "bun")
     python = _resolve_executable(root / ".venv/bin/python", "locked Python")
     source_records = _require_bound_sources(root)
     swift_package_manifest = _require_swift_package_manifest(
         root, source_records=source_records
     )
-    node_version = _require_locked_node(root, node)
+    bun_version = _require_locked_bun(root, bun)
     source_digest = _source_tree_digest(source_records)
     oracle_before = _oracle_hashes(root)
-    environment = _environment(root, node_version=node_version, python=python)
+    environment = _environment(root, bun_version=bun_version, python=python)
 
     _run(
-        ["swift", "build", "--package-path", "ios/Packages/ReRoomContracts", "--product", "ReRoomContractRunner"],
+        ["swift", "build", "--package-path", "apps/ios/Packages/ReRoomContracts", "--product", "ReRoomContractRunner"],
         root=root,
         label="Swift contract runner build",
     )
     binary_directory = _run(
-        ["swift", "build", "--package-path", "ios/Packages/ReRoomContracts", "--show-bin-path"],
+        ["swift", "build", "--package-path", "apps/ios/Packages/ReRoomContracts", "--show-bin-path"],
         root=root,
         label="Swift binary path",
     ).stdout.strip()
@@ -927,7 +927,7 @@ def run() -> tuple[str, ...]:
             )
             _run(
                 [
-                    str(node), str(root / "tools/javascript/src/runner.mjs"),
+                    str(bun), str(root / "packages/contracts/src/runner.mjs"),
                     *common, "--output", str(raw_paths["javascript"]),
                 ],
                 root=root,
@@ -1025,7 +1025,7 @@ def _verify_reports(
     expected_swift_package_manifest = _require_swift_package_manifest(
         root, source_records=source_records
     )
-    expected_node_version = _declared_node_version(root)
+    expected_bun_version = _declared_bun_version(root)
     try:
         descriptor = os.open(reports, os.O_RDONLY)
     except OSError as error:
@@ -1051,9 +1051,9 @@ def _verify_reports(
                 )
             environment = report.get("environment")
             if not isinstance(environment, dict) or environment.get(
-                "node"
-            ) != expected_node_version:
-                raise AgreementError(f"{fixture_id} Node.js runtime provenance is invalid")
+                "bun"
+            ) != expected_bun_version:
+                raise AgreementError(f"{fixture_id} Bun runtime provenance is invalid")
             if report.get("test_ids") != list(CANONICAL_TEST_IDS[fixture_id]):
                 raise AgreementError(f"{fixture_id} canonical test IDs are invalid")
             fixture_ids.append(fixture_id)

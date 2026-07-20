@@ -42,16 +42,16 @@ EVIDENCE_RELATIVE_PATH = "evidence/transactions/phase-03/automated-preflight.jso
 COMPARATOR_RELATIVE_PATH = "tools/verify/compare_transaction_traces.py"
 RESULT_SCHEMA_RELATIVE_PATH = "tools/verify/transaction-trace-result.schema.json"
 ORCHESTRATOR_RELATIVE_PATH = "scripts/verify-phase-03-transactions"
-SWIFT_PACKAGE = "ios/Packages/ReRoomContracts"
-XCODE_PROJECT = "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
+SWIFT_PACKAGE = "apps/ios/Packages/ReRoomContracts"
+XCODE_PROJECT = "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj"
 XCODE_DESTINATION = "platform=iOS Simulator,name=iPhone 17"
 COMMAND_TIMEOUT_SECONDS = 900
 PRODUCER_SOURCE_SCOPES = (
-    "tools/javascript/src/canonical-json.mjs",
-    "tools/javascript/src/transaction.ts",
+    "packages/contracts/src/canonical-json.mjs",
+    "packages/contracts/src/transaction.ts",
     "tools/python/reroom_verify/transaction.py",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore",
-    "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionTraceExporter",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore",
+    "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionTraceExporter",
 )
 EXPECTED_QUICK_CHECKS = (
     "fixture_integrity",
@@ -194,7 +194,7 @@ def _two_run_agreement(root: Path, runtimes: dict[str, str]) -> tuple[dict[str, 
     exporter = Path(binary_root) / "ReRoomTransactionTraceExporter"
     commands = {
         "swift": [str(exporter)],
-        "typescript": [runtimes["node"], "tools/javascript/src/transaction.ts"],
+        "typescript": [runtimes["node"], "packages/contracts/src/transaction.ts"],
         "python": [runtimes["python"], "-m", "tools.python.reroom_verify.transaction"],
     }
     common = [
@@ -480,7 +480,7 @@ def _quick(root: Path, runtimes: dict[str, str]) -> tuple[list[dict[str, str]], 
         label="swift_transaction_tests",
     )
     checks.append(_check_record("swift_transaction_tests", swift_output))
-    node_output = _run([runtimes["node"], "--test", "tools/javascript/test/transaction.test.mjs"], root=root, label="typescript_transaction_tests")
+    node_output = _run([runtimes["node"], "--test", "packages/contracts/test/transaction.test.mjs"], root=root, label="typescript_transaction_tests")
     checks.append(_check_record("typescript_transaction_tests", node_output))
     python_output = _run([runtimes["python"], "-m", "unittest", "tools.python.tests.test_transaction"], root=root, label="python_transaction_tests")
     checks.append(_check_record("python_transaction_tests", python_output))

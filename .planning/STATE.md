@@ -4,9 +4,9 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
-status: verification_deferred_human
-stopped_at: Phase 02.1 and Phase 09 software slices complete; resume Phase 2 verification
-last_updated: "2026-07-20T00:32:01Z"
+status: implementing
+stopped_at: Owner-authorized autonomous finish overlay; workspace migration in progress
+last_updated: "2026-07-20T10:25:20Z"
 last_activity: 2026-07-20
 last_activity_desc: Frozen executable candidate passed 129/129 native tests, signed base-iPhone build, local B0 browser smoke, and zero-vulnerability web audit
 progress:
@@ -24,15 +24,23 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Phase 2 verification and the remaining live/device/browser/human hackathon finish gates. Phase 02.1 and Phase 09 have no unexecuted software plans.
+**Current focus:** Execute the owner-authorized autonomous hackathon finish
+overlay while preserving Phase 2 verification findings and every remaining
+live/device/provider/browser/human gate. Phase 02.1 and Phase 09 have no
+unexecuted historical plans.
 
 ## Current Position
 
 Phase: 02 (Atomic Capture and Exact Replay) — VERIFICATION DEFERRED HUMAN
 
-Plan: Phase 02.1 is 4/4 and Phase 09 is 1/1; no implementation plan is active.
+Plan: Phase 02.1 is 4/4 and Phase 09 is 1/1. The directly authorized
+[`AUTONOMOUS-FINISH-PLAN-2026-07-20.md`](milestones/v1.0/AUTONOMOUS-FINISH-PLAN-2026-07-20.md)
+implementation overlay is active; it does not close historical verification.
 
-Status: `$gsd-next` currently routes to `$gsd-ship` because the completed work is committed but unpublished. Publishing remains an owner action; after that decision, resume `$gsd-verify-work 02` and keep all unresolved Phase 2 findings open.
+Status: Continue the active autonomous finish overlay. After its verified
+software slices are committed, `$gsd-next` must return to Phase 2 verification;
+all unresolved Phase 2 findings remain open and publishing remains an owner
+action.
 
 Last activity: 2026-07-20 — executable candidate `476d88f25d0455aea7394ffa72c3188cdb6113ca` passed 129/129 native tests, Debug and Release simulator builds, release-surface verification, a signed arm64 build for the paired base iPhone 17, the local seven-event B0 browser smoke, and zero-vulnerability gateway/web production audits
 

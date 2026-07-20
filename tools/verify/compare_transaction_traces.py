@@ -248,18 +248,18 @@ def verify_transaction_fixture(manifest_path: Path | str, *, repo_root: Path | s
 
 def _expected_sources(repository: Path, runtime: str) -> tuple[list[str], str]:
     if runtime == "typescript":
-        files = ["tools/javascript/src/canonical-json.mjs", "tools/javascript/src/transaction.ts"]
+        files = ["packages/contracts/src/canonical-json.mjs", "packages/contracts/src/transaction.ts"]
     elif runtime == "python":
         files = ["tools/python/reroom_verify/transaction.py"]
     else:
-        core = repository / "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore"
+        core = repository / "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionCore"
         try:
             files = sorted(str(path.relative_to(repository)) for path in core.iterdir() if path.suffix == ".swift")
         except OSError as error:
             raise TransactionComparisonError("source_binding:swift") from error
         files.extend([
-            "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionTraceExporter/NormalizedTraceResult.swift",
-            "ios/Packages/ReRoomContracts/Sources/ReRoomTransactionTraceExporter/main.swift",
+            "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionTraceExporter/NormalizedTraceResult.swift",
+            "apps/ios/Packages/ReRoomContracts/Sources/ReRoomTransactionTraceExporter/main.swift",
         ])
         files.sort()
     records = bytearray()

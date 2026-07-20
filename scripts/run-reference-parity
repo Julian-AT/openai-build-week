@@ -134,7 +134,7 @@ def _execute_in_directory(
     python: Path,
     revision: str,
 ) -> tuple[str, ...]:
-    javascript_runner = repo_root / "tools/javascript/src/runner.mjs"
+    javascript_runner = repo_root / "packages/contracts/src/runner.mjs"
     comparator = repo_root / "tools/verify/compare_results.py"
     if not javascript_runner.is_file() or not comparator.is_file():
         raise ParityError("reference runner or comparator is missing")

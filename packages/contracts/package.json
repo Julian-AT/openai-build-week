@@ -1,0 +1,27 @@
+{
+  "name": "@reroom/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./canonical-json": "./src/canonical-json.mjs",
+    "./coordinate": "./src/coordinate.mjs",
+    "./loader": "./src/loader.mjs",
+    "./replay": "./src/replay.ts",
+    "./runner": "./src/runner.mjs",
+    "./schema-validator": "./src/schema-validator.mjs",
+    "./transaction": "./src/transaction.ts",
+    "./wire-frame": "./src/wire-frame.mjs"
+  },
+  "engines": {
+    "bun": "1.3.11"
+  },
+  "scripts": {
+    "test": "bun test test"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
+    "canonicalize": "3.0.0"
+  }
+}

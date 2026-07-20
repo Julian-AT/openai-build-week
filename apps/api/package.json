@@ -1,0 +1,24 @@
+{
+  "name": "@reroom/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "bun": "1.3.11"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "test": "bun test test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "openai": "6.39.0"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "@types/node": "24.13.3",
+    "typescript": "6.0.2"
+  }
+}

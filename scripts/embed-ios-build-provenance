@@ -9,16 +9,16 @@ repository_root=$(/usr/bin/git -C "$SRCROOT" rev-parse --show-toplevel)
 if ! /usr/bin/git -C "$repository_root" diff --quiet HEAD -- \
   docs/contracts \
   fixtures/contracts/1.0.0/rev-001/manifest.json \
-  ios/Packages/ReRoomContracts/Package.resolved \
-  ios/Packages/ReRoomContracts/Package.swift \
-  ios/Packages/ReRoomContracts/Sources \
-  ios/ReRoomDeviceProof/ReRoomDeviceProof \
+  apps/ios/Packages/ReRoomContracts/Package.resolved \
+  apps/ios/Packages/ReRoomContracts/Package.swift \
+  apps/ios/Packages/ReRoomContracts/Sources \
+  apps/ios/ReRoomDeviceProof/ReRoomDeviceProof \
   scripts/embed-ios-build-provenance
 then
   exit 1
 fi
 
-project_relative="ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
+project_relative="apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
 project_path="$repository_root/$project_relative"
 
 normalize_project() {

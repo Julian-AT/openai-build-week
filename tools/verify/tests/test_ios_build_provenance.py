@@ -14,7 +14,7 @@ import unittest
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 PROJECT_PATH = (
     REPOSITORY_ROOT
-    / "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
+    / "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
 )
 
 
@@ -66,7 +66,7 @@ class IOSBuildProvenanceTests(unittest.TestCase):
             script = repository / "scripts/embed-ios-build-provenance"
             project = (
                 repository
-                / "ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
+                / "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj"
             )
             manifest = repository / "fixtures/contracts/1.0.0/rev-001/manifest.json"
 
@@ -99,7 +99,7 @@ class IOSBuildProvenanceTests(unittest.TestCase):
                 {
                     "CONFIGURATION": "Debug",
                     "DERIVED_FILE_DIR": str(repository / "derived"),
-                    "SRCROOT": str(repository / "ios/ReRoomDeviceProof"),
+                    "SRCROOT": str(repository / "apps/ios/ReRoomDeviceProof"),
                     "TARGET_BUILD_DIR": str(repository / "build"),
                     "UNLOCALIZED_RESOURCES_FOLDER_PATH": "ReRoomDeviceProof.app",
                 }

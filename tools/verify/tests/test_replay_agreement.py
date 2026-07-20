@@ -78,7 +78,7 @@ class FreshRuntimeOutputs(unittest.TestCase):
                 "swift",
                 "build",
                 "--package-path",
-                "ios/Packages/ReRoomContracts",
+                "apps/ios/Packages/ReRoomContracts",
                 "--product",
                 "ReRoomReplayRunner",
             ]
@@ -89,7 +89,7 @@ class FreshRuntimeOutputs(unittest.TestCase):
                     "swift",
                     "build",
                     "--package-path",
-                    "ios/Packages/ReRoomContracts",
+                    "apps/ios/Packages/ReRoomContracts",
                     "--show-bin-path",
                 ]
             )
@@ -104,7 +104,7 @@ class FreshRuntimeOutputs(unittest.TestCase):
         ]
         commands = {
             "swift": [str(binary_root / "ReRoomReplayRunner")],
-            "node": ["node", "tools/javascript/src/replay.ts"],
+            "node": ["node", "packages/contracts/src/replay.ts"],
             "python": [str(REPO_ROOT / ".venv/bin/python"), "-m", "tools.python.reroom_verify.replay"],
         }
         for runtime, command in commands.items():

@@ -1,128 +1,102 @@
 # ReRoom
 
 Status: **working hackathon demo candidate; deterministic software checks pass,
-physical/human gates remain pending.**
+physical, provider, and human gates remain pending.**
 
 ReRoom is a camera-grounded room editor for one controlled chair or small table.
-The native SwiftUI/ARKit app exposes exactly place, replace, remove, and restore;
-a separate web client owns deterministic Mode B0 replay. Optional GPT-5.6 Sol
-and Realtime features propose design intent only. Native deterministic code
-still owns target context, geometry, revisions, preview, confirmation, commit,
-reconciliation, and restore.
+The native SwiftUI/ARKit app exposes exactly `place`, `replace`, `remove`, and
+`restore`; a separate Next.js client owns deterministic Mode B0 replay. Optional
+AI can propose typed design intent, but deterministic application code retains
+target, geometry, revision, persistence, confirmation, commit, reconciliation,
+and restore authority.
 
-## Continue now
+## Repository map
 
-Read [the canonical authority](docs/canonical/README.md), then run:
+```text
+apps/
+  api/        private/public API boundary (migrating to Hono on Bun)
+  ios/        native SwiftUI/ARKit client and shared Swift packages
+  web/        separate Next.js Mode B0 client
+packages/
+  contracts/  JavaScript/TypeScript contract and replay reference runtime
+docs/         canonical authority, contracts, ADRs, evidence, and history
+tools/        Python reference code and repository verification tooling
+```
+
+The JavaScript workspace uses Bun `1.3.11`, an isolated workspace install, and
+Turborepo. Each workspace owns the dependencies it imports; the root owns only
+cross-workspace orchestration. `bun.lock` is the sole JavaScript lockfile.
+
+## Start here
+
+Read [the canonical authority](docs/canonical/README.md) before changing product
+meaning. The active implementation handoff is
+[AUTONOMOUS-FINISH-PLAN-2026-07-20.md](.planning/milestones/v1.0/AUTONOMOUS-FINISH-PLAN-2026-07-20.md),
+and GSD resumes from [.planning/STATE.md](.planning/STATE.md):
 
 ```text
 $gsd-next
 ```
 
-GSD must use [.planning/STATE.md](.planning/STATE.md) as the current position.
-Do not restart at Phase 1, run `$gsd-new-project`, or re-ingest the repository.
-The exact remaining hackathon sequence is in
-[HACKATHON-24H.md](.planning/milestones/v1.0/HACKATHON-24H.md).
+Do not reinitialize GSD or edit the byte-preserved files in
+`docs/archive/source/`.
 
-## Run the local AI gateway
+## Install and verify
 
-Use Node `22.22.3` and npm `10.9.8`:
+Install the exact Bun release, then from the repository root run:
 
 ```sh
-nvm use  # when nvm is installed; reads the repository .nvmrc
-cd gateway
-npm ci
-npm test
-npm run typecheck
+bun install --frozen-lockfile
+bun test
+bun run typecheck
+bun run build
+swift test --package-path apps/ios/Packages/ReRoomContracts
 ```
-
-Set `OPENAI_API_KEY` and a high-entropy `REROOM_GATEWAY_TOKEN` in the shell
-environment; never put either value in source. For simulator-only use, bind the
-gateway to `127.0.0.1`. For an iPhone, bind to the Mac's LAN interface and enter
-that URL plus the gateway token in the app's **AI design copilot → Gateway
-setup** panel.
-
-```sh
-npm run build
-npm start
-```
-
-The gateway exposes only:
-
-- `GET /health`
-- `POST /v1/proposals` — strict CON-006 Sol proposal, optional explicitly
-  consented JPEG
-- `POST /v1/realtime/client-secret` — short-lived Realtime credential
-
-See [gateway/README.md](gateway/README.md) for exact request shapes and safety
-boundaries. No live OpenAI request occurs without a configured key.
-
-## Run the native app
 
 Open
-[ReRoomDeviceProof.xcodeproj](ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj)
-in the current Xcode, select the checked-in `ReRoomDeviceProof` scheme, and run
-on the base iPhone. The simulator proves compilation and deterministic UI/model
-tests; it cannot prove ARKit, camera, microphone, compositor, thermal, or visual
-quality gates.
+[ReRoomDeviceProof.xcodeproj](apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj)
+for the native app. Simulator checks prove compilation and deterministic
+behavior only; they do not prove ARKit, camera, microphone, thermal, compositor,
+or visual-quality gates.
 
-The native AI panel supports:
-
-- a typed design request;
-- optional one-frame vision, encoded only after explicit action and consent;
-- a three-entry digest-bound local demo catalog;
-- optional push-to-talk Realtime transcription;
-- strict context-bound proposals that create a preview only;
-- separate deterministic confirmation for commits and restore.
-
-Turning off the gateway/model/network leaves the full local typed/tap journey
-available.
-
-## Run the deterministic checks
+The API workspace can be checked independently:
 
 ```sh
-swift test --package-path ios/Packages/ReRoomContracts
-npm --prefix gateway test
-npm --prefix gateway run typecheck
-npm --prefix gateway run build
-node tools/assets/generate_hackathon_assets.mjs
-npm --prefix gateway audit --omit=dev --audit-level=high
-npm --prefix web test
-npm --prefix web run typecheck
-npm --prefix web run build
-npm --prefix web audit --omit=dev --audit-level=high
-python3 -m unittest tools.python.tests.test_semantic_proposal \
-  tools.verify.tests.test_phase_05_replacement \
-  tools.verify.tests.test_phase_02_1_trust_boundary
+bun --cwd apps/api test
+bun --cwd apps/api run typecheck
+bun --cwd apps/api run build
 ```
 
-The Xcode project contains a provenance guard that intentionally rejects a
-source-dirty evidence build. Commit an approved coherent revision before
-collecting revision-bound device evidence; do not disable the guard.
+Live provider use requires `OPENAI_API_KEY` and a high-entropy
+`REROOM_GATEWAY_TOKEN` in the API process environment. Never place their values
+in source, `.env.example`, evidence, or logs. With no provider, model, worker,
+or network, the typed/tap deterministic journey remains available.
 
-## Project authority and planning
+## Product authority and evidence
 
 - [Canonical authority](docs/canonical/README.md)
+- [Master Technical Specification](docs/canonical/MASTER_TECHNICAL_SPEC.md)
+- [Contracts](docs/contracts/README.md)
+- [Architecture decisions](docs/adr/README.md)
+- [Risk and kill gates](docs/canonical/RISK_AND_KILL_GATES.md)
 - [Archive-to-current coverage](docs/audit/ARCHIVE_MASTER_PLAN_COVERAGE.md)
 - [GSD project](.planning/PROJECT.md)
-- [Requirements](.planning/REQUIREMENTS.md)
 - [Roadmap](.planning/ROADMAP.md)
 - [Current state](.planning/STATE.md)
 - [24-hour finish runbook](.planning/milestones/v1.0/HACKATHON-24H.md)
-- [GSD configuration](.planning/config.json)
-- [GSD configuration rationale](.planning/milestones/v1.0/GSD-CONFIGURATION.md)
 
-The original [Master Technical Plan v3.2](docs/archive/source/ReRoom_Master_Technical_Plan_v3.2.md)
-and [PRD v1.0](docs/archive/source/ReRoom_PRD_v1.0.md) are byte-preserved
-historical inputs. They are not implementation authority.
+The archived Master Technical Plan and PRD are historical inputs, not current
+implementation authority. Claims labeled `MEASURED` require reproducible raw
+evidence; physical-device and human gates remain pending until actually run.
 
 ## GSD on another machine
 
-Install GSD Core globally, never inside this repository:
+GSD Core is machine-global rather than repository-local:
 
 ```text
 npx --yes @opengsd/gsd-core@1.7.0 --codex --global
 ```
 
-Restart Codex, open the repository root, and run `$gsd-next`. Generated agents,
-skills, hooks, MCP configuration, credentials, and machine paths remain in the
-developer's user environment. Only `.planning/` is shared project state.
+Restart Codex after installation. The repository shares `.planning/` only;
+generated skills, hooks, runtime files, credentials, and machine paths stay in
+the developer environment.

@@ -31,29 +31,29 @@ evidence_checks() {
 
 contract_checks() {
   python3 -m unittest tests.test_fixture_meta_schemas tools.verify.tests.test_compare_results -v
-  if [[ -f tools/javascript/test/runner.test.mjs ]]; then
-    node --test tools/javascript/test/runner.test.mjs
+  if [[ -f packages/contracts/test/runner.test.mjs ]]; then
+    node --test packages/contracts/test/runner.test.mjs
   fi
   if [[ -f tools/python/tests/test_runner.py ]]; then
     [[ -x .venv/bin/python ]] || fail 'missing_locked_python_environment'
     .venv/bin/python -m unittest tools.python.tests.test_runner -v
   fi
-  if [[ -f ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/ContractValidationTests.swift ]]; then
-    swift test --package-path ios/Packages/ReRoomContracts --filter ContractValidationTests
+  if [[ -f apps/ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/ContractValidationTests.swift ]]; then
+    swift test --package-path apps/ios/Packages/ReRoomContracts --filter ContractValidationTests
   fi
 }
 
 coordinate_checks() {
   python3 tools/verify/compare_results.py fixture-integrity --manifest "$MANIFEST_COORDS"
-  if [[ -f tools/javascript/test/runner.test.mjs ]]; then
-    node --test tools/javascript/test/runner.test.mjs
+  if [[ -f packages/contracts/test/runner.test.mjs ]]; then
+    node --test packages/contracts/test/runner.test.mjs
   fi
   if [[ -f tools/python/tests/test_runner.py ]]; then
     [[ -x .venv/bin/python ]] || fail 'missing_locked_python_environment'
     .venv/bin/python -m unittest tools.python.tests.test_runner -v
   fi
-  if [[ -f ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/CoordinateMathTests.swift ]]; then
-    swift test --package-path ios/Packages/ReRoomContracts --filter CoordinateMathTests
+  if [[ -f apps/ios/Packages/ReRoomContracts/Tests/ReRoomContractsTests/CoordinateMathTests.swift ]]; then
+    swift test --package-path apps/ios/Packages/ReRoomContracts --filter CoordinateMathTests
   fi
 }
 
@@ -70,12 +70,12 @@ quick_checks() {
   python3 -m unittest tools.verify.tests.test_release_test_bundle -v
   python3 tools/verify/verify_phase_01_dependencies.py \
     --audit evidence/dependencies/phase-01-package-audit.json \
-    --package-json tools/javascript/package.json \
-    --package-lock tools/javascript/package-lock.json \
+    --package-json packages/contracts/package.json \
+    --package-lock packages/contracts/package-lock.json \
     --requirements-in tools/python/requirements.in \
     --requirements-lock tools/python/requirements.lock \
-    --swift-package ios/Packages/ReRoomContracts/Package.swift \
-    --swift-resolved ios/Packages/ReRoomContracts/Package.resolved
+    --swift-package apps/ios/Packages/ReRoomContracts/Package.swift \
+    --swift-resolved apps/ios/Packages/ReRoomContracts/Package.resolved
   fixture_integrity
   evidence_checks
   contract_checks
@@ -89,9 +89,9 @@ require_full_surface() {
     scripts/run-three-runtime-agreement \
     scripts/verify-reroom-release-surface \
     tools/verify/verify_evidence.py \
-    tools/javascript/test/parity-mutations.test.mjs \
+    packages/contracts/test/parity-mutations.test.mjs \
     tools/python/tests/test_parity_mutations.py \
-    ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj; do
+    apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj; do
     [[ -e "$required" ]] || fail "missing_full_component:$required"
   done
   [[ -x .venv/bin/python ]] || fail 'missing_locked_python_environment'
@@ -169,13 +169,13 @@ full_checks() {
   require_full_surface
   quick_checks
   scripts/run-reference-parity
-  node --test tools/javascript/test/parity-mutations.test.mjs
+  node --test packages/contracts/test/parity-mutations.test.mjs
   .venv/bin/python -m unittest tools.python.tests.test_parity_mutations tools.verify.tests.test_reference_parity -v
-  swift test --package-path ios/Packages/ReRoomContracts
+  swift test --package-path apps/ios/Packages/ReRoomContracts
   scripts/run-three-runtime-agreement
-  xcodebuild test -project ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj -scheme ReRoomDeviceProof -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
-  xcodebuild test -project ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj -scheme ReRoomDeviceProof -configuration Release -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
-  xcodebuild build -project ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj -scheme ReRoomDeviceProof -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
+  xcodebuild test -project apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj -scheme ReRoomDeviceProof -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
+  xcodebuild test -project apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj -scheme ReRoomDeviceProof -configuration Release -destination 'platform=iOS Simulator,name=iPhone 17' CODE_SIGNING_ALLOWED=NO
+  xcodebuild build -project apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj -scheme ReRoomDeviceProof -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO
   scripts/verify-reroom-release-surface
   python3 tools/verify/verify_evidence.py --fixtures evidence/fixtures
   secret_and_diff_checks

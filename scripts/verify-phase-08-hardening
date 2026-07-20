@@ -49,8 +49,8 @@ def source_bindings() -> dict[str, str]:
 
 def typed_boundary_check() -> None:
     paths = (
-        ROOT / "ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
-        ROOT / "tools/javascript/src",
+        ROOT / "apps/ios/Packages/ReRoomContracts/Sources/ReRoomContracts",
+        ROOT / "packages/contracts/src",
         ROOT / "tools/python/src",
     )
     source = "\n".join(

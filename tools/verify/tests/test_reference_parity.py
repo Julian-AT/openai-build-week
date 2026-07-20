@@ -21,7 +21,7 @@ from tools.verify.compare_results import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PARITY_COMMAND = REPO_ROOT / "scripts/run-reference-parity"
-JAVASCRIPT_MUTATIONS = REPO_ROOT / "tools/javascript/test/parity-mutations.test.mjs"
+JAVASCRIPT_MUTATIONS = REPO_ROOT / "packages/contracts/test/parity-mutations.test.mjs"
 PYTHON_MUTATIONS = REPO_ROOT / "tools/python/tests/test_parity_mutations.py"
 MANIFESTS = {
     "contracts": REPO_ROOT / "fixtures/contracts/1.0.0/rev-001/manifest.json",

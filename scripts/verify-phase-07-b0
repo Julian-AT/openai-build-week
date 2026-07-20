@@ -30,13 +30,13 @@ SOURCE_BACKUP_DIR="$PHASE07_TMP/source-backup"
 SERVER_PID=""
 SOURCE_RESTORED=0
 mkdir -p "$RESULTS_DIR" "$RAW_DIR" "$SOURCE_BACKUP_DIR"
-cp web/next-env.d.ts "$SOURCE_BACKUP_DIR/next-env.d.ts"
-cp web/tsconfig.json "$SOURCE_BACKUP_DIR/tsconfig.json"
+cp apps/web/next-env.d.ts "$SOURCE_BACKUP_DIR/next-env.d.ts"
+cp apps/web/tsconfig.json "$SOURCE_BACKUP_DIR/tsconfig.json"
 
 restore_generated_sources() {
   if [[ "$SOURCE_RESTORED" -eq 0 ]]; then
-    cp "$SOURCE_BACKUP_DIR/next-env.d.ts" web/next-env.d.ts
-    cp "$SOURCE_BACKUP_DIR/tsconfig.json" web/tsconfig.json
+    cp "$SOURCE_BACKUP_DIR/next-env.d.ts" apps/web/next-env.d.ts
+    cp "$SOURCE_BACKUP_DIR/tsconfig.json" apps/web/tsconfig.json
     SOURCE_RESTORED=1
   fi
 }
@@ -87,7 +87,7 @@ if ! npm --prefix web ci --ignore-scripts --no-audit --no-fund > "$RAW_DIR/web-i
   fail "web_lock_install"
 fi
 
-run_check phase_02_exact_replay node --test tools/javascript/test/replay.test.mjs
+run_check phase_02_exact_replay node --test packages/contracts/test/replay.test.mjs
 run_check web_projection_timeline npm --prefix web test
 run_check web_typecheck npm --prefix web run typecheck
 run_check web_production_build npm --prefix web run build
@@ -96,7 +96,7 @@ restore_generated_sources
 if ! /usr/bin/env python3 -m tools.verify.verify_phase_07_b0 --verify-source > "$RAW_DIR/source-verifier.log" 2>&1; then
   fail "source_closure"
 fi
-if rg -q 'node:child_process|tools/javascript/src/replay\.ts|finalized-one-frame\.rrcap/manifest\.json' web/.next/static/chunks; then
+if rg -q 'node:child_process|packages/contracts/src/replay\.ts|finalized-one-frame\.rrcap/manifest\.json' apps/web/.next/static/chunks; then
   fail "source_closure"
 fi
 record_pass source_closure

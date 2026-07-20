@@ -40,7 +40,7 @@ EVIDENCE_RELATIVE_PATH = "evidence/compatibility/replay-agreement.json"
 MANIFEST_RELATIVE_PATH = "fixtures/capture/1.0.0/rev-001/manifest.json"
 REPORT_SCHEMA_RELATIVE_PATH = "fixtures/replay-report.schema.json"
 RRCAP_SCHEMA_RELATIVE_PATH = "docs/contracts/rrcap-manifest.schema.json"
-SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "ios/Packages/ReRoomContracts"
+SWIFT_PACKAGE_ROOT_RELATIVE_PATH = "apps/ios/Packages/ReRoomContracts"
 SWIFT_PACKAGE_MANIFEST_RELATIVE_PATH = f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Package.swift"
 SWIFT_VERSION_MANIFEST_PATTERN = re.compile(r"Package@swift-[0-9]+(?:\.[0-9]+){0,2}\.swift")
 TRANSACTION_DIRECTORY_NAME = ".phase-02-replay-agreement-transaction"
@@ -54,12 +54,12 @@ BOUND_SOURCE_SCOPES = (
     f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Sources/ReRoomContracts",
     f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Sources/ReRoomCaptureCore",
     f"{SWIFT_PACKAGE_ROOT_RELATIVE_PATH}/Sources/ReRoomReplayRunner",
-    "tools/javascript/package.json",
-    "tools/javascript/package-lock.json",
-    "tools/javascript/src/canonical-json.mjs",
-    "tools/javascript/src/loader.mjs",
-    "tools/javascript/src/wire-frame.mjs",
-    "tools/javascript/src/replay.ts",
+    "packages/contracts/package.json",
+    "packages/contracts/package-lock.json",
+    "packages/contracts/src/canonical-json.mjs",
+    "packages/contracts/src/loader.mjs",
+    "packages/contracts/src/wire-frame.mjs",
+    "packages/contracts/src/replay.ts",
     "tools/python/requirements.in",
     "tools/python/requirements.lock",
     "tools/python/reroom_verify/canonical_json.py",
@@ -357,7 +357,7 @@ def _invoke_runtimes(
     ]
     commands = {
         "swift": [str(swift_runner)],
-        "node": [str(node), str(root / "tools/javascript/src/replay.ts")],
+        "node": [str(node), str(root / "packages/contracts/src/replay.ts")],
         "python": [str(python), "-m", "tools.python.reroom_verify.replay"],
     }
     for runtime in ("swift", "node", "python"):

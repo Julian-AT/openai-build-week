@@ -70,17 +70,17 @@ UPSTREAMS: tuple[dict[str, str], ...] = (
 )
 
 LOCK_INPUTS = (
-    "ios/Packages/ReRoomContracts/Package.resolved",
-    "tools/javascript/package-lock.json",
-    "web/package-lock.json",
+    "apps/ios/Packages/ReRoomContracts/Package.resolved",
+    "packages/contracts/package-lock.json",
+    "apps/web/package-lock.json",
     "tools/python/requirements.lock",
 )
 ASSET_INPUTS = (
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/PROVENANCE.md",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/asset-manifest.json",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/proxy-chair.usda",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase6Reveal/PROVENANCE.md",
-    "ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase6Reveal/demo-reveal-fixture.json",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/PROVENANCE.md",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/asset-manifest.json",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase3Proxy/proxy-chair.usda",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase6Reveal/PROVENANCE.md",
+    "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/Resources/Phase6Reveal/demo-reveal-fixture.json",
 )
 
 BOM_KEYS = {
@@ -496,7 +496,7 @@ def git_revision_and_time(root: Path = ROOT) -> tuple[str, str]:
 
 def tracked_shipping_files(root: Path = ROOT) -> list[str]:
     output = subprocess.run(["git", "ls-files", "-z"], cwd=root, check=True, capture_output=True).stdout
-    allowed = ("ios/Packages/", "ios/ReRoomDeviceProof/ReRoomDeviceProof/", "web/src/", "tools/javascript/src/", "tools/python/src/")
+    allowed = ("apps/ios/Packages/", "apps/ios/ReRoomDeviceProof/ReRoomDeviceProof/", "apps/web/src/", "packages/contracts/src/", "tools/python/src/")
     excluded = ("/Tests/", "/test/", "/.swiftpm/", ".xcodeproj/")
     return [path for path in output.decode().split("\0") if path and path.startswith(allowed) and not any(part in path for part in excluded)]
 

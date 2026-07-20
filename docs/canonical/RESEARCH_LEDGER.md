@@ -579,9 +579,12 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Confidence:** High for installed state, Codex schema, and inspected code paths.
 - **Known limitations or ambiguity:** The removed plugin snapshot had no retained immutable marketplace commit, and upstream mgrep may change. A full Codex restart is required before declaring the old in-memory hooks unloaded.
 
-### CLM-038 — Project skills are reviewed development tools
+### CLM-038 — Reviewed skills remain machine-global development tools
 
-- **Claim:** ReRoom keeps useful project-local skills, including the three MIT-licensed Apple skills, as reviewed development tools rather than product authority or shipping dependencies.
+- **Claim:** ReRoom may use reviewed development skills, including the three
+  MIT-licensed Apple skills, from the developer's machine-global environment;
+  generated or installed skill trees are not repository content, product
+  authority, or shipping dependencies.
 - **Status:** `VERIFIED`
 - **Decision or requirement affected:** Native implementation readiness, `OPS-LICENSE-001`, `SEC-AGENT-001`, and `AGENTS.md`.
 - **Source title:** Skills CLI source/docs/npm metadata; SwiftUI, Swift Concurrency, and Swift Testing source and MIT licenses; GitHub release/commit metadata
@@ -590,9 +593,16 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Publication/release date:** Release dates are not used as integrity anchors; final provenance and byte audit completed 2026-07-14.
 - **Retrieval date:** 2026-07-14.
 - **Exact version/tag/revision:** `skills@1.5.17`; SwiftUI `4.0.0` -> `65118ba010cbfcd4b985a4c83e29c74f37d1c1f1`; Concurrency `2.1.1` -> `faa595ee186dbd23a390dc1e7b06df40948941ab`; Testing `1.2.0` -> `798e9b1a2bcac164d4f0c781908199e754f0bab6`.
-- **Evidence summary:** The Apple skill sources and retained license notices were reviewed. Optional SwiftUI `xctrace` helpers remain explicit-use tools with the secret, process-scope, output-path, and untrusted-output constraints recorded in `AGENTS.md`. Repository operation does not depend on a package-manager lock or tree-hash gate for these tools.
+- **Evidence summary:** The Apple skill sources and license notices were
+  reviewed. The previously checked-in generated `.agents/skills` copies were
+  removed to keep machine-generated agent runtime outside the repository.
+  Optional SwiftUI `xctrace` helpers remain explicit-use tools governed by the
+  active skill instructions. Repository operation does not depend on any skill
+  package, lock, or tree hash.
 - **Confidence:** High for current local bytes, provenance, and license notices.
-- **Known limitations or ambiguity:** Skill content is executable guidance and must still be reviewed before use. Third-party labels are supporting evidence, not a trust grant.
+- **Known limitations or ambiguity:** Skill content is executable guidance and
+  must still be reviewed before use. Machine-global availability varies by
+  developer and third-party labels are supporting evidence, not a trust grant.
 
 ### CLM-039 — Codex project instructions are layered, scoped, and byte-capped
 
@@ -670,6 +680,40 @@ Exact artifact revision and license are separate questions: a repository code li
 - **Evidence summary:** `npm ls next postcss --all` resolves Next.js 16.2.10 with PostCSS 8.5.20 overridden. Ten web tests, `next typegen`, strict TypeScript, and the production build pass. `npm audit --omit=dev` reports zero informational, low, moderate, high, or critical vulnerabilities.
 - **Confidence:** High for the exact locked tree and tested web surface.
 - **Known limitations or ambiguity:** This is an explicit transitive compatibility override, not an upstream Next.js dependency declaration. Any Next.js/PostCSS/lockfile change must rerun the same suite, build, dependency-tree, and audit checks; failure removes the override or activates the static local fallback.
+
+### CLM-044 — Bun workspaces and Turborepo provide the exact repository orchestration boundary
+
+- **Claim:** Bun supports a single root lockfile, exact package-manager pinning,
+  isolated workspace linking, `workspace:*` package edges, and frozen installs;
+  Turborepo runs package-owned scripts through an explicit task graph without
+  moving runtime dependencies to the root.
+- **Status:** `MEASURED`
+- **Decision or requirement affected:** Hackathon repository operation,
+  dependency ownership, reproducible JavaScript checks, and the autonomous
+  finish overlay. No product contract or authority boundary changes.
+- **Source title:** Bun workspaces and package manager configuration;
+  Turborepo configuring tasks and package configurations
+- **Source URL:** https://bun.com/docs/pm/workspaces ;
+  https://bun.com/docs/pm/cli/install ;
+  https://turborepo.com/docs/crafting-your-repository/configuring-tasks ;
+  https://turborepo.com/docs/crafting-your-repository/structuring-a-repository
+- **Source type:** Official Bun and Vercel Turborepo documentation plus
+  reproducible local compatibility checks.
+- **Publication/release date:** Not stated on the captured documentation.
+- **Retrieval date:** 2026-07-20.
+- **Exact version/tag/revision:** `bun@1.3.11`; `turbo@2.10.5`, lock integrity
+  `sha512-07Y/C7OUp23l4P92PJoYtFNbHjLhftrZH5Ce7dbczS4kX2Re+wtbXvZLoxn/pUtzgsQaRCBaRuZPJp4zmAn0WQ==`.
+- **Evidence summary:** The root install produced one `bun.lock` with isolated
+  package-local links. Fifty-seven Bun tests, all workspace TypeScript checks,
+  the Next.js production build, and 172 Swift package tests across 27 suites
+  passed from the new `apps/` and `packages/` paths. Runtime dependencies remain
+  in the workspace that imports them; the root owns only Turbo.
+- **Confidence:** High for the exact local macOS workspace and locked dependency
+  tree.
+- **Known limitations or ambiguity:** Historical revision-bound evidence still
+  names the repository layout at its bound commit. It must remain historical or
+  be republished against a new committed source revision; path rewrites alone
+  cannot redefine that evidence.
 
 ## 10. Decision summary and unresolved empirical claims
 

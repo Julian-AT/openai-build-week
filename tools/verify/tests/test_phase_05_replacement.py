@@ -58,8 +58,9 @@ class PhaseFiveReplacementContract(unittest.TestCase):
     def write_bound_source_contract(self, root: Path) -> None:
         for key in self.module.SOURCE_CONTRACT_PATH_KEYS:
             relative = self.module.SOURCE_BINDING_PATHS[key]
+            bound_relative = self.module.path_at_bound_revision(relative)
             result = subprocess.run(
-                ["git", "show", f"{self.module.BOUND_REVISION}:{relative}"],
+                ["git", "show", f"{self.module.BOUND_REVISION}:{bound_relative}"],
                 cwd=REPO_ROOT,
                 check=True,
                 capture_output=True,

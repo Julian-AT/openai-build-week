@@ -1,0 +1,22 @@
+{
+  "name": "reroom",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "bun@1.3.11",
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "check": "turbo run test typecheck build",
+    "test:swift": "swift test --package-path apps/ios/Packages/ReRoomContracts"
+  },
+  "devDependencies": {
+    "turbo": "2.10.5"
+  }
+}

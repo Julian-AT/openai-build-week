@@ -38,6 +38,9 @@ Thumbs.db
 *~
 
 # Build/output noise
+node_modules/
+.next/
+*.tsbuildinfo
 dist/
 build/
 coverage/
@@ -49,5 +52,8 @@ coverage/
 *.log
 *.trace
 *.trace/
+
+# Turborepo local cache
+.turbo/
 
 # Deliberately do not ignore .planning/: GSD planning docs and project config are shared.
