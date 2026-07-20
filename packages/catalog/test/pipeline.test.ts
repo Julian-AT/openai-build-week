@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import { type CatalogProduct, syncCatalog } from "../src/index.ts";
 
+const semanticVector = Array.from({ length: 1_024 }, (_, index) => index / 1_024);
+
 const products: CatalogProduct[] = [
   {
     id: "ikea-us-00000001",
@@ -41,7 +43,7 @@ test("catalog sync indexes only products with usable GLB assets in bounded batch
       enrich: async (product) => ({
         ...product,
         visualDescriptor: "light oak, compact, Scandinavian",
-        textVector: [0.1, 0.2, 0.3],
+        textVector: semanticVector,
       }),
     },
     sink: {
@@ -55,7 +57,28 @@ test("catalog sync indexes only products with usable GLB assets in bounded batch
     batchSize: 1,
   });
 
-  assert.deepEqual(prepared, [3]);
+  assert.deepEqual(prepared, [1_024]);
   assert.deepEqual(batches, [["ikea-us-00000001"]]);
   assert.deepEqual(result, { discovered: 2, indexed: 1, skippedWithoutAsset: 1 });
+});
+
+test("catalog sync rejects embeddings outside the semantic_v1 contract", async () => {
+  const firstProduct = products[0];
+  assert.ok(firstProduct);
+  await assert.rejects(
+    syncCatalog({
+      source: async function* () {
+        yield firstProduct;
+      },
+      enricher: {
+        enrich: async (product) => ({
+          ...product,
+          visualDescriptor: "chair",
+          textVector: [0.1, 0.2, 0.3],
+        }),
+      },
+      sink: { prepare: async () => {}, upsert: async () => {} },
+    }),
+    /invalid_semantic_v1_vector/,
+  );
 });

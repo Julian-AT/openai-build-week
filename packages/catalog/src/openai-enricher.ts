@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 
 import type { CatalogEnricher, CatalogProduct, EmbeddedCatalogProduct } from "./types.ts";
+import { SEMANTIC_VECTOR_SIZE } from "./types.ts";
 
 const DESCRIPTOR_MODEL = "gpt-5.6";
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -25,6 +26,7 @@ export function createOpenAICatalogEnricher(
       const embedding = await client.embeddings.create({
         model: EMBEDDING_MODEL,
         input: `${product.searchableText}\nVisual characteristics: ${visualDescriptor}`,
+        dimensions: SEMANTIC_VECTOR_SIZE,
         encoding_format: "float",
       });
       const textVector = embedding.data[0]?.embedding;

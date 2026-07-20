@@ -4,6 +4,7 @@ import type {
   CatalogSink,
   EmbeddedCatalogProduct,
 } from "./types.ts";
+import { SEMANTIC_VECTOR_SIZE } from "./types.ts";
 
 export interface CatalogSyncOptions {
   source: () => AsyncIterable<CatalogProduct>;
@@ -24,7 +25,7 @@ export async function syncCatalog(options: CatalogSyncOptions): Promise<CatalogS
   let discovered = 0;
   let indexed = 0;
   let skippedWithoutAsset = 0;
-  let vectorSize: number | undefined;
+  let prepared = false;
 
   for await (const product of options.source()) {
     discovered += 1;
@@ -34,16 +35,14 @@ export async function syncCatalog(options: CatalogSyncOptions): Promise<CatalogS
     }
     const enriched = await options.enricher.enrich(product);
     if (
-      enriched.textVector.length === 0 ||
+      enriched.textVector.length !== SEMANTIC_VECTOR_SIZE ||
       enriched.textVector.some((value) => !Number.isFinite(value))
     ) {
-      throw new Error("invalid_catalog_vector");
+      throw new Error("invalid_semantic_v1_vector");
     }
-    if (vectorSize === undefined) {
-      vectorSize = enriched.textVector.length;
-      await options.sink.prepare(vectorSize);
-    } else if (enriched.textVector.length !== vectorSize) {
-      throw new Error("catalog_vector_size_changed");
+    if (!prepared) {
+      await options.sink.prepare(SEMANTIC_VECTOR_SIZE);
+      prepared = true;
     }
     batch.push(enriched);
     if (batch.length >= batchSize) {

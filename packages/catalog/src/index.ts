@@ -1,3 +1,10 @@
+export type { AssetBytes, AssetManifest } from "./asset-validator.ts";
+export { validateAssetDerivatives, validateGLB, validateUSDZ } from "./asset-validator.ts";
+export type {
+  InjectionReadiness,
+  InjectionReadinessFailure,
+} from "./catalog-eligibility.ts";
+export { assessAssetInjectionReadiness } from "./catalog-eligibility.ts";
 export type { IkeaSourceOptions, SitemapResult } from "./ikea-source.ts";
 export {
   crawlIkeaUSProducts,
@@ -9,13 +16,23 @@ export type { OpenAICatalogEnricherOptions } from "./openai-enricher.ts";
 export { createOpenAICatalogEnricher } from "./openai-enricher.ts";
 export type { CatalogSyncOptions, CatalogSyncResult } from "./pipeline.ts";
 export { syncCatalog } from "./pipeline.ts";
-export type { CatalogSearchHit, QdrantCatalogStoreOptions } from "./qdrant-store.ts";
-export { CATALOG_COLLECTION, QdrantCatalogStore } from "./qdrant-store.ts";
-export type { AssetBytes, AssetManifest } from "./asset-validator.ts";
-export { validateAssetDerivatives, validateGLB, validateUSDZ } from "./asset-validator.ts";
 export type {
+  CatalogSearchHit,
+  CatalogVectorDatabase,
+  EligibleCatalogSearch,
+  QdrantCatalogStoreOptions,
+} from "./qdrant-store.ts";
+export { CATALOG_COLLECTION, QdrantCatalogStore } from "./qdrant-store.ts";
+export type {
+  AssetAuthorizationStatus,
+  AssetSupportType,
+  CatalogAssetRecord,
+  CatalogCollisionDerivative,
+  CatalogDimensionsM,
   CatalogEnricher,
   CatalogProduct,
   CatalogSink,
   EmbeddedCatalogProduct,
+  ValidatedCatalogDerivative,
 } from "./types.ts";
+export { SEMANTIC_VECTOR_NAME, SEMANTIC_VECTOR_SIZE } from "./types.ts";

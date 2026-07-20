@@ -204,24 +204,24 @@ export class InMemoryEditTransactionService implements EditTransactionService {
     }
 
     const previewID = this.#validatedGeneratedID("preview");
-    const operations = replacementOperations(replacement);
-    const preview: ReplacementPreview = {
+    const operations = freezeOperations(replacementOperations(replacement));
+    const preview: ReplacementPreview = Object.freeze({
       type: "edit_preview",
       preview_id: previewID,
       proposal_id: proposalID,
       base_scene_revision: session.revision,
-      intent: {
+      intent: Object.freeze({
         operation: "replace",
         target_id: replacement.targetID,
         asset_id: replacement.assetID,
-      },
+      }),
       ops: operations,
       status: "pending_confirmation",
-    };
+    });
     this.#previews.set(previewID, {
       sessionID: session.sessionID,
       preview,
-      inverseOperations: inverseReplacementOperations(replacement),
+      inverseOperations: freezeOperations(inverseReplacementOperations(replacement)),
       committed: false,
     });
     this.#previewByProposal.set(proposalID, previewID);
@@ -319,23 +319,23 @@ export class InMemoryEditTransactionService implements EditTransactionService {
   ): EditDelta {
     const baseRevision = session.revision;
     const sceneRevision = baseRevision + 1;
-    const delta: EditDelta = {
+    const delta: EditDelta = Object.freeze({
       type: "edit_delta",
       scene_revision: sceneRevision,
       base_scene_revision: baseRevision,
       transaction_id: this.#validatedGeneratedID("tx"),
       idempotency_key: input.idempotencyKey,
-      ops: input.operations,
-      inverse_ops: input.inverseOperations,
-      local_undo: {
+      ops: freezeOperations(input.operations),
+      inverse_ops: freezeOperations(input.inverseOperations),
+      local_undo: Object.freeze({
         token: this.#validatedGeneratedID("undo"),
         valid_for_committed_revision: sceneRevision,
-      },
+      }),
       ...(input.compensatesTransactionID
         ? { compensates_transaction_id: input.compensatesTransactionID }
         : {}),
       replayed: false,
-    };
+    });
     session.revision = sceneRevision;
     session.transactions.push(delta);
     return delta;
@@ -371,6 +371,22 @@ function inverseReplacementOperations(
     },
     { op: "set_object_visibility", object_id: replacement.targetID, value: "visible" },
   ];
+}
+
+function freezeOperations(
+  operations: readonly ReplacementOperation[],
+): readonly ReplacementOperation[] {
+  return Object.freeze(
+    operations.map((operation) => {
+      if (operation.op === "place_asset") {
+        return Object.freeze({
+          ...operation,
+          world_from_asset: Object.freeze([...operation.world_from_asset]),
+        });
+      }
+      return Object.freeze({ ...operation });
+    }),
+  );
 }
 
 function validateReplacement(replacement: ValidatedReplacement): void {

@@ -131,6 +131,14 @@ test("restore appends a compensating transaction without rewriting history", () 
   assert.equal(scene.transactions.length, 2);
   assert.equal(scene.transactions[0]?.transaction_id, transactionID);
   assert.equal(scene.transactions[1]?.transaction_id, restoreTransactionID);
+  assert.equal(Object.isFrozen(scene.transactions[0]), true);
+  assert.equal(Object.isFrozen(scene.transactions[0]?.ops), true);
+  assert.equal(Object.isFrozen(scene.transactions[0]?.local_undo), true);
+  assert.throws(
+    () => Object.assign(scene.transactions[0] ?? {}, { scene_revision: 99 }),
+    TypeError,
+  );
+  assert.equal(service.readScene("room-token").scene_revision, 2);
 });
 
 test("restore fails closed when the transaction is already compensated", () => {
