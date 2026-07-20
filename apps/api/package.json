@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@reframe/agent": "workspace:*",
+    "@reframe/catalog": "workspace:*",
     "hono": "4.12.31"
   },
   "devDependencies": {

@@ -16,6 +16,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@reframe/agent": "workspace:*",
+        "@reframe/catalog": "workspace:*",
         "hono": "4.12.31",
       },
       "devDependencies": {
