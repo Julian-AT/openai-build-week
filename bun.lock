@@ -21,6 +21,10 @@
         "typescript": "6.0.2",
       },
     },
+    "apps/inference": {
+      "name": "@reroom/inference",
+      "version": "0.1.0",
+    },
     "apps/web": {
       "name": "@reroom/mode-b0-web",
       "version": "0.0.0",
@@ -144,6 +148,8 @@
     "@reroom/api": ["@reroom/api@workspace:apps/api"],
 
     "@reroom/contracts": ["@reroom/contracts@workspace:packages/contracts"],
+
+    "@reroom/inference": ["@reroom/inference@workspace:apps/inference"],
 
     "@reroom/mode-b0-web": ["@reroom/mode-b0-web@workspace:apps/web"],
 

@@ -761,6 +761,64 @@ Exact artifact revision and license are separate questions: a repository code li
   `GATE-010` remain pending. SDK/version drift requires the same transport tests
   before adoption.
 
+### CLM-046 — The private Python worker has a pinned, bounded PyTorch boundary
+
+- **Claim:** FastAPI can expose a typed private ASGI boundary, Pydantic can
+  reject unknown or invalid fields before provider execution, and PyTorch
+  exposes runtime/MPS capability detection. These APIs support one private,
+  single-lane CV worker behind Hono; they do not establish that any model is
+  accurate, fast enough, licensed, or selected.
+- **Status:** `MEASURED`
+- **Decision or requirement affected:** `FR-TARGET-001`, `NFR-LATENCY-001`,
+  `NFR-RESILIENCE-001`, `OPS-LICENSE-001`; [ADR-007](../adr/ADR-007-segmentation-and-depth-providers.md),
+  [ADR-014](../adr/ADR-014-service-topology-and-hardware-tiers.md); `GATE-004`,
+  `GATE-007`, `GATE-012`.
+- **Source title:** FastAPI security, response-model, and lifespan
+  documentation; Pydantic strict models; PyTorch MPS and inference-mode
+  documentation; exact PyPI project artifacts.
+- **Source URL:** https://fastapi.tiangolo.com/tutorial/security/first-steps/ ;
+  https://fastapi.tiangolo.com/tutorial/response-model/ ;
+  https://docs.pydantic.dev/latest/concepts/strict_mode/ ;
+  https://docs.pytorch.org/docs/stable/notes/mps.html ;
+  https://docs.pytorch.org/docs/stable/generated/torch.inference_mode.html ;
+  https://pypi.org/project/fastapi/0.139.2/ ;
+  https://pypi.org/project/pydantic/2.13.4/ ;
+  https://pypi.org/project/uvicorn/0.51.0/ ;
+  https://pypi.org/project/torch/2.13.0/
+- **Source type:** Official framework/model-runtime documentation, publisher
+  package metadata, exact uv lockfile, and reproducible local boundary tests.
+- **Publication/release date:** FastAPI `0.139.2` published 2026-07-16;
+  Pydantic `2.13.4` published 2026-05-06; Uvicorn `0.51.0` and PyTorch `2.13.0`
+  published 2026-07-08.
+- **Retrieval date:** 2026-07-20.
+- **Exact version/tag/revision:** CPython `3.13.12`; lock-compatible uv range
+  `>=0.9.26,<0.12` (local verification on `0.9.26` and `0.11.16`); FastAPI
+  `0.139.2`, wheel SHA-256
+  `b9ad015a835173d59865e2f5d8296fbc2b317bf56a2ba1a5bfbdd03de2fd4b1c`
+  (MIT); Pydantic `2.13.4`, wheel SHA-256
+  `45a282cde31d808236fd7ea9d919b128653c8b38b393d1c4ab335c62924d9aba`
+  (MIT); Uvicorn `0.51.0`, wheel SHA-256
+  `5d38af6cd620f2ae3849fb44fd4879e0890aa1febe8d47eb355fb45d93fe6a5b`
+  (BSD-3-Clause); optional PyTorch `2.13.0`, macOS arm64 wheel SHA-256
+  `33449899ce5496c1b84b4853179d94fd102028ae1407314d9fb956bb79e70d09`
+  (BSD-style). The complete cross-platform resolution is retained in
+  `apps/inference/uv.lock`.
+- **Evidence summary:** Eight in-process ASGI tests verify private bearer
+  readiness, exact JSON/media/query admission, strict unknown-field and digest
+  rejection before provider use, bounded request bytes, deterministic
+  fixture-only artifacts, a no-backlog single inference lane, provider
+  unavailability, and deadline cancellation. Ruff, strict BasedPyright, and
+  CPython compilation pass. The default profile is disabled; the fixture
+  profile is explicitly non-evidentiary. PyTorch is locked as an optional
+  extra and was not downloaded or selected by these checks.
+- **Confidence:** High for the exact local protocol, scheduling, dependency,
+  and failure behavior; none for unrun model quality or hardware suitability.
+- **Known limitations or ambiguity:** No SAM or DA3 adapter/checkpoint is wired,
+  no model benchmark or physical-device run occurred, and no `GATE-004`,
+  `GATE-007`, or `GATE-012` measurement is claimed. A real profile still needs
+  exact code/checkpoint/license pins, normalization and output semantics,
+  tolerance policy, hardware declaration, raw evidence, and gate passage.
+
 ## 10. Decision summary and unresolved empirical claims
 
 The evidence establishes safe APIs, versions, provenance, and license boundaries. It does **not** establish the following as facts: sustained base-device FPS/thermal behavior, semantic target quality, learned metric-depth accuracy, reveal credibility, provider latency/VRAM, reconnect recovery, or end-to-end voice reliability. Those are intentionally `REQUIRES_BENCHMARK` and are controlled by `GATE-003`, `GATE-004`, `GATE-006`, `GATE-007`, `GATE-010`, and `GATE-012` in [RISK_AND_KILL_GATES.md](RISK_AND_KILL_GATES.md).

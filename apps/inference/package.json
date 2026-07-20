@@ -1,0 +1,13 @@
+{
+  "name": "@reroom/inference",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "uv run --frozen python -m compileall -q src tests",
+    "dev": "uv run --frozen python -m reroom_inference.main",
+    "format": "uv run --frozen ruff format --check .",
+    "lint": "uv run --frozen ruff check .",
+    "test": "uv run --frozen pytest -q",
+    "typecheck": "uv run --frozen basedpyright"
+  }
+}

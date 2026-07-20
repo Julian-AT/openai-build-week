@@ -24,6 +24,7 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.venv/
 
 # Codex/GSD runtime is user-global and must never be vendored here
 .codex/

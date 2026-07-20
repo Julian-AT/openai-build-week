@@ -1,0 +1,72 @@
+[project]
+name = "reroom-inference"
+version = "0.1.0"
+description = "Private typed ReRoom computer-vision worker"
+requires-python = "==3.13.*"
+dependencies = [
+  "fastapi==0.139.2",
+  "pydantic==2.13.4",
+  "uvicorn==0.51.0",
+]
+
+[project.optional-dependencies]
+torch = ["torch==2.13.0"]
+
+[dependency-groups]
+dev = [
+  "basedpyright==1.39.9",
+  "httpx==0.28.1",
+  "pytest==9.1.1",
+  "ruff==0.15.22",
+]
+
+[build-system]
+requires = ["hatchling==1.28.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/reroom_inference"]
+
+[tool.uv]
+required-version = ">=0.9.26,<0.12"
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+  "B008",
+  "C901",
+  "COM812",
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D107",
+  "D203",
+  "D213",
+  "EM101",
+  "TC002",
+  "TC003",
+  "TRY003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["EM101", "PLR0913", "PLR2004", "S101", "S105", "TC001", "TRY003"]
+
+[tool.basedpyright]
+include = ["src", "tests"]
+pythonVersion = "3.13"
+typeCheckingMode = "strict"
+reportAny = "error"
+reportExplicitAny = "error"
+reportImplicitStringConcatenation = "error"
+reportUnusedFunction = "none"
