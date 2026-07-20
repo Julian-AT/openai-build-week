@@ -1,14 +1,11 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { test } from "bun:test";
 
 import type { ModelProposalResult } from "@reroom/ai";
 
-import {
-  createProposalService,
-  type SemanticProposalEnvelope,
-} from "../src/proposal-service.ts";
+import { createProposalService, type SemanticProposalEnvelope } from "../src/proposal-service.ts";
 import type { ProposalRequest } from "../src/protocol.ts";
 
 interface SemanticFixtureCase {
@@ -38,7 +35,10 @@ test("checked-in CON-006 vectors stay immutable and executable", async () => {
     "../../../fixtures/semantic-proposals/1.0.0/rev-001/cases.json",
     import.meta.url,
   );
-  const schemaURL = new URL("../../../docs/contracts/semantic-proposal.schema.json", import.meta.url);
+  const schemaURL = new URL(
+    "../../../docs/contracts/semantic-proposal.schema.json",
+    import.meta.url,
+  );
   const fixtures = JSON.parse(await readFile(fixtureURL, "utf8")) as SemanticFixtureSet;
   const schemaBytes = await readFile(schemaURL);
 

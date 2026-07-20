@@ -1,4 +1,4 @@
-import 'server-only';
+import "server-only";
 
 import { execFile as execFileCallback } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -57,10 +57,18 @@ type Effects = {
   mkdtemp: typeof mkdtemp;
   readFile: typeof readFile;
   remove: typeof rm;
-  execFile: (executable: string, args: readonly string[], options: ExecFileOptions) => Promise<{ stdout: string; stderr: string }>;
+  execFile: (
+    executable: string,
+    args: readonly string[],
+    options: ExecFileOptions,
+  ) => Promise<{ stdout: string; stderr: string }>;
 };
 
-function executeFile(executable: string, args: readonly string[], options: ExecFileOptions): Promise<{ stdout: string; stderr: string }> {
+function executeFile(
+  executable: string,
+  args: readonly string[],
+  options: ExecFileOptions,
+): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     execFileCallback(executable, args, options, (error, stdout, stderr) => {
       if (error) reject(error);
@@ -106,7 +114,12 @@ async function readProjectionInput(
     manifest: parseJson(await effects.readFile(path.join(archiveRoot, "manifest.json"))),
     eventPayloads,
     framePackets: [{ relativePath: FRAME_PATH, value: framePacket }],
-    imagePayloads: [{ relativePath: IMAGE_PATH, bytes: await effects.readFile(path.join(archiveRoot, IMAGE_PATH)) }],
+    imagePayloads: [
+      {
+        relativePath: IMAGE_PATH,
+        bytes: await effects.readFile(path.join(archiveRoot, IMAGE_PATH)),
+      },
+    ],
   };
 }
 
@@ -117,7 +130,11 @@ async function loadWithEffects(effects: Effects): Promise<GoldenReplayResult> {
     temporaryParent = await effects.mkdtemp(path.join(tmpdir(), "reroom-mode-b0-"));
     const copiedFixtureRoot = path.join(temporaryParent, "fixture");
     const outputRoot = path.join(temporaryParent, "reports");
-    await effects.copy(FIXTURE_ROOT, copiedFixtureRoot, { recursive: true, force: false, errorOnExist: true });
+    await effects.copy(FIXTURE_ROOT, copiedFixtureRoot, {
+      recursive: true,
+      force: false,
+      errorOnExist: true,
+    });
     const fixedArguments = [
       REPLAY_RUNNER,
       "--manifest",
@@ -158,6 +175,8 @@ export async function loadGoldenCapture(): Promise<GoldenReplayResult> {
   return loadWithEffects(defaultEffects);
 }
 
-export async function __loadGoldenCaptureForTesting(overrides: Partial<Effects>): Promise<GoldenReplayResult> {
+export async function __loadGoldenCaptureForTesting(
+  overrides: Partial<Effects>,
+): Promise<GoldenReplayResult> {
   return loadWithEffects({ ...defaultEffects, ...overrides });
 }

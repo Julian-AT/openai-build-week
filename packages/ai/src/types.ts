@@ -29,8 +29,5 @@ export interface ProposalGenerationRequest {
 }
 
 export interface ProposalGenerator {
-  generate(
-    request: ProposalGenerationRequest,
-    signal: AbortSignal,
-  ): Promise<ModelProposalResult>;
+  generate(request: ProposalGenerationRequest, signal: AbortSignal): Promise<ModelProposalResult>;
 }

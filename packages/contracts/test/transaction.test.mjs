@@ -1,8 +1,8 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { cp, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { test } from "bun:test";
 
 import { canonicalizeBytes } from "../src/canonical-json.mjs";
 import {
@@ -39,7 +39,10 @@ function assertComplete(result, bytes) {
     "packages/contracts/src/transaction.ts",
   ]);
   assert.deepEqual(result.operation_order, OPERATIONS);
-  assert.deepEqual(result.proposals.map(({ operation }) => operation), OPERATIONS);
+  assert.deepEqual(
+    result.proposals.map(({ operation }) => operation),
+    OPERATIONS,
+  );
   for (const proposal of result.proposals) {
     assert.equal(proposal.status, "accepted");
     assert.equal(proposal.authority, "proposal_only");
@@ -65,7 +68,10 @@ function assertComplete(result, bytes) {
   assert.equal(result.divergence.automatic_merge_permitted, false);
   assert.equal(result.divergence.mutation_frozen, true);
   assert.equal(result.cases.length, 24);
-  assert.deepEqual(result.cases.map(({ case_id }) => case_id), [...result.cases.map(({ case_id }) => case_id)].sort());
+  assert.deepEqual(
+    result.cases.map(({ case_id }) => case_id),
+    [...result.cases.map(({ case_id }) => case_id)].sort(),
+  );
   assert.equal(result.traces.length, 3);
   assert.match(result.fingerprints.place_request_sha256, /^[0-9a-f]{64}$/);
   assert.match(result.fingerprints.restore_request_sha256, /^[0-9a-f]{64}$/);
@@ -87,18 +93,37 @@ test("two isolated Bun publications are byte-identical", async () => {
   const temporary = await temporaryDirectory();
   const first = path.join(temporary, "first.json");
   const second = path.join(temporary, "second.json");
-  await runTransactionTrace({ manifestPath: MANIFEST, outputPath: first, repoRoot: ROOT, implementationRevision: REVISION });
-  await runTransactionTrace({ manifestPath: MANIFEST, outputPath: second, repoRoot: ROOT, implementationRevision: REVISION });
+  await runTransactionTrace({
+    manifestPath: MANIFEST,
+    outputPath: first,
+    repoRoot: ROOT,
+    implementationRevision: REVISION,
+  });
+  await runTransactionTrace({
+    manifestPath: MANIFEST,
+    outputPath: second,
+    repoRoot: ROOT,
+    implementationRevision: REVISION,
+  });
   assert.deepEqual(await readFile(first), await readFile(second));
 });
 
 test("runtime revision fixture and oracle drift reject before publication", async () => {
   await assert.rejects(
-    produceTransactionTrace({ manifestPath: MANIFEST, repoRoot: ROOT, implementationRevision: REVISION, runtimeVersion: "1.3.10" }),
+    produceTransactionTrace({
+      manifestPath: MANIFEST,
+      repoRoot: ROOT,
+      implementationRevision: REVISION,
+      runtimeVersion: "1.3.10",
+    }),
     /Bun 1\.3\.11 is required/,
   );
   await assert.rejects(
-    produceTransactionTrace({ manifestPath: MANIFEST, repoRoot: ROOT, implementationRevision: "git:HEAD" }),
+    produceTransactionTrace({
+      manifestPath: MANIFEST,
+      repoRoot: ROOT,
+      implementationRevision: "git:HEAD",
+    }),
     /git:<40-lowercase-hex>/,
   );
 
@@ -111,7 +136,12 @@ test("runtime revision fixture and oracle drift reject before publication", asyn
   await writeFile(expectedPath, `${JSON.stringify(expected, null, 2)}\n`);
   const output = path.join(temporary, "rejected.json");
   await assert.rejects(
-    runTransactionTrace({ manifestPath: path.join(fixture, "manifest.json"), outputPath: output, repoRoot: ROOT, implementationRevision: REVISION }),
+    runTransactionTrace({
+      manifestPath: path.join(fixture, "manifest.json"),
+      outputPath: output,
+      repoRoot: ROOT,
+      implementationRevision: REVISION,
+    }),
     /fixture|digest|oracle/,
   );
   await assert.rejects(stat(output), { code: "ENOENT" });
@@ -119,5 +149,8 @@ test("runtime revision fixture and oracle drift reject before publication", asyn
 
 test("producer source is closed and never imports another runtime output", async () => {
   const source = await readFile(path.join(ROOT, "packages/contracts/src/transaction.ts"), "utf8");
-  assert.doesNotMatch(source, /ReRoomTransactionTraceExporter|tools\/python|child_process|expected.*=.*actual/i);
+  assert.doesNotMatch(
+    source,
+    /ReRoomTransactionTraceExporter|tools\/python|child_process|expected.*=.*actual/i,
+  );
 });

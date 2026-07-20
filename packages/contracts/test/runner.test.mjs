@@ -1,14 +1,12 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "bun:test";
 import { fileURLToPath } from "node:url";
-
-import { loadFixture } from "../src/loader.mjs";
-import { executeContractCase } from "../src/schema-validator.mjs";
-import { executeJcsCase } from "../src/canonical-json.mjs";
-import { canonicalDigest } from "../src/canonical-json.mjs";
+import { canonicalDigest, executeJcsCase } from "../src/canonical-json.mjs";
 import { executeCoordinateCase } from "../src/coordinate.mjs";
+import { loadFixture } from "../src/loader.mjs";
 import { runFixture, validateRunnerResult } from "../src/runner.mjs";
+import { executeContractCase } from "../src/schema-validator.mjs";
 import { executeWireCase } from "../src/wire-frame.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
@@ -54,7 +52,9 @@ test("contract, JCS, wire, and path policies match the immutable oracle", async 
   }
 
   const coordinateFixture = await loadFixture(COORD_MANIFEST, { repoRoot: REPO_ROOT });
-  for (const fixtureCase of coordinateFixture.manifest.cases.filter(({ case_id }) => case_id.startsWith("wire."))) {
+  for (const fixtureCase of coordinateFixture.manifest.cases.filter(({ case_id }) =>
+    case_id.startsWith("wire."),
+  )) {
     assertMatchesOracle(fixtureCase, await executeWireCase(coordinateFixture, fixtureCase));
   }
 
@@ -64,7 +64,9 @@ test("contract, JCS, wire, and path policies match the immutable oracle", async 
 
 test("RR-COORD-1 operations match every immutable coordinate vector", async () => {
   const fixture = await loadFixture(COORD_MANIFEST, { repoRoot: REPO_ROOT });
-  for (const fixtureCase of fixture.manifest.cases.filter(({ case_id }) => case_id.startsWith("coord."))) {
+  for (const fixtureCase of fixture.manifest.cases.filter(({ case_id }) =>
+    case_id.startsWith("coord."),
+  )) {
     assertMatchesOracle(fixtureCase, await executeCoordinateCase(fixture, fixtureCase));
   }
 });

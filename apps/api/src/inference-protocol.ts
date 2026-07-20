@@ -222,14 +222,7 @@ export function parseInferenceJobResponse(
 function parseImage(value: unknown): InferenceImageInput {
   if (
     !isRecord(value) ||
-    !hasExactKeys(value, [
-      "frame_id",
-      "media_type",
-      "data_base64",
-      "sha256",
-      "width",
-      "height",
-    ]) ||
+    !hasExactKeys(value, ["frame_id", "media_type", "data_base64", "sha256", "width", "height"]) ||
     !matchesString(value.frame_id, frameIDPattern) ||
     value.media_type !== "image/jpeg" ||
     !matchesString(value.sha256, sha256Pattern) ||
@@ -401,7 +394,9 @@ function isBoundedString(value: unknown, minimum: number, maximum: number): valu
 }
 
 function isBoundedInteger(value: unknown, minimum: number, maximum: number): value is number {
-  return Number.isSafeInteger(value) && (value as number) >= minimum && (value as number) <= maximum;
+  return (
+    Number.isSafeInteger(value) && (value as number) >= minimum && (value as number) <= maximum
+  );
 }
 
 function invalidProtocol(): ProtocolError {

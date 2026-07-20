@@ -32,9 +32,12 @@ body {
   background:
     radial-gradient(circle at 12% 0%, rgba(42, 223, 158, 0.08), transparent 28rem),
     linear-gradient(rgba(125, 245, 196, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(125, 245, 196, 0.025) 1px, transparent 1px),
-    var(--bg);
-  background-size: auto, 36px 36px, 36px 36px, auto;
+    linear-gradient(90deg, rgba(125, 245, 196, 0.025) 1px, transparent 1px), var(--bg);
+  background-size:
+    auto,
+    36px 36px,
+    36px 36px,
+    auto;
   color: var(--text);
   font-family: var(--sans);
   font-size: 15px;
@@ -56,7 +59,10 @@ button {
   color: var(--text);
   cursor: pointer;
   font-weight: 680;
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
 }
 
 button:hover:not(:disabled) {
@@ -321,9 +327,7 @@ h3 {
   place-items: center;
   border: 1px solid rgba(125, 245, 196, 0.2);
   border-radius: 0.65rem;
-  background:
-    linear-gradient(135deg, rgba(125, 245, 196, 0.08), transparent 45%),
-    #050908;
+  background: linear-gradient(135deg, rgba(125, 245, 196, 0.08), transparent 45%), #050908;
   overflow: hidden;
 }
 
@@ -616,8 +620,8 @@ input[type="range"] {
   margin-top: 0.8rem;
 }
 
-.closed-state__note {
-  color: var(--faint) !important;
+.closed-state p.closed-state__note {
+  color: var(--faint);
   font-family: var(--mono);
   font-size: 0.7rem;
 }
@@ -734,9 +738,13 @@ input[type="range"] {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: the accessibility override must win every component cascade */
     scroll-behavior: auto !important;
+    /* biome-ignore lint/complexity/noImportantStyles: the accessibility override must win every component cascade */
     transition-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: the accessibility override must win every component cascade */
     animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: the accessibility override must win every component cascade */
     animation-iteration-count: 1 !important;
   }
 }

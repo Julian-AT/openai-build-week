@@ -1,8 +1,8 @@
 import {
-  parseInferenceJobResponse,
-  parseWorkerReadiness,
   type InferenceJobRequest,
   type InferenceJobResponse,
+  parseInferenceJobResponse,
+  parseWorkerReadiness,
   type WorkerReadiness,
 } from "./inference-protocol.ts";
 import { ProtocolError } from "./protocol.ts";
@@ -230,6 +230,7 @@ function hasJSONContentType(contentType: string | null): boolean {
 }
 
 function invalidWorkerResponse(cause: unknown): InferenceWorkerError {
-  const safeCause = cause instanceof ProtocolError || cause instanceof SyntaxError ? cause : undefined;
+  const safeCause =
+    cause instanceof ProtocolError || cause instanceof SyntaxError ? cause : undefined;
   return new InferenceWorkerError("upstream_failure", 502, { cause: safeCause });
 }

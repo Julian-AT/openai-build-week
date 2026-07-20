@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { test } from "bun:test";
+import assert from "node:assert/strict";
 
 import { moveTimelineIndex, selectTimelineIndex } from "../src/lib/replay/timeline.ts";
 
@@ -15,7 +15,10 @@ test("selection starts at zero and clamps to the verified event range", () => {
   assert.equal(selectTimelineIndex(EVENTS, 99), 2);
   assert.equal(selectTimelineIndex(EVENTS, 1.9), 1);
   assert.equal(selectTimelineIndex(EVENTS, Number.NaN), 0);
-  assert.deepEqual(EVENTS.map(({ eventId }) => eventId), ["event_0", "event_1", "event_2"]);
+  assert.deepEqual(
+    EVENTS.map(({ eventId }) => eventId),
+    ["event_0", "event_1", "event_2"],
+  );
 });
 
 test("previous and next transitions remain bounded without mutating events", () => {
@@ -25,7 +28,10 @@ test("previous and next transitions remain bounded without mutating events", () 
   assert.equal(moveTimelineIndex(EVENTS, 2, 1), 2);
   assert.equal(moveTimelineIndex(EVENTS, 2, -50), 0);
   assert.equal(moveTimelineIndex(EVENTS, 0, 50), 2);
-  assert.deepEqual(EVENTS.map(({ eventId }) => eventId), ["event_0", "event_1", "event_2"]);
+  assert.deepEqual(
+    EVENTS.map(({ eventId }) => eventId),
+    ["event_0", "event_1", "event_2"],
+  );
 });
 
 test("zero-event input produces no selectable timeline index", () => {

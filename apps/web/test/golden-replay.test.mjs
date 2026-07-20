@@ -1,9 +1,9 @@
+import { mock, test } from "bun:test";
 import assert from "node:assert/strict";
 import { execFile as execFileCallback } from "node:child_process";
 import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { mock, test } from "bun:test";
 import { promisify } from "node:util";
 
 import { runReplay } from "@reroom/contracts/replay";
@@ -26,10 +26,9 @@ const SANITIZED_REJECTION = {
 
 mock.module("server-only", () => ({}));
 
-const {
-  __loadGoldenCaptureForTesting,
-  loadGoldenCapture,
-} = await import("../src/lib/replay/load-golden-capture.server.ts");
+const { __loadGoldenCaptureForTesting, loadGoldenCapture } = await import(
+  "../src/lib/replay/load-golden-capture.server.ts"
+);
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
@@ -96,8 +95,19 @@ test("accepted exact replay projects one serializable authoritative view", async
   assert.equal(replay.archive.finalizationState, "finalized");
   assert.equal(replay.events.length, 7);
   assert.deepEqual(
-    replay.events.map(({ eventSequence, durableJournalSequence }) => [eventSequence, durableJournalSequence]),
-    [[0, 0], [1, 1], [2, 2], [3, 4], [4, 5], [5, 6], [6, 7]],
+    replay.events.map(({ eventSequence, durableJournalSequence }) => [
+      eventSequence,
+      durableJournalSequence,
+    ]),
+    [
+      [0, 0],
+      [1, 1],
+      [2, 2],
+      [3, 4],
+      [4, 5],
+      [5, 6],
+      [6, 7],
+    ],
   );
   assert.equal(replay.events[0].eventId, "event_00000002-0000-4000-8000-000000000001");
   assert.equal(replay.events[0].monotonicTimestampNs, "1000002000");
@@ -133,21 +143,97 @@ test("accepted exact replay projects one serializable authoritative view", async
 
 test("report and archive identity mismatches reject before a view exists", async () => {
   const mutations = [
-    ["verdict", (input) => { input.report.verdict = "reject"; }],
-    ["rejection", (input) => { input.report.rejection = { rejection_class: "semantic_invariant", detail: "private" }; }],
-    ["fixture id", (input) => { input.report.fixture.fixture_id = "FX-CAPTURE-999"; }],
-    ["fixture revision", (input) => { input.report.fixture.fixture_revision = "rev-999"; }],
-    ["fixture digest", (input) => { input.report.fixture.manifest_sha256 = "0".repeat(64); }],
-    ["report digest", (input) => { input.report.report_sha256 = "0".repeat(64); }],
-    ["archive case", (input) => { input.report.archive.case_id = "archive.finalized-empty"; }],
-    ["archive name", (input) => { input.report.archive.archive_name = "finalized-empty.rrcap"; }],
-    ["finalization", (input) => { input.report.archive.finalization_state = "recovered_prefix"; }],
-    ["frame count", (input) => { input.report.archive.accepted_frame_count = 2; }],
-    ["event count", (input) => { input.report.archive.event_count = 8; }],
-    ["journal count", (input) => { input.report.archive.journal_record_count = 9; }],
-    ["archive digest", (input) => { input.report.archive.manifest_sha256 = "0".repeat(64); }],
-    ["projection digest", (input) => { input.report.digests.event_projection_sha256 = "0".repeat(64); }],
-    ["implementation revision", (input) => { input.report.implementation.repository_revision = "git:0000000000000000000000000000000000000000"; }],
+    [
+      "verdict",
+      (input) => {
+        input.report.verdict = "reject";
+      },
+    ],
+    [
+      "rejection",
+      (input) => {
+        input.report.rejection = { rejection_class: "semantic_invariant", detail: "private" };
+      },
+    ],
+    [
+      "fixture id",
+      (input) => {
+        input.report.fixture.fixture_id = "FX-CAPTURE-999";
+      },
+    ],
+    [
+      "fixture revision",
+      (input) => {
+        input.report.fixture.fixture_revision = "rev-999";
+      },
+    ],
+    [
+      "fixture digest",
+      (input) => {
+        input.report.fixture.manifest_sha256 = "0".repeat(64);
+      },
+    ],
+    [
+      "report digest",
+      (input) => {
+        input.report.report_sha256 = "0".repeat(64);
+      },
+    ],
+    [
+      "archive case",
+      (input) => {
+        input.report.archive.case_id = "archive.finalized-empty";
+      },
+    ],
+    [
+      "archive name",
+      (input) => {
+        input.report.archive.archive_name = "finalized-empty.rrcap";
+      },
+    ],
+    [
+      "finalization",
+      (input) => {
+        input.report.archive.finalization_state = "recovered_prefix";
+      },
+    ],
+    [
+      "frame count",
+      (input) => {
+        input.report.archive.accepted_frame_count = 2;
+      },
+    ],
+    [
+      "event count",
+      (input) => {
+        input.report.archive.event_count = 8;
+      },
+    ],
+    [
+      "journal count",
+      (input) => {
+        input.report.archive.journal_record_count = 9;
+      },
+    ],
+    [
+      "archive digest",
+      (input) => {
+        input.report.archive.manifest_sha256 = "0".repeat(64);
+      },
+    ],
+    [
+      "projection digest",
+      (input) => {
+        input.report.digests.event_projection_sha256 = "0".repeat(64);
+      },
+    ],
+    [
+      "implementation revision",
+      (input) => {
+        input.report.implementation.repository_revision =
+          "git:0000000000000000000000000000000000000000";
+      },
+    ],
   ];
 
   for (const [name, mutate] of mutations) {
@@ -159,14 +245,54 @@ test("report and archive identity mismatches reject before a view exists", async
 
 test("missing or changed verified members reject instead of producing partial data", async () => {
   const mutations = [
-    ["privacy", (input) => { delete input.manifest.privacy; }],
-    ["event path", (input) => { input.manifest.events[0].payload_path = "events/other.json"; }],
-    ["event payload", (input) => { input.eventPayloads[0].value.type = "session_finalized"; }],
-    ["frame path", (input) => { input.manifest.accepted_frame_order[0].packet_path = "frames/other.json"; }],
-    ["packet digest", (input) => { input.manifest.accepted_frame_order[0].packet_sha256 = "0".repeat(64); }],
-    ["image path", (input) => { input.framePackets[0].value.image.payload.relative_path = "image/other.png"; }],
-    ["image digest", (input) => { input.framePackets[0].value.image.payload.sha256 = "0".repeat(64); }],
-    ["image bytes", (input) => { input.imagePayloads[0].bytes = Buffer.from("not the verified png"); }],
+    [
+      "privacy",
+      (input) => {
+        delete input.manifest.privacy;
+      },
+    ],
+    [
+      "event path",
+      (input) => {
+        input.manifest.events[0].payload_path = "events/other.json";
+      },
+    ],
+    [
+      "event payload",
+      (input) => {
+        input.eventPayloads[0].value.type = "session_finalized";
+      },
+    ],
+    [
+      "frame path",
+      (input) => {
+        input.manifest.accepted_frame_order[0].packet_path = "frames/other.json";
+      },
+    ],
+    [
+      "packet digest",
+      (input) => {
+        input.manifest.accepted_frame_order[0].packet_sha256 = "0".repeat(64);
+      },
+    ],
+    [
+      "image path",
+      (input) => {
+        input.framePackets[0].value.image.payload.relative_path = "image/other.png";
+      },
+    ],
+    [
+      "image digest",
+      (input) => {
+        input.framePackets[0].value.image.payload.sha256 = "0".repeat(64);
+      },
+    ],
+    [
+      "image bytes",
+      (input) => {
+        input.imagePayloads[0].bytes = Buffer.from("not the verified png");
+      },
+    ],
   ];
 
   for (const [name, mutate] of mutations) {
@@ -234,11 +360,20 @@ test("server-only loader invokes the exact fixed CLI and cleans temporary output
 });
 
 test("runner, report, JSON, and cleanup failures return one sanitized rejection", async () => {
-  for (const scenario of ["runner_failure", "missing_report", "malformed_report", "cleanup_failure"]) {
+  for (const scenario of [
+    "runner_failure",
+    "missing_report",
+    "malformed_report",
+    "cleanup_failure",
+  ]) {
     const probe = await runLoaderProbe(scenario);
     assert.deepEqual(probe.result, SANITIZED_REJECTION, scenario);
     assert.equal(probe.temporaryParentExists, false, scenario);
     const exposed = JSON.stringify(probe.result);
-    assert.doesNotMatch(exposed, /private|\/tmp|runner-secret|cleanup-secret|stack|\.rrcap/i, scenario);
+    assert.doesNotMatch(
+      exposed,
+      /private|\/tmp|runner-secret|cleanup-secret|stack|\.rrcap/i,
+      scenario,
+    );
   }
 });

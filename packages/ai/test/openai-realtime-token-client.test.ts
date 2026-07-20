@@ -1,10 +1,7 @@
-import assert from "node:assert/strict";
 import { test } from "bun:test";
+import assert from "node:assert/strict";
 
-import {
-  createOpenAIRealtimeTokenService,
-  REALTIME_MODEL,
-} from "../src/index.ts";
+import { createOpenAIRealtimeTokenService, REALTIME_MODEL } from "../src/index.ts";
 
 test("the AI SDK Realtime adapter creates a closed push-to-talk session", async () => {
   let requestedURL: string | undefined;

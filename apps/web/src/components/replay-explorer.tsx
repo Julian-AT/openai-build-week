@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import Image from "next/image";
 import { useState } from "react";
@@ -29,22 +29,20 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(() =>
     selectTimelineIndex(replay.events, 0),
   );
-  const selectedEvent = selectedIndex === null ? null : replay.events[selectedIndex] ?? null;
+  const selectedEvent = selectedIndex === null ? null : (replay.events[selectedIndex] ?? null);
   const referencedFrameId = selectedEvent === null ? null : eventFrameId(selectedEvent);
   const selectedFrame =
     (referencedFrameId === null
       ? null
-      : replay.frames.find(({ frameId }) => frameId === referencedFrameId))
-    ?? replay.frames[0]
-    ?? null;
+      : replay.frames.find(({ frameId }) => frameId === referencedFrameId)) ??
+    replay.frames[0] ??
+    null;
 
   const selectIndex = (requestedIndex: number) => {
     setSelectedIndex(selectTimelineIndex(replay.events, requestedIndex));
   };
   const moveIndex = (offset: number) => {
-    setSelectedIndex((currentIndex) =>
-      moveTimelineIndex(replay.events, currentIndex ?? 0, offset),
-    );
+    setSelectedIndex((currentIndex) => moveTimelineIndex(replay.events, currentIndex ?? 0, offset));
   };
 
   return (
@@ -68,7 +66,9 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
         </div>
         <div>
           <span className="eyebrow">Provider lock</span>
-          <strong className="status-value">{replay.archive.providerLock.length === 0 ? "none" : "present"}</strong>
+          <strong className="status-value">
+            {replay.archive.providerLock.length === 0 ? "none" : "present"}
+          </strong>
         </div>
       </section>
 
@@ -101,19 +101,27 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
               <dl className="metric-grid">
                 <div>
                   <dt>Frame ID</dt>
-                  <dd><code>{selectedFrame.frameId}</code></dd>
+                  <dd>
+                    <code>{selectedFrame.frameId}</code>
+                  </dd>
                 </div>
                 <div>
                   <dt>Device time</dt>
-                  <dd><code>{selectedFrame.monotonicTimestampNs} ns</code></dd>
+                  <dd>
+                    <code>{selectedFrame.monotonicTimestampNs} ns</code>
+                  </dd>
                 </div>
                 <div>
                   <dt>Journal</dt>
-                  <dd><code>#{selectedFrame.durableJournalSequence}</code></dd>
+                  <dd>
+                    <code>#{selectedFrame.durableJournalSequence}</code>
+                  </dd>
                 </div>
                 <div>
                   <dt>Tracking</dt>
-                  <dd><code>{String(selectedFrame.tracking.state)}</code></dd>
+                  <dd>
+                    <code>{String(selectedFrame.tracking.state)}</code>
+                  </dd>
                 </div>
               </dl>
             </>
@@ -168,13 +176,35 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
               </div>
 
               <div className="selected-event" aria-live="polite" aria-atomic="true">
-                <div className="event-index">EVENT {String(selectedEvent.eventSequence).padStart(2, "0")}</div>
+                <div className="event-index">
+                  EVENT {String(selectedEvent.eventSequence).padStart(2, "0")}
+                </div>
                 <h3>{selectedEvent.type}</h3>
                 <dl className="inspector-list">
-                  <div><dt>Stable ID</dt><dd><code>{selectedEvent.eventId}</code></dd></div>
-                  <div><dt>Event sequence</dt><dd><code>{selectedEvent.eventSequence}</code></dd></div>
-                  <div><dt>Journal sequence</dt><dd><code>{selectedEvent.durableJournalSequence}</code></dd></div>
-                  <div><dt>Monotonic time</dt><dd><code>{selectedEvent.monotonicTimestampNs} ns</code></dd></div>
+                  <div>
+                    <dt>Stable ID</dt>
+                    <dd>
+                      <code>{selectedEvent.eventId}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Event sequence</dt>
+                    <dd>
+                      <code>{selectedEvent.eventSequence}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Journal sequence</dt>
+                    <dd>
+                      <code>{selectedEvent.durableJournalSequence}</code>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Monotonic time</dt>
+                    <dd>
+                      <code>{selectedEvent.monotonicTimestampNs} ns</code>
+                    </dd>
+                  </div>
                 </dl>
                 <details className="payload-details" open>
                   <summary>Verified event payload</summary>
@@ -194,14 +224,56 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
             <span className="signal-chip signal-chip--available">verified</span>
           </div>
           <dl className="inspector-list">
-            <div><dt>Fixture</dt><dd><code>{replay.verification.fixtureId} / {replay.verification.fixtureRevision}</code></dd></div>
-            <div><dt>Archive</dt><dd><code>{replay.archive.archiveName}</code></dd></div>
-            <div><dt>Report SHA-256</dt><dd><code>{replay.verification.reportSha256}</code></dd></div>
-            <div><dt>Manifest SHA-256</dt><dd><code>{replay.archive.manifestSha256}</code></dd></div>
-            <div><dt>Event projection</dt><dd><code>{replay.archive.digests.eventProjectionSha256}</code></dd></div>
-            <div><dt>Frame projection</dt><dd><code>{replay.archive.digests.frameProjectionSha256}</code></dd></div>
-            <div><dt>Journal tuples</dt><dd><code>{replay.archive.digests.journalTupleSha256}</code></dd></div>
-            <div><dt>Revision trace</dt><dd><code>{replay.archive.digests.revisionTraceSha256}</code></dd></div>
+            <div>
+              <dt>Fixture</dt>
+              <dd>
+                <code>
+                  {replay.verification.fixtureId} / {replay.verification.fixtureRevision}
+                </code>
+              </dd>
+            </div>
+            <div>
+              <dt>Archive</dt>
+              <dd>
+                <code>{replay.archive.archiveName}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Report SHA-256</dt>
+              <dd>
+                <code>{replay.verification.reportSha256}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Manifest SHA-256</dt>
+              <dd>
+                <code>{replay.archive.manifestSha256}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Event projection</dt>
+              <dd>
+                <code>{replay.archive.digests.eventProjectionSha256}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Frame projection</dt>
+              <dd>
+                <code>{replay.archive.digests.frameProjectionSha256}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Journal tuples</dt>
+              <dd>
+                <code>{replay.archive.digests.journalTupleSha256}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Revision trace</dt>
+              <dd>
+                <code>{replay.archive.digests.revisionTraceSha256}</code>
+              </dd>
+            </div>
           </dl>
         </section>
 
@@ -214,15 +286,46 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
             <span className="signal-chip">local only</span>
           </div>
           <dl className="inspector-list">
-            <div><dt>Capture consent</dt><dd><code>{String(replay.privacy.captureConsentRecorded)}</code></dd></div>
-            <div><dt>Room imagery</dt><dd><code>{String(replay.privacy.containsRoomImagery)}</code></dd></div>
-            <div><dt>Retention policy</dt><dd><code>{replay.privacy.retentionPolicy}</code></dd></div>
-            <div><dt>Share access</dt><dd><code>{replay.privacy.shareAccessState}</code></dd></div>
-            <div><dt>Deletion state</dt><dd><code>{replay.privacy.deletionState}</code></dd></div>
-            <div><dt>Browser persistence</dt><dd><code>{replay.privacy.browserPersistence}</code></dd></div>
+            <div>
+              <dt>Capture consent</dt>
+              <dd>
+                <code>{String(replay.privacy.captureConsentRecorded)}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Room imagery</dt>
+              <dd>
+                <code>{String(replay.privacy.containsRoomImagery)}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Retention policy</dt>
+              <dd>
+                <code>{replay.privacy.retentionPolicy}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Share access</dt>
+              <dd>
+                <code>{replay.privacy.shareAccessState}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Deletion state</dt>
+              <dd>
+                <code>{replay.privacy.deletionState}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Browser persistence</dt>
+              <dd>
+                <code>{replay.privacy.browserPersistence}</code>
+              </dd>
+            </div>
           </dl>
           <p className="panel-note">
-            Closing this tab discards the selected timeline position. No browser or server session is created.
+            Closing this tab discards the selected timeline position. No browser or server session
+            is created.
           </p>
         </section>
 
@@ -243,7 +346,9 @@ export function ReplayExplorer({ replay }: ReplayExplorerProps) {
               <dd>{absenceText(replay.content.transactions)}</dd>
             </div>
           </dl>
-          <p className="panel-note">No geometry, edit history, or provider output is inferred from lifecycle events.</p>
+          <p className="panel-note">
+            No geometry, edit history, or provider output is inferred from lifecycle events.
+          </p>
         </section>
 
         <section className="panel capability-panel" aria-labelledby="capability-title">

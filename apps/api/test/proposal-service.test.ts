@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
 import { test } from "bun:test";
+import assert from "node:assert/strict";
 
 import { createProposalService } from "../src/proposal-service.ts";
 import type { ProposalRequest } from "../src/protocol.ts";
@@ -211,10 +211,7 @@ test("a clarification result preserves trusted context without an intent", async
   assert.equal(envelope.intent, null);
   assert.equal(envelope.semantic_model.response_id, "resp_clarify");
   assert.deepEqual(envelope.request_context, request.request_context);
-  assert.equal(
-    envelope.clarification,
-    "Would you like the warm chair or the cobalt chair?",
-  );
+  assert.equal(envelope.clarification, "Would you like the warm chair or the cobalt chair?");
 });
 
 test("model-produced URLs never enter the semantic envelope", async () => {

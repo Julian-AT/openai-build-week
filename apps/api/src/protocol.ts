@@ -25,7 +25,12 @@ export function parseProposalRequest(value: unknown): ProposalRequest {
   if (!isRecord(value)) {
     throw new ProtocolError("invalid_request");
   }
-  const allowedRequestKeys = new Set(["prompt", "image_data_url", "ingress_source", "request_context"]);
+  const allowedRequestKeys = new Set([
+    "prompt",
+    "image_data_url",
+    "ingress_source",
+    "request_context",
+  ]);
   if (
     !["prompt", "ingress_source", "request_context"].every((key) => key in value) ||
     !Object.keys(value).every((key) => allowedRequestKeys.has(key))

@@ -707,7 +707,8 @@ Exact artifact revision and license are separate questions: a repository code li
   package-local links. Fifty-seven Bun tests, all workspace TypeScript checks,
   the Next.js production build, and 172 Swift package tests across 27 suites
   passed from the new `apps/` and `packages/` paths. Runtime dependencies remain
-  in the workspace that imports them; the root owns only Turbo.
+  in the workspace that imports them; the root owns only cross-workspace and
+  repository-wide development tooling.
 - **Confidence:** High for the exact local macOS workspace and locked dependency
   tree.
 - **Known limitations or ambiguity:** Historical revision-bound evidence still
@@ -822,6 +823,49 @@ Exact artifact revision and license are separate questions: a repository code li
   `GATE-007`, or `GATE-012` measurement is claimed. A real profile still needs
   exact code/checkpoint/license pins, normalization and output semantics,
   tolerance policy, hardware declaration, raw evidence, and gate passage.
+
+### CLM-047 — Repository hooks and static analysis are pinned reproducibility aids
+
+- **Claim:** Husky can install project-owned Git hooks through a `prepare`
+  lifecycle, lint-staged can restrict fast checks to staged files, and Biome can
+  perform deterministic non-mutating CI checks or apply safe local fixes. These
+  tools shorten feedback but do not replace server-side verification.
+- **Status:** `MEASURED`
+- **Decision or requirement affected:** Hackathon repository operation,
+  reproducible engineering gates, `SEC-CREDENTIAL-001`, and the autonomous
+  finish overlay. No product contract or architecture decision changes.
+- **Source title:** Husky get started and CI guidance; lint-staged
+  configuration and TypeScript guidance; Biome formatter/linter CLI guidance;
+  exact npm artifacts.
+- **Source URL:** https://github.com/typicode/husky/blob/v9.1.7/docs/get-started.md ;
+  https://github.com/lint-staged/lint-staged/blob/main/README.md ;
+  https://github.com/biomejs/biome/blob/main/README.md ;
+  https://registry.npmjs.org/husky/9.1.7 ;
+  https://registry.npmjs.org/lint-staged/17.1.0 ;
+  https://registry.npmjs.org/@biomejs/biome/2.5.4
+- **Source type:** Official project documentation, npm publisher metadata,
+  exact Bun lockfile, and reproducible local checks.
+- **Publication/release date:** Package versions current as retrieved
+  2026-07-20; documentation page dates not stated.
+- **Retrieval date:** 2026-07-20.
+- **Exact version/tag/revision:** `husky@9.1.7`, integrity
+  `sha512-5gs5ytaNjBrh5Ow3zrvdUUY+0VxIuWVL4i9irt6friV+BqdCfmV11CQTWMiBYWHbXhco+J1kHfTOUkePhCDvMA==`,
+  MIT; `lint-staged@17.1.0`, integrity
+  `sha512-d7UQRu/9ZPgfu4+hu/k0wny5GEaIxo+2jb2LJqQDkE7cHRTm1HGqNUDq5UOwsGPpjpaNAFmgAsYo3TR+i9cSJw==`,
+  MIT; `@biomejs/biome@2.5.4`, integrity
+  `sha512-xy5FNE5kQJKyK5MR1gJy6ztXYx4WBAbYGlK04lMEgmyPRWKybY9NFwiG9yo0XdzOU8Xvhj41u034J1ywfoWfMw==`,
+  MIT OR Apache-2.0.
+- **Evidence summary:** Biome formats and lints 51 JavaScript/TypeScript/CSS/JSON
+  files; Ruff formats and lints the private Python worker; strict TypeScript and
+  BasedPyright checks pass; 80 Bun/Python tests and all production builds pass;
+  lockfile policy, the existing tracked-file secret scan, and `git diff --check`
+  pass. The hook invokes staged checks plus the secret scan, while CI reruns the
+  complete clean-tree matrix independently.
+- **Confidence:** High for the exact locked tools and local execution.
+- **Known limitations or ambiguity:** Hooks can be bypassed and local caches can
+  be stale. GitHub Actions, clean frozen installs, and branch protection remain
+  the authoritative collaboration gates; physical-device, provider, and human
+  evidence remains outside this tooling.
 
 ## 10. Decision summary and unresolved empirical claims
 

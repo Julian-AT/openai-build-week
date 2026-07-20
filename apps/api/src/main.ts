@@ -8,7 +8,7 @@ import { CURATED_CATALOG } from "./catalog.ts";
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
 import { createProposalService } from "./proposal-service.ts";
 import { MODEL_PROPOSAL_OUTPUT_SCHEMA } from "./semantic-schema.ts";
-import { createGatewayApp, MAX_REQUEST_BYTES, type GatewayLogRecord } from "./server.ts";
+import { createGatewayApp, type GatewayLogRecord, MAX_REQUEST_BYTES } from "./server.ts";
 
 const host = process.env.REROOM_GATEWAY_HOST?.trim() || "0.0.0.0";
 const port = parsePort(process.env.REROOM_GATEWAY_PORT);

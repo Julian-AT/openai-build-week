@@ -13,7 +13,8 @@ const ARCHIVE_MANIFEST_SHA256 = "2a6454e6014eb294bee94be36569ce94c6a49adaa3c77e0
 const REPORT_SHA256 = "26fc0c001c26446cfda9522fc6cdbbb81f30137785d693c0f965a4fbc5090a6f";
 const IMAGE_SHA256 = "431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f265460";
 const PACKET_SHA256 = "cc387742b8b7bc99fbcc9b4e0171ab35626af3e349a71806a57ba9c00f5f7d7f";
-const IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+const IMAGE_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 const DIGESTS = {
   event_projection_sha256: "869db922b2e28b7534be6d1ee99dd9202d82eee60f8f3251f66b575f80b8b14b",
   frame_projection_sha256: "0f710fc1527b278bd3b3c8f137487b5690de5ab2e14049a8f37ccee26ddc0466",
@@ -93,7 +94,9 @@ function mapPaths<T extends PathValue | PathBytes>(values: readonly T[]): Map<st
   return mapped;
 }
 
-export function assertAcceptedGoldenReport(value: unknown): asserts value is Record<string, unknown> {
+export function assertAcceptedGoldenReport(
+  value: unknown,
+): asserts value is Record<string, unknown> {
   const report = record(value);
   exact(report.report_version, "1.0.0");
   exact(report.verdict, "accept");
@@ -128,7 +131,10 @@ export function assertAcceptedGoldenReport(value: unknown): asserts value is Rec
   for (const [name, digest] of Object.entries(DIGESTS)) exact(digests[name], digest);
 }
 
-function projectEvents(manifest: Record<string, unknown>, payloadInputs: readonly PathValue[]): ReplayEventView[] {
+function projectEvents(
+  manifest: Record<string, unknown>,
+  payloadInputs: readonly PathValue[],
+): ReplayEventView[] {
   const payloads = mapPaths(payloadInputs);
   const events = list(manifest.events);
   exact(events.length, 7);
@@ -224,17 +230,67 @@ function projectFrames(
 
 function capabilityRows(): ReplayCapability[] {
   return [
-    { id: "verified_replay", label: "Verified replay", state: "available", detail: "Accepted by the exact Phase 2 runner." },
-    { id: "timeline", label: "Authoritative timeline", state: "available", detail: "Ordered by the verified event and journal sequences." },
-    { id: "frame_preview", label: "Accepted frame preview", state: "available", detail: "One synthetic manifest-bound PNG." },
+    {
+      id: "verified_replay",
+      label: "Verified replay",
+      state: "available",
+      detail: "Accepted by the exact Phase 2 runner.",
+    },
+    {
+      id: "timeline",
+      label: "Authoritative timeline",
+      state: "available",
+      detail: "Ordered by the verified event and journal sequences.",
+    },
+    {
+      id: "frame_preview",
+      label: "Accepted frame preview",
+      state: "available",
+      detail: "One synthetic manifest-bound PNG.",
+    },
     { id: "scene", label: "Scene", state: "not_present", detail: "Not present in this capture." },
-    { id: "transactions", label: "Transactions", state: "not_present", detail: "Not present in this capture." },
-    { id: "sparse_geometry", label: "Sparse geometry", state: "not_present", detail: "Not present in this capture." },
-    { id: "providers", label: "Learned providers", state: "unavailable", detail: "Disabled for the provider-independent sprint slice." },
-    { id: "sharing", label: "Sharing", state: "unavailable", detail: "Deferred; the fixture remains local only." },
-    { id: "typed_proposals", label: "Typed proposals", state: "unavailable", detail: "Deferred; this replay is inspection-only." },
-    { id: "ordinary_video", label: "Ordinary video", state: "unavailable", detail: "Deferred; only the fixed capture is supported." },
-    { id: "live_phone", label: "Live phone", state: "unavailable", detail: "No live device connection is used." },
+    {
+      id: "transactions",
+      label: "Transactions",
+      state: "not_present",
+      detail: "Not present in this capture.",
+    },
+    {
+      id: "sparse_geometry",
+      label: "Sparse geometry",
+      state: "not_present",
+      detail: "Not present in this capture.",
+    },
+    {
+      id: "providers",
+      label: "Learned providers",
+      state: "unavailable",
+      detail: "Disabled for the provider-independent sprint slice.",
+    },
+    {
+      id: "sharing",
+      label: "Sharing",
+      state: "unavailable",
+      detail: "Deferred; the fixture remains local only.",
+    },
+    {
+      id: "typed_proposals",
+      label: "Typed proposals",
+      state: "unavailable",
+      detail: "Deferred; this replay is inspection-only.",
+    },
+    {
+      id: "ordinary_video",
+      label: "Ordinary video",
+      state: "unavailable",
+      detail: "Deferred; only the fixed capture is supported.",
+    },
+    {
+      id: "live_phone",
+      label: "Live phone",
+      state: "unavailable",
+      detail: "No live device connection is used.",
+    },
   ];
 }
 

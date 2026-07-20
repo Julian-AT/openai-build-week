@@ -1,14 +1,12 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { test } from "bun:test";
 import { fileURLToPath } from "node:url";
-
-import { runFixture } from "../src/runner.mjs";
 import { executeCoordinateOperation } from "../src/coordinate.mjs";
-
+import { runFixture } from "../src/runner.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const REVISION = `git:${"0".repeat(40)}`;
@@ -19,10 +17,9 @@ const MANIFESTS = {
 };
 
 test("frozen RR-COORD runtime boundaries match JavaScript", async () => {
-  const fixture = await readJson(path.join(
-    REPO_ROOT,
-    "tools/verify/fixtures/rr-coord-runtime-boundaries.json",
-  ));
+  const fixture = await readJson(
+    path.join(REPO_ROOT, "tools/verify/fixtures/rr-coord-runtime-boundaries.json"),
+  );
   for (const fixtureCase of fixture.cases) {
     if (fixtureCase.expected === "accept") {
       assert.doesNotThrow(() => executeCoordinateOperation(fixtureCase.input), fixtureCase.case_id);
@@ -32,14 +29,15 @@ test("frozen RR-COORD runtime boundaries match JavaScript", async () => {
   }
 });
 
-
 async function copiedRepository(operation) {
   const temporary = await mkdtemp(path.join(tmpdir(), "reroom-js-mutations-"));
   const root = path.join(temporary, "repo");
   await mkdir(root);
   await cp(path.join(REPO_ROOT, "fixtures"), path.join(root, "fixtures"), { recursive: true });
   await mkdir(path.join(root, "docs"));
-  await cp(path.join(REPO_ROOT, "docs/contracts"), path.join(root, "docs/contracts"), { recursive: true });
+  await cp(path.join(REPO_ROOT, "docs/contracts"), path.join(root, "docs/contracts"), {
+    recursive: true,
+  });
   try {
     return await operation(root);
   } finally {
@@ -47,21 +45,17 @@ async function copiedRepository(operation) {
   }
 }
 
-
 function digest(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
-
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
 }
 
-
 async function writeManifest(manifestPath, manifest) {
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 }
-
 
 async function pointAcceptedCaseAtRejectedCase(root, family, targetId, sourceId) {
   const manifestPath = path.join(root, MANIFESTS[family]);
@@ -74,7 +68,6 @@ async function pointAcceptedCaseAtRejectedCase(root, family, targetId, sourceId)
   await writeManifest(manifestPath, manifest);
   return { manifestPath, targetId };
 }
-
 
 async function mutateAcceptedCoordinate(root, targetId, mutate) {
   const manifestPath = path.join(root, MANIFESTS.coord);
@@ -92,17 +85,11 @@ async function mutateAcceptedCoordinate(root, targetId, mutate) {
   return { manifestPath, targetId };
 }
 
-
 async function assertMutationRejected(config) {
   await copiedRepository(async (root) => {
     const prepared = config.mutate
       ? await mutateAcceptedCoordinate(root, config.target, config.mutate)
-      : await pointAcceptedCaseAtRejectedCase(
-          root,
-          config.family,
-          config.target,
-          config.source,
-        );
+      : await pointAcceptedCaseAtRejectedCase(root, config.family, config.target, config.source);
     const result = await runFixture(prepared.manifestPath, {
       repoRoot: root,
       implementationRevision: REVISION,
@@ -116,20 +103,19 @@ async function assertMutationRejected(config) {
   });
 }
 
-
 async function treeHashes(root) {
   const hashes = {};
   async function visit(directory) {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
       const absolute = path.join(directory, entry.name);
       if (entry.isDirectory()) await visit(absolute);
-      else if (entry.isFile()) hashes[path.relative(root, absolute)] = digest(await readFile(absolute));
+      else if (entry.isFile())
+        hashes[path.relative(root, absolute)] = digest(await readFile(absolute));
     }
   }
   await visit(root);
   return hashes;
 }
-
 
 test("JavaScript runtime kills contract, JCS, RRFP, path, and coordinate mutations", async () => {
   const before = await treeHashes(path.join(REPO_ROOT, "fixtures"));

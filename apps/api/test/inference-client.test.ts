@@ -1,7 +1,6 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-
-import { test } from "bun:test";
 
 import {
   createInferenceWorkerClient,
@@ -45,9 +44,7 @@ test("worker client accepts only private-safe origins and a bounded token", () =
   assert.throws(() =>
     createInferenceWorkerClient({ baseURL: "http://127.0.0.1:8790/private", token: "secret" }),
   );
-  assert.throws(() =>
-    createInferenceWorkerClient({ baseURL: "http://127.0.0.1:8790", token: "" }),
-  );
+  assert.throws(() => createInferenceWorkerClient({ baseURL: "http://127.0.0.1:8790", token: "" }));
 });
 
 test("worker environment configuration is either complete or disabled", () => {
@@ -146,8 +143,7 @@ test("worker client bounds responses and hides upstream error bodies", async () 
   const failed = createInferenceWorkerClient({
     baseURL: "http://[::1]:8790",
     token: "internal-worker-token",
-    fetch: async () =>
-      Response.json({ error: "PRIVATE_WORKER_DETAIL" }, { status: 503 }),
+    fetch: async () => Response.json({ error: "PRIVATE_WORKER_DETAIL" }, { status: 503 }),
   });
   await assert.rejects(
     () => failed.run(request, new AbortController().signal),

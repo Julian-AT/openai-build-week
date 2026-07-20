@@ -20,10 +20,7 @@ export interface RealtimeTokenService {
   mint(signal: AbortSignal): Promise<RealtimeClientToken>;
 }
 
-type FetchImplementation = (
-  input: RequestInfo | URL,
-  init?: RequestInit,
-) => Promise<Response>;
+type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface OpenAIRealtimeTokenServiceOptions {
   apiKey: string;

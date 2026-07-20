@@ -1,11 +1,11 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 
 import type { RealtimeTokenService } from "@reroom/ai";
-import { Hono, type Context } from "hono";
+import { type Context, Hono } from "hono";
 
-import { InferenceWorkerError, type InferenceService } from "./inference-client.ts";
+import { type InferenceService, InferenceWorkerError } from "./inference-client.ts";
 import { parseInferenceJobRequest } from "./inference-protocol.ts";
-import { parseProposalRequest, ProtocolError, type ProposalRequest } from "./protocol.ts";
+import { type ProposalRequest, ProtocolError, parseProposalRequest } from "./protocol.ts";
 import { parseJSONBytesStrict } from "./strict-json.ts";
 
 export const MAX_REQUEST_BYTES = 2_500_000;
@@ -216,10 +216,7 @@ async function handleInferenceReadiness(
   }
 }
 
-async function handleInferenceJob(
-  context: Context,
-  options: GatewayAppOptions,
-): Promise<Response> {
+async function handleInferenceJob(context: Context, options: GatewayAppOptions): Promise<Response> {
   if (!options.inferenceService) {
     return context.json({ error: "service_unavailable" }, 503);
   }
@@ -245,11 +242,7 @@ async function handleInferenceJob(
   }
 }
 
-function inferenceFailureResponse(
-  context: Context,
-  error: unknown,
-  didTimeout: boolean,
-): Response {
+function inferenceFailureResponse(context: Context, error: unknown, didTimeout: boolean): Response {
   if (didTimeout) return context.json({ error: "upstream_timeout" }, 504);
   if (error instanceof InferenceWorkerError) {
     return context.json({ error: error.publicCode }, error.status);
@@ -261,8 +254,7 @@ async function readJSON(request: Request): Promise<unknown> {
   const declaredLength = request.headers.get("content-length");
   if (
     declaredLength !== null &&
-    (!/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) ||
-      Number(declaredLength) > MAX_REQUEST_BYTES)
+    (!/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) || Number(declaredLength) > MAX_REQUEST_BYTES)
   ) {
     throw new BodyTooLargeError();
   }

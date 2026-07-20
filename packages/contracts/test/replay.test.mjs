@@ -1,8 +1,8 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, writeFile, cp, stat } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { test } from "bun:test";
 
 import { canonicalDigest, canonicalizeBytes } from "../src/canonical-json.mjs";
 import { EXACT_BUN_VERSION, runReplay } from "../src/replay.ts";
@@ -44,17 +44,26 @@ test("exact Bun independently emits the complete closed replay corpus", async ()
 
   const reports = await reportsAt(output);
   const expectedCaseIDs = [
-    ...fixture.archives.map(({ archive_name }) => `archive.${archive_name.slice(0, -".rrcap".length)}`),
+    ...fixture.archives.map(
+      ({ archive_name }) => `archive.${archive_name.slice(0, -".rrcap".length)}`,
+    ),
     ...fixture.edge_probes.map(({ case_id }) => case_id),
     "sec-consent.denied",
   ].sort();
-  assert.deepEqual([...reports.keys()], expectedCaseIDs.map((caseID) => `${caseID}.replay-report.json`));
+  assert.deepEqual(
+    [...reports.keys()],
+    expectedCaseIDs.map((caseID) => `${caseID}.replay-report.json`),
+  );
 
   for (const [name, bytes] of reports) {
     const report = JSON.parse(bytes);
     assert.deepEqual(bytes, canonicalizeBytes(report), `${name} is not exact JCS bytes`);
     assert.equal(report.report_version, "1.0.0");
-    assert.deepEqual(report.evaluator, { name: "ReRoomReplayBun", platform: "javascript", version: "1.0.0" });
+    assert.deepEqual(report.evaluator, {
+      name: "ReRoomReplayBun",
+      platform: "javascript",
+      version: "1.0.0",
+    });
     assert.deepEqual(report.fixture, {
       fixture_id: "FX-CAPTURE-001",
       fixture_revision: "rev-001",
@@ -97,22 +106,34 @@ test("exact Bun independently emits the complete closed replay corpus", async ()
 
 test("sequential and concurrent isolated Bun runs are byte-identical", async () => {
   const temporary = await temporaryDirectory();
-  const roots = ["first", "second", "concurrent-a", "concurrent-b"].map((name) => path.join(temporary, name));
+  const roots = ["first", "second", "concurrent-a", "concurrent-b"].map((name) =>
+    path.join(temporary, name),
+  );
   for (const outputRoot of roots.slice(0, 2)) {
-    await runReplay({ manifestPath: MANIFEST, outputRoot, repoRoot: REPO_ROOT, implementationRevision: REVISION });
+    await runReplay({
+      manifestPath: MANIFEST,
+      outputRoot,
+      repoRoot: REPO_ROOT,
+      implementationRevision: REVISION,
+    });
   }
-  await Promise.all(roots.slice(2).map((outputRoot) => runReplay({
-    manifestPath: MANIFEST,
-    outputRoot,
-    repoRoot: REPO_ROOT,
-    implementationRevision: REVISION,
-  })));
+  await Promise.all(
+    roots.slice(2).map((outputRoot) =>
+      runReplay({
+        manifestPath: MANIFEST,
+        outputRoot,
+        repoRoot: REPO_ROOT,
+        implementationRevision: REVISION,
+      }),
+    ),
+  );
 
   const baseline = await reportsAt(roots[0]);
   for (const root of roots.slice(1)) {
     const candidate = await reportsAt(root);
     assert.deepEqual([...candidate.keys()], [...baseline.keys()]);
-    for (const [name, bytes] of baseline) assert.deepEqual(candidate.get(name), bytes, `${name} drifted`);
+    for (const [name, bytes] of baseline)
+      assert.deepEqual(candidate.get(name), bytes, `${name} drifted`);
   }
 });
 
@@ -134,7 +155,12 @@ test("wrong runtime and pre-existing output fail before publication", async () =
   const preexisting = path.join(temporary, "preexisting");
   await mkdir(preexisting);
   await assert.rejects(
-    runReplay({ manifestPath: MANIFEST, outputRoot: preexisting, repoRoot: REPO_ROOT, implementationRevision: REVISION }),
+    runReplay({
+      manifestPath: MANIFEST,
+      outputRoot: preexisting,
+      repoRoot: REPO_ROOT,
+      implementationRevision: REVISION,
+    }),
     /must not exist/,
   );
 });
@@ -143,7 +169,10 @@ test("one-byte archive corruption fails closed without an output root", async ()
   const temporary = await temporaryDirectory();
   const fixtureRoot = path.join(temporary, "rev-001");
   await cp(path.dirname(MANIFEST), fixtureRoot, { recursive: true });
-  const corrupt = path.join(fixtureRoot, "archives/finalized-one-frame.rrcap/events/event_0000.json");
+  const corrupt = path.join(
+    fixtureRoot,
+    "archives/finalized-one-frame.rrcap/events/event_0000.json",
+  );
   const original = await readFile(corrupt);
   const mutated = Buffer.from(original);
   mutated[0] ^= 1;

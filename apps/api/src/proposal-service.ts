@@ -1,10 +1,6 @@
 import { randomUUID as systemRandomUUID } from "node:crypto";
 
-import {
-  PROPOSAL_MODEL,
-  type ModelProposalInput,
-  type ProposalModelClient,
-} from "@reroom/ai";
+import { type ModelProposalInput, PROPOSAL_MODEL, type ProposalModelClient } from "@reroom/ai";
 
 import { CURATED_ASSET_IDS } from "./catalog.ts";
 import type { ProposalRequest, ProposalRequestContext } from "./protocol.ts";
@@ -99,7 +95,10 @@ interface ParsedModelOutput {
 }
 
 function parseInitialModelOutput(value: unknown): ParsedModelOutput {
-  if (!isRecord(value) || !hasExactKeys(value, ["status", "intent", "explanation", "clarification"])) {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["status", "intent", "explanation", "clarification"])
+  ) {
     throw new Error("invalid_model_output");
   }
   const status = value.status;
@@ -206,8 +205,9 @@ function parseConstraints(values: unknown[]): TypedConstraint[] {
     return { kind, value: constraintValue } as TypedConstraint;
   });
 
-  const keys = constraints.map((constraint) =>
-    `${constraint.kind}\u0000${JSON.stringify({ kind: constraint.kind, value: constraint.value })}`,
+  const keys = constraints.map(
+    (constraint) =>
+      `${constraint.kind}\u0000${JSON.stringify({ kind: constraint.kind, value: constraint.value })}`,
   );
   const sortedKeys = [...keys].sort();
   if (keys.some((key, index) => key !== sortedKeys[index]) || new Set(keys).size !== keys.length) {

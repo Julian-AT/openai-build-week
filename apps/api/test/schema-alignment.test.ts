@@ -1,13 +1,16 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { test } from "bun:test";
 
 import { CURATED_CATALOG } from "../src/catalog.ts";
 import { PROPOSAL_MODEL } from "../src/proposal-service.ts";
 import { INGRESS_SOURCES } from "../src/protocol.ts";
 
 test("CON-006 is closed and aligned with the gateway-owned model and catalog", async () => {
-  const schemaURL = new URL("../../../docs/contracts/semantic-proposal.schema.json", import.meta.url);
+  const schemaURL = new URL(
+    "../../../docs/contracts/semantic-proposal.schema.json",
+    import.meta.url,
+  );
   const schema = JSON.parse(await readFile(schemaURL, "utf8")) as Record<string, unknown>;
 
   assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema");

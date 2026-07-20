@@ -11,13 +11,24 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "check": "bun run check:quick && bun run test && bun run build && bun run scan:secrets && bun run check:lockfiles",
+    "check:lockfiles": "test -f bun.lock && test -f apps/inference/uv.lock && test -f apps/ios/Packages/ReRoomContracts/Package.resolved && test ! -e package-lock.json && test ! -e pnpm-lock.yaml && test ! -e yarn.lock",
+    "check:quick": "bun run format:check && bun run lint && bun run typecheck",
     "dev": "turbo run dev",
+    "format": "biome check --write package.json turbo.json biome.json lint-staged.config.mjs apps/api/src apps/api/test apps/web/src apps/web/test apps/web/next.config.ts apps/web/next-env.d.ts packages/ai/src packages/ai/test packages/contracts/src packages/contracts/test && turbo run format",
+    "format:check": "biome format package.json turbo.json biome.json lint-staged.config.mjs apps/api/src apps/api/test apps/web/src apps/web/test apps/web/next.config.ts apps/web/next-env.d.ts packages/ai/src packages/ai/test packages/contracts/src packages/contracts/test && turbo run format",
+    "lint": "biome lint package.json turbo.json biome.json lint-staged.config.mjs apps/api/src apps/api/test apps/web/src apps/web/test apps/web/next.config.ts apps/web/next-env.d.ts packages/ai/src packages/ai/test packages/contracts/src packages/contracts/test && turbo run lint",
+    "precommit": "lint-staged && bun run scan:secrets",
+    "prepare": "bun .husky/install.mjs",
+    "scan:secrets": "python3 tools/verify/verify_phase_02_1_trust_boundary.py --tracked-secret-scan",
     "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
-    "check": "turbo run test typecheck build",
-    "test:swift": "swift test --package-path apps/ios/Packages/ReRoomContracts"
+    "test:swift": "swift test --package-path apps/ios/Packages/ReRoomContracts",
+    "typecheck": "turbo run typecheck"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.4",
+    "husky": "9.1.7",
+    "lint-staged": "17.1.0",
     "turbo": "2.10.5"
   }
 }

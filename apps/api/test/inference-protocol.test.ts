@@ -1,13 +1,12 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 
-import { test } from "bun:test";
-
 import {
+  type InferenceJobRequest,
   parseInferenceJobRequest,
   parseInferenceJobResponse,
   parseWorkerReadiness,
-  type InferenceJobRequest,
 } from "../src/inference-protocol.ts";
 
 const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);

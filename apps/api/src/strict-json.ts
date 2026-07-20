@@ -56,15 +56,15 @@ export function parseJSONBytesStrict(bytes: Uint8Array): unknown {
       if (code < 0x20) fail("unescaped control character in JSON string");
       if (code === 0x5c) {
         index += 1;
-        const escape = source[index];
-        if (escape === undefined) throw new SyntaxError("unterminated JSON escape");
-        if (escape === "u") {
+        const escapeCharacter = source[index];
+        if (escapeCharacter === undefined) throw new SyntaxError("unterminated JSON escape");
+        if (escapeCharacter === "u") {
           const digits = source.slice(index + 1, index + 5);
           if (!/^[0-9a-fA-F]{4}$/u.test(digits)) fail("invalid Unicode escape");
           index += 5;
           continue;
         }
-        if (!['"', "\\", "/", "b", "f", "n", "r", "t"].includes(escape)) {
+        if (!['"', "\\", "/", "b", "f", "n", "r", "t"].includes(escapeCharacter)) {
           fail("invalid JSON escape");
         }
         index += 1;

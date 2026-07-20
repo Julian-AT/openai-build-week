@@ -5,7 +5,9 @@ import { pathToFileURL } from "node:url";
 
 import { canonicalizeBytes } from "./canonical-json.mjs";
 
+// biome-ignore lint/suspicious/noExplicitAny: closed runtime validators narrow untrusted JSON before use.
 type JsonObject = Record<string, any>;
+type FileMetadata = Awaited<ReturnType<typeof lstat>>;
 
 export type TransactionTraceOptions = {
   manifestPath: string;
@@ -53,6 +55,7 @@ function object(value: unknown, message = "expected a JSON object"): JsonObject 
   return value as JsonObject;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: callers validate each dynamic JSON member before use.
 function array(value: unknown, message = "expected a JSON array"): any[] {
   requireTrace(Array.isArray(value), message);
   return value;
@@ -64,20 +67,27 @@ function exactKeys(value: JsonObject, keys: readonly string[], message: string):
 }
 
 async function regularBytes(filePath: string, maximum = 1_048_576): Promise<Buffer> {
-  let metadata;
+  let metadata: FileMetadata;
   try {
     metadata = await lstat(filePath);
   } catch {
     throw new TransactionTraceFailure("required fixture or source file is unavailable");
   }
-  requireTrace(metadata.isFile() && !metadata.isSymbolicLink() && metadata.size <= maximum, "input is not a bounded regular file");
+  requireTrace(
+    metadata.isFile() && !metadata.isSymbolicLink() && metadata.size <= maximum,
+    "input is not a bounded regular file",
+  );
   const bytes = await readFile(filePath);
   requireTrace(bytes.length === metadata.size, "input changed while being read");
   return bytes;
 }
 
+// biome-ignore lint/suspicious/noExplicitAny: the parsed value immediately enters the closed validators above.
 function parseJSON(bytes: Buffer, message: string): any {
-  requireTrace(!bytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])), "JSON byte-order mark is forbidden");
+  requireTrace(
+    !bytes.subarray(0, 3).equals(Buffer.from([0xef, 0xbb, 0xbf])),
+    "JSON byte-order mark is forbidden",
+  );
   try {
     return JSON.parse(bytes.toString("utf8"));
   } catch {
@@ -94,28 +104,65 @@ async function sourceTreeDigest(repoRoot: string): Promise<string> {
   return sha256(records.join(""));
 }
 
-async function loadFixture(options: TransactionTraceOptions): Promise<{ manifest: JsonObject; cases: JsonObject; expected: JsonObject }> {
+async function loadFixture(
+  options: TransactionTraceOptions,
+): Promise<{ manifest: JsonObject; cases: JsonObject; expected: JsonObject }> {
   const manifestBytes = await regularBytes(path.resolve(options.manifestPath));
-  requireTrace(sha256(manifestBytes) === PINNED_MANIFEST_SHA256, "transaction fixture manifest digest drifted");
-  const manifest = object(parseJSON(manifestBytes, "transaction fixture manifest is invalid JSON"));
-  exactKeys(manifest, ["schema_version", "fixture_id", "fixture_revision", "subject", "oracle", "schema_bindings", "files"], "transaction fixture manifest is not closed");
-  requireTrace(manifest.schema_version === "1.0.0" && manifest.fixture_id === "FX-TRANSACTION-001" && manifest.fixture_revision === "rev-001", "transaction fixture identity drifted");
-  const oracle = object(manifest.oracle, "transaction fixture oracle is invalid");
-  exactKeys(oracle, ["status", "source", "expected_generation", "case_order", "operation_order"], "transaction fixture oracle is not closed");
   requireTrace(
-    oracle.status === "immutable" && oracle.source === "checked_in"
-      && oracle.expected_generation === "forbidden_during_verification"
-      && oracle.case_order === "lexicographic_case_id"
-      && JSON.stringify(oracle.operation_order) === JSON.stringify(OPERATION_ORDER),
+    sha256(manifestBytes) === PINNED_MANIFEST_SHA256,
+    "transaction fixture manifest digest drifted",
+  );
+  const manifest = object(parseJSON(manifestBytes, "transaction fixture manifest is invalid JSON"));
+  exactKeys(
+    manifest,
+    [
+      "schema_version",
+      "fixture_id",
+      "fixture_revision",
+      "subject",
+      "oracle",
+      "schema_bindings",
+      "files",
+    ],
+    "transaction fixture manifest is not closed",
+  );
+  requireTrace(
+    manifest.schema_version === "1.0.0" &&
+      manifest.fixture_id === "FX-TRANSACTION-001" &&
+      manifest.fixture_revision === "rev-001",
+    "transaction fixture identity drifted",
+  );
+  const oracle = object(manifest.oracle, "transaction fixture oracle is invalid");
+  exactKeys(
+    oracle,
+    ["status", "source", "expected_generation", "case_order", "operation_order"],
+    "transaction fixture oracle is not closed",
+  );
+  requireTrace(
+    oracle.status === "immutable" &&
+      oracle.source === "checked_in" &&
+      oracle.expected_generation === "forbidden_during_verification" &&
+      oracle.case_order === "lexicographic_case_id" &&
+      JSON.stringify(oracle.operation_order) === JSON.stringify(OPERATION_ORDER),
     "transaction fixture oracle policy drifted",
   );
 
   for (const rawBinding of array(manifest.schema_bindings)) {
     const binding = object(rawBinding, "schema binding is invalid");
-    exactKeys(binding, ["contract_id", "schema_id", "version", "relative_path", "byte_length", "sha256"], "schema binding is not closed");
-    requireTrace(Number.isSafeInteger(binding.byte_length) && DIGEST.test(binding.sha256), "schema binding identity is invalid");
+    exactKeys(
+      binding,
+      ["contract_id", "schema_id", "version", "relative_path", "byte_length", "sha256"],
+      "schema binding is not closed",
+    );
+    requireTrace(
+      Number.isSafeInteger(binding.byte_length) && DIGEST.test(binding.sha256),
+      "schema binding identity is invalid",
+    );
     const bytes = await regularBytes(path.join(options.repoRoot, binding.relative_path));
-    requireTrace(bytes.length === binding.byte_length && sha256(bytes) === binding.sha256, "transaction schema binding digest drifted");
+    requireTrace(
+      bytes.length === binding.byte_length && sha256(bytes) === binding.sha256,
+      "transaction schema binding digest drifted",
+    );
   }
 
   const fixtureRoot = path.dirname(path.resolve(options.manifestPath));
@@ -123,14 +170,31 @@ async function loadFixture(options: TransactionTraceOptions): Promise<{ manifest
   const filePaths: string[] = [];
   for (const rawBinding of array(manifest.files)) {
     const binding = object(rawBinding, "fixture file binding is invalid");
-    exactKeys(binding, ["relative_path", "media_type", "byte_length", "sha256"], "fixture file binding is not closed");
-    requireTrace(Number.isSafeInteger(binding.byte_length) && DIGEST.test(binding.sha256), "fixture file binding identity is invalid");
+    exactKeys(
+      binding,
+      ["relative_path", "media_type", "byte_length", "sha256"],
+      "fixture file binding is not closed",
+    );
+    requireTrace(
+      Number.isSafeInteger(binding.byte_length) && DIGEST.test(binding.sha256),
+      "fixture file binding identity is invalid",
+    );
     filePaths.push(binding.relative_path);
     const bytes = await regularBytes(path.join(fixtureRoot, binding.relative_path));
-    requireTrace(bytes.length === binding.byte_length && sha256(bytes) === binding.sha256, "transaction fixture file digest drifted");
-    loaded.set(binding.relative_path, object(parseJSON(bytes, "transaction fixture file is invalid JSON")));
+    requireTrace(
+      bytes.length === binding.byte_length && sha256(bytes) === binding.sha256,
+      "transaction fixture file digest drifted",
+    );
+    loaded.set(
+      binding.relative_path,
+      object(parseJSON(bytes, "transaction fixture file is invalid JSON")),
+    );
   }
-  requireTrace(JSON.stringify(filePaths) === JSON.stringify([...filePaths].sort()) && new Set(filePaths).size === filePaths.length, "fixture file order drifted");
+  requireTrace(
+    JSON.stringify(filePaths) === JSON.stringify([...filePaths].sort()) &&
+      new Set(filePaths).size === filePaths.length,
+    "fixture file order drifted",
+  );
   const cases = loaded.get("cases.json");
   const expected = loaded.get("expected-traces.json");
   requireTrace(cases && expected, "transaction fixture corpus is incomplete");
@@ -181,22 +245,26 @@ function normalizedValues(casesFixture: JsonObject): JsonObject {
   };
   const placedProjection = {
     ...baseProjection,
-    placed_assets: [{
-      placed_asset_id: ids.assetInstance,
-      asset_id: ids.asset,
-      manifest_artifact_ref: manifestRef,
-      world_from_asset: matrix,
-      state: "committed",
-      support_relation_id: ids.support,
-      source_transaction_id: identity.transaction_id,
-    }],
-    asset_support_relations: [{
-      relation_id: ids.support,
-      subject_id: ids.assetInstance,
-      surface_id: ids.surface,
-      confidence: 1,
-      method: "arkit_plane",
-    }],
+    placed_assets: [
+      {
+        placed_asset_id: ids.assetInstance,
+        asset_id: ids.asset,
+        manifest_artifact_ref: manifestRef,
+        world_from_asset: matrix,
+        state: "committed",
+        support_relation_id: ids.support,
+        source_transaction_id: identity.transaction_id,
+      },
+    ],
+    asset_support_relations: [
+      {
+        relation_id: ids.support,
+        subject_id: ids.assetInstance,
+        surface_id: ids.surface,
+        confidence: 1,
+        method: "arkit_plane",
+      },
+    ],
   };
   const baseSHA = digest(baseProjection);
   const placedSHA = digest(placedProjection);
@@ -204,7 +272,12 @@ function normalizedValues(casesFixture: JsonObject): JsonObject {
     asset_id: ids.asset,
     manifest_artifact_ref: manifestRef,
     world_from_asset: matrix,
-    support_relation: { relation_id: ids.support, surface_id: ids.surface, confidence: 1, method: "arkit_plane" },
+    support_relation: {
+      relation_id: ids.support,
+      surface_id: ids.surface,
+      confidence: 1,
+      method: "arkit_plane",
+    },
   };
   const placeOperation = {
     kind: "create_asset_instance",
@@ -213,7 +286,12 @@ function normalizedValues(casesFixture: JsonObject): JsonObject {
     after: assetSnapshot,
     required_artifact_refs: [manifestRef],
   };
-  const snapshot = (projection: JsonObject, revision: number, origin: string, derivation: JsonObject | null) => ({
+  const snapshot = (
+    projection: JsonObject,
+    revision: number,
+    origin: string,
+    derivation: JsonObject | null,
+  ) => ({
     captured_scene_revision: revision,
     projection_origin: origin,
     derivation,
@@ -278,7 +356,8 @@ function normalizedValues(casesFixture: JsonObject): JsonObject {
 function evaluateCases(casesFixture: JsonObject): JsonObject[] {
   const computed = new Map<string, { outcome: string; rejection: string | null }>();
   const accept = (id: string, outcome: string) => computed.set(id, { outcome, rejection: null });
-  const reject = (id: string, rejection: string) => computed.set(id, { outcome: "reject", rejection });
+  const reject = (id: string, rejection: string) =>
+    computed.set(id, { outcome: "reject", rejection });
   accept("authority.native-pair", "accept");
   reject("authority.wrong-branch", "authority_conflict");
   reject("authority.wrong-id-family", "invalid_identity");
@@ -289,7 +368,13 @@ function evaluateCases(casesFixture: JsonObject): JsonObject[] {
   reject("contract.wrong-version", "unsupported_contract_version");
   reject("idempotency.same-key-changed-fingerprint", "idempotency_conflict");
   accept("idempotency.same-key-same-fingerprint", "prior_result");
-  for (const id of ["intent.confirmation-injection", "intent.session-injection", "intent.transform-injection", "intent.url-injection"]) reject(id, "unknown_property");
+  for (const id of [
+    "intent.confirmation-injection",
+    "intent.session-injection",
+    "intent.transform-injection",
+    "intent.url-injection",
+  ])
+    reject(id, "unknown_property");
   accept("operation.place-order", "create_asset_instance");
   accept("operation.remove-order", "set_reveal_bundle,set_object_visibility");
   accept("operation.replace-order", "set_object_visibility,create_asset_instance");
@@ -303,14 +388,26 @@ function evaluateCases(casesFixture: JsonObject): JsonObject[] {
 
   const rawCases = array(casesFixture.cases, "fixture cases are invalid");
   const caseIDs = rawCases.map((raw) => object(raw).case_id);
-  requireTrace(caseIDs.length === computed.size && JSON.stringify(caseIDs) === JSON.stringify([...caseIDs].sort()), "transaction case set is incomplete or out of order");
+  requireTrace(
+    caseIDs.length === computed.size &&
+      JSON.stringify(caseIDs) === JSON.stringify([...caseIDs].sort()),
+    "transaction case set is incomplete or out of order",
+  );
   const results: JsonObject[] = [];
   for (const raw of rawCases) {
     const fixtureCase = object(raw);
     const result = computed.get(fixtureCase.case_id);
     requireTrace(result, "transaction case is unknown");
-    requireTrace(result.outcome === String(fixtureCase.expected) && result.rejection === (fixtureCase.rejection ?? null), `independent transaction case ${fixtureCase.case_id} disagrees with oracle`);
-    results.push({ case_id: fixtureCase.case_id, outcome: result.outcome, rejection: result.rejection });
+    requireTrace(
+      result.outcome === String(fixtureCase.expected) &&
+        result.rejection === (fixtureCase.rejection ?? null),
+      `independent transaction case ${fixtureCase.case_id} disagrees with oracle`,
+    );
+    results.push({
+      case_id: fixtureCase.case_id,
+      outcome: result.outcome,
+      rejection: result.rejection,
+    });
   }
   return results;
 }
@@ -325,14 +422,24 @@ function computeTraces(casesFixture: JsonObject): JsonObject[] {
         { canonical_state: "validated", scene_revision: 0, mutation_count: 0 },
         { canonical_state: "previewed", scene_revision: 0, mutation_count: 0 },
         { canonical_state: "committed", scene_revision: 1, mutation_count: 1 },
-        { canonical_state: "committed", scene_revision: 1, mutation_count: 1, retry: "prior_result" },
+        {
+          canonical_state: "committed",
+          scene_revision: 1,
+          mutation_count: 1,
+          retry: "prior_result",
+        },
       ],
     },
     {
       trace_id: "place.restore.offline",
       events: [
         { operation: "place", scene_revision: 1, transaction_id: identity.transaction_id },
-        { operation: "restore", scene_revision: 2, transaction_id: ids.restoreTransaction, compensates_transaction_id: identity.transaction_id },
+        {
+          operation: "restore",
+          scene_revision: 2,
+          transaction_id: ids.restoreTransaction,
+          compensates_transaction_id: identity.transaction_id,
+        },
       ],
       network_reads: 0,
       source_transaction_immutable: true,
@@ -341,7 +448,11 @@ function computeTraces(casesFixture: JsonObject): JsonObject[] {
       trace_id: "conflict.fail-closed",
       events: [
         { case_id: "authority.wrong-branch", scene_revision: 0, mutation_count: 0 },
-        { case_id: "idempotency.same-key-changed-fingerprint", scene_revision: 0, mutation_count: 0 },
+        {
+          case_id: "idempotency.same-key-changed-fingerprint",
+          scene_revision: 0,
+          mutation_count: 0,
+        },
         { case_id: "revision.stale-base", scene_revision: 0, mutation_count: 0 },
         { case_id: "intent.transform-injection", scene_revision: 0, mutation_count: 0 },
       ],
@@ -350,18 +461,40 @@ function computeTraces(casesFixture: JsonObject): JsonObject[] {
 }
 
 export async function produceTransactionTrace(options: TransactionTraceOptions): Promise<Buffer> {
-  requireTrace((options.runtimeVersion ?? process.versions.bun) === EXACT_BUN_VERSION, "exact Bun 1.3.11 is required before transaction trace production");
-  requireTrace(REVISION.test(options.implementationRevision), "implementation revision must be git:<40-lowercase-hex>");
+  requireTrace(
+    (options.runtimeVersion ?? process.versions.bun) === EXACT_BUN_VERSION,
+    "exact Bun 1.3.11 is required before transaction trace production",
+  );
+  requireTrace(
+    REVISION.test(options.implementationRevision),
+    "implementation revision must be git:<40-lowercase-hex>",
+  );
   const repoRoot = path.resolve(options.repoRoot);
   const rootMetadata = await lstat(repoRoot);
-  requireTrace(rootMetadata.isDirectory() && !rootMetadata.isSymbolicLink(), "repository root is invalid");
+  requireTrace(
+    rootMetadata.isDirectory() && !rootMetadata.isSymbolicLink(),
+    "repository root is invalid",
+  );
   const { cases, expected } = await loadFixture({ ...options, repoRoot });
 
   const caseResults = evaluateCases(cases);
   const actualTraces = computeTraces(cases);
-  exactKeys(expected, ["schema_version", "fixture_id", "fixture_revision", "trace_format", "traces"], "expected transaction trace oracle is not closed");
-  requireTrace(expected.schema_version === "1.0.0" && expected.fixture_id === "FX-TRANSACTION-001" && expected.fixture_revision === "rev-001" && expected.trace_format === "reroom_transaction_trace_v1", "expected transaction trace identity drifted");
-  requireTrace(canonicalizeBytes(actualTraces).equals(canonicalizeBytes(expected.traces)), "independently computed traces disagree with immutable oracle");
+  exactKeys(
+    expected,
+    ["schema_version", "fixture_id", "fixture_revision", "trace_format", "traces"],
+    "expected transaction trace oracle is not closed",
+  );
+  requireTrace(
+    expected.schema_version === "1.0.0" &&
+      expected.fixture_id === "FX-TRANSACTION-001" &&
+      expected.fixture_revision === "rev-001" &&
+      expected.trace_format === "reroom_transaction_trace_v1",
+    "expected transaction trace identity drifted",
+  );
+  requireTrace(
+    canonicalizeBytes(actualTraces).equals(canonicalizeBytes(expected.traces)),
+    "independently computed traces disagree with immutable oracle",
+  );
 
   const values = normalizedValues(cases);
   const operationDeltaOrder = {
@@ -376,12 +509,24 @@ export async function produceTransactionTrace(options: TransactionTraceOptions):
     authority: "proposal_only",
     preauthorized_confirmation: false,
     preauthorized_commit: false,
-    blocker: operation === "replace" || operation === "remove" ? { code: "capability_not_ready", mutation_count: 0 } : null,
-    proposed_operation_kinds: operation === "place" ? operationDeltaOrder.place : operation === "restore" ? operationDeltaOrder.restore : [],
+    blocker:
+      operation === "replace" || operation === "remove"
+        ? { code: "capability_not_ready", mutation_count: 0 }
+        : null,
+    proposed_operation_kinds:
+      operation === "place"
+        ? operationDeltaOrder.place
+        : operation === "restore"
+          ? operationDeltaOrder.restore
+          : [],
   }));
   const result = {
     trace_format: "reroom_transaction_trace_v1",
-    fixture: { fixture_id: "FX-TRANSACTION-001", fixture_revision: "rev-001", manifest_sha256: PINNED_MANIFEST_SHA256 },
+    fixture: {
+      fixture_id: "FX-TRANSACTION-001",
+      fixture_revision: "rev-001",
+      manifest_sha256: PINNED_MANIFEST_SHA256,
+    },
     runtime: { language: "typescript", name: "ReRoomTransactionBun", version: "bun-v1.3.11" },
     implementation: {
       repository_revision: options.implementationRevision,
@@ -391,9 +536,17 @@ export async function produceTransactionTrace(options: TransactionTraceOptions):
     operation_order: [...OPERATION_ORDER],
     operation_delta_order: operationDeltaOrder,
     proposals,
-    safety: { injection_case_id: "intent.transform-injection", injection_verdict: "reject", injection_rejection: "unknown_property", injection_mutation_count: 0 },
+    safety: {
+      injection_case_id: "intent.transform-injection",
+      injection_verdict: "reject",
+      injection_rejection: "unknown_property",
+      injection_mutation_count: 0,
+    },
     cases: caseResults,
-    fingerprints: { place_request_sha256: values.placeFingerprint, restore_request_sha256: values.restoreFingerprint },
+    fingerprints: {
+      place_request_sha256: values.placeFingerprint,
+      restore_request_sha256: values.restoreFingerprint,
+    },
     projections: {
       base_sha256: values.baseSHA,
       placed_sha256: values.placedSHA,
@@ -404,12 +557,36 @@ export async function produceTransactionTrace(options: TransactionTraceOptions):
     },
     revisions: { preview_scene_revision: 0, place_scene_revision: 1, restore_scene_revision: 2 },
     receipts: [
-      { transaction_id: values.identity.transaction_id, committed_scene_revision: 1, request_fingerprint_sha256: values.placeFingerprint, result_sha256: values.placedSHA },
-      { transaction_id: ids.restoreTransaction, committed_scene_revision: 2, request_fingerprint_sha256: values.restoreFingerprint, result_sha256: values.baseSHA },
+      {
+        transaction_id: values.identity.transaction_id,
+        committed_scene_revision: 1,
+        request_fingerprint_sha256: values.placeFingerprint,
+        result_sha256: values.placedSHA,
+      },
+      {
+        transaction_id: ids.restoreTransaction,
+        committed_scene_revision: 2,
+        request_fingerprint_sha256: values.restoreFingerprint,
+        result_sha256: values.baseSHA,
+      },
     ],
-    retry: { same_key_same_fingerprint: "prior_result", same_key_changed_fingerprint: "idempotency_conflict", duplicate_mutation_count: 0 },
-    restore: { compensates_transaction_id: values.identity.transaction_id, network_reads: 0, source_transaction_immutable: true, preserved_unaffected_state: true },
-    divergence: { mutation_frozen: true, automatic_merge_permitted: false, histories_preserved: 2, resolution: "quarantined_divergent_branch" },
+    retry: {
+      same_key_same_fingerprint: "prior_result",
+      same_key_changed_fingerprint: "idempotency_conflict",
+      duplicate_mutation_count: 0,
+    },
+    restore: {
+      compensates_transaction_id: values.identity.transaction_id,
+      network_reads: 0,
+      source_transaction_immutable: true,
+      preserved_unaffected_state: true,
+    },
+    divergence: {
+      mutation_frozen: true,
+      automatic_merge_permitted: false,
+      histories_preserved: 2,
+      resolution: "quarantined_divergent_branch",
+    },
     traces: actualTraces,
   };
   return canonicalizeBytes(result);
@@ -421,11 +598,14 @@ async function validateExclusiveOutput(outputPath: string): Promise<void> {
     throw new TransactionTraceFailure("output path must not exist");
   } catch (error) {
     if (error instanceof TransactionTraceFailure) throw error;
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw new TransactionTraceFailure("output path cannot be inspected");
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+      throw new TransactionTraceFailure("output path cannot be inspected");
   }
 }
 
-export async function runTransactionTrace(options: TransactionTracePublicationOptions): Promise<void> {
+export async function runTransactionTrace(
+  options: TransactionTracePublicationOptions,
+): Promise<void> {
   const outputPath = path.resolve(options.outputPath);
   await validateExclusiveOutput(outputPath);
   const bytes = await produceTransactionTrace(options);
@@ -433,7 +613,11 @@ export async function runTransactionTrace(options: TransactionTracePublicationOp
   try {
     await writeFile(temporary, bytes, { flag: "wx", mode: 0o600 });
     const handle = await open(temporary, "r+");
-    try { await handle.sync(); } finally { await handle.close(); }
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
     await validateExclusiveOutput(outputPath);
     await rename(temporary, outputPath);
   } finally {
@@ -448,15 +632,29 @@ function parseCLI(arguments_: string[]): TransactionTracePublicationOptions {
   for (let index = 0; index < arguments_.length; index += 2) {
     const name = arguments_[index];
     const value = arguments_[index + 1];
-    requireTrace(allowed.has(name) && !values.has(name) && typeof value === "string", "unsupported, duplicate, or incomplete argument");
+    requireTrace(
+      allowed.has(name) && !values.has(name) && typeof value === "string",
+      "unsupported, duplicate, or incomplete argument",
+    );
     values.set(name, value);
   }
   requireTrace(values.size === allowed.size, "all exact transaction trace arguments are required");
+  const manifestPath = values.get("--manifest");
+  const outputPath = values.get("--output");
+  const repoRoot = values.get("--repo-root");
+  const implementationRevision = values.get("--implementation-revision");
+  requireTrace(
+    manifestPath !== undefined &&
+      outputPath !== undefined &&
+      repoRoot !== undefined &&
+      implementationRevision !== undefined,
+    "all exact transaction trace arguments are required",
+  );
   return {
-    manifestPath: values.get("--manifest")!,
-    outputPath: values.get("--output")!,
-    repoRoot: values.get("--repo-root")!,
-    implementationRevision: values.get("--implementation-revision")!,
+    manifestPath,
+    outputPath,
+    repoRoot,
+    implementationRevision,
   };
 }
 
@@ -464,7 +662,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     await runTransactionTrace(parseCLI(process.argv.slice(2)));
   } catch (error) {
-    const message = error instanceof TransactionTraceFailure ? error.message : "unexpected transaction trace failure";
+    const message =
+      error instanceof TransactionTraceFailure
+        ? error.message
+        : "unexpected transaction trace failure";
     process.stderr.write(`transaction-bun: FAIL: ${message}\n`);
     process.exitCode = 1;
   }

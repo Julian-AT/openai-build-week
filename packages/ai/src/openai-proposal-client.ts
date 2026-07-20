@@ -2,8 +2,8 @@ import { createOpenAI, type OpenAIProviderSettings } from "@ai-sdk/openai";
 import { generateText, jsonSchema, Output, type UserContent } from "ai";
 
 import {
-  PROPOSAL_MODEL,
   type ModelProposalInput,
+  PROPOSAL_MODEL,
   type ProposalGenerationRequest,
   type ProposalGenerator,
   type ProposalModelClient,

@@ -6,16 +6,16 @@ export {
 } from "./openai-proposal-client.ts";
 export {
   createOpenAIRealtimeTokenService,
+  type OpenAIRealtimeTokenServiceOptions,
   REALTIME_INSTRUCTIONS,
   REALTIME_MODEL,
-  type OpenAIRealtimeTokenServiceOptions,
   type RealtimeClientToken,
   type RealtimeTokenService,
 } from "./openai-realtime-token-client.ts";
 export {
-  PROPOSAL_MODEL,
   type ModelProposalInput,
   type ModelProposalResult,
+  PROPOSAL_MODEL,
   type ProposalGenerationRequest,
   type ProposalGenerator,
   type ProposalModelClient,

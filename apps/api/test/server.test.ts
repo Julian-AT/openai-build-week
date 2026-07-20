@@ -1,6 +1,6 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { test } from "bun:test";
 
 import { InferenceWorkerError } from "../src/inference-client.ts";
 import type { InferenceJobRequest } from "../src/inference-protocol.ts";

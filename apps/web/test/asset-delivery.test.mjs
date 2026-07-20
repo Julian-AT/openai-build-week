@@ -1,8 +1,8 @@
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { test } from "bun:test";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 const ASSET_ROOT = path.join(REPO_ROOT, "apps/web/public/assets/catalog");
@@ -92,24 +92,14 @@ async function assertPayload(payload) {
 test("web catalog ships digest-bound CON-004 derivatives without edit-time network", async () => {
   const catalog = await readJSON(CATALOG_PATH);
   const licenseBytes = await readFile(path.join(ASSET_ROOT, "ASSET-LICENSE.txt"));
-  const evidenceBytes = await readFile(
-    path.join(ASSET_ROOT, "asset-validation-evidence.json"),
-  );
-  const provenanceBytes = await readFile(
-    path.join(ASSET_ROOT, "CON004-PROVENANCE.md"),
-  );
-  assert.deepEqual(
-    licenseBytes,
-    await readFile(path.join(IOS_ROOT, "ASSET-LICENSE.txt")),
-  );
+  const evidenceBytes = await readFile(path.join(ASSET_ROOT, "asset-validation-evidence.json"));
+  const provenanceBytes = await readFile(path.join(ASSET_ROOT, "CON004-PROVENANCE.md"));
+  assert.deepEqual(licenseBytes, await readFile(path.join(IOS_ROOT, "ASSET-LICENSE.txt")));
   assert.deepEqual(
     evidenceBytes,
     await readFile(path.join(IOS_ROOT, "asset-validation-evidence.json")),
   );
-  assert.deepEqual(
-    provenanceBytes,
-    await readFile(path.join(IOS_ROOT, "CON004-PROVENANCE.md")),
-  );
+  assert.deepEqual(provenanceBytes, await readFile(path.join(IOS_ROOT, "CON004-PROVENANCE.md")));
   const evidence = JSON.parse(evidenceBytes.toString("utf8"));
   assert.equal(evidence.qualification, "AUTOMATED_LOCAL_FORMAT_AND_BUNDLE");
   assert.equal(evidence.gate_011_status, "PENDING");
@@ -127,10 +117,7 @@ test("web catalog ships digest-bound CON-004 derivatives without edit-time netwo
     const manifest = JSON.parse(manifestBytes.toString("utf8"));
     assert.deepEqual(Object.keys(manifest).sort(), MANIFEST_KEYS);
     const { content_sha256: declaredDigest, ...unsigned } = manifest;
-    assert.equal(
-      sha256(Buffer.from(JSON.stringify(sorted(unsigned)), "utf8")),
-      declaredDigest,
-    );
+    assert.equal(sha256(Buffer.from(JSON.stringify(sorted(unsigned)), "utf8")), declaredDigest);
     assert.equal(declaredDigest, asset.canonical_manifest_sha256);
     assert.equal(manifest.asset_id, asset.asset_id);
     assert.equal(manifest.artifact_id, asset.artifact_id);
@@ -155,10 +142,7 @@ test("web catalog ships digest-bound CON-004 derivatives without edit-time netwo
     assert.equal(manifest.license.spdx_or_terms, "MIT");
     assert.equal(manifest.license.use_approved, true);
     assert.equal(manifest.license.redistribution_allowed, true);
-    assert.equal(
-      manifest.license.approval_evidence_sha256,
-      sha256(licenseBytes),
-    );
+    assert.equal(manifest.license.approval_evidence_sha256, sha256(licenseBytes));
     assert.equal(manifest.validation_evidence_sha256, sha256(evidenceBytes));
     assert.equal(manifest.provider.configuration_sha256, evidence.generator_sha256);
 
