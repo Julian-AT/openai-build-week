@@ -1260,9 +1260,15 @@ Sample at least eight camera poses from the captured trajectory around the targe
 - median target coverage ≥0.98;
 - no uncovered connected component larger than 1% of target projection;
 - atlas observed fraction outside the synthesized hole ≥0.80;
-- team visual review from a half-circle walk passes at least 4/5.
 
 If the requirement fails, replacement may still be ready and empty removal stays disabled.
+
+Runtime readiness is fully automatic and contains no fixture, evidence-record, or human-vote
+fields. A physical half-circle visual review remains a release acceptance test for the compositor
+and reveal pipeline; it is not repeated for each user session. When the camera leaves a reveal's
+validated view envelope, the phone disables that reveal and its replacement together, shows the
+untouched camera feed, and asks the user to return to the captured area. This local safety behavior
+does not change canonical scene state.
 
 ### 20.5 Revision policy
 
@@ -1319,6 +1325,9 @@ assets and fail clearly if the requested cache is missing.
 - Resolve the real target.
 - Retrieve asset candidates by dimensions and style.
 - Validate geometry and `cover_score`.
+- Render and score the exact delivered opaque geometry, including material cutouts. Do not use a
+  convex hull as a visual-coverage proxy and do not semantically rescale real products after unit
+  normalization. Search only bounded translation and yaw around floor-contact-center alignment.
 - Preview local reveal + asset.
 - Require spoken or tapped confirmation.
 - Commit as one compare-and-swap transaction.
@@ -1453,9 +1462,10 @@ packages/
 |---|---|---|
 | `web` | Node | Next.js UI and static assets |
 | `api` | Bun/TypeScript | auth, sessions, ingest/router, scene revisions, transactions, GPT, tokens, catalog |
-| `vision-live` | Python 3.12 | SAM 3.1, DA3Metric-Large, alignment, TSDF, planes, dense meshes |
+| `vision-semantics` | Python 3.12 | SAM 3.1 stateful target tracking and canonical identity |
+| `vision-geometry` | Python 3.12 | DA3Metric-Large, alignment, TSDF, planes, and dense meshes |
 | `vision-map` | Python 3.12 | LingBot-Map ordinary-video reconstruction |
-| `vision-reveal` | Python 3.12 | atlas assembly, deterministic fills, isolated LaMa ONNX |
+| `vision-reveal` | Python 3.12 | atlas assembly, deterministic fills, and isolated `RevealFillProvider` |
 | `qdrant` | Qdrant | persistent semantic vectors, payload filters, and catalog references |
 | `polish-worker` | Python isolated | MapAnything + gsplat, disabled by default |
 
@@ -1568,7 +1578,8 @@ These are acceptance targets to measure, not claims made before profiling.
 | Frame → accepted dense-map update p50 | ≤250 ms |
 | Frame → accepted dense-map update p95 | ≤450 ms |
 | Target seed → tracked p50 | ≤0.8 s |
-| Target seed → `replace_ready` p50/p95 | ≤2.0 / 3.5 s |
+| Target seed → asset-only or prewarmed `replace_ready` p50/p95 | ≤2.0 / 3.5 s |
+| Target seed → progressive composite preview | 3–10 s target; explicit `Healing` through 30 s |
 | Warm-up → `remove_ready` | 10–30 s, scene dependent |
 | Simple spoken command → visible change p50 | ≤2.5 s |
 | Simple spoken command → visible change p95 | ≤4.0 s |
@@ -1650,7 +1661,7 @@ Before a model or asset enters core release, record exact repository, commit/che
 | LingBot-Map | Apache-2.0 repository; pin commit/checkpoint |
 | SAM 3.1 | SAM License; team reviews and records acceptance before use |
 | Open3D | pin release and license record |
-| LaMa | isolate and review exact implementation/checkpoint license |
+| LaMa | first provider uses pinned official PyTorch implementation/checkpoint on CUDA; isolate, hash, and review exact license; adopt ONNX only after measured parity |
 | MapAnything | Apache-compatible model/config only |
 | gsplat | pin release/commit and license record |
 | Spark | B1-only web dependency; pin release/commit |

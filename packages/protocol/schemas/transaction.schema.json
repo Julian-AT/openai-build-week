@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:reframe:schema:transaction:1",
   "title": "Reframe Transaction v1",
-  "description": "Deterministic validate/preview/commit contract. Restore is a new compensating transaction. Each revision branch has exactly one authority; Mode A uses the native device and B0 may use a distinct gateway-owned replay branch. Canonical lifecycle is independent of synchronization state.",
+  "description": "Deterministic validate/preview/commit contract. Restore is a new compensating transaction. The gateway owns every canonical scene-revision branch; native clients retain an offline replica and pending inverse operations. Canonical lifecycle is independent of synchronization state.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -793,40 +793,20 @@
       "description": "Finite binary32-range JSON number; deterministic validation applies RF-FLOAT-1 conversion and semantic checks."
     },
     "revisionAuthority": {
-      "oneOf": [
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["kind", "authority_id", "revision_branch_id"],
-          "properties": {
-            "kind": { "const": "native_device" },
-            "authority_id": {
-              "type": "string",
-              "pattern": "^device_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-            },
-            "revision_branch_id": {
-              "type": "string",
-              "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-            }
-          }
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "authority_id", "revision_branch_id"],
+      "properties": {
+        "kind": { "const": "gateway" },
+        "authority_id": {
+          "type": "string",
+          "pattern": "^gateway_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["kind", "authority_id", "revision_branch_id"],
-          "properties": {
-            "kind": { "const": "replay_gateway" },
-            "authority_id": {
-              "type": "string",
-              "pattern": "^gateway_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-            },
-            "revision_branch_id": {
-              "type": "string",
-              "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
-            }
-          }
+        "revision_branch_id": {
+          "type": "string",
+          "pattern": "^branch_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
         }
-      ]
+      }
     },
     "matrix4": {
       "type": "object",

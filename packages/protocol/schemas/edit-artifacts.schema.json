@@ -560,7 +560,9 @@
         "surface_id",
         "provenance",
         "payload",
+        "provenance_map",
         "mapping",
+        "rendering",
         "observed_coverage",
         "confidence"
       ],
@@ -580,7 +582,30 @@
             { "properties": { "codec": { "enum": ["png", "jpeg", "ktx2_2_0"] } } }
           ]
         },
+        "provenance_map": {
+          "allOf": [
+            { "$ref": "#/$defs/payload" },
+            {
+              "properties": { "codec": { "const": "png" } },
+              "description": "Single-channel uint8 texel provenance: 0 unknown, 1 observed, 2 deterministic fill, 3 bounded neural fill."
+            }
+          ]
+        },
         "mapping": { "$ref": "#/$defs/planarRevealMapping" },
+        "rendering": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["color_space", "alpha_mode", "edge_feather_m"],
+          "properties": {
+            "color_space": { "const": "srgb" },
+            "alpha_mode": { "const": "straight" },
+            "edge_feather_m": {
+              "$ref": "#/$defs/finiteNumber",
+              "minimum": 0,
+              "maximum": 0.1
+            }
+          }
+        },
         "observed_coverage": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
         "confidence": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 }
       }
@@ -632,6 +657,7 @@
             "object_id",
             "layers",
             "supported_view_envelope",
+            "outside_envelope_behavior",
             "foreground_occluder_artifact_ids",
             "quality"
           ],
@@ -662,6 +688,7 @@
               "items": { "$ref": "#/$defs/revealLayer" }
             },
             "supported_view_envelope": { "$ref": "#/$defs/viewEnvelope" },
+            "outside_envelope_behavior": { "const": "show_unmodified_camera" },
             "foreground_occluder_artifact_ids": {
               "type": "array",
               "items": {
@@ -673,31 +700,29 @@
               "type": "object",
               "additionalProperties": false,
               "required": [
-                "gate_id",
-                "gate_revision",
-                "fixture_id",
                 "metric_version",
-                "evidence_record_sha256",
+                "automated_decision",
                 "coverage_p10",
                 "coverage_median",
                 "largest_uncovered_component_fraction",
+                "observed_fraction_outside_hole",
                 "synthesized_fraction",
                 "foreground_overwrite_fraction",
                 "severe_foreground_overwrite",
                 "seam_severity",
-                "severe_surface_order_artifact",
-                "human_visual_votes_pass",
-                "human_visual_votes_total"
+                "severe_surface_order_artifact"
               ],
               "properties": {
-                "gate_id": { "const": "GATE-006" },
-                "gate_revision": { "const": "1.0.0" },
-                "fixture_id": { "type": "string", "minLength": 1, "maxLength": 128 },
                 "metric_version": { "type": "string", "minLength": 1, "maxLength": 64 },
-                "evidence_record_sha256": { "$ref": "#/$defs/sha256" },
+                "automated_decision": { "enum": ["ready", "rejected"] },
                 "coverage_p10": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
                 "coverage_median": { "$ref": "#/$defs/finiteNumber", "minimum": 0, "maximum": 1 },
                 "largest_uncovered_component_fraction": {
+                  "$ref": "#/$defs/finiteNumber",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "observed_fraction_outside_hole": {
                   "$ref": "#/$defs/finiteNumber",
                   "minimum": 0,
                   "maximum": 1
@@ -718,9 +743,7 @@
                   "description": "Gate-aligned categorical result from the versioned foreground-overwrite rubric; false is mandatory for ready."
                 },
                 "seam_severity": { "enum": ["none", "minor", "severe"] },
-                "severe_surface_order_artifact": { "type": "boolean" },
-                "human_visual_votes_pass": { "type": "integer", "minimum": 0, "maximum": 5 },
-                "human_visual_votes_total": { "const": 5 }
+                "severe_surface_order_artifact": { "type": "boolean" }
               }
             }
           },
@@ -734,14 +757,14 @@
                 "properties": {
                   "quality": {
                     "properties": {
+                      "automated_decision": { "const": "ready" },
                       "coverage_p10": { "minimum": 0.95 },
                       "coverage_median": { "minimum": 0.98 },
                       "largest_uncovered_component_fraction": { "maximum": 0.01 },
+                      "observed_fraction_outside_hole": { "minimum": 0.8 },
                       "severe_foreground_overwrite": { "const": false },
                       "seam_severity": { "enum": ["none", "minor"] },
-                      "severe_surface_order_artifact": { "const": false },
-                      "human_visual_votes_pass": { "minimum": 4, "maximum": 5 },
-                      "human_visual_votes_total": { "const": 5 }
+                      "severe_surface_order_artifact": { "const": false }
                     }
                   }
                 }
