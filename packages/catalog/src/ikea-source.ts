@@ -7,15 +7,18 @@ import {
   acquireCatalogBinary,
 } from "./acquisition.ts";
 import { validateGLB } from "./asset-validator.ts";
+import type { CatalogOperationDiscovery, CatalogSource } from "./catalog-operation.ts";
+import type { CatalogRunCheckpoint } from "./catalog-run-store.ts";
 import {
   assertIkeaSourceAuthorization,
   type IkeaSourceAuthorization,
 } from "./ikea-authorization.ts";
-import type { CatalogProduct } from "./types.ts";
+import type { AssetSupportType, CatalogDimensionsM, CatalogProduct } from "./types.ts";
 
 const IKEA_ORIGIN = "https://www.ikea.com";
 const IKEA_ASSET_ORIGIN = "https://web-api.ikea.com";
 const PRODUCT_PATH = /^\/us\/en\/p\/[a-z0-9-]+\/$/u;
+export const IKEA_HTML_PARSER_REVISION = "ikea-html-v1";
 
 type IkeaFetch = (
   input: Parameters<typeof globalThis.fetch>[0],
@@ -31,6 +34,51 @@ export interface IkeaSourceOptions {
   fetch?: IkeaFetch;
   concurrency?: number;
   authorization?: IkeaSourceAuthorization;
+}
+
+export interface IkeaUSCatalogSourceOptions extends IkeaSourceOptions {
+  /** Sustained per-origin request ceiling, shared by sitemap and product page observation. */
+  requestsPerMinute: number;
+  maxAttempts?: number;
+  retryBaseMs?: number;
+  maxProducts?: number;
+  sleep?: (milliseconds: number) => Promise<void>;
+  now?: () => number;
+}
+
+export interface IkeaProductResponseValidators {
+  etag?: string;
+  lastModified?: string;
+}
+
+export interface IkeaRawProductRecord {
+  parserRevision: typeof IKEA_HTML_PARSER_REVISION;
+  productURL: string;
+  responseValidators: IkeaProductResponseValidators;
+  /** Raw page bytes decoded as UTF-8. This is untrusted data, retained by the catalog run store by hash. */
+  pageHTML: string;
+}
+
+/** Source facts remain separate from normalized processor facts and model-derived enrichment. */
+export interface IkeaProductSourceFacts {
+  rawCategory?: string;
+  dimensionsM?: CatalogDimensionsM;
+  category?: string;
+  supportType?: AssetSupportType;
+}
+
+export interface IkeaCatalogDiscovery extends Omit<CatalogOperationDiscovery, "rawRecord"> {
+  rawRecord: IkeaRawProductRecord;
+  product: CatalogProduct;
+  sourceFacts: IkeaProductSourceFacts;
+}
+
+export interface IkeaCatalogSource extends CatalogSource<IkeaCatalogDiscovery> {
+  discover(context: {
+    profile: "smoke" | "full" | "incremental";
+    checkpoint: CatalogRunCheckpoint | undefined;
+    signal: AbortSignal | undefined;
+  }): AsyncIterable<IkeaCatalogDiscovery>;
 }
 
 export interface FetchIkeaUSProductOptions {
@@ -61,10 +109,22 @@ export function parseSitemap(xml: string, market = "us", language = "en"): Sitem
     .map((match) => decodeXML(match[1] ?? ""))
     .filter((value) => value.length > 0);
   const localeSegment = `/${market}/${language}/`;
+  const productSitemap = new RegExp(
+    `/sitemaps/prod-${escapeRegExp(language)}-${escapeRegExp(market.toUpperCase())}(?:_|\\.)`,
+    "iu",
+  );
   return {
-    sitemapURLs: urls.filter((url) => url.includes(localeSegment) && url.endsWith(".xml")).sort(),
+    sitemapURLs: urls
+      .filter(
+        (url) => (url.includes(localeSegment) && url.endsWith(".xml")) || productSitemap.test(url),
+      )
+      .sort(),
     productURLs: urls.filter(isAllowedProductURL).sort(),
   };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
 export function extractIkeaProduct(html: string, productURL: string): CatalogProduct {
@@ -89,6 +149,25 @@ export function extractIkeaProduct(html: string, productURL: string): CatalogPro
     assetURLs,
     ...(price === undefined ? {} : { price }),
     searchableText: [name, description].filter((value) => value.length > 0).join(". "),
+  };
+}
+
+/**
+ * Extracts permitted source facts only. A missing or ambiguous dimension/class
+ * is represented as absent so callers can retain discovery without guessing
+ * eligibility.
+ */
+export function extractIkeaProductSourceFacts(
+  html: string,
+  productName: string,
+): IkeaProductSourceFacts {
+  const rawCategory = extractIkeaCategory(html);
+  const dimensionsM = extractIkeaDimensions(html);
+  const classification = classifyIkeaProduct(productName);
+  return {
+    ...(rawCategory === undefined ? {} : { rawCategory }),
+    ...(dimensionsM === undefined ? {} : { dimensionsM }),
+    ...(classification === undefined ? {} : classification),
   };
 }
 
@@ -183,6 +262,107 @@ export async function* crawlIkeaUSProducts(
   }
 }
 
+/**
+ * Authorized, restart-aware discovery adapter. It returns immutable records to
+ * the catalog operation and has no path to Qdrant, derivatives, or delivery.
+ */
+export function createIkeaUSCatalogSource(options: IkeaUSCatalogSourceOptions): IkeaCatalogSource {
+  const authorization = options.authorization;
+  if (authorization === undefined) throw new Error("missing_ikea_authorization");
+  assertIkeaSourceAuthorization(authorization);
+  const concurrency = Math.max(1, Math.min(options.concurrency ?? 4, 12));
+  const requestsPerMinute = options.requestsPerMinute;
+  if (!Number.isSafeInteger(requestsPerMinute) || requestsPerMinute < 1 || requestsPerMinute > 600)
+    throw new Error("invalid_ikea_requests_per_minute");
+  const maxAttempts = options.maxAttempts ?? 3;
+  if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 8)
+    throw new Error("invalid_ikea_source_max_attempts");
+  const retryBaseMs = options.retryBaseMs ?? 500;
+  if (!Number.isSafeInteger(retryBaseMs) || retryBaseMs < 50 || retryBaseMs > 60_000)
+    throw new Error("invalid_ikea_source_retry_base_ms");
+  if (
+    options.maxProducts !== undefined &&
+    (!Number.isSafeInteger(options.maxProducts) ||
+      options.maxProducts < 1 ||
+      options.maxProducts > 100_000)
+  ) {
+    throw new Error("invalid_ikea_source_max_products");
+  }
+  const fetchImplementation = options.fetch ?? globalThis.fetch;
+  const sleep = options.sleep ?? ((milliseconds: number) => Bun.sleep(milliseconds));
+  const now = options.now ?? Date.now;
+  const rateLimit = createRateLimiter(requestsPerMinute, now, sleep);
+
+  return {
+    discover: async function* ({ checkpoint, signal }) {
+      assertIkeaSourceAuthorization(authorization);
+      if (checkpoint !== undefined) validateIkeaCheckpoint(checkpoint);
+      throwIfAborted(signal);
+      const productURLs = await discoverIkeaUSProductURLs({
+        fetch: fetchImplementation,
+        rateLimit,
+        maxAttempts,
+        retryBaseMs,
+        sleep,
+        signal,
+      });
+      const startAfter = checkpoint?.cursor;
+      const queue = productURLs.filter((url) => startAfter === undefined || url > startAfter);
+      const bounded =
+        options.maxProducts === undefined ? queue : queue.slice(0, options.maxProducts);
+      const categories = new Set<string>();
+      for (let offset = 0; offset < bounded.length; offset += concurrency) {
+        throwIfAborted(signal);
+        const batch = bounded.slice(offset, offset + concurrency);
+        const pages = await Promise.all(
+          batch.map(async (productURL) => {
+            const response = await fetchIkeaText({
+              fetch: fetchImplementation,
+              url: productURL,
+              accept: "text/html",
+              rateLimit,
+              maxAttempts,
+              retryBaseMs,
+              sleep,
+              signal,
+            });
+            return { productURL, ...response };
+          }),
+        );
+        for (const page of pages) {
+          throwIfAborted(signal);
+          const product = extractIkeaProduct(page.text, page.productURL);
+          const facts = extractIkeaProductSourceFacts(page.text, product.name);
+          const categoryPage =
+            facts.rawCategory !== undefined && !categories.has(facts.rawCategory);
+          if (facts.rawCategory !== undefined) categories.add(facts.rawCategory);
+          const variantIDs = product.assetURLs.map(
+            (assetURL) =>
+              `${product.id}-${createHash("sha256").update(assetURL).digest("hex").slice(0, 12)}`,
+          );
+          yield {
+            cursor: page.productURL,
+            sourceProductID: product.sourceProductID,
+            canonicalProductID: product.id,
+            variantIDs,
+            categoryPage,
+            productHasModelReference: product.assetURLs.length > 0,
+            modelURLsObserved: product.assetURLs.length,
+            rawRecord: {
+              parserRevision: IKEA_HTML_PARSER_REVISION,
+              productURL: page.productURL,
+              responseValidators: page.validators,
+              pageHTML: page.text,
+            },
+            product,
+            sourceFacts: facts,
+          };
+        }
+      }
+    },
+  };
+}
+
 async function fetchText(
   fetchImplementation: IkeaFetch,
   url: string,
@@ -198,6 +378,228 @@ async function fetchText(
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (bytes.byteLength > 8_000_000) throw new Error("ikea_source_too_large");
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+}
+
+async function discoverIkeaUSProductURLs(options: {
+  fetch: IkeaFetch;
+  rateLimit: () => Promise<void>;
+  maxAttempts: number;
+  retryBaseMs: number;
+  sleep: (milliseconds: number) => Promise<void>;
+  signal: AbortSignal | undefined;
+}): Promise<string[]> {
+  const pending = [`${IKEA_ORIGIN}/sitemaps/sitemap.xml`];
+  const visited = new Set<string>();
+  const productURLs = new Set<string>();
+  while (pending.length > 0) {
+    const sitemapURL = pending.shift();
+    if (sitemapURL === undefined || visited.has(sitemapURL)) continue;
+    visited.add(sitemapURL);
+    const response = await fetchIkeaText({
+      ...options,
+      url: sitemapURL,
+      accept: "application/xml",
+    });
+    const parsed = parseSitemap(response.text);
+    for (const child of parsed.sitemapURLs) {
+      if (!visited.has(child)) pending.push(child);
+    }
+    for (const productURL of parsed.productURLs) productURLs.add(productURL);
+  }
+  if (productURLs.size === 0) throw new Error("ikea_selector_drift_no_product_frontier");
+  return [...productURLs].sort();
+}
+
+async function fetchIkeaText(options: {
+  fetch: IkeaFetch;
+  url: string;
+  accept: string;
+  rateLimit: () => Promise<void>;
+  maxAttempts: number;
+  retryBaseMs: number;
+  sleep: (milliseconds: number) => Promise<void>;
+  signal: AbortSignal | undefined;
+}): Promise<{ text: string; validators: IkeaProductResponseValidators }> {
+  for (let attempt = 1; attempt <= options.maxAttempts; attempt += 1) {
+    throwIfAborted(options.signal);
+    try {
+      await options.rateLimit();
+      const response = await options.fetch(options.url, {
+        headers: { accept: options.accept, "user-agent": "ReframeCatalog/1.0 (+catalog-sync)" },
+        redirect: "follow",
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      });
+      if (!response.ok || new URL(response.url || options.url).origin !== IKEA_ORIGIN) {
+        if (response.status === 429 || response.status >= 500)
+          throw new Error("ikea_source_retryable");
+        throw new Error("ikea_source_failure");
+      }
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength > 8_000_000) throw new Error("ikea_source_too_large");
+      const etag = validValidator(response.headers.get("etag"));
+      const lastModified = validValidator(response.headers.get("last-modified"));
+      return {
+        text: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+        validators: {
+          ...(etag === undefined ? {} : { etag }),
+          ...(lastModified === undefined ? {} : { lastModified }),
+        },
+      };
+    } catch (error) {
+      if (attempt === options.maxAttempts || !isRetryableIkeaError(error)) throw error;
+      const jitter = deterministicJitter(options.url, attempt, options.retryBaseMs);
+      await options.sleep(options.retryBaseMs * 2 ** (attempt - 1) + jitter);
+    }
+  }
+  throw new Error("ikea_source_retry_exhausted");
+}
+
+function createRateLimiter(
+  requestsPerMinute: number,
+  now: () => number,
+  sleep: (milliseconds: number) => Promise<void>,
+): () => Promise<void> {
+  const intervalMs = Math.ceil(60_000 / requestsPerMinute);
+  let nextRequestAtMs = 0;
+  return async () => {
+    const current = now();
+    const scheduled = Math.max(current, nextRequestAtMs);
+    nextRequestAtMs = scheduled + intervalMs;
+    if (scheduled > current) await sleep(scheduled - current);
+  };
+}
+
+function deterministicJitter(url: string, attempt: number, baseRetryMs: number): number {
+  const value = createHash("sha256").update(`${url}:${attempt}`).digest()[0] ?? 0;
+  return value % Math.max(1, Math.floor(baseRetryMs / 4));
+}
+
+function isRetryableIkeaError(error: unknown): boolean {
+  return error instanceof Error && error.message === "ikea_source_retryable";
+}
+
+function validValidator(value: string | null): string | undefined {
+  if (value === null || value.length === 0 || value.length > 1_024 || /[\r\n]/u.test(value))
+    return undefined;
+  return value;
+}
+
+function validateIkeaCheckpoint(checkpoint: CatalogRunCheckpoint): void {
+  if (
+    checkpoint.source !== "ikea-us" ||
+    checkpoint.market !== "us" ||
+    checkpoint.locale !== "en-US" ||
+    checkpoint.parserRevision !== IKEA_HTML_PARSER_REVISION
+  ) {
+    throw new Error("ikea_frontier_checkpoint_mismatch");
+  }
+}
+
+function extractIkeaCategory(html: string): string | undefined {
+  const category = /"category"\s*:\s*"([0-9]{1,20})"/u.exec(html)?.[1];
+  return category;
+}
+
+function extractIkeaDimensions(html: string): CatalogDimensionsM | undefined {
+  const text = decodeHTML(html)
+    .replace(/<[^>]*>/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+  const measurements = [
+    ...text.matchAll(/\b(Width|Height|Length|Depth)\s*:\s*([0-9]+(?:\s+(?:[¼½¾]|\d+\/\d+))?)/giu),
+  ]
+    .map((match) => ({
+      label: (match[1] ?? "").toLowerCase(),
+      inches: parseInches(match[2] ?? ""),
+    }))
+    .filter(
+      (measurement): measurement is { label: string; inches: number } =>
+        measurement.inches !== undefined,
+    );
+  const candidates: Array<Record<string, number>> = [];
+  let candidate: Record<string, number> = {};
+  for (const measurement of measurements) {
+    if (candidate[measurement.label] !== undefined) {
+      candidates.push(candidate);
+      candidate = {};
+    }
+    candidate[measurement.label] = measurement.inches;
+  }
+  candidates.push(candidate);
+  const dimensions = candidates
+    .map((values) => {
+      const height = values.height;
+      const width = values.length ?? values.width;
+      const depth = values.depth ?? (values.length === undefined ? undefined : values.width);
+      if (height === undefined || width === undefined || depth === undefined) return undefined;
+      const dimensionsM = {
+        width: inchesToMeters(width),
+        height: inchesToMeters(height),
+        depth: inchesToMeters(depth),
+      };
+      return Object.values(dimensionsM).every(
+        (value) => Number.isFinite(value) && value > 0 && value < 100,
+      )
+        ? dimensionsM
+        : undefined;
+    })
+    .filter((value): value is CatalogDimensionsM => value !== undefined)
+    .sort(
+      (left, right) =>
+        right.width * right.height * right.depth - left.width * left.height * left.depth,
+    );
+  return dimensions[0];
+}
+
+function inchesToMeters(inches: number): number {
+  return Number((inches * 0.0254).toFixed(5));
+}
+
+function parseInches(value: string): number | undefined {
+  const normalized = value.trim();
+  const [wholePart, fractionPart] = normalized.split(/\s+/u);
+  const whole = Number(wholePart);
+  if (!Number.isFinite(whole) || whole < 0) return undefined;
+  if (fractionPart === undefined) return whole;
+  const fractions: Record<string, number> = { "¼": 0.25, "½": 0.5, "¾": 0.75 };
+  if (fractions[fractionPart] !== undefined) return whole + fractions[fractionPart];
+  const fraction = /^(\d+)\/(\d+)$/u.exec(fractionPart);
+  if (fraction === null) return undefined;
+  const numerator = Number(fraction[1]);
+  const denominator = Number(fraction[2]);
+  if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || denominator === 0)
+    return undefined;
+  return whole + numerator / denominator;
+}
+
+function classifyIkeaProduct(
+  name: string,
+): { category: string; supportType: AssetSupportType } | undefined {
+  const normalized = name.toLowerCase();
+  const category = /side table|bedside table|end table/u.test(normalized)
+    ? "side_table"
+    : /coffee table/u.test(normalized)
+      ? "coffee_table"
+      : /table/u.test(normalized)
+        ? "table"
+        : /chair|stool/u.test(normalized)
+          ? "chair"
+          : /sofa|armchair/u.test(normalized)
+            ? "sofa"
+            : /cabinet|shelf|shelving|bookcase|wardrobe|storage/u.test(normalized)
+              ? "storage"
+              : /bed/u.test(normalized)
+                ? "bed"
+                : /floor lamp|lamp/u.test(normalized)
+                  ? "lamp"
+                  : /rug/u.test(normalized)
+                    ? "rug"
+                    : undefined;
+  return category === undefined ? undefined : { category, supportType: "floor" };
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw new Error("ikea_source_cancelled");
 }
 
 function findProductJSONLD(html: string): Record<string, unknown> {
@@ -309,4 +711,12 @@ function cleanText(value: string): string {
 
 function decodeXML(value: string): string {
   return value.replaceAll("&amp;", "&").replaceAll("&lt;", "<").replaceAll("&gt;", ">");
+}
+
+function decodeHTML(value: string): string {
+  return decodeXML(value)
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#34;", '"')
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&#160;", " ");
 }

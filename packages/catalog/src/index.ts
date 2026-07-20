@@ -41,11 +41,44 @@ export type {
 } from "./catalog-eligibility.ts";
 export { assessAssetInjectionReadiness } from "./catalog-eligibility.ts";
 export type {
+  CatalogOperationDiscovery,
+  CatalogOperationProgress,
+  CatalogSource,
+  RunCatalogOperationOptions,
+} from "./catalog-operation.ts";
+export { runCatalogOperation } from "./catalog-operation.ts";
+export type {
   PreparedCatalogProofOptions,
   PreparedCatalogProofResult,
   PreparedCatalogProofStore,
 } from "./catalog-proof.ts";
 export { provePreparedCatalogAsset } from "./catalog-proof.ts";
+export type {
+  CatalogAcquisitionOutcome,
+  CatalogAssetLifecycleState,
+  CatalogDiscoveryObservation,
+  CatalogDiscoveryReceipt,
+  CatalogFrontierIdentity,
+  CatalogRunCheckpoint,
+  CatalogRunConfiguration,
+  CatalogRunCounters,
+  CatalogRunProfile,
+  CatalogRunReconciliation,
+  CatalogRunRecord,
+  CatalogRunStore,
+  CatalogStageUpdate,
+  FilesystemCatalogRunStoreOptions,
+} from "./catalog-run-store.ts";
+export { createFilesystemCatalogRunStore } from "./catalog-run-store.ts";
+export type {
+  ClientCacheSyncReport,
+  FilesystemLocalAssetCacheOptions,
+  SynchronizePreparedAssetsToLocalCacheOptions,
+} from "./client-cache-sync.ts";
+export {
+  createFilesystemLocalAssetCache,
+  synchronizePreparedAssetsToLocalCache,
+} from "./client-cache-sync.ts";
 export type {
   CachedAssetBinary,
   CatalogDerivativeKind,
@@ -85,16 +118,25 @@ export type { IkeaGLBFetchTransportOptions } from "./ikea-glb-transport.ts";
 export { createIkeaGLBFetchTransport } from "./ikea-glb-transport.ts";
 export type {
   FetchIkeaUSProductOptions,
+  IkeaCatalogDiscovery,
+  IkeaCatalogSource,
+  IkeaProductResponseValidators,
+  IkeaProductSourceFacts,
+  IkeaRawProductRecord,
   IkeaSourceOptions,
+  IkeaUSCatalogSourceOptions,
   IkeaUSSourceSmokeOptions,
   IkeaUSSourceSmokeResult,
   SitemapResult,
 } from "./ikea-source.ts";
 export {
   crawlIkeaUSProducts,
+  createIkeaUSCatalogSource,
   extractGLBURLs,
   extractIkeaProduct,
+  extractIkeaProductSourceFacts,
   fetchIkeaUSProduct,
+  IKEA_HTML_PARSER_REVISION,
   parseSitemap,
   runIkeaUSSourceSmoke,
 } from "./ikea-source.ts";

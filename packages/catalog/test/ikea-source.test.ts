@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import {
   crawlIkeaUSProducts,
+  createIkeaUSCatalogSource,
   extractIkeaProduct,
+  extractIkeaProductSourceFacts,
   fetchIkeaUSProduct,
   parseSitemap,
   REFRAME_IKEA_US_AUTHORIZATION,
@@ -18,6 +20,18 @@ test("the IKEA source discovers product pages from sitemap indexes", () => {
 
   assert.deepEqual(parseSitemap(xml, "us", "en"), {
     sitemapURLs: ["https://www.ikea.com/sitemaps/us/en/products.xml"],
+    productURLs: [],
+  });
+});
+
+test("the IKEA source recognizes the live market-language sitemap naming convention", () => {
+  const xml = `<?xml version="1.0"?><sitemapindex>
+    <sitemap><loc>https://www.ikea.com/sitemaps/prod-en-US_1.xml</loc></sitemap>
+    <sitemap><loc>https://www.ikea.com/sitemaps/prod-de-DE_1.xml</loc></sitemap>
+  </sitemapindex>`;
+
+  assert.deepEqual(parseSitemap(xml, "us", "en"), {
+    sitemapURLs: ["https://www.ikea.com/sitemaps/prod-en-US_1.xml"],
     productURLs: [],
   });
 });
@@ -55,6 +69,25 @@ test("the IKEA source extracts stable product metadata and every GLB variant", (
   );
 });
 
+test("the IKEA source uses product measurements rather than a smaller package measurement", () => {
+  const facts = extractIkeaProductSourceFacts(
+    `
+    <section><h2>Measurements</h2>
+      <span>Width: </span>12 ½ &quot;<span>Height: </span>3 ½ &quot;<span>Length: </span>34 ¼ &quot;
+      <span>Width: </span>12 1/4 &quot;<span>Height: </span>20 1/2 &quot;<span>Length: </span>31 1/2 &quot;
+    </section>`,
+    "HOLMERUD Side table",
+  );
+
+  assert.deepEqual(facts.dimensionsM, {
+    width: 0.8001,
+    height: 0.5207,
+    depth: 0.31115,
+  });
+  assert.equal(facts.category, "side_table");
+  assert.equal(facts.supportType, "floor");
+});
+
 test("the IKEA crawler rejects a disabled source policy before making a network request", async () => {
   let fetches = 0;
   const source = crawlIkeaUSProducts({
@@ -67,6 +100,59 @@ test("the IKEA crawler rejects a disabled source policy before making a network 
 
   await assert.rejects(source.next(), /ikea_authorization_disabled/);
   assert.equal(fetches, 0);
+});
+
+test("the IKEA frontier source resumes after its durable cursor and emits canonical product-variant records", async () => {
+  const requests: string[] = [];
+  const source = createIkeaUSCatalogSource({
+    authorization: REFRAME_IKEA_US_AUTHORIZATION,
+    concurrency: 2,
+    requestsPerMinute: 600,
+    fetch: async (input) => {
+      const url = String(input);
+      requests.push(url);
+      if (url.endsWith("sitemap.xml")) {
+        return new Response(
+          `<sitemapindex><sitemap><loc>https://www.ikea.com/sitemaps/prod-en-US_1.xml</loc></sitemap></sitemapindex>`,
+          { status: 200 },
+        );
+      }
+      if (url.endsWith("prod-en-US_1.xml")) {
+        return new Response(
+          `<urlset><url><loc>https://www.ikea.com/us/en/p/alpha-white-s99017186/</loc></url><url><loc>https://www.ikea.com/us/en/p/kallax-white-s99017187/</loc></url></urlset>`,
+          { status: 200 },
+        );
+      }
+      return new Response(productHTML().replaceAll("99017186", "99017187"), {
+        status: 200,
+        headers: { etag: "product-v1", "last-modified": "Mon, 20 Jul 2026 00:00:00 GMT" },
+      });
+    },
+  });
+  const discovered = [];
+  for await (const record of source.discover({
+    profile: "incremental",
+    checkpoint: {
+      source: "ikea-us",
+      market: "us",
+      locale: "en-US",
+      frontierRevision: "ikea-us-en-v1",
+      parserRevision: "ikea-html-v1",
+      cursor: "https://www.ikea.com/us/en/p/alpha-white-s99017186/",
+      complete: false,
+      updatedAtMs: 1,
+    },
+    signal: undefined,
+  })) {
+    discovered.push(record);
+  }
+
+  assert.equal(discovered.length, 1);
+  assert.equal(discovered[0]?.canonicalProductID, "ikea-us-99017187");
+  assert.equal(discovered[0]?.variantIDs.length, 2);
+  assert.equal(discovered[0]?.productHasModelReference, true);
+  assert.equal(discovered[0]?.rawRecord.responseValidators.etag, "product-v1");
+  assert.equal(requests.filter((url) => url.includes("alpha-white")).length, 0);
 });
 
 test("the authorized smoke source acquires one observed GLB through resumable content storage", async () => {
