@@ -1,180 +1,210 @@
 # ReRoom 24-Hour Finish Runbook
 
-**Objective:** deliver one reproducible, honest deep-AI hackathon demo in the
-next 24 hours without weakening deterministic authority or inventing physical
-evidence.
-**Classification:** demo candidate, not canonical P0 release.
-**Current GSD entry:** `$gsd-next`, which currently routes to `$gsd-ship`
-because the finished work is committed but unpublished. Publishing is a
-deliberate owner action; after that decision, resume `$gsd-verify-work 02` and
-treat `.planning/STATE.md` as authoritative.
-**Concurrency:** two implementation-critical lanes maximum; join only through
-checked-in contracts/fixtures.
+Status: **software-complete demo candidate; provider/device/browser/human finish
+lane remains**
+
+Objective: produce one reproducible, honest deep-AI hackathon demo without
+weakening deterministic authority or converting simulator/model output into
+physical evidence. This is a demo finish lane, not a declaration that canonical
+P0 is complete.
 
 ## Current checkpoint
 
-- Phase 02.1 is 4/4 implemented. Its exact-source verifier passes all 16
-  commands and marks only `CR-03`, `CR-04`, and `CR-12` as automated review
-  candidates; 17 other Phase 2 findings, Phase 2 itself, and `GATE-001` remain
-  open.
-- Phase 09 is 1/1 implemented. Local evidence currently includes 34 gateway
-  tests, a complete 129/129 serial clean-snapshot native run (119
-  unit/integration plus 10 UI), 10 web tests, strict schema parity,
-  deterministic regeneration of three asset bundles, and production builds.
-  The frozen executable candidate also passes a signed arm64 build for the
-  paired base iPhone 17. Live provider, actual signed-device execution, formal
-  browser, and human gates remain pending.
-- A local Chromium smoke on the frozen candidate rendered the accepted
-  seven-event B0 replay and exercised keyboard-accessible slider plus
-  Previous/Next transitions with no console or page errors. It is not the
-  formal `GATE-008` browser matrix.
-- The immediate human-visible finish is live Sol/vision (timeboxed), one clean
-  signed-device rehearsal, then the sub-three-minute recording and submission
-  handoff. The frozen-candidate B0 smoke is green. Optional voice is the first
-  feature cut.
+- The repository is a Bun `1.3.11`/Turborepo workspace with package-owned
+  runtime dependencies and one `bun.lock`.
+- Hono is the only public application API. OpenAI calls use Vercel AI SDK;
+  Python/FastAPI/PyTorch remains one private, single-lane worker behind an
+  independently validating Hono adapter.
+- The worker has honest `disabled` and `fixture_only` profiles. No SAM/DA3
+  profile or checkpoint is selected, and no model quality/hardware gate is
+  claimed.
+- Native typed, optional vision, and push-to-talk transcript input share the
+  same CON-006-to-deterministic-preview path. Realtime exposes no tools and can
+  never confirm or commit.
+- Local workspace formatting, lint, strict types, 80 Bun/Python tests,
+  production builds, lockfile policy, tracked-secret scan, and GSD health pass.
+- The native app compiles after the copilot activity-state cleanup. The most
+  recent broad local Xcode test attempt was blocked before assertions by the
+  host simulator test runners; this is pending evidence, not a test pass or a
+  known assertion failure.
+- An older frozen candidate has signed-build and browser-smoke evidence bound to
+  its recorded revision. It remains historical and cannot prove the current
+  revision.
 
-## Frozen executable candidate
+## Definition of the hackathon finish
 
-- Revision: `476d88f25d0455aea7394ffa72c3188cdb6113ca`
-- Native: 129/129 tests pass (119 unit/integration and 10 UI) on iPhone 17 / iOS
-  26.4 simulator; Debug and Release simulator builds pass.
-- Device build: the arm64 Debug app signs successfully for paired base iPhone
-  17 `00008150-0014543E3693401C`. It was not installed or launched, so this is
-  not physical camera, microphone, thermal, visual, or UX evidence.
-- Browser: local Chromium traverses the seven-event accepted replay, including
-  slider and both direction controls; console/page errors are empty. Local load
-  observation: TTFB 258 ms, LCP/FCP 300 ms, CLS 0.
-- Provider: no `OPENAI_API_KEY` or gateway token was available; no live Sol,
-  vision, or Realtime result is claimed.
+One clean revision must demonstrate:
 
-## Definition of done
-
-The sprint is finished when one clean revision can demonstrate:
-
-1. a signed native session with camera/ARKit and the three-entry local catalog;
+1. native camera/ARKit launch on the base iPhone without rear LiDAR;
 2. place or replace → revision-neutral preview → explicit one-revision commit;
-3. restore preview → explicit compensating commit while offline-capable;
-4. GPT-5.6 Sol returning strict CON-006 from typed input and, if the 45-minute
-   live check passes, one explicitly consented current frame;
-5. model output visibly stopping at proposal/preview, never auto-committing;
-6. optional push-to-talk Realtime or a clearly shown typed fallback;
-7. a separate real-browser B0 golden replay/inspection path;
-8. a sub-three-minute honest recording plus setup, test, pending-gate, and
-   submission notes bound to the clean revision.
+3. restore preview → explicit compensating commit, including offline behavior;
+4. one credentialed GPT-5.6 Sol typed proposal and, if consented, one current-
+   frame vision proposal crossing only CON-006;
+5. visible proof that model output stops before confirmation/commit;
+6. push-to-talk only if the fixed five-utterance gate passes, otherwise the
+   explicit typed fallback;
+7. the separate Mode B0 golden replay in a real supported browser;
+8. a sub-three-minute recording and submission checklist bound to that clean
+   revision, with every pending gate disclosed.
 
-Canonical P0, normal removal quality, and every physical/human gate are separate
-claims. A demo can finish while those remain pending.
+Normal removal quality, canonical 5/5 P0, and physical/human evidence remain
+separate claims.
 
-## Lane A — deterministic integrity
+## Critical path for the remaining hours
 
-| Timebox | Work | Exit |
+| Timebox | Action | Stop condition / output |
 |---:|---|---|
-| 0–3 h | Execute Phase 02.1 Plans 01→04 sequentially. | Verified archive capability only; exact physically durable prefix; atomic/race-safe publication; production callers and narrow evidence all green. |
-| 3–5 h | Full Swift package, contract, replay, mutation, and secret checks. | Fresh commands pass on the candidate source tree. |
-| 5–7 h | Clean-revision Xcode test/build, then signed base-iPhone install. | Provenance guard passes; camera/ARKit starts; no LiDAR dependency. |
-| 7–10 h | Native deterministic hero rehearsal. | Place/replace/restore preview and confirmation show exact revision behavior; removal limitation is disclosed. |
+| 0–1 h | Start from a clean clone/install and run the software gate below. | All frozen installs, static checks, tests, builds, secrets, locks, and Swift package tests pass. Any regression is fixed before rehearsal. |
+| 1–2 h | Run one redacted live typed Sol request, then one explicitly consented current-frame request. | Exact trusted context echoes, asset is in the three-item catalog, output creates preview only, and logs contain no prompt/image/secret. Cut live AI after 45 minutes if access or strict output fails. |
+| 2–3 h | Run the five Phase 09 push-to-talk utterances plus adversarial cases on device. | Keep voice only at ≥4/5 correct nonmutating proposals and zero authority/security failures. Otherwise disable voice and use typed input. |
+| 3–5 h | Execute one signed base-iPhone camera/ARKit and deterministic edit rehearsal. | Place/replace/restore survive interruption/retry with exact revision behavior; record factual environment and sanitized results. Removal stays disclosed until GATE-006. |
+| 5–6 h | Run Mode B0 from the current clean revision over local HTTP in a supported browser. | Golden capture verifies, timeline scrubs, inspector stays exact, keyboard controls work, and console/page errors are empty. |
+| 6–7 h | Freeze the candidate and repeat the complete software/build gate. | One immutable candidate revision with no dirty behavior-bearing files. |
+| 7–9 h | Record the shortest complete demo and one backup take. | Under three minutes, audible, deterministic commit boundary visible, typed fallback available. |
+| 9–11 h | Finalize README, architecture/model explanation, license/access notes, representative Codex Session ID, and pending-gate table. | Reviewer can install and understand the system without guessing. |
+| 11–12 h | Human rules checklist, publish decision, and submission. | Publishing remains an explicit owner action; no automated process signs or submits for a human. |
 
-## Lane B — visible AI and demo resilience
+## Optional local-model decision
 
-| Timebox | Work | Exit |
-|---:|---|---|
-| 0–2 h | Verify gateway tests/typecheck/build/schema and native AI compilation. | CON-006 stays closed; no standard API key enters the phone. |
-| 2–4 h | Run one live typed Sol proposal and one consented-frame proposal. | Exact context echo; known catalog asset; preview only; request IDs retained without prompt/image/secret logging. |
-| 4–5 h | Try the five fixed Realtime utterances in [Phase 09 validation](../../phases/09-ai-design-copilot-demo/09-VALIDATION.md). | Keep voice only at ≥4/5 expected proposals with all adversarial cases rejected/clarified; otherwise disable it. |
-| 5–7 h | Run B0 in a real supported browser over local HTTP. | Golden capture verifies, replays, scrubs, and exposes honest degraded state. |
-| 7–10 h | Prepare demo scene, narration, fallback order, and capture sheet. | One repeatable run that does not depend on optional voice or a live model. |
+Storage availability does not by itself authorize a checkpoint. Do not spend the
+finish lane pulling several model families. A real SAM 2.1 Hiera Small profile
+may proceed only if all of the following are ready before its four-hour
+GATE-004 timebox starts:
 
-## Join and final 14 hours
+- the 20 annotated hero frames and 60-second replay fixture;
+- exact official code revision, checkpoint URL and SHA-256, separate code and
+  weight license decision, and attribution;
+- pinned runtime dependency closure compatible with the selected machine;
+- adapter tests for normalization, seed handling, mask identity, output shape,
+  cancellation, queue saturation, and invalid bytes;
+- the metric calculator and raw-evidence destination for median/p10 IoU,
+  leakage, identity switches, p95 latency, queue growth, VRAM, and startup.
 
-| Timebox | Work | Exit |
-|---:|---|---|
-| 10–14 h | Freeze the candidate, rerun all software checks, perform one signed build and one browser smoke. | Complete for revision `476d88f`; actual on-device launch/rehearsal remains pending. |
-| 14–18 h | Capture the shortest complete demo: problem → camera-grounded edit → AI proposal boundary → explicit commit/restore → B0 replay. | Usable take under three minutes with audible explanation. |
-| 18–21 h | Produce README/setup, architecture/AI explanation, Codex Session ID, license/access notes, and pending-gate disclosure. | A reviewer can run the local pieces without guessing. |
-| 21–24 h | Regression, backup take, submission checklist, human publish. | No known software regression; submission remains a deliberate human action. |
+If any prerequisite is absent, keep the worker `disabled` for the demo and use
+manual target/reseed or the explicitly labeled fixture path. Do not turn a
+download or visually plausible mask into `MEASURED` evidence. DA3 and LingBot
+remain out of this final lane unless their separate canonical gates are already
+prepared and higher-priority demo evidence is green.
 
-## Hard kill rules
+## Exact software gate
 
-- **Sol:** if credentials/model access or a valid strict response is not working
-  after 45 minutes, stop. Demo the exact mocked fixture/local catalog and say
-  the live provider is unavailable; do not loosen CON-006.
-- **Realtime:** if native audio/network behavior or 4/5 intent quality misses a
-  45-minute slice, disable the button and use typed input. Voice is P1.
-- **Removal:** do not spend the sprint inventing unseen-room synthesis. If the
-  normal reveal path is not already gate-ready after a 90-minute device check,
-  use the visibly disclosed demo fixture and keep GATE-006 pending.
-- **Dense/semantic providers:** do not add SAM, DA3, Open3D, LingBot, a GPU host,
-  or B1 during this sprint. Manual target/ARKit/no-dense fallbacks are canonical.
-- **Evidence:** simulator, model output, or recollection never becomes physical
-  or human evidence. A dirty-tree build never becomes revision-bound evidence.
-- **Scope:** no cloud deployment, new database, new operation, schema loosening,
-  large catalog, commerce, or multi-user work.
-
-## Command sheet
+From the repository root:
 
 ```sh
-# Exact shared Node runtime (when nvm is installed)
-nvm use
-
-# Deterministic Swift core
-swift test --package-path ios/Packages/ReRoomContracts
-xcodebuild -project ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj \
-  -scheme ReRoomDeviceProof -destination 'generic/platform=iOS Simulator' \
-  CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj \
-  -scheme ReRoomDeviceProof \
-  -destination 'platform=iOS Simulator,name=iPhone 17,OS=26.4' \
-  -parallel-testing-enabled NO -test-timeouts-enabled YES \
-  -default-test-execution-time-allowance 180 \
-  -maximum-test-execution-time-allowance 240 \
-  CODE_SIGNING_ALLOWED=NO test
-
-# Reproducible local CON-004 demo assets (rerun after source/provenance changes)
-node tools/assets/generate_hackathon_assets.mjs
-
-# Optional AI gateway
-npm --prefix gateway ci
-npm --prefix gateway test
-npm --prefix gateway run typecheck
-npm --prefix gateway run build
-npm --prefix gateway audit --omit=dev --audit-level=high
-
-# Provider-independent web path
-npm --prefix web test
-npm --prefix web run typecheck
-npm --prefix web run build
-npm --prefix web audit --omit=dev --audit-level=high
-
-# Static integrity
-plutil -lint ios/ReRoomDeviceProof/ReRoomDeviceProof/Info.plist
-plutil -lint ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj/project.pbxproj
-scripts/verify-reroom-release-surface
+bun install --frozen-lockfile
+uv sync --project apps/inference --frozen
+bun run check
+bun run test:swift
+node "$HOME/.codex/gsd-core/bin/gsd-tools.cjs" query validate.health
 git diff --check
 ```
 
-Use the serial Xcode invocation above; Xcode's parallel clone launcher can
-wedge independently of the product tests. The web package pins Next.js
-16.2.10 and overrides its vulnerable PostCSS 8.4.31 transitive pin with tested
-PostCSS 8.5.20. Keep the override only while tests, typecheck, the production
-build, and the zero-vulnerability production audit all pass.
+Native build and test:
 
-After the production web build, start it from the repository root with
-`npm --prefix web start -- -H 127.0.0.1 -p 3100` and exercise the timeline in a
-real supported browser. A successful local browser smoke is still not the full
-retention, ordinary-video, sharing, or fault campaign required by `GATE-008`.
+```sh
+xcodebuild test \
+  -project apps/ios/ReRoomDeviceProof/ReRoomDeviceProof.xcodeproj \
+  -scheme ReRoomDeviceProof \
+  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+  -derivedDataPath /tmp/reroom-derived-data \
+  -parallel-testing-enabled NO \
+  CODE_SIGNING_ALLOWED=NO
+```
 
-For live use, export `OPENAI_API_KEY` and `REROOM_GATEWAY_TOKEN` only in the
-gateway process environment. Never paste their values into GSD, logs, evidence,
-source, `.rrcap`, or the iPhone app. The native app receives only the local
-gateway bearer token and short-lived Realtime credential.
+If the simulator runner fails before test assertions, retain the complete log,
+run a clean compile/build-for-testing, and mark simulator execution pending. Do
+not report zero selected cases or runner startup failure as a pass. Physical
+camera/microphone/ARKit work still requires the signed base device.
+
+## Service rehearsal
+
+No-provider topology:
+
+```sh
+bun run dev
+```
+
+Gateway with semantic/voice providers:
+
+```sh
+export REROOM_GATEWAY_HOST=127.0.0.1
+export REROOM_GATEWAY_TOKEN=<high-entropy-local-token>
+export OPENAI_API_KEY=<server-only-project-key>
+bun run --cwd apps/api dev
+```
+
+Explicit private fixture worker in a separate terminal:
+
+```sh
+export REROOM_INFERENCE_HOST=127.0.0.1
+export REROOM_INFERENCE_PROFILE=fixture
+export REROOM_INFERENCE_TOKEN=<private-worker-token>
+bun run --cwd apps/inference dev
+```
+
+Then give Hono `REROOM_INFERENCE_URL=http://127.0.0.1:8790` and the same
+private token. The public gateway token must be different. Keep port `8790`
+loopback-only and never give the worker token to the iPhone or web client.
+
+Mode B0:
+
+```sh
+bun run --cwd apps/web build
+bun run --cwd apps/web start -- --hostname 127.0.0.1 --port 3100
+```
+
+## Demo sequence
+
+1. Show the live camera and explicit controlled target.
+2. Type or say “Replace this with the cobalt chair.”
+3. Point out the model provenance and unchanged base revision in preview.
+4. Confirm manually and show exactly one revision increment.
+5. Restore and show a new compensating transaction rather than history rewind.
+6. Briefly show the provider-independent Mode B0 replay/inspector.
+7. State the fallback: typed input, manual target, no-dense, local journal, and
+   B0 remain usable with OpenAI/Python/network disabled.
+
+Use the disclosed removal fixture only if it is clearly labeled as a transaction
+and reveal demonstration. Do not imply that normal removal quality or GATE-006
+has passed.
+
+## Hard kill rules
+
+- **Sol:** 45 minutes. If credential/model access or strict CON-006 fails, use
+  the local typed path and fixture response; never loosen the schema.
+- **Realtime:** 45 minutes. If network/audio behavior, 4/5 intent accuracy, or
+  any injection case fails, disable the voice button. Voice is optional.
+- **Simulator:** do not burn the device rehearsal window fighting a host runner
+  crash after the app compiles. Preserve logs, use CI/another host, and proceed
+  to the signed-device gate.
+- **Segmentation/depth:** no checkpoint without the prepared gate packet above;
+  no multi-model bake-off inside the final demo window.
+- **Removal:** no unseen-room synthesis. Ask for another view, shrink the
+  envelope, or keep remove unavailable. Controlled-fixture failure still blocks
+  canonical P0.
+- **Scope:** no cloud platform, Kubernetes, Redis/Postgres migration, large
+  catalog, commerce, multi-user, B1, or new operation.
+- **Evidence:** simulator, model output, local fixture, or recollection never
+  becomes physical/human evidence. A dirty-tree build never becomes a
+  revision-bound claim.
 
 ## Handoff truth table
 
 | Result | Allowed statement |
 |---|---|
-| Local automated checks | “The deterministic software and strict AI boundary pass the listed local checks.” |
-| One signed-device smoke | “The named revision ran this exact smoke on the named device.” |
+| Clean local/CI software gate | “The deterministic software and strict AI boundary pass the listed checks.” |
+| One signed-device observation | “This exact revision ran this exact observation on the named device.” |
 | One live Sol request | “A live request succeeded once with this redacted request ID.” |
+| Fixture worker result | “The Hono/Python protocol works end-to-end with a non-evidentiary fixture provider.” |
 | Optional voice disabled | “Voice fell back to typed input without affecting the edit journey.” |
-| DEBUG/demo removal fixture | “The demo illustrates the transaction/reveal flow; normal removal quality and GATE-006 remain pending.” |
-| Missing gate evidence | Never “P0 complete,” “production ready,” or “gate passed.” |
+| Disclosed removal fixture | “The fixture illustrates transaction/reveal flow; normal quality and GATE-006 remain pending.” |
+| Missing gate evidence | Never “P0 complete,” “production ready,” “real-time,” or “gate passed.” |
+
+## GSD handoff
+
+Do not reinitialize GSD or create another speculative phase. This direct
+owner-authorized overlay is the active implementation handoff. After the
+software/docs slice is committed, update `.planning/STATE.md` with the exact
+stopping point and let `$gsd-next` route back to the unresolved Phase 2
+verification/evidence work. Publication, branch protection, physical evidence,
+and submission remain deliberate owner actions.

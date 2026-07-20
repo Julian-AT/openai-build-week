@@ -5,10 +5,10 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: Atomic Capture and Exact Replay
 status: implementing
-stopped_at: Owner-authorized autonomous finish overlay; workspace migration in progress
-last_updated: "2026-07-20T10:25:20Z"
+stopped_at: Owner-authorized finish overlay; workspace/API/worker/native/quality slices committed, documentation and final verification in progress
+last_updated: "2026-07-20T11:51:20Z"
 last_activity: 2026-07-20
-last_activity_desc: Frozen executable candidate passed 129/129 native tests, signed base-iPhone build, local B0 browser smoke, and zero-vulnerability web audit
+last_activity_desc: Bun/Hono/Vercel AI SDK/private worker/native voice-state/CI slices committed; 80 workspace tests, strict checks, builds, secret scan, and GSD health pass locally
 progress:
   total_phases: 10
   completed_phases: 1
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-17)
 
 **Core value:** Trustworthy camera-grounded room editing where users can place, replace, remove, and restore one controlled freestanding chair or small table while deterministic application code retains spatial, persistence, transaction, and replay authority.
 
-**Current focus:** Execute the owner-authorized autonomous hackathon finish
-overlay while preserving Phase 2 verification findings and every remaining
-live/device/provider/browser/human gate. Phase 02.1 and Phase 09 have no
-unexecuted historical plans.
+**Current focus:** Finish documentation and clean-revision verification for the
+owner-authorized hackathon overlay, then hand provider/device/browser/human
+execution to the owner without altering Phase 2 verification findings. Phase
+02.1 and Phase 09 have no unexecuted historical plans.
 
 ## Current Position
 
@@ -37,12 +37,21 @@ Plan: Phase 02.1 is 4/4 and Phase 09 is 1/1. The directly authorized
 [`AUTONOMOUS-FINISH-PLAN-2026-07-20.md`](milestones/v1.0/AUTONOMOUS-FINISH-PLAN-2026-07-20.md)
 implementation overlay is active; it does not close historical verification.
 
-Status: Continue the active autonomous finish overlay. After its verified
-software slices are committed, `$gsd-next` must return to Phase 2 verification;
-all unresolved Phase 2 findings remain open and publishing remains an owner
-action.
+Status: Workspace, Hono/Vercel AI SDK, private worker/proxy, native activity
+state, and repository quality slices are committed. Complete the documentation
+and final clean-source verification, then `$gsd-next` must return to Phase 2
+verification. All unresolved Phase 2 findings remain open; push, branch
+protection, provider credentials, device/browser observations, and publication
+remain owner actions.
 
-Last activity: 2026-07-20 — executable candidate `476d88f25d0455aea7394ffa72c3188cdb6113ca` passed 129/129 native tests, Debug and Release simulator builds, release-surface verification, a signed arm64 build for the paired base iPhone 17, the local seven-event B0 browser smoke, and zero-vulnerability gateway/web production audits
+Last activity: 2026-07-20 — implemented and committed the Bun/Turborepo
+workspace, Hono gateway, Vercel AI SDK provider boundary, private bounded
+FastAPI worker and Hono proxy, native voice-to-preview activity-state cleanup,
+Biome/Ruff/Husky enforcement, and SHA-pinned GitHub CI. The current local
+workspace gate passes 80 Bun/Python tests, strict types, production builds,
+lockfile policy, tracked-secret scanning, and GSD health. Historical signed
+device/browser evidence remains bound only to candidate
+`476d88f25d0455aea7394ffa72c3188cdb6113ca`.
 
 Progress: [████████████████████] 51/51 implementation plans executed ([██████████] 100%). Canonical verification and gates are not complete.
 
@@ -188,11 +197,22 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ### Pending Todos
 
-- Let the owner decide whether to run the `$gsd-ship` publication workflow; no push, PR, deployment, or submission was performed autonomously.
-- After that decision, resume `$gsd-verify-work 02`, formally judge the three Phase 02.1 candidates, then work the remaining nine blocker and eight warning findings without promoting `GATE-001` early.
-- Install the signed candidate and run the exact camera/catalog/place/replace/restore rehearsal plus the required physical gate campaigns. A successful signed build is not on-device execution evidence.
-- Run the timeboxed live Sol/one-frame-vision rubric and optional five-turn Realtime rubric; disable optional provider controls on a miss.
-- Complete the short honest demo recording and human submission checklist; the frozen-candidate local Chromium B0 smoke is already green but does not close `GATE-008`.
+- Rerun the final clean-source gate, commit the documentation handoff, and
+  preserve the local Xcode simulator-runner startup failure as pending rather
+  than claiming selected-zero or crashed workers passed.
+- Let the owner decide whether to push and require the new GitHub checks; no
+  push, PR, branch-protection change, deployment, or submission is performed by
+  this overlay.
+- Run the timeboxed live Sol/one-frame-vision rubric and optional five-turn
+  Realtime rubric; disable optional provider controls on a miss.
+- Install the current signed candidate and run the exact camera/catalog/place/
+  replace/restore rehearsal plus physical gate campaigns. Historical signed
+  build evidence does not transfer to the new source revision.
+- Run current-revision B0 in a real supported browser, complete the short honest
+  demo recording, and finish the human submission checklist.
+- After the finish decision, resume `$gsd-verify-work 02`, formally judge the
+  three Phase 02.1 candidates, then work the remaining nine blocker and eight
+  warning findings without promoting `GATE-001` early.
 - Continue Phase 3 through Phase 8 verification and the formal gate campaigns in dependency order; preserve every incomplete gate as `PENDING`.
 - Complete signed-device derivative parity, human visual review, and the final shipping BOM before `GATE-011` or a shipping claim.
 
@@ -230,9 +250,11 @@ Full locked and provisional decision blocks are in PROJECT.md.
 
 ## Session Continuity
 
-Last session: 2026-07-20T00:32:01Z
+Last session: 2026-07-20T11:51:20Z
 
-Stopped at: Completed all 51 implementation plans and frozen-candidate local verification; `$gsd-next` routes to owner-controlled ship, then Phase 2 formal review plus provider/device/formal-browser/human gates remain.
+Stopped at: Direct finish overlay is completing documentation and final
+verification after five implementation commits. `$gsd-next` must then return to
+Phase 2 formal review; provider/device/formal-browser/human gates remain.
 
 Resume file: None
 

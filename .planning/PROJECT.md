@@ -6,9 +6,10 @@ ReRoom is a camera-grounded room-editing product for placing, replacing, removin
 
 All eight original phases now have implementation-plan artifacts, while only
 Phase 1 has a passed canonical phase verdict. The current demo candidate also
-contains the approved Phase 02.1 recovery repair and Phase 09 optional AI
-overlay. Plan execution is not release completion: physical, provider,
-browser, license, removal-quality, golden-run, and human gates remain pending.
+contains the approved Phase 02.1 recovery repair, Phase 09 optional AI overlay,
+and the directly owner-authorized Bun/Hono/private-worker finish overlay. Plan
+execution is not release completion: physical, provider, browser, license,
+removal-quality, golden-run, and human gates remain pending.
 Further product work still proceeds only through an approved phase plan or
 direct human instruction; deployment, publication, and cloud-resource mutation
 remain separately gated.
@@ -67,6 +68,17 @@ The 24 canonical P0 requirement IDs are preserved in `.planning/REQUIREMENTS.md`
 - The native renderer draws only edit, reveal, occlusion, conservative shadow, and UI overlays. The 60 Hz path never waits synchronously for a network, worker, web client, or model.
 - Mode B0 is a separate Next.js client backed by the shared gateway/service contracts. It guarantees `.rrcap` replay, inspection, sessions, sharing, typed proposals, and honest degraded visualization without learned providers.
 - The gateway owns durable replication and explicit B0 forks; a Next.js route handler does not own stateful processing or production WebSockets.
+- The public application boundary is Hono on Bun. OpenAI model access is behind
+  Vercel AI SDK package adapters; the official `openai` JavaScript package is
+  absent. The Python/FastAPI/PyTorch environment is one loopback/private worker
+  reached only through an independently validating Hono proxy.
+- Realtime is a bounded push-to-talk transcription transport with a short-lived
+  gateway-minted credential and no tools. Completed transcript text re-enters
+  the same Sol/CON-006/native proposal boundary as typed input.
+- Bun/Turborepo owns cross-workspace orchestration. Runtime dependencies remain
+  in the importing workspace; root development dependencies are limited to
+  cross-workspace/repository tooling. Real CV profiles remain disabled until
+  their canonical model, license, fixture, and hardware gates pass.
 - Delivery assumes two developers using Codex and Sol, but work is divided only by dependency and risk slices. At most two implementation-critical streams may be active, with joins through versioned contracts and replay fixtures rather than person assignments.
 - SQLite WAL plus content-addressed filesystem storage is the P0 baseline. GPU work is bounded and priority-based, and compute is declared by measured capability tier rather than hidden mandatory hardware.
 
@@ -216,4 +228,4 @@ These ADRs are usable only behind their named boundaries. Their thresholds remai
 - Future/stretch work may enter a later roadmap only through explicit human approval and may never weaken P0 acceptance.
 
 ---
-*Last updated: 2026-07-19 during the explicitly authorized Phase 02.1 and AI demo implementation sprint; canonical gate status remains evidence-driven.*
+*Last updated: 2026-07-20 during the directly owner-authorized hackathon finish overlay; canonical gate status remains evidence-driven.*

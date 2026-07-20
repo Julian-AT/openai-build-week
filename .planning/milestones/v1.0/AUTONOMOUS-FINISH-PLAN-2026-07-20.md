@@ -39,18 +39,38 @@ phase plans or close physical, provider, and human gates.
    deterministic fixture adapters first, then optional PyTorch/MPS providers.
    The Hono API owns all public routing and fails closed on worker timeout or
    invalid output.
-4. **Voice preview tools.** Amend the AI boundary explicitly for a closed set of
-   preview-only tools. Every result re-enters the same native proposal and
-   deterministic preview boundary; confirmation remains a separate user action.
-5. **Native cleanup.** Normalize product/module naming, split oversized SwiftUI
-   presentation and state responsibilities along existing typed boundaries, and
-   retain actor isolation, cancellation, accessibility, and deterministic tests.
+4. **Voice transcript ingress.** Preserve the accepted ADR-011 transport
+   amendment: Realtime exposes no tools and returns only one bounded completed
+   transcript. The transcript enters the same Sol/CON-006/native validation and
+   deterministic preview boundary as typed input; confirmation remains a
+   separate user action.
+5. **Native cleanup.** Normalize the copilot activity state and intent naming
+   along existing typed boundaries, retain actor isolation, cancellation,
+   accessibility, and deterministic tests, and avoid a broad file-layout rewrite
+   that is not required to close a behavior or risk gate.
 6. **Engineering gates.** Add repository hooks and GitHub checks for frozen Bun
    installs, formatting/lint/typecheck/tests/builds, Swift tests, Python tests,
    secret scanning, and lockfile policy. No hook is the sole security boundary.
 7. **Demo readiness.** Rewrite setup/architecture documentation, publish exact
    fallback order, run the smallest complete software gate, and leave every
    unmeasured device/provider/human claim visibly pending.
+
+## Implementation status
+
+| Slice | Status | Remaining external gate |
+|---|---|---|
+| Bun/Turborepo workspace and package-local runtime dependencies | Complete | Clean GitHub runner execution after publication |
+| Hono public API and Vercel AI SDK OpenAI boundary | Complete in local fake-transport tests | Credentialed Sol/vision request and latency/quality evidence |
+| Private FastAPI worker and independently validated Hono proxy | Complete for disabled/fixture profiles | GATE-004/GATE-007 selection before any real checkpoint profile |
+| Native typed/vision/voice proposal-to-preview flow | Complete in source and clean compilation; voice has no tools | Stable simulator runner, live push-to-talk device run, and GATE-010 |
+| Biome/Ruff/Husky/CI/secret/lockfile enforcement | Complete locally | Required checks and branch protection enabled by the repository owner |
+| README and 24-hour handoff | Complete locally | Device/browser/provider rehearsal plus human submission |
+
+The model worker is intentionally not marked “real-model complete.” PyTorch is
+an optional locked runtime and the protocol is executable, but SAM/DA3 code and
+checkpoint selection remain forbidden until their exact canonical benchmark,
+license, and hardware gates are run. Storage capacity alone does not satisfy
+those gates.
 
 ## Commit and verification policy
 
