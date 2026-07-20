@@ -3,6 +3,7 @@ import { mkdir, open, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
 import type {
+  AcquiredContentReference,
   AcquisitionCheckpoint,
   AcquisitionContentStore,
   AcquisitionStateStore,
@@ -19,6 +20,10 @@ export interface FilesystemAcquisitionStoreOptions {
 export interface FilesystemAcquisitionStores {
   state: AcquisitionStateStore;
   content: AcquisitionContentStore;
+  /** Read-only access to immutable validated source objects. */
+  source: {
+    read(reference: AcquiredContentReference): Promise<Uint8Array>;
+  };
 }
 
 /**
@@ -104,6 +109,24 @@ export async function createFilesystemAcquisitionStores(
       },
       discardPartial: async (acquisitionID) => {
         await rm(acquisitionPartialPath(partialDirectory, acquisitionID), { force: true });
+      },
+    },
+    source: {
+      read: async (reference) => {
+        if (
+          !SHA256.test(reference.sha256) ||
+          reference.storageKey !== `sha256/${reference.sha256}` ||
+          !Number.isSafeInteger(reference.byteLength) ||
+          reference.byteLength <= 0
+        ) {
+          throw new Error("invalid_source_content_reference");
+        }
+        const file = Bun.file(sourceObjectPath(objectDirectory, reference.sha256));
+        if (!(await file.exists())) throw new Error("source_content_missing");
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        if (bytes.byteLength !== reference.byteLength || hash(bytes) !== reference.sha256)
+          throw new Error("source_content_hash_mismatch");
+        return bytes;
       },
     },
   };

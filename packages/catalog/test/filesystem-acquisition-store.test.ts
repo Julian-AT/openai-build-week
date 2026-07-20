@@ -49,6 +49,10 @@ test("durably resumes partial source bytes and commits immutable content by veri
   const storageKey = await resumed.content.commitContent(sha256, complete);
   assert.equal(storageKey, `sha256/${sha256}`);
   assert.equal(await resumed.content.commitContent(sha256, complete), storageKey);
+  assert.deepEqual(
+    await resumed.source.read({ storageKey, sha256, byteLength: complete.byteLength }),
+    complete,
+  );
   await assert.rejects(
     resumed.content.commitContent("a".repeat(64), complete),
     /content_hash_mismatch/,

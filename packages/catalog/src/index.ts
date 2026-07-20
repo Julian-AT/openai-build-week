@@ -11,8 +11,30 @@ export type {
   AcquisitionTransport,
 } from "./acquisition.ts";
 export { acquireCatalogBinary } from "./acquisition.ts";
+export type {
+  AssetPreparationBudgets,
+  AssetPreparationContentStore,
+  AssetPreparationDerivativeKind,
+  CatalogAssetProcessor,
+  CatalogAssetProcessorOutput,
+  CatalogAssetProcessorRequest,
+  PrepareCatalogAssetOptions,
+  PreparedCatalogAssetRecord,
+} from "./asset-preparation.ts";
+export {
+  DEFAULT_ASSET_PREPARATION_BUDGETS,
+  prepareCatalogAsset,
+} from "./asset-preparation.ts";
 export type { AssetBytes, AssetManifest } from "./asset-validator.ts";
 export { validateAssetDerivatives, validateGLB, validateUSDZ } from "./asset-validator.ts";
+export type {
+  AssetProcessorCommandRunner,
+  BlenderAssetProcessorOptions,
+} from "./blender-asset-processor.ts";
+export {
+  BLENDER_NORMALIZER_SCRIPT_PATH,
+  createBlenderAssetProcessor,
+} from "./blender-asset-processor.ts";
 export type {
   InjectionReadiness,
   InjectionReadinessFailure,
@@ -32,6 +54,11 @@ export type {
   FilesystemAcquisitionStores,
 } from "./filesystem-acquisition-store.ts";
 export { createFilesystemAcquisitionStores } from "./filesystem-acquisition-store.ts";
+export type {
+  FilesystemPreparedAssetStore,
+  FilesystemPreparedAssetStoreOptions,
+} from "./filesystem-prepared-asset-store.ts";
+export { createFilesystemPreparedAssetStore } from "./filesystem-prepared-asset-store.ts";
 export type { IkeaSourceAuthorization } from "./ikea-authorization.ts";
 export {
   assertIkeaSourceAuthorization,
