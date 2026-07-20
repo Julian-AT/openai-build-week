@@ -46,9 +46,15 @@ install:
 uv sync --frozen --extra torch
 ```
 
-Installing PyTorch makes runtime/MPS capability visible at `/readyz`; it does
-not silently select or download a model. A real SAM 3.1 or eligible DA3 adapter
-must bind an exact code revision, checkpoint digest, license evidence, input
-normalization, output tolerance policy, and its applicable canonical gate
-before its profile can be added. Until then, unknown profiles fail startup and
-the worker stays disabled.
+Installing PyTorch makes runtime/MPS capability visible at `/readyz`; model
+downloads remain an explicit preparation step. The `geometry` profile accepts
+only the official Apache-2.0 DA3Metric-Large source revision
+`3fe327a6abe2e5db95b54444ea95463dbfef5610` and checkpoint revision
+`4010e39f3634a45bc60553321fb49fb760bd594e`. It verifies the clean source
+checkout and the complete checkpoint SHA-256 before loading either CUDA or MPS.
+
+Set `REFRAME_DA3_SOURCE_DIR`, `REFRAME_DA3_MODEL_DIR`, and optionally
+`REFRAME_DA3_DEVICE=cuda|mps`, then start with
+`REFRAME_VISION_PROFILE=geometry`. The worker applies the official focal-length
+conversion to encoded-frame intrinsics and returns digest-bound metric depth.
+It does not install, select, or download a model during startup.

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import uvicorn
 
 from .app import InferenceAppOptions, create_inference_app
+from .da3_metric import DA3MetricProvider, load_da3_metric_engine
 from .providers import (
     DisabledProvider,
     InferenceProvider,
@@ -31,6 +33,14 @@ def main() -> None:
                 reconstruction=require_url("REFRAME_RECONSTRUCTION_URL"),
             )
         )
+    elif profile == "geometry":
+        provider = DA3MetricProvider(
+            load_da3_metric_engine(
+                require_path("REFRAME_DA3_SOURCE_DIR"),
+                require_path("REFRAME_DA3_MODEL_DIR"),
+                requested_device=os.environ.get("REFRAME_DA3_DEVICE", "auto"),
+            )
+        )
     else:
         raise RuntimeError("unknown inference profile")
     app = create_inference_app(InferenceAppOptions(token=token, provider=provider))
@@ -55,6 +65,14 @@ def require_url(name: str) -> str:
         message = f"invalid {name.lower()}"
         raise RuntimeError(message)
     return value
+
+
+def require_path(name: str) -> Path:
+    value = os.environ.get(name, "").strip()
+    if not value:
+        message = f"invalid {name.lower()}"
+        raise RuntimeError(message)
+    return Path(value).expanduser().resolve()
 
 
 if __name__ == "__main__":
