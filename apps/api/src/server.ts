@@ -5,6 +5,12 @@ import { type Context, Hono } from "hono";
 
 import { type AgentTurnService, parseAgentTurnRequest } from "./agent-turn.ts";
 import {
+  CaptureFrameConflictError,
+  type DurableRoomSessionStore,
+  isRoomSessionID,
+  RoomCredentialError,
+} from "./durable-session-store.ts";
+import {
   type EditTransactionService,
   IdempotencyConflictError,
   RevisionConflictError,
@@ -26,6 +32,7 @@ export interface GatewayAppOptions {
   inferenceService?: InferenceService;
   editTransactionService?: EditTransactionService;
   agentTurnService?: AgentTurnService;
+  durableSessionStore?: DurableRoomSessionStore;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
   nowMilliseconds?: () => number;
@@ -128,6 +135,15 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
     return handleInferenceJob(context, options);
   });
 
+  app.post("/v1/sessions", async (context) => handleSessionCreate(context, options));
+  app.post("/v1/sessions/:sessionID/frames", async (context) =>
+    handleFrameIngest(context, options),
+  );
+  app.get("/v1/sessions/:sessionID/frames/recent", async (context) =>
+    handleRecentFrames(context, options),
+  );
+  app.delete("/v1/sessions/:sessionID", async (context) => handleSessionDeletion(context, options));
+
   app.post("/v1/edit/previews", async (context) => handleEditPreview(context, options));
   app.post("/v1/edit/confirmations", async (context) => handleEditConfirmation(context, options));
   app.post("/v1/edit/restores", async (context) => handleEditRestore(context, options));
@@ -137,6 +153,10 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.all("/v1/realtime/calls", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/inference/status", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/inference/jobs", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/sessions", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/sessions/:sessionID/frames", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/sessions/:sessionID/frames/recent", (context) => methodNotAllowed(context, "GET"));
+  app.all("/v1/sessions/:sessionID", (context) => methodNotAllowed(context, "DELETE"));
   app.all("/v1/edit/previews", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/edit/confirmations", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/edit/restores", (context) => methodNotAllowed(context, "POST"));
@@ -251,6 +271,136 @@ async function handleInferenceJob(context: Context, options: GatewayAppOptions):
   }
 }
 
+async function handleSessionCreate(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  const rejection = authorizeJSONRequest(context, options.gatewayToken);
+  if (rejection !== undefined) return rejection;
+  if (!options.durableSessionStore) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  try {
+    const input = parseSessionCreateRequest(await readJSON(context.req.raw));
+    const created = await options.durableSessionStore.createSession(input);
+    return context.json(
+      {
+        session_id: created.sessionID,
+        credential: created.credential,
+        expires_at_ms: created.expiresAtMilliseconds,
+      },
+      201,
+    );
+  } catch (error) {
+    if (error instanceof BodyTooLargeError)
+      return context.json({ error: "payload_too_large" }, 413);
+    if (
+      error instanceof SyntaxError ||
+      error instanceof TypeError ||
+      error instanceof ProtocolError
+    ) {
+      return context.json({ error: "invalid_request" }, 400);
+    }
+    if (error instanceof RoomCredentialError)
+      return context.json({ error: "invalid_request" }, 400);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleFrameIngest(context: Context, options: GatewayAppOptions): Promise<Response> {
+  if (!options.durableSessionStore) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  const sessionID = context.req.param("sessionID");
+  if (typeof sessionID !== "string" || !isRoomSessionID(sessionID)) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomFrameRequest(context);
+  if (credential instanceof Response) return credential;
+  try {
+    const receipt = await options.durableSessionStore.acceptFrame({
+      credential,
+      bytes: await readBinary(context.req.raw),
+      expectedSessionID: sessionID,
+    });
+    return context.json(
+      {
+        session_id: receipt.sessionID,
+        frame_id: receipt.frameID,
+        sha256: receipt.sha256,
+        byte_length: receipt.byteLength,
+        accepted_at_ms: receipt.acceptedAtMilliseconds,
+        replayed: receipt.replayed,
+      },
+      receipt.replayed ? 200 : 202,
+    );
+  } catch (error) {
+    if (error instanceof BodyTooLargeError)
+      return context.json({ error: "payload_too_large" }, 413);
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    if (error instanceof CaptureFrameConflictError) {
+      return context.json({ error: "frame_conflict" }, 409);
+    }
+    if (
+      error instanceof ProtocolError ||
+      error instanceof SyntaxError ||
+      error instanceof TypeError
+    ) {
+      return context.json({ error: "invalid_request" }, 400);
+    }
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleRecentFrames(context: Context, options: GatewayAppOptions): Promise<Response> {
+  if (!options.durableSessionStore) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  const sessionID = context.req.param("sessionID");
+  if (typeof sessionID !== "string" || !isRoomSessionID(sessionID)) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  try {
+    const frames = await options.durableSessionStore.recentFrames(credential, sessionID);
+    return context.json({
+      frames: frames.map((frame) => ({
+        session_id: frame.sessionID,
+        frame_id: frame.frameID,
+        sha256: frame.sha256,
+        byte_length: frame.byteLength,
+        accepted_at_ms: frame.acceptedAtMilliseconds,
+      })),
+    });
+  } catch (error) {
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleSessionDeletion(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.durableSessionStore) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  const sessionID = context.req.param("sessionID");
+  if (typeof sessionID !== "string" || !isRoomSessionID(sessionID)) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  try {
+    await options.durableSessionStore.deleteSession(credential, sessionID);
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
 async function handleEditPreview(context: Context, options: GatewayAppOptions): Promise<Response> {
   const credential = authorizeScopedJSONRequest(context);
   if (credential instanceof Response) return credential;
@@ -348,6 +498,26 @@ function authorizeScopedJSONRequest(context: Context): string | Response {
   return authorization.slice("Bearer ".length);
 }
 
+function authorizeRoomFrameRequest(context: Context): string | Response {
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  if (
+    context.req.header("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !==
+    "application/vnd.reframe.framepacket"
+  ) {
+    return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  return credential;
+}
+
+function authorizeRoomCredential(context: Context): string | Response {
+  const authorization = context.req.header("authorization");
+  if (!authorization?.startsWith("Bearer ") || authorization.length <= "Bearer ".length) {
+    return context.json({ error: "unauthorized" }, 401);
+  }
+  return authorization.slice("Bearer ".length);
+}
+
 function editFailureResponse(context: Context, error: unknown): Response {
   if (error instanceof BodyTooLargeError) {
     return context.json({ error: "payload_too_large" }, 413);
@@ -382,6 +552,36 @@ function parseEditPreviewRequest(value: unknown): { readonly proposalID: string 
     throw new ProtocolError("invalid_request");
   }
   return { proposalID: value.proposal_id };
+}
+
+function parseSessionCreateRequest(value: unknown): {
+  readonly sessionID: string;
+  readonly expiresAtMilliseconds: number;
+  readonly allowedPaths: readonly ("frames" | "events" | "artifacts")[];
+} {
+  if (
+    !isExactRecord(value, ["session_id", "expires_at_ms", "allowed_paths"]) ||
+    typeof value.session_id !== "string" ||
+    !isRoomSessionID(value.session_id) ||
+    typeof value.expires_at_ms !== "number" ||
+    !Number.isSafeInteger(value.expires_at_ms) ||
+    value.expires_at_ms < 0 ||
+    !Array.isArray(value.allowed_paths) ||
+    value.allowed_paths.length === 0 ||
+    value.allowed_paths.length > 3 ||
+    new Set(value.allowed_paths).size !== value.allowed_paths.length ||
+    !value.allowed_paths.every(
+      (path): path is "frames" | "events" | "artifacts" =>
+        path === "frames" || path === "events" || path === "artifacts",
+    )
+  ) {
+    throw new ProtocolError("invalid_request");
+  }
+  return {
+    sessionID: value.session_id,
+    expiresAtMilliseconds: value.expires_at_ms,
+    allowedPaths: value.allowed_paths,
+  };
 }
 
 function parseEditConfirmationRequest(value: unknown): {
@@ -486,6 +686,21 @@ async function readText(request: Request): Promise<string> {
   return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 }
 
+async function readBinary(request: Request): Promise<Uint8Array> {
+  const declaredLength = request.headers.get("content-length");
+  if (
+    declaredLength !== null &&
+    (!/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) || Number(declaredLength) > MAX_REQUEST_BYTES)
+  ) {
+    throw new BodyTooLargeError();
+  }
+  const bytes = new Uint8Array(await request.arrayBuffer());
+  if (bytes.byteLength === 0 || bytes.byteLength > MAX_REQUEST_BYTES) {
+    throw new BodyTooLargeError();
+  }
+  return bytes;
+}
+
 class BodyTooLargeError extends Error {}
 
 class FixedWindowRateLimit {
@@ -579,13 +794,17 @@ function hasJSONContentType(contentType: string | undefined): boolean {
   return contentType?.split(";", 1)[0]?.trim().toLowerCase() === "application/json";
 }
 
-function methodNotAllowed(context: Context, allow: "GET" | "POST"): Response {
+function methodNotAllowed(context: Context, allow: "GET" | "POST" | "DELETE"): Response {
   context.header("allow", allow);
   return context.json({ error: "method_not_allowed" }, 405);
 }
 
-function allowedMethodForPath(pathname: string): "GET" | "POST" | undefined {
+function allowedMethodForPath(pathname: string): "GET" | "POST" | "DELETE" | undefined {
   if (pathname === "/health" || pathname === "/v1/inference/status") return "GET";
+  if (pathname === "/v1/sessions") return "POST";
+  if (/^\/v1\/sessions\/room_[a-z0-9_]{3,120}\/frames\/recent$/u.test(pathname)) return "GET";
+  if (/^\/v1\/sessions\/room_[a-z0-9_]{3,120}\/frames$/u.test(pathname)) return "POST";
+  if (/^\/v1\/sessions\/room_[a-z0-9_]{3,120}$/u.test(pathname)) return "DELETE";
   if (
     pathname === "/v1/realtime/calls" ||
     pathname === "/v1/inference/jobs" ||
