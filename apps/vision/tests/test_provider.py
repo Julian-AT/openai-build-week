@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 
 import httpx
+import pytest
 from pydantic import TypeAdapter
 
-from reframe_vision.contracts import InferenceJob
+from reframe_vision.contracts import InferenceJob, MetricDepthJob
 from reframe_vision.providers import ModelServiceProvider, VisionServiceEndpoints
 
 
@@ -77,3 +78,43 @@ def test_model_provider_routes_a_typed_job_to_the_segmentation_lane() -> None:
         assert requested_paths == ["/infer"]
 
     asyncio.run(run())
+
+
+def test_metric_depth_job_binds_intrinsics_to_encoded_image() -> None:
+    job = MetricDepthJob.model_validate(
+        {
+            "protocol_version": "1.0.0",
+            "request_id": "inference_10000000-0000-4000-8000-000000000001",
+            "task": "metric_depth",
+            "image": {
+                "frame_id": "frame_10000000-0000-4000-8000-000000000001",
+                "media_type": "image/jpeg",
+                "data_base64": "/9j/2Q==",
+                "sha256": "32461d5bd1773012acef0ba15636752949bd7c2ce50f9172159d9f56cf0dd9af",
+                "width": 1,
+                "height": 1,
+            },
+            "intrinsics_encoded_pixels": {
+                "fx": 1.0,
+                "fy": 1.0,
+                "cx": 0.5,
+                "cy": 0.5,
+                "width": 1,
+                "height": 1,
+                "units": "encoded_pixels",
+            },
+        }
+    )
+
+    assert job.intrinsics_encoded_pixels.fx == 1.0
+
+    with pytest.raises(ValueError, match="intrinsics dimensions do not match image"):
+        MetricDepthJob.model_validate(
+            {
+                **job.model_dump(),
+                "intrinsics_encoded_pixels": {
+                    **job.intrinsics_encoded_pixels.model_dump(),
+                    "width": 2,
+                },
+            }
+        )

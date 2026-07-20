@@ -72,11 +72,31 @@ class SegmentationJob(StrictModel):
         return self
 
 
+class EncodedImageIntrinsics(StrictModel):
+    fx: float = Field(gt=0, allow_inf_nan=False)
+    fy: float = Field(gt=0, allow_inf_nan=False)
+    cx: float = Field(allow_inf_nan=False)
+    cy: float = Field(allow_inf_nan=False)
+    width: int = Field(ge=1, le=4_096)
+    height: int = Field(ge=1, le=4_096)
+    units: Literal["encoded_pixels"]
+
+
 class MetricDepthJob(StrictModel):
     protocol_version: Literal["1.0.0"]
     request_id: str = Field(pattern=INFERENCE_ID_PATTERN)
     task: Literal["metric_depth"]
     image: ImageInput
+    intrinsics_encoded_pixels: EncodedImageIntrinsics
+
+    @model_validator(mode="after")
+    def validate_intrinsics_dimensions(self) -> MetricDepthJob:
+        if (
+            self.intrinsics_encoded_pixels.width != self.image.width
+            or self.intrinsics_encoded_pixels.height != self.image.height
+        ):
+            raise ValueError("intrinsics dimensions do not match image")
+        return self
 
 
 class ReconstructionJob(StrictModel):

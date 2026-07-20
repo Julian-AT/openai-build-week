@@ -39,6 +39,17 @@ export interface MetricDepthJobRequest {
   request_id: string;
   task: "metric_depth";
   image: InferenceImageInput;
+  intrinsics_encoded_pixels: EncodedImageIntrinsics;
+}
+
+export interface EncodedImageIntrinsics {
+  fx: number;
+  fy: number;
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  units: "encoded_pixels";
 }
 
 export interface ReconstructionJobRequest {
@@ -135,10 +146,19 @@ export function parseInferenceJobRequest(value: unknown): InferenceJobRequest {
     return value as unknown as SegmentationJobRequest;
   }
   if (value.task === "metric_depth") {
-    if (!hasExactKeys(value, ["protocol_version", "request_id", "task", "image"])) {
+    if (
+      !hasExactKeys(value, [
+        "protocol_version",
+        "request_id",
+        "task",
+        "image",
+        "intrinsics_encoded_pixels",
+      ])
+    ) {
       throw invalidProtocol();
     }
-    parseImage(value.image);
+    const image = parseImage(value.image);
+    parseEncodedImageIntrinsics(value.intrinsics_encoded_pixels, image);
     return value as unknown as MetricDepthJobRequest;
   }
   if (value.task === "reconstruct") {
@@ -244,6 +264,26 @@ function parseImage(value: unknown): InferenceImageInput {
     throw invalidProtocol();
   }
   return value as unknown as InferenceImageInput;
+}
+
+function parseEncodedImageIntrinsics(
+  value: unknown,
+  image: InferenceImageInput,
+): EncodedImageIntrinsics {
+  if (
+    !isRecord(value) ||
+    !hasExactKeys(value, ["fx", "fy", "cx", "cy", "width", "height", "units"]) ||
+    !isPositiveFiniteNumber(value.fx) ||
+    !isPositiveFiniteNumber(value.fy) ||
+    !isFiniteNumber(value.cx) ||
+    !isFiniteNumber(value.cy) ||
+    value.width !== image.width ||
+    value.height !== image.height ||
+    value.units !== "encoded_pixels"
+  ) {
+    throw invalidProtocol();
+  }
+  return value as unknown as EncodedImageIntrinsics;
 }
 
 function parseProvider(value: unknown): InferenceProviderIdentity {
@@ -397,6 +437,14 @@ function isBoundedInteger(value: unknown, minimum: number, maximum: number): val
   return (
     Number.isSafeInteger(value) && (value as number) >= minimum && (value as number) <= maximum
   );
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isPositiveFiniteNumber(value: unknown): value is number {
+  return isFiniteNumber(value) && value > 0;
 }
 
 function invalidProtocol(): ProtocolError {

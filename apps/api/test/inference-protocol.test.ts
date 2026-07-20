@@ -26,6 +26,21 @@ const segmentJob = {
   image,
   prompt: { kind: "point", x: 0, y: 0, label: "foreground" },
 } as const;
+const metricDepthJob = {
+  protocol_version: "1.0.0",
+  request_id: requestID,
+  task: "metric_depth",
+  image,
+  intrinsics_encoded_pixels: {
+    fx: 1,
+    fy: 1,
+    cx: 0.5,
+    cy: 0.5,
+    width: 1,
+    height: 1,
+    units: "encoded_pixels",
+  },
+} as const;
 
 test("inference requests are exact, digest-bound, and prompt-bound", () => {
   assert.deepEqual(parseInferenceJobRequest(segmentJob), segmentJob);
@@ -53,6 +68,28 @@ test("reconstruction requests require unique stable frame IDs", () => {
       task: "reconstruct",
       archive_sha256: "0".repeat(64),
       frame_ids: [image.frame_id, image.frame_id],
+    }),
+  );
+});
+
+test("metric-depth requests bind intrinsics to the encoded image", () => {
+  assert.deepEqual(parseInferenceJobRequest(metricDepthJob), metricDepthJob);
+  assert.throws(() =>
+    parseInferenceJobRequest({
+      ...metricDepthJob,
+      intrinsics_encoded_pixels: {
+        ...metricDepthJob.intrinsics_encoded_pixels,
+        width: 2,
+      },
+    }),
+  );
+  assert.throws(() =>
+    parseInferenceJobRequest({
+      ...metricDepthJob,
+      intrinsics_encoded_pixels: {
+        ...metricDepthJob.intrinsics_encoded_pixels,
+        fx: 0,
+      },
     }),
   );
 });
