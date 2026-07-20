@@ -10,9 +10,9 @@ import { createProposalService } from "./proposal-service.ts";
 import { MODEL_PROPOSAL_OUTPUT_SCHEMA } from "./semantic-schema.ts";
 import { createGatewayApp, type GatewayLogRecord, MAX_REQUEST_BYTES } from "./server.ts";
 
-const host = process.env.REROOM_GATEWAY_HOST?.trim() || "0.0.0.0";
-const port = parsePort(process.env.REROOM_GATEWAY_PORT);
-const gatewayToken = process.env.REROOM_GATEWAY_TOKEN ?? "";
+const host = process.env.REFRAME_GATEWAY_HOST?.trim() || "0.0.0.0";
+const port = parsePort(process.env.REFRAME_GATEWAY_PORT);
+const gatewayToken = process.env.REFRAME_GATEWAY_TOKEN ?? "";
 const openAIAPIKey = process.env.OPENAI_API_KEY;
 
 const proposalService = openAIAPIKey
@@ -30,8 +30,8 @@ const realtimeService = openAIAPIKey
   ? createOpenAIRealtimeSessionService({ apiKey: openAIAPIKey })
   : undefined;
 const inferenceService = createInferenceWorkerClientFromEnvironment({
-  REROOM_INFERENCE_URL: process.env.REROOM_INFERENCE_URL,
-  REROOM_INFERENCE_TOKEN: process.env.REROOM_INFERENCE_TOKEN,
+  REFRAME_VISION_URL: process.env.REFRAME_VISION_URL,
+  REFRAME_VISION_TOKEN: process.env.REFRAME_VISION_TOKEN,
 });
 
 const app = createGatewayApp({

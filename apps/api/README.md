@@ -21,7 +21,7 @@ bun run --cwd apps/api test
 bun run --cwd apps/api build
 ```
 
-Export the names shown in `.env.example`. `REROOM_GATEWAY_TOKEN` protects both `/v1` routes and should be a high-entropy local secret. `OPENAI_API_KEY` is read only by OpenAI-backed services and must never enter the native app, source, or logs. The defaults are `0.0.0.0:8787`; bind to `127.0.0.1` unless a physical device needs LAN access.
+Export the names shown in `.env.example`. `REFRAME_GATEWAY_TOKEN` protects the `/v1` routes and should be a high-entropy local secret. `OPENAI_API_KEY` is read only by OpenAI-backed services and must never enter the native app, source, or logs. The defaults are `0.0.0.0:8787`; bind to `127.0.0.1` unless a physical device needs LAN access.
 
 ```sh
 bun run --cwd apps/api start
@@ -34,8 +34,8 @@ process from provider readiness. Protected routes share a process-local
 single API process for the hackathon deployment.
 
 The CV process is separate for Python/PyTorch dependency isolation but is not a
-second public API. Configure both `REROOM_INFERENCE_URL` (normally
-`http://127.0.0.1:8790`) and a distinct `REROOM_INFERENCE_TOKEN`, or configure
+second public API. Configure both `REFRAME_VISION_URL` (normally
+`http://127.0.0.1:8790`) and a distinct `REFRAME_VISION_TOKEN`, or configure
 neither. A partial pair stops gateway startup; an absent pair leaves inference
 routes present but fail-closed. The worker port stays loopback/private and only
 Hono knows its bearer credential.

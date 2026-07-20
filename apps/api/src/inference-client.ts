@@ -26,16 +26,16 @@ export interface InferenceWorkerClientOptions {
 export type WorkerFetch = (input: URL, init: RequestInit) => Promise<Response>;
 
 export interface InferenceEnvironment {
-  REROOM_INFERENCE_URL?: string | undefined;
-  REROOM_INFERENCE_TOKEN?: string | undefined;
+  REFRAME_VISION_URL?: string | undefined;
+  REFRAME_VISION_TOKEN?: string | undefined;
 }
 
 export function createInferenceWorkerClientFromEnvironment(
   environment: InferenceEnvironment,
   fetchImplementation?: WorkerFetch,
 ): InferenceService | undefined {
-  const baseURL = environment.REROOM_INFERENCE_URL;
-  const token = environment.REROOM_INFERENCE_TOKEN;
+  const baseURL = environment.REFRAME_VISION_URL;
+  const token = environment.REFRAME_VISION_TOKEN;
   const hasBaseURL = baseURL !== undefined && baseURL !== "";
   const hasToken = token !== undefined && token !== "";
   if (!hasBaseURL && !hasToken) return undefined;

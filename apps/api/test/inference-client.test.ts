@@ -51,18 +51,18 @@ test("worker environment configuration is either complete or disabled", () => {
   assert.equal(createInferenceWorkerClientFromEnvironment({}), undefined);
   assert.throws(() =>
     createInferenceWorkerClientFromEnvironment({
-      REROOM_INFERENCE_URL: "http://127.0.0.1:8790",
+      REFRAME_VISION_URL: "http://127.0.0.1:8790",
     }),
   );
   assert.throws(() =>
     createInferenceWorkerClientFromEnvironment({
-      REROOM_INFERENCE_TOKEN: "internal-worker-token",
+      REFRAME_VISION_TOKEN: "internal-worker-token",
     }),
   );
   assert.notEqual(
     createInferenceWorkerClientFromEnvironment({
-      REROOM_INFERENCE_URL: "http://127.0.0.1:8790",
-      REROOM_INFERENCE_TOKEN: "internal-worker-token",
+      REFRAME_VISION_URL: "http://127.0.0.1:8790",
+      REFRAME_VISION_TOKEN: "internal-worker-token",
     }),
     undefined,
   );
