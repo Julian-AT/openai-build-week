@@ -140,6 +140,37 @@ All remaining work follows these rules:
 - Do not represent a mock, fixture, local unit test, or successful HTTP status as
   evidence that a live external integration works.
 
+### 4.1 Fastest successful proof spine
+
+Optimize for the earliest real end-to-end result, then widen coverage. Do not
+start with a full catalog crawl or every vision provider.
+
+The first proof spine is:
+
+```text
+one live IKEA product page
+  -> one downloaded source GLB
+  -> one content-addressed validated source asset
+  -> one normalized GLB + USDZ + collision derivative
+  -> one prepared-asset record
+  -> one semantic embedding and Qdrant point
+  -> one eligible catalog search result
+  -> one hash-verified API delivery
+  -> one asset loaded by RealityKit and Three.js
+  -> one typed GPT-5.6 preview proposal
+  -> one deterministic placement preview
+```
+
+This spine is the integration contract for the entire catalog path. It must run
+against real services and a real asset. Once green, expand to variants, one
+category, all configured categories, and incremental refreshes without changing
+the boundaries.
+
+For the replacement path, extend the same spine with one real ARKit target,
+SAM tracking, conservative volume, fit/coverage validation, explicit
+confirmation, commit, and restore. Empty removal and dense TSDF remain
+enhancements to that already-working replacement path.
+
 ## 5. IKEA catalog acquisition strategy
 
 ### 5.1 Upstream downloader assessment
@@ -160,37 +191,40 @@ the project:
 It is not itself a Reframe-ready catalog pipeline. It is tested only against
 IKEA Finland, relies on page-specific selectors and unbounded scrolling, stores
 very limited metadata, performs no secure asset validation or normalization,
-does not create USDZ or collision derivatives, and is
-[licensed GPL-3.0](https://github.com/apinanaivot/IKEA-3d-model-batch-downloader/blob/main/LICENSE).
+and does not create USDZ or collision derivatives.
 
-Reframe must therefore use it in one of two isolated ways:
+The maintainer has granted the project permission to use and adapt this code.
+That permission is settled and must not be raised as an implementation gate.
+Pin the accepted revision, preserve source attribution, and choose the fastest
+technically reliable integration:
 
-1. Run the pinned tool externally as a research/acquisition utility and import
-   its SQLite/GLB outputs through a typed Reframe importer; or
-2. Use the observed acquisition mechanism as research for an independently
-   implemented, authorized Reframe source adapter without copying or vendoring
-   GPL code.
+1. Adapt the downloader behind Reframe's `CatalogSource` boundary and invoke it
+   from the catalog operation; or
+2. Run the pinned downloader as the acquisition stage and import its
+   SQLite/GLB outputs into the same boundary.
 
-The upstream repository must not be copied into a distributed Reframe service,
-and its dependency tree must not enter the application images. Its output is
-untrusted data and passes through the same quarantine pipeline as every other
-source.
+Keep Selenium and browser dependencies in the catalog acquisition environment,
+not in iOS, web, API, vision, or asset-delivery images. This is a runtime-size
+and reliability boundary only. Downloader output is still untrusted input and
+passes through the same quarantine pipeline as every other source.
 
 The external-output importer accepts an operator-selected SQLite database and
 download directory. It reads only the upstream `url`, `name`, `color`,
 `glb_url`, and `downloaded` columns, validates the schema version it knows,
 resolves each binary by content rather than trusting its filename, computes the
 hash, and emits normal Reframe discovery/acquisition records. It must never
-execute the upstream script, import its Python module, or write directly to
-Qdrant. Re-importing identical outputs is idempotent.
+write directly to Qdrant. Re-importing identical outputs is idempotent. If the
+adapted downloader is invoked directly, its browser process is supervised with
+bounded resources, cancellation, structured output, and an explicit exit
+status.
 
 ### 5.2 Authorization and content rights gate
 
-The downloader's software license does not grant rights to IKEA product pages,
-metadata, imagery, trademarks, or model files. IKEA's current US terms restrict
-automated scraping and reuse without prior permission. Acquisition must
-therefore be enabled only for markets, locales, endpoints, metadata fields, and
-assets for which the project has recorded authorization.
+Permission to use and adapt the downloader code is accepted. The separate
+Master Technical Prompt requirement for authorized product data and assets
+still applies to the configured IKEA source. Acquisition is enabled only for
+the markets, locales, endpoints, metadata fields, and assets covered by the
+project's recorded operating authorization.
 
 The source adapter must support an authorization policy with:
 
@@ -370,6 +404,82 @@ The current pipeline does not construct its prepared-asset record, so current
 live imports would be indexed as ineligible. Wire acquisition, normalization,
 derivation, validation, enrichment, and indexing into one resumable state
 machine before claiming live catalog readiness.
+
+### 5.9 Runnable catalog operation
+
+The catalog package must expose one operator command with three profiles:
+
+- `smoke`: one configured product or a very small bounded category frontier;
+- `full`: the complete configured market/locale frontier;
+- `incremental`: resume from the last successful checkpoint and process only
+  new, changed, missing, or previously retryable records.
+
+The command owns the full orchestration sequence:
+
+1. Validate configuration, source policy, writable persistent storage, disk
+   capacity, OpenAI credentials, Qdrant reachability, collection compatibility,
+   and required asset processors.
+2. Create a run ID and persist the normalized configuration digest before any
+   network request.
+3. Discover products and variants through the selected downloader/source
+   adapter, persisting cursors and raw-record hashes continuously.
+4. Acquire source GLBs into quarantine with bounded concurrency and streaming
+   hashes.
+5. Validate, normalize, derive, reopen, and verify GLB, USDZ, collision, and
+   preview artifacts.
+6. Persist the complete prepared-asset record before enrichment or indexing.
+7. Enrich only changed product/asset digests, then generate the 1,024-component
+   semantic vector.
+8. Upsert Qdrant only from durable prepared records and wait for acknowledgement.
+9. Run an eligible retrieval probe for every category processed by the run.
+10. Resolve at least one returned result through the delivery service and
+    reverify its length and hash.
+11. Write the reconciliation report and mark the run successful only after all
+    mandatory probes pass.
+
+The operation uses these explicit configuration families:
+
+- persistent Reframe data directory and catalog database;
+- source adapter, pinned downloader revision, market, locale, and frontier;
+- acquisition concurrency, rate limit, retry budget, and maximum asset size;
+- processor revisions and GLB/USDZ/texture/collision budgets;
+- `OPENAI_API_KEY` for permitted enrichment and embeddings;
+- `QDRANT_URL`, optional `QDRANT_API_KEY`, and expected collection version;
+- cache profile and asset-delivery base configuration.
+
+Configuration names belong in the package environment example with empty
+values only. Defaults may be convenient for local Qdrant but must not silently
+select a market, broaden a frontier, weaken validation, or enable a full run.
+
+Each run persists:
+
+- run ID, profile, source/downloader revision, parser revision, processor
+  revision, schema versions, and configuration digest;
+- start/finish timestamps and last durable checkpoint;
+- discovery, acquisition, processing, enrichment, indexing, cache, and delivery
+  counters;
+- retryable and terminal failures grouped by stable reason code;
+- content hashes and derived-artifact manifest references;
+- Qdrant collection/vector version and reconciliation counts;
+- smoke queries, returned stable product IDs, and delivery-verification result.
+
+A process crash, network interruption, OpenAI failure, Qdrant failure, or one
+bad asset must not discard successful prior work. The next incremental run
+resumes from durable state. Terminal asset failures are quarantined and counted;
+infrastructure or reconciliation failures make the run unsuccessful.
+
+The command exits successfully only when all of the following are true:
+
+- discovery completed for its configured frontier or reached its explicit
+  smoke bound;
+- no mandatory stage has an unrecorded failure;
+- every indexed point maps to one durable prepared-asset record;
+- every injection-ready record has verified GLB, USDZ, and collision artifacts;
+- Qdrant and catalog-store counts reconcile for the run;
+- at least one eligible result is returned when the run contains an
+  injection-ready product;
+- the delivery probe verifies the exact indexed asset;
+- a machine-readable coverage report has been finalized atomically.
 
 ## 6. Qdrant and catalog RAG
 
@@ -748,11 +858,10 @@ Before end-to-end acceptance:
 - implement complete session deletion;
 - prevent raw imagery, audio, secrets, and user identifiers from ordinary logs;
 - pin and inventory every dependency, model, converter, and external source;
-- record license, checkpoint/source revision, download URL, byte length, and
-  SHA-256 before use;
+- record checkpoint/source revision, download URL, byte length, SHA-256, and
+  required attribution before use;
 - scan downloaded assets and derived packages before delivery;
-- ensure GPL research tooling is not linked into or distributed with Reframe;
-- keep all product and asset rights distinct from source-code licenses.
+- keep browser acquisition dependencies outside client and delivery artifacts.
 
 ## 16. Verification matrix
 
@@ -846,37 +955,225 @@ confirming functional output:
 
 ## 17. Ordered implementation slices
 
-Complete and commit these slices in order. A later slice may begin only when
-its required preceding boundary is green.
+Complete the integration spine in this order. Work that does not share mutable
+contracts may proceed in parallel, but no lane may claim integration success
+until its output passes through the spine.
 
-1. Repository identity purge and current CI.
-2. Protocol gaps and cross-runtime contract vectors.
-3. Durable gateway sessions, capture ingest, journal, and artifact transport.
-4. NVIDIA environment and live DA3 CUDA verification.
-5. SAM 3.1 provider, target tracking, and target-seed round trip.
-6. Conservative multi-view volume, OBB, support, and capability states.
-7. Authorized IKEA discovery evaluation and external-downloader importer.
-8. Secure content-addressed acquisition and catalog state machine.
-9. GLB normalization, collision, USDZ, delivery validation, and client cache.
-10. Live Qdrant indexing, retrieval, coverage reporting, and catalog UI.
-11. Robust depth alignment and bounded Open3D TSDF.
-12. Plane atlases, deterministic fill, safe LaMa provider, and reveal bundles.
-13. iOS networking, artifact cache, compositor, preview, commit, and restore.
-14. Live Realtime and GPT-5.6 proposal loop.
-15. Web session upload, replay, twin, catalog, and typed edit path.
-16. End-to-end recovery, privacy, security, performance, and physical-device
-    acceptance.
+1. Purge repository identity residue, repair CI, and prove the clean baseline.
+2. Start the real local API, catalog store, Qdrant, asset storage, and health
+   checks through one reproducible development operation.
+3. Integrate the pinned IKEA downloader and complete the `smoke` source run for
+   one real product.
+4. Process that product into verified normalized GLB, USDZ, collision, preview,
+   and prepared-asset records.
+5. Enrich, embed, index, search, deliver, and verify that same product through
+   live OpenAI and Qdrant services.
+6. Load the same delivered asset in Three.js and RealityKit, then complete a
+   deterministic typed placement preview.
+7. Connect GPT-5.6 to the live catalog tools and produce one bounded typed
+   placement proposal without granting mutation authority.
+8. Expand the catalog operation to variants, category runs, complete configured
+   frontiers, resumability, reconciliation, and primary-cache synchronization.
+9. Complete protocol gaps, cross-runtime vectors, durable gateway sessions,
+   capture ingest, journal, and artifact transport.
+10. Verify DA3 on CUDA, implement SAM target tracking, and prove target-seed
+    pixel/identity round trips.
+11. Build the conservative multi-view volume, OBB, floor support, capability
+    states, exact candidate fit, and replacement coverage.
+12. Complete iOS networking, cache, compositor, replacement preview,
+    confirmation, CAS commit, offline inverse, and canonical restore.
+13. Add robust depth alignment, bounded Open3D TSDF, retained occluders, and
+    dense artifact upgrades.
+14. Add plane atlases, deterministic fill, safe LaMa fallback, reveal bundles,
+    and gated empty removal.
+15. Complete live Realtime voice, interruption, clarification, typed fallback,
+    and the full agentic replacement scenario.
+16. Complete web session upload, replay, twin, catalog, artifact inspection, and
+    typed edit path.
+17. Complete recovery, privacy, security, performance, catalog-scale, and
+    physical-device acceptance.
 
 Each slice requires behavior tests, failure tests, package checks, secret scan,
 diff validation, and one focused commit. Record unavailable hardware, external
-authorization, model-license acceptance, and human visual checks as explicit
+authorization, model acceptance, and human visual checks as explicit
 open gates rather than silently weakening the completion definition.
 
-## 18. Primary external references
+## 18. End-to-end system acceptance run
+
+The product is not complete until this run succeeds from documented persistent
+state using live services and a physical iPhone. Package-local success is not a
+substitute.
+
+### 18.1 Preconditions
+
+- the repository identity and CI gates are green;
+- dependency locks install without modification;
+- persistent session, model, catalog, asset, Qdrant, and log volumes exist and
+  are writable by only the intended services;
+- every enabled model and processor is pinned, present, hash-verified, and
+  reported by readiness;
+- a real Qdrant collection exists with the expected named-vector and payload
+  schema;
+- the catalog smoke operation has produced at least one injection-ready chair
+  or small-table asset;
+- gateway, worker, OpenAI, and client credentials are available without being
+  printed or copied into Git;
+- the Reframe iOS build is installed on the target phone;
+- the web application can reach the same gateway and artifact service.
+
+### 18.2 Startup order and readiness
+
+Start durable infrastructure before stateless interfaces:
+
+1. Persistent volumes and SQLite catalog/session stores.
+2. Qdrant with its persistent volume.
+3. Geometry, semantics, map, and reveal workers under the GPU coordinator.
+4. Gateway with worker, catalog, storage, OpenAI, and Realtime configuration.
+5. Web application.
+6. iPhone application.
+
+Readiness must identify the exact failing dependency. The gateway becomes
+fully ready only when its database and artifact storage are writable and its
+protocol schema is compatible. Model-dependent capabilities remain separately
+unready when a worker or model is unavailable; that must not prevent local
+placement, capture, replay, or already-committed rendering from working.
+
+### 18.3 Catalog and delivery proof
+
+1. Run the catalog `smoke` profile through the pinned IKEA source.
+2. Confirm the source, catalog, asset, and Qdrant reconciliation report.
+3. Search by category, color/style language, support type, and maximum
+   dimensions.
+4. Confirm that Qdrant returns a stable Reframe product and asset ID without
+   returning its vector.
+5. Resolve the result through the authenticated delivery service.
+6. Download GLB and USDZ, then verify declared byte length and SHA-256.
+7. Load the GLB through the real Three.js loader and the USDZ through the real
+   RealityKit loader.
+8. Confirm that the loaded bounds, origin, forward axis, collision reference,
+   and asset manifest match the indexed record.
+
+### 18.4 Capture and understanding proof
+
+1. Create an authenticated room session and grant explicit capture/upload
+   consent.
+2. Start a healthy ARKit world and record low-resolution packets plus sparse
+   high-resolution keyframes into the durable capture.
+3. Verify that every accepted packet reaches local durable storage before it is
+   eligible for upload.
+4. Send planes and one target seed from reticle or tap with exact frame, pixel,
+   ray, and hit context.
+5. Confirm that SAM establishes one stable track and returns masks bound to the
+   same frame and encoded-image coordinates.
+6. Capture useful baselines and build the conservative closed object volume,
+   OBB, and floor support relation.
+7. Observe capability transitions independently on server and phone; no
+   capability is ready until its required artifacts are activated locally.
+8. Allow accepted DA3 alignment and TSDF work to improve geometry in parallel
+   without changing object identity or blocking the fast path.
+
+### 18.5 Agentic replacement proof
+
+1. Establish a Realtime WebRTC session from iPhone using an ephemeral
+   credential minted by the gateway.
+2. Speak the canonical replacement request while the pointer context is bound
+   to the selected target.
+3. Confirm that Realtime emits only `submit_user_turn` and cannot call scene
+   mutation functions.
+4. Confirm that GPT-5.6 receives authoritative scene/pointer context and uses
+   only the bounded public tools.
+5. Retrieve injection-ready products, reject incompatible candidates
+   deterministically, and allow GPT-5.6 to rerank only the validated set.
+6. Produce at most one typed proposal and explain the selected product and
+   clearance result.
+7. Calculate fit and exact delivered-geometry coverage, then display the
+   replacement preview without changing scene revision.
+8. Require explicit spoken or tapped confirmation.
+9. Commit one CAS transaction, increment the revision once, activate verified
+   artifacts, and acknowledge the committed revision.
+10. Disconnect the network and confirm that the committed edit remains
+    correctly rendered from the local cache.
+11. Restore locally using the exact inverse, reconnect, and confirm that the
+    gateway records one new compensating transaction without rewriting history.
+
+### 18.6 Reveal and removal proof
+
+1. Build floor/wall atlases with observed/synthesized provenance.
+2. Generate the multi-surface reveal bundle using observed data first,
+   deterministic fill second, and isolated LaMa only for remaining holes.
+3. Evaluate the Master Technical Prompt's sampled-view coverage and texture
+   quality gates.
+4. Keep empty removal disabled if any requirement fails, while preserving safe
+   replacement.
+5. If all gates pass, preview and commit removal through the same transaction
+   authority and validate the reveal throughout its allowed view envelope.
+6. Leave the envelope and confirm the phone safely shows the untouched camera
+   feed and asks the user to return without mutating canonical state.
+
+### 18.7 Web replay proof
+
+1. Finish and verify the `.rfcap` checksums.
+2. Open the same session from the web application.
+3. Replay frames, poses, intrinsics, plane/target events, capability changes,
+   artifact revisions, and transactions in authoritative order.
+4. Display the TSDF mesh or point representation using stable scene IDs.
+5. Inspect the selected product and its delivery/readiness facts.
+6. Run a typed proposal through the same gateway and deterministic validation
+   boundary.
+7. Upload an ordinary video session and verify that it routes to LingBot-Map
+   without contaminating ARKit-authored sessions.
+
+### 18.8 Recovery and failure proof
+
+Repeat focused parts of the acceptance run while injecting:
+
+- OpenAI unavailable: typed/tapped deterministic editing remains available and
+  no automatic commit occurs;
+- Qdrant unavailable: catalog search reports unavailable without corrupting
+  scene or catalog state;
+- vision worker unavailable: new understanding pauses while committed edits and
+  capture durability continue;
+- frame socket interruption: queues remain bounded and reconnect resumes from
+  acknowledged IDs;
+- gateway restart: SQLite journal, scenes, capture manifests, and artifact
+  references recover without revision loss;
+- worker restart: provider state becomes unready and rebuilds without inventing
+  object or frame identity;
+- crash during capture write: prior atomic frames remain replayable;
+- stale scene revision: commit revalidates or rejects and never auto-merges;
+- repeated idempotency key with different fingerprint: request is rejected;
+- corrupt or hash-mismatched artifact: activation fails without advancing the
+  local scene revision;
+- malformed or oversized GLB: asset is quarantined and never indexed as
+  injection-ready;
+- interrupted catalog run: incremental execution resumes from the last durable
+  checkpoint and reconciles without duplicate points;
+- tracking loss or world reset: new edits stop, committed rendering remains,
+  and the session can continue through the specified recovery/B0 path.
+
+### 18.9 Final success record
+
+The acceptance run records only redacted structured facts:
+
+- source revisions, commit, schema versions, model and processor digests;
+- target phone/OS, GPU/driver/runtime, and service versions;
+- session, frame, object, artifact, asset, proposal, transaction, and scene
+  revision IDs;
+- catalog reconciliation and delivery results;
+- capability transitions, queue depths, dropped-work reasons, and timings;
+- phone FPS, memory, thermal state, GPU memory, and artifact sizes;
+- automatic quality metrics and human physical/visual acceptance result;
+- all degraded or failed gates.
+
+The run is successful only when the place, replace, restore, catalog, agent,
+capture, persistence, offline, reconnect, and web replay paths pass. Remove is
+successful only when its independent reveal gate passes. Mode B1 is not
+required for current core completion and stays disabled during this run.
+
+## 19. Primary external references
 
 - [Reframe Master Technical Prompt](MASTER_TECHNICAL_PROMPT.md)
 - [IKEA 3D Model Batch Downloader](https://github.com/apinanaivot/IKEA-3d-model-batch-downloader)
-- [IKEA US Terms and Conditions](https://www.ikea.com/us/en/customer-service/terms-conditions/)
 - [IKEA Kreativ model availability explanation](https://www.ikea.com/us/en/customer-service/knowledge/articles/1d6d3f2c-ddb7-4186-g00c-3g887c99cfgd.html)
 - [OpenAI Responses tools](https://developers.openai.com/api/docs/guides/tools)
 - [OpenAI Realtime over WebRTC](https://developers.openai.com/api/docs/guides/realtime-webrtc)
