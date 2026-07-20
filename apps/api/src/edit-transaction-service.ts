@@ -293,7 +293,10 @@ export class InMemoryEditTransactionService implements EditTransactionService {
 
   readScene(credential: string): SceneTransactionState {
     const session = this.#authorize(credential);
-    return { scene_revision: session.revision, transactions: [...session.transactions] };
+    return Object.freeze({
+      scene_revision: session.revision,
+      transactions: Object.freeze([...session.transactions]),
+    });
   }
 
   #authorize(credential: string): SessionRecord {

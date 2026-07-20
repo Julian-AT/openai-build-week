@@ -129,6 +129,8 @@ test("restore appends a compensating transaction without rewriting history", () 
   assert.deepEqual(restored.inverse_ops, committed.ops);
   const scene = service.readScene("room-token");
   assert.equal(scene.transactions.length, 2);
+  assert.equal(Object.isFrozen(scene), true);
+  assert.equal(Object.isFrozen(scene.transactions), true);
   assert.equal(scene.transactions[0]?.transaction_id, transactionID);
   assert.equal(scene.transactions[1]?.transaction_id, restoreTransactionID);
   assert.equal(Object.isFrozen(scene.transactions[0]), true);
