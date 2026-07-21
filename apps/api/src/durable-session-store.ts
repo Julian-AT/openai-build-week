@@ -22,7 +22,7 @@ const BASE64_URL = /^[A-Za-z0-9_-]+$/u;
 const ROOM_ID = /^room_[a-z0-9_]{3,120}$/u;
 const ARTIFACT_ID =
   /^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-const ALLOWED_PATH = /^(?:frames|events|artifacts)$/u;
+const ALLOWED_PATH = /^(?:frames|events|artifacts|scene)$/u;
 
 export interface CreateDurableRoomSessionStoreOptions {
   readonly dataDirectory: string;
@@ -34,7 +34,7 @@ export interface CreateDurableRoomSessionStoreOptions {
 export interface CreateRoomSessionInput {
   readonly sessionID: string;
   readonly expiresAtMilliseconds: number;
-  readonly allowedPaths: readonly ("frames" | "events" | "artifacts")[];
+  readonly allowedPaths: readonly ("frames" | "events" | "artifacts" | "scene")[];
 }
 
 export interface CreatedRoomSession {
@@ -229,6 +229,21 @@ export class DurableRoomSessionStore {
         credential,
         expiresAtMilliseconds: input.expiresAtMilliseconds,
       };
+    });
+  }
+
+  /** Runs a trusted scene operation after validating the room-scoped credential. */
+  async withAuthorizedScene<T>(
+    credential: string,
+    operation: (sessionID: string, database: Database) => T | Promise<T>,
+    expectedSessionID?: string,
+  ): Promise<T> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(credential, "scene");
+      if (expectedSessionID !== undefined && expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      return await operation(claims.session_id, this.#database);
     });
   }
 
@@ -852,7 +867,7 @@ function assertTimestamp(value: number): void {
 function normalizeAllowedPaths(value: readonly string[]): string[] {
   if (
     value.length === 0 ||
-    value.length > 3 ||
+    value.length > 4 ||
     value.some((path) => !ALLOWED_PATH.test(path)) ||
     new Set(value).size !== value.length
   ) {

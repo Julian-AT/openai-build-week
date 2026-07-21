@@ -1,5 +1,5 @@
 import { createOpenAIRealtimeSessionService } from "@reframe/agent";
-
+import { createDurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableRoomSessionStore } from "./durable-session-store.ts";
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
 import { runtimeReadinessFromEnvironment } from "./runtime-readiness.ts";
@@ -24,11 +24,13 @@ const durableSessionStore = await createDurableRoomSessionStore({
   dataDirectory,
   signingSecret: roomSigningSecret,
 });
+const editTransactionService = createDurableEditTransactionService(durableSessionStore);
 
 const app = createGatewayApp({
   gatewayToken,
   runtimeReadiness,
   durableSessionStore,
+  editTransactionService,
   ...(realtimeService ? { realtimeService } : {}),
   ...(inferenceService ? { inferenceService } : {}),
   logger: writeRequestLog,
