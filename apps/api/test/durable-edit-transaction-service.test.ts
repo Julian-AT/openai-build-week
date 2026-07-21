@@ -113,6 +113,35 @@ test("durable scene authority stages and commits a floor placement preview", asy
   }
 });
 
+test("durable replacement accepts the stable opaque asset ID returned by the live catalog", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-durable-catalog-replacement-"));
+  const store = await createDurableRoomSessionStore({ dataDirectory, signingSecret });
+  try {
+    const session = await store.createSession({
+      sessionID: "room_2026_07_21_catalog_replace",
+      expiresAtMilliseconds: Date.now() + 60_000,
+      allowedPaths: ["scene"],
+    });
+    const service = createDurableEditTransactionService(store);
+    await service.stageValidatedReplacement(session.credential, {
+      ...replacement(),
+      sessionID: session.sessionID,
+      assetID: "ikea-us-40541421-d74d34f0a861",
+    });
+
+    const preview = await service.prepareReplacementPreview(session.credential, proposalID);
+
+    assert.equal(preview.intent.asset_id, "ikea-us-40541421-d74d34f0a861");
+    assert.equal(
+      preview.ops.find((operation) => operation.op === "place_asset")?.asset_id,
+      "ikea-us-40541421-d74d34f0a861",
+    );
+  } finally {
+    await store.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
 function replacement() {
   return {
     sessionID,

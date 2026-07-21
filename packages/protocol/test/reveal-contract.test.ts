@@ -53,8 +53,43 @@ test("canonical scene and transaction revisions are gateway-owned", () => {
   }
 });
 
+test("catalog asset identity remains stable across delivery, scenes, and transactions", () => {
+  const liveCatalogAssetID = "ikea-us-40541421-d74d34f0a861";
+  const transactionDefinitions = transactionSchema.$defs as unknown as Record<string, SchemaNode>;
+  const sceneDefinitions = sceneSchema.$defs as unknown as Record<string, SchemaNode>;
+  const artifactDefinitions = schema.$defs as unknown as Record<string, SchemaNode>;
+  const patterns = [
+    requireProperty(requireDefinition(transactionDefinitions, "assetIntentArguments"), "asset_id")
+      .pattern,
+    requireProperty(requireDefinition(transactionDefinitions, "assetInstanceSnapshot"), "asset_id")
+      .pattern,
+    requireProperty(requireDefinition(sceneDefinitions, "placedAsset"), "asset_id").pattern,
+    requireProperty(
+      requireDefinition(artifactDefinitions, "assetManifest").allOf[1] ??
+        (() => {
+          throw new Error("missing asset manifest body");
+        })(),
+      "asset_id",
+    ).pattern,
+  ];
+
+  for (const pattern of patterns) {
+    if (pattern === undefined) throw new Error("missing asset ID pattern");
+    expect(new RegExp(pattern, "u").test(liveCatalogAssetID)).toBeTrue();
+    expect(new RegExp(pattern, "u").test("../untrusted-asset")).toBeFalse();
+  }
+});
+
+function requireDefinition(definitions: Record<string, SchemaNode>, name: string): SchemaNode {
+  const definition = definitions[name];
+  if (definition === undefined) throw new Error(`missing schema definition: ${name}`);
+  return definition;
+}
+
 function requireProperty(node: SchemaNode, name: string): SchemaNode {
-  const property = node.properties[name];
+  const body =
+    node.properties === undefined ? node.allOf?.find((candidate) => candidate.properties) : node;
+  const property = body?.properties?.[name];
   if (property === undefined) throw new Error(`missing schema property: ${name}`);
   return property;
 }

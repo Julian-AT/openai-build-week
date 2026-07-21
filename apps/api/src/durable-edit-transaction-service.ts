@@ -500,7 +500,7 @@ function validateReplacement(replacement: ValidatedReplacement): void {
     !/^room_[a-z0-9_]{3,120}$/u.test(replacement.sessionID) ||
     !/^proposal_[0-9a-f-]{36}$/u.test(replacement.proposalID) ||
     !/^object_[0-9a-f-]{36}$/u.test(replacement.targetID) ||
-    !/^asset_[0-9a-f-]{36}$/u.test(replacement.assetID) ||
+    !isSafeAssetID(replacement.assetID) ||
     !/^instance_[0-9a-f-]{36}$/u.test(replacement.replacementInstanceID) ||
     !/^reveal_[0-9a-f-]{36}$/u.test(replacement.revealBundleID) ||
     replacement.worldFromAsset.length !== 16 ||

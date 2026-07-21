@@ -832,7 +832,7 @@
             "artifact_type": { "const": "asset_manifest" },
             "asset_id": {
               "type": "string",
-              "pattern": "^asset_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$"
             },
             "display_name": { "type": "string", "minLength": 1, "maxLength": 128 },
             "canonical_dimensions_m": {

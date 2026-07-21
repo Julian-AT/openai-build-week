@@ -53,13 +53,19 @@ export class InferenceWorkerError extends Error {
   readonly publicCode:
     | "service_unavailable"
     | "worker_busy"
+    | "target_identity_required"
     | "upstream_failure"
     | "upstream_timeout";
-  readonly status: 429 | 502 | 503 | 504;
+  readonly status: 400 | 429 | 502 | 503 | 504;
 
   constructor(
-    publicCode: "service_unavailable" | "worker_busy" | "upstream_failure" | "upstream_timeout",
-    status: 429 | 502 | 503 | 504,
+    publicCode:
+      | "service_unavailable"
+      | "worker_busy"
+      | "target_identity_required"
+      | "upstream_failure"
+      | "upstream_timeout",
+    status: 400 | 429 | 502 | 503 | 504,
     options?: ErrorOptions,
   ) {
     super(publicCode, options);
@@ -136,11 +142,15 @@ export function createInferenceWorkerClient(
 
 function workerRequest(request: InferenceJobRequest): InferenceJobRequest {
   if (request.task !== "segment") return request;
+  if (
+    request.session_id === undefined ||
+    request.target_id === undefined ||
+    request.frame_index === undefined
+  ) {
+    throw new InferenceWorkerError("target_identity_required", 400);
+  }
   return {
     ...request,
-    session_id: request.session_id ?? `worker_${request.request_id}`,
-    target_id: request.target_id ?? "target_0",
-    frame_index: request.frame_index ?? 0,
   };
 }
 

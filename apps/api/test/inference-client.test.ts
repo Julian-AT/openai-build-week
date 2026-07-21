@@ -14,6 +14,9 @@ const request: InferenceJobRequest = {
   protocol_version: "1.0.0",
   request_id: "inference_00000000-0000-4000-8000-000000000001",
   task: "segment",
+  session_id: "room_smoke",
+  target_id: "object_00000000-0000-4000-8000-000000000001",
+  frame_index: 1,
   image: {
     frame_id: "frame_00000000-0000-4000-8000-000000000001",
     media_type: "image/jpeg",
@@ -157,9 +160,9 @@ test("worker job responses are request-bound and cancellation is forwarded", asy
   assert.equal(observed?.signal.aborted, false);
   assert.deepEqual(await observed?.json(), {
     ...request,
-    session_id: `worker_${request.request_id}`,
-    target_id: "target_0",
-    frame_index: 0,
+    session_id: request.session_id,
+    target_id: request.target_id,
+    frame_index: request.frame_index,
   });
 });
 
