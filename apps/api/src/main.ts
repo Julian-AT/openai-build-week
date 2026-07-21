@@ -1,4 +1,5 @@
 import { createOpenAIRealtimeSessionService } from "@reframe/agent";
+import { createFilesystemAssetDeliveryService } from "./asset-delivery-service.ts";
 import { createCachedAgentTurnService } from "./cached-agent-turn-service.ts";
 import type { DurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableEditTransactionService } from "./durable-edit-transaction-service.ts";
@@ -28,6 +29,10 @@ const durableSessionStore = await createDurableRoomSessionStore({
   signingSecret: roomSigningSecret,
 });
 const editTransactionService = createDurableEditTransactionService(durableSessionStore);
+const assetDeliveryService = createFilesystemAssetDeliveryService({
+  dataDirectory,
+  cacheProfile: process.env.REFRAME_AGENT_CACHE_PROFILE?.trim() || "ios-primary",
+});
 const agentTurnService = createAgentTurnServiceFromEnvironment(
   process.env,
   durableSessionStore,
@@ -42,6 +47,7 @@ const app = createGatewayApp({
   runtimeReadiness,
   durableSessionStore,
   editTransactionService,
+  assetDeliveryService,
   ...(cachedAgentTurnService ? { agentTurnService: cachedAgentTurnService } : {}),
   ...(realtimeService ? { realtimeService } : {}),
   ...(inferenceService ? { inferenceService } : {}),

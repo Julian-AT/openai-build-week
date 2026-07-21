@@ -5,6 +5,7 @@ import { parseCaptureEvent } from "@reframe/protocol";
 import { type Context, Hono } from "hono";
 
 import { type AgentTurnService, parseAgentTurnRequest } from "./agent-turn.ts";
+import type { AssetDeliveryService } from "./asset-delivery-service.ts";
 import {
   CaptureArtifactConflictError,
   CaptureArtifactNotFoundError,
@@ -36,6 +37,7 @@ export interface GatewayAppOptions {
   inferenceService?: InferenceService;
   editTransactionService?: EditTransactionService;
   agentTurnService?: AgentTurnService;
+  assetDeliveryService?: AssetDeliveryService;
   durableSessionStore?: DurableRoomSessionStore;
   logger?: (record: GatewayLogRecord) => void;
   requestID?: () => string;
@@ -164,6 +166,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.post("/v1/edit/confirmations", async (context) => handleEditConfirmation(context, options));
   app.post("/v1/edit/restores", async (context) => handleEditRestore(context, options));
   app.post("/v1/turns", async (context) => handleAgentTurn(context, options));
+  app.get("/v1/assets/:assetID/usdz", async (context) => handleAssetDelivery(context, options));
 
   app.all("/health", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/realtime/calls", (context) => methodNotAllowed(context, "POST"));
@@ -181,6 +184,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.all("/v1/edit/confirmations", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/edit/restores", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/turns", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/assets/:assetID/usdz", (context) => methodNotAllowed(context, "GET"));
   app.notFound((context) => context.json({ error: "not_found" }, 404));
   app.onError((_error, context) => context.json({ error: "internal_failure" }, 500));
 
@@ -674,6 +678,43 @@ async function handleAgentTurn(context: Context, options: GatewayAppOptions): Pr
   }
 }
 
+async function handleAssetDelivery(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.assetDeliveryService || !options.durableSessionStore) {
+    return context.json({ error: "service_unavailable" }, 503);
+  }
+  const assetID = context.req.param("assetID");
+  if (typeof assetID !== "string" || !SAFE_ASSET_ID.test(assetID)) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  try {
+    await options.durableSessionStore.withAuthorizedScene(credential, () => undefined);
+    const delivery = await options.assetDeliveryService.deliver(assetID);
+    return new Response(delivery.bytes.slice().buffer as ArrayBuffer, {
+      status: 200,
+      headers: {
+        "content-type": "model/vnd.usdz+zip",
+        "content-length": delivery.byteLength.toString(),
+        "x-content-sha256": delivery.sha256,
+        "cache-control": "private, no-store",
+      },
+    });
+  } catch (error) {
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    if (
+      error instanceof Error &&
+      (error.message === "asset_not_found" || error.message === "asset_hash_mismatch")
+    ) {
+      return context.json({ error: "not_found" }, 404);
+    }
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
 function authorizeScopedJSONRequest(context: Context): string | Response {
   const authorization = context.req.header("authorization");
   if (!authorization?.startsWith("Bearer ") || authorization.length <= "Bearer ".length) {
@@ -981,6 +1022,8 @@ function hasJSONContentType(contentType: string | undefined): boolean {
   return contentType?.split(";", 1)[0]?.trim().toLowerCase() === "application/json";
 }
 
+const SAFE_ASSET_ID = /^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$/u;
+
 function methodNotAllowed(context: Context, allow: string): Response {
   context.header("allow", allow);
   return context.json({ error: "method_not_allowed" }, 405);
@@ -1002,6 +1045,7 @@ function allowedMethodForPath(pathname: string): "GET" | "POST" | "DELETE" | und
   ) {
     return "POST";
   }
+  if (/^\/v1\/assets\/[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*\/usdz$/u.test(pathname)) return "GET";
   return undefined;
 }
 
