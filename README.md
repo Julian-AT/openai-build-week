@@ -18,6 +18,9 @@ occupies the room, finds an asset that physically fits, and previews the change
 against the live camera. The four operations are **place**, **replace**,
 **remove**, and **restore**.
 
+Read the [Reframe technical paper](REFRAME_PAPER.pdf) for the complete system
+architecture, contracts, and execution model.
+
 ## How it works
 
 ```mermaid
