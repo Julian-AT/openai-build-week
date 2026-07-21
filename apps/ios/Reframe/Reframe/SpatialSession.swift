@@ -2,6 +2,7 @@ import ARKit
 import AVFoundation
 import CaptureCore
 import Observation
+import RenderCore
 import Security
 import SpatialProtocol
 
@@ -25,6 +26,7 @@ final class SpatialSession {
   private(set) var pendingPreviewRevision: Int?
   private(set) var pendingPlacementAssetID: String?
   private(set) var pendingPlacementTransform: SpatialTransform?
+  private(set) var isSubmittingTurn = false
   private(set) var lastTransactionID: String?
   private(set) var lastCommittedRevision: Int?
 
@@ -34,6 +36,7 @@ final class SpatialSession {
   private var planeStore = ObservedPlaneStore()
   private var gatewayClient: GatewayClient?
   private let roomConnectionStore = RoomConnectionStore()
+  private var verifiedUSDZFiles: [String: (descriptor: AssetDeliveryDescriptor, url: URL)] = [:]
 
   var lightEstimate: SpatialLightEstimate? { latestFrameObservation?.lightEstimate }
   var cameraPose: SpatialTransform? { latestFrameObservation?.worldFromCameraARKit }
@@ -84,8 +87,16 @@ final class SpatialSession {
   }
 
   func submitTypedTurn(_ utterance: String) async {
+    guard !isSubmittingTurn else { return }
+    isSubmittingTurn = true
+    gatewayStatus = "Preparing preview…"
+    defer { isSubmittingTurn = false }
     pendingPlacementAssetID = nil
     pendingPlacementTransform = nil
+    guard lastTargetSeed?.arkitHit != nil else {
+      gatewayStatus = "Aim at the floor and let the reticle settle"
+      return
+    }
     guard let gatewayClient else {
       gatewayStatus = "Preview available after room connection"
       return
@@ -94,7 +105,8 @@ final class SpatialSession {
       let proposalData = try await gatewayClient.submitTurn(
         utterance: utterance,
         sceneRevision: 0,
-        pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" }
+        pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" },
+        pointerContext: lastTargetSeed?.arkitHit
       )
       let proposalID: String
       if jsonString("type", in: proposalData) == "placement_preview" {
@@ -254,6 +266,30 @@ final class SpatialSession {
     gatewayStatus = "Room connected"
   }
 
+  /// Materializes a room-authorized USDZ in the app cache. This is intentionally
+  /// outside the AR render loop; callers hand the verified file to RenderCore,
+  /// which performs the final hash check immediately before RealityKit loads it.
+  func verifiedUSDZFile(
+    for assetID: String
+  ) async throws -> (descriptor: AssetDeliveryDescriptor, url: URL) {
+    if let cached = verifiedUSDZFiles[assetID],
+      FileManager.default.fileExists(atPath: cached.url.path)
+    {
+      return cached
+    }
+    guard let gatewayClient else { throw GatewayClientError.unauthorized }
+    let delivery = try await gatewayClient.downloadVerifiedUSDZ(assetID: assetID)
+    let directory = try assetCacheDirectory()
+    let fileURL = directory.appendingPathComponent("\(delivery.descriptor.expectedSHA256).usdz")
+    try await Task.detached(priority: .utility) {
+      try delivery.bytes.write(to: fileURL, options: [.atomic])
+    }.value
+    _ = try await delivery.descriptor.verifiedFileURL(fileURL)
+    let result = (descriptor: delivery.descriptor, url: fileURL)
+    verifiedUSDZFiles[assetID] = result
+    return result
+  }
+
   private func placementTransform(_ values: [Double], at hit: RaycastHit?) -> SpatialTransform {
     guard let hit else { return SpatialTransform(values: values) }
     var adjusted = values
@@ -265,6 +301,16 @@ final class SpatialSession {
 
   private func nowMilliseconds() -> Int64 {
     Int64(Date().timeIntervalSince1970 * 1_000)
+  }
+
+  private func assetCacheDirectory() throws -> URL {
+    guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+    else {
+      throw AssetDeliveryError.unreadableFile
+    }
+    let directory = caches.appendingPathComponent("Reframe/Assets", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return directory
   }
 
   private func accept(_ observation: CameraFrameObservation) {

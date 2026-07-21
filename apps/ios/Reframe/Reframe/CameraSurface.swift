@@ -1,6 +1,7 @@
 import ARKit
 import CaptureCore
 import RealityKit
+import RenderCore
 import SpatialProtocol
 import SwiftUI
 
@@ -49,6 +50,7 @@ struct CameraSurface: UIViewRepresentable {
     private var dwellTracker = ReticleDwellTracker()
     private var placementPreviewAnchor: AnchorEntity?
     private var placementPreviewKey: String?
+    private var placementLoadTask: Task<Void, Never>?
 
     init(parent: CameraSurface) {
       self.parent = parent
@@ -64,6 +66,8 @@ struct CameraSurface: UIViewRepresentable {
     }
 
     func detach() {
+      placementLoadTask?.cancel()
+      placementLoadTask = nil
       displayLink?.invalidate()
       displayLink = nil
       view = nil
@@ -78,6 +82,8 @@ struct CameraSurface: UIViewRepresentable {
     func consumePlacementPreview() {
       guard let view else { return }
       guard let transform = parent.spatialSession.pendingPlacementTransform else {
+        placementLoadTask?.cancel()
+        placementLoadTask = nil
         placementPreviewAnchor?.removeFromParent()
         placementPreviewAnchor = nil
         placementPreviewKey = nil
@@ -86,6 +92,7 @@ struct CameraSurface: UIViewRepresentable {
       let assetID = parent.spatialSession.pendingPlacementAssetID ?? "placement-preview"
       let key = "\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
       guard key != placementPreviewKey else { return }
+      placementLoadTask?.cancel()
       placementPreviewAnchor?.removeFromParent()
       let matrix = simd_float4x4(rows: [
         SIMD4<Float>(
@@ -114,16 +121,33 @@ struct CameraSurface: UIViewRepresentable {
         ),
       ])
       let anchor = AnchorEntity(world: matrix)
-      let material = SimpleMaterial(
-        color: UIColor.systemBlue.withAlphaComponent(0.48),
-        isMetallic: false
-      )
-      let preview = ModelEntity(mesh: .generateBox(size: 0.45), materials: [material])
-      preview.name = "reframe-placement-preview"
-      anchor.addChild(preview)
       view.scene.addAnchor(anchor)
       placementPreviewAnchor = anchor
       placementPreviewKey = key
+
+      // Keep network, disk, hashing, and RealityKit decoding off the frame
+      // path. A preview is not rendered as a misleading proxy: until the
+      // gateway-delivered, hash-verified USDZ is ready, no virtual geometry
+      // is shown.
+      let spatialSession = parent.spatialSession
+      placementLoadTask = Task { @MainActor [weak self, weak anchor] in
+        do {
+          let delivery = try await spatialSession.verifiedUSDZFile(for: assetID)
+          let entity = try await RealityKitAssetLoader.loadUSDZ(
+            from: delivery.url,
+            delivery: delivery.descriptor
+          )
+          guard let self, !Task.isCancelled, self.placementPreviewKey == key else { return }
+          guard let anchor else { return }
+          let bounds = entity.visualBounds(relativeTo: entity)
+          if bounds.min.y.isFinite { entity.position.y = -bounds.min.y }
+          entity.name = "reframe-placement-\(assetID)"
+          anchor.addChild(entity)
+        } catch {
+          // The preview remains empty rather than displaying an unverified or
+          // dimensionally misleading stand-in. The next turn can retry.
+        }
+      }
     }
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {

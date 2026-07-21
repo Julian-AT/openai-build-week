@@ -4,9 +4,16 @@ import SpatialProtocol
 
 enum GatewayClientError: Error, Equatable {
   case invalidBaseURL
+  case invalidAssetIdentifier
+  case invalidAssetDeliveryHeaders
   case unauthorized
   case invalidResponse
   case requestFailed
+}
+
+struct VerifiedUSDZDelivery: Sendable {
+  let descriptor: AssetDeliveryDescriptor
+  let bytes: Data
 }
 
 /// Thin room-scoped control transport. It never runs from the render loop and
@@ -27,6 +34,7 @@ struct GatewayClient: Sendable {
     utterance: String,
     sceneRevision: Int,
     pointerContextID: String? = nil,
+    pointerContext: RaycastHit? = nil,
     pendingProposalID: String? = nil,
     clientTurnID: String = "turn_\(UUID().uuidString.lowercased())"
   ) async throws -> Data {
@@ -37,6 +45,16 @@ struct GatewayClient: Sendable {
         "utterance": utterance,
         "intent_hint": NSNull(),
         "pointer_context_id": pointerContextID ?? NSNull(),
+        "pointer_context": pointerContext.map {
+          [
+            "world_position": [
+              "x": $0.positionWorld.x,
+              "y": $0.positionWorld.y,
+              "z": $0.positionWorld.z,
+            ],
+            "surface_id": $0.surfaceID,
+          ]
+        } ?? NSNull(),
         "client_scene_revision": sceneRevision,
         "pending_proposal_id": pendingProposalID ?? NSNull(),
       ]
@@ -89,6 +107,46 @@ struct GatewayClient: Sendable {
       throw GatewayClientError.requestFailed
     }
     return try descriptor.verify(bytes: bytes)
+  }
+
+  /// Fetches the room-authorized normalized USDZ for an eligible asset. The
+  /// gateway returns the content hash and byte length as immutable response
+  /// facts; RealityKit never receives bytes until both facts verify locally.
+  func downloadVerifiedUSDZ(assetID: String) async throws -> VerifiedUSDZDelivery {
+    guard
+      assetID.range(
+        of: #"^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$"#,
+        options: .regularExpression
+      ) != nil
+    else {
+      throw GatewayClientError.invalidAssetIdentifier
+    }
+    var request = URLRequest(url: endpoint("/v1/assets/\(assetID)/usdz"))
+    request.httpMethod = "GET"
+    request.setValue("Bearer \(room.credential)", forHTTPHeaderField: "Authorization")
+    let (bytes, response) = try await URLSession.shared.data(for: request)
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw GatewayClientError.invalidResponse
+    }
+    guard httpResponse.statusCode == 200 else {
+      if httpResponse.statusCode == 401 { throw GatewayClientError.unauthorized }
+      throw GatewayClientError.requestFailed
+    }
+    guard
+      let hash = httpResponse.value(forHTTPHeaderField: "x-content-sha256"),
+      let lengthText = httpResponse.value(forHTTPHeaderField: "content-length"),
+      let length = Int(lengthText),
+      length > 0,
+      let descriptor = try? AssetDeliveryDescriptor(
+        assetID: assetID,
+        derivative: .usdz,
+        expectedSHA256: hash,
+        expectedByteLength: length
+      )
+    else {
+      throw GatewayClientError.invalidAssetDeliveryHeaders
+    }
+    return VerifiedUSDZDelivery(descriptor: descriptor, bytes: try descriptor.verify(bytes: bytes))
   }
 
   private func post(path: String, body: [String: Any]) async throws -> Data {

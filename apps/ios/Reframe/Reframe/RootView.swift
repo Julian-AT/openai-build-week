@@ -49,6 +49,7 @@ struct RootView: View {
           restoreLatest: {
             Task { await spatialSession.restoreLatest() }
           },
+          isSubmitting: spatialSession.isSubmittingTurn,
           gatewayStatus: spatialSession.gatewayStatus
         )
       }
@@ -129,6 +130,7 @@ private struct AgentComposer: View {
   let submitPrompt: (String) -> Void
   let confirmPreview: () -> Void
   let restoreLatest: () -> Void
+  let isSubmitting: Bool
   let gatewayStatus: String
 
   var body: some View {
@@ -163,12 +165,14 @@ private struct AgentComposer: View {
           .textFieldStyle(.plain)
           .submitLabel(.send)
           .onSubmit(submit)
-        Button("Send", systemImage: "arrow.up") { submit() }
-          .labelStyle(.iconOnly)
-          .buttonStyle(.borderedProminent)
-          .tint(.white)
-          .foregroundStyle(.black)
-          .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        Button(
+          isSubmitting ? "Preparing" : "Send", systemImage: isSubmitting ? "hourglass" : "arrow.up"
+        ) { submit() }
+        .labelStyle(.iconOnly)
+        .buttonStyle(.borderedProminent)
+        .tint(.white)
+        .foregroundStyle(.black)
+        .disabled(isSubmitting || prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
       }
       .padding(12)
       .background(.white.opacity(0.1), in: .rect(cornerRadius: 14))
