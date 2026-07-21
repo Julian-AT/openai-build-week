@@ -5,6 +5,8 @@ import { type Context, Hono } from "hono";
 
 import { type AgentTurnService, parseAgentTurnRequest } from "./agent-turn.ts";
 import {
+  CaptureArtifactConflictError,
+  CaptureArtifactNotFoundError,
   CaptureFrameConflictError,
   type DurableRoomSessionStore,
   isRoomSessionID,
@@ -139,6 +141,12 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.post("/v1/sessions/:sessionID/frames", async (context) =>
     handleFrameIngest(context, options),
   );
+  app.post("/v1/sessions/:sessionID/artifacts/:artifactID", async (context) =>
+    handleArtifactUpload(context, options),
+  );
+  app.get("/v1/sessions/:sessionID/artifacts/:artifactID", async (context) =>
+    handleArtifactDownload(context, options),
+  );
   app.get("/v1/sessions/:sessionID/frames/recent", async (context) =>
     handleRecentFrames(context, options),
   );
@@ -155,6 +163,9 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.all("/v1/inference/jobs", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/sessions", (context) => methodNotAllowed(context, "POST"));
   app.all("/v1/sessions/:sessionID/frames", (context) => methodNotAllowed(context, "POST"));
+  app.all("/v1/sessions/:sessionID/artifacts/:artifactID", (context) =>
+    methodNotAllowed(context, "GET, POST"),
+  );
   app.all("/v1/sessions/:sessionID/frames/recent", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/sessions/:sessionID", (context) => methodNotAllowed(context, "DELETE"));
   app.all("/v1/edit/previews", (context) => methodNotAllowed(context, "POST"));
@@ -375,6 +386,98 @@ async function handleRecentFrames(context: Context, options: GatewayAppOptions):
     });
   } catch (error) {
     if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleArtifactUpload(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.durableSessionStore) return context.json({ error: "service_unavailable" }, 503);
+  const sessionID = context.req.param("sessionID");
+  const artifactID = context.req.param("artifactID");
+  if (
+    typeof sessionID !== "string" ||
+    !isRoomSessionID(sessionID) ||
+    typeof artifactID !== "string"
+  ) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  const contentType = context.req.header("content-type")?.split(";", 1)[0]?.trim();
+  if (contentType === undefined || contentType.length === 0) {
+    return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  try {
+    const receipt = await options.durableSessionStore.acceptArtifact({
+      credential,
+      artifactID,
+      bytes: await readBinary(context.req.raw),
+      contentType,
+      expectedSessionID: sessionID,
+    });
+    return context.json(
+      {
+        session_id: receipt.sessionID,
+        artifact_id: receipt.artifactID,
+        sha256: receipt.sha256,
+        byte_length: receipt.byteLength,
+        content_type: receipt.contentType,
+        accepted_at_ms: receipt.acceptedAtMilliseconds,
+        replayed: receipt.replayed,
+      },
+      receipt.replayed ? 200 : 202,
+    );
+  } catch (error) {
+    if (error instanceof BodyTooLargeError)
+      return context.json({ error: "payload_too_large" }, 413);
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    if (error instanceof CaptureArtifactConflictError) {
+      return context.json({ error: "artifact_conflict" }, 409);
+    }
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleArtifactDownload(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response> {
+  if (!options.durableSessionStore) return context.json({ error: "service_unavailable" }, 503);
+  const sessionID = context.req.param("sessionID");
+  const artifactID = context.req.param("artifactID");
+  if (
+    typeof sessionID !== "string" ||
+    !isRoomSessionID(sessionID) ||
+    typeof artifactID !== "string"
+  ) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  try {
+    const result = await options.durableSessionStore.readArtifact({
+      credential,
+      artifactID,
+      expectedSessionID: sessionID,
+    });
+    const body = result.bytes.slice().buffer as ArrayBuffer;
+    return new Response(body, {
+      status: 200,
+      headers: {
+        "content-type": result.receipt.contentType,
+        "content-length": result.receipt.byteLength.toString(),
+        etag: `"${result.receipt.sha256}"`,
+        "x-content-sha256": result.receipt.sha256,
+        "cache-control": "private, no-store",
+      },
+    });
+  } catch (error) {
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    if (error instanceof CaptureArtifactNotFoundError)
+      return context.json({ error: "not_found" }, 404);
     return context.json({ error: "internal_failure" }, 500);
   }
 }
@@ -794,7 +897,7 @@ function hasJSONContentType(contentType: string | undefined): boolean {
   return contentType?.split(";", 1)[0]?.trim().toLowerCase() === "application/json";
 }
 
-function methodNotAllowed(context: Context, allow: "GET" | "POST" | "DELETE"): Response {
+function methodNotAllowed(context: Context, allow: string): Response {
   context.header("allow", allow);
   return context.json({ error: "method_not_allowed" }, 405);
 }

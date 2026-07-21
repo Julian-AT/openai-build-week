@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { mkdir, open, rename, rm } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
@@ -18,6 +18,8 @@ const MAX_CREDENTIAL_LIFETIME_MILLISECONDS = 15 * 60 * 1_000;
 const CREDENTIAL_HEADER = { alg: "HS256", typ: "JWT" };
 const BASE64_URL = /^[A-Za-z0-9_-]+$/u;
 const ROOM_ID = /^room_[a-z0-9_]{3,120}$/u;
+const ARTIFACT_ID =
+  /^artifact_[0-9a-f]{8}-[0-9a-f]{4}-[47][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const ALLOWED_PATH = /^(?:frames|events|artifacts)$/u;
 
 export interface CreateDurableRoomSessionStoreOptions {
@@ -50,6 +52,16 @@ export interface CaptureFrameReceipt {
   readonly rfcapDirectory: string;
 }
 
+export interface CaptureArtifactReceipt {
+  readonly sessionID: string;
+  readonly artifactID: string;
+  readonly sha256: string;
+  readonly byteLength: number;
+  readonly contentType: string;
+  readonly acceptedAtMilliseconds: number;
+  readonly replayed: boolean;
+}
+
 export const isRoomSessionID = (value: string): boolean => ROOM_ID.test(value);
 
 interface RoomCredentialClaims {
@@ -77,6 +89,15 @@ interface FrameRow {
   metadata_json: string;
 }
 
+interface ArtifactRow {
+  session_id: string;
+  artifact_id: string;
+  artifact_sha256: string;
+  artifact_bytes: number;
+  content_type: string;
+  accepted_at_ms: number;
+}
+
 export class RoomCredentialError extends Error {
   constructor() {
     super("invalid_room_credential");
@@ -88,6 +109,20 @@ export class CaptureFrameConflictError extends Error {
   constructor() {
     super("capture_frame_conflict");
     this.name = "CaptureFrameConflictError";
+  }
+}
+
+export class CaptureArtifactConflictError extends Error {
+  constructor() {
+    super("capture_artifact_conflict");
+    this.name = "CaptureArtifactConflictError";
+  }
+}
+
+export class CaptureArtifactNotFoundError extends Error {
+  constructor() {
+    super("capture_artifact_not_found");
+    this.name = "CaptureArtifactNotFoundError";
   }
 }
 
@@ -202,6 +237,101 @@ export class DurableRoomSessionStore {
         )
         .all(claims.session_id, threshold, MAX_RECENT_FRAMES);
       return Object.freeze(rows.map((row) => this.#receipt(row, false)));
+    });
+  }
+
+  async acceptArtifact(input: {
+    credential: string;
+    artifactID: string;
+    bytes: Uint8Array;
+    contentType: string;
+    expectedSessionID?: string;
+  }): Promise<CaptureArtifactReceipt> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(input.credential, "artifacts");
+      if (input.expectedSessionID !== undefined && input.expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      assertArtifactID(input.artifactID);
+      assertContentType(input.contentType);
+      if (input.bytes.byteLength === 0) throw new CaptureArtifactConflictError();
+      const sessionID = claims.session_id;
+      const digest = sha256(input.bytes);
+      const existing = this.#database
+        .query<ArtifactRow, [string, string]>(
+          "SELECT session_id, artifact_id, artifact_sha256, artifact_bytes, content_type, accepted_at_ms FROM capture_artifacts WHERE session_id = ?1 AND artifact_id = ?2",
+        )
+        .get(sessionID, input.artifactID);
+      if (existing !== null) {
+        if (
+          existing.artifact_sha256 !== digest ||
+          existing.content_type !== input.contentType ||
+          existing.artifact_bytes !== input.bytes.byteLength
+        ) {
+          throw new CaptureArtifactConflictError();
+        }
+        return artifactReceipt(existing, true);
+      }
+      const now = this.#now();
+      assertTimestamp(now);
+      const artifactPath = join(this.#rfcapDirectory(sessionID), "artifacts", input.artifactID);
+      await writeBinaryAtomically(artifactPath, input.bytes);
+      const row: ArtifactRow = {
+        session_id: sessionID,
+        artifact_id: input.artifactID,
+        artifact_sha256: digest,
+        artifact_bytes: input.bytes.byteLength,
+        content_type: input.contentType,
+        accepted_at_ms: now,
+      };
+      this.#database.exec("BEGIN IMMEDIATE");
+      try {
+        this.#database
+          .prepare(
+            "INSERT INTO capture_artifacts (session_id, artifact_id, artifact_sha256, artifact_bytes, content_type, accepted_at_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+          )
+          .run(
+            row.session_id,
+            row.artifact_id,
+            row.artifact_sha256,
+            row.artifact_bytes,
+            row.content_type,
+            row.accepted_at_ms,
+          );
+        this.#database.exec("COMMIT");
+      } catch (error) {
+        this.#database.exec("ROLLBACK");
+        await rm(artifactPath, { force: true });
+        throw error;
+      }
+      return artifactReceipt(row, false);
+    });
+  }
+
+  async readArtifact(input: {
+    credential: string;
+    artifactID: string;
+    expectedSessionID?: string;
+  }): Promise<{ readonly receipt: CaptureArtifactReceipt; readonly bytes: Uint8Array }> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(input.credential, "artifacts");
+      if (input.expectedSessionID !== undefined && input.expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      assertArtifactID(input.artifactID);
+      const row = this.#database
+        .query<ArtifactRow, [string, string]>(
+          "SELECT session_id, artifact_id, artifact_sha256, artifact_bytes, content_type, accepted_at_ms FROM capture_artifacts WHERE session_id = ?1 AND artifact_id = ?2",
+        )
+        .get(claims.session_id, input.artifactID);
+      if (row === null) throw new CaptureArtifactNotFoundError();
+      const bytes = new Uint8Array(
+        await readFile(join(this.#rfcapDirectory(claims.session_id), "artifacts", row.artifact_id)),
+      );
+      if (bytes.byteLength !== row.artifact_bytes || sha256(bytes) !== row.artifact_sha256) {
+        throw new CaptureArtifactNotFoundError();
+      }
+      return { receipt: artifactReceipt(row, false), bytes };
     });
   }
 
@@ -420,6 +550,15 @@ export async function createDurableRoomSessionStore(
       PRIMARY KEY (session_id, frame_id)
     ) STRICT;
     CREATE INDEX IF NOT EXISTS capture_frames_recent ON capture_frames (session_id, accepted_at_ms DESC);
+    CREATE TABLE IF NOT EXISTS capture_artifacts (
+      session_id TEXT NOT NULL REFERENCES room_sessions(session_id) ON DELETE CASCADE,
+      artifact_id TEXT NOT NULL,
+      artifact_sha256 TEXT NOT NULL,
+      artifact_bytes INTEGER NOT NULL,
+      content_type TEXT NOT NULL,
+      accepted_at_ms INTEGER NOT NULL,
+      PRIMARY KEY (session_id, artifact_id)
+    ) STRICT;
   `);
   return new DurableRoomSessionStore({
     database,
@@ -467,6 +606,18 @@ function frameJournalLine(row: FrameRow): string {
   });
 }
 
+function artifactReceipt(row: ArtifactRow, replayed: boolean): CaptureArtifactReceipt {
+  return Object.freeze({
+    sessionID: row.session_id,
+    artifactID: row.artifact_id,
+    sha256: row.artifact_sha256,
+    byteLength: row.artifact_bytes,
+    contentType: row.content_type,
+    acceptedAtMilliseconds: row.accepted_at_ms,
+    replayed,
+  });
+}
+
 async function writeBinaryAtomically(path: string, bytes: Uint8Array): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporary = `${path}.${randomUUID()}.tmp`;
@@ -491,6 +642,22 @@ async function writeAtomically(path: string, text: string): Promise<void> {
 
 function assertRoomID(value: string): void {
   if (!isRoomSessionID(value)) throw new Error("invalid_room_id");
+}
+
+function assertArtifactID(value: string): void {
+  if (!ARTIFACT_ID.test(value)) throw new CaptureArtifactConflictError();
+}
+
+function assertContentType(value: string): void {
+  if (
+    value.length === 0 ||
+    value.length > 160 ||
+    !/^[a-z0-9!#$%&'*+.^_`|~-]+\/[a-z0-9!#$%&'*+.^_`|~-]+(?:\s*;\s*[a-z0-9-]+=[^;\s]+)*$/iu.test(
+      value,
+    )
+  ) {
+    throw new CaptureArtifactConflictError();
+  }
 }
 
 function assertTimestamp(value: number): void {

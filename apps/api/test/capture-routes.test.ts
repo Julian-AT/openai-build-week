@@ -154,6 +154,74 @@ test("rejects a frame whose scoped path and packet session do not match", async 
   }
 });
 
+test("uploads and hash-verifies room-scoped artifacts with idempotent replay", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-artifact-routes-"));
+  const store = await createDurableRoomSessionStore({
+    dataDirectory,
+    signingSecret: "test-signing-secret-with-sufficient-length",
+    nowMilliseconds: () => 2_000,
+  });
+  try {
+    const app = createGatewayApp({ gatewayToken: "gateway-token", durableSessionStore: store });
+    const session = await store.createSession({
+      sessionID: "room_2026_07_13_artifact",
+      expiresAtMilliseconds: 61_000,
+      allowedPaths: ["artifacts"],
+    });
+    const artifactID = "artifact_12345678-1234-4123-8123-123456789abc";
+    const bytes = new Uint8Array([1, 2, 3, 4]);
+    const headers = {
+      authorization: `Bearer ${session.credential}`,
+      "content-type": "application/octet-stream",
+    };
+    const upload = await app.request(`/v1/sessions/${session.sessionID}/artifacts/${artifactID}`, {
+      method: "POST",
+      headers,
+      body: bytes,
+    });
+    assert.equal(upload.status, 202);
+    assert.deepEqual(await upload.json(), {
+      accepted_at_ms: 2_000,
+      artifact_id: artifactID,
+      byte_length: 4,
+      content_type: "application/octet-stream",
+      replayed: false,
+      session_id: session.sessionID,
+      sha256: "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+    });
+    const replay = await app.request(`/v1/sessions/${session.sessionID}/artifacts/${artifactID}`, {
+      method: "POST",
+      headers,
+      body: bytes,
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(((await replay.json()) as { replayed: boolean }).replayed, true);
+
+    const download = await app.request(
+      `/v1/sessions/${session.sessionID}/artifacts/${artifactID}`,
+      { headers: { authorization: `Bearer ${session.credential}` } },
+    );
+    assert.equal(download.status, 200);
+    assert.equal(
+      download.headers.get("x-content-sha256"),
+      "9f64a747e1b97f131fabb6b447296c9b6f0201e79fb3c5356e6c77e89b6a806a",
+    );
+    assert.deepEqual(new Uint8Array(await download.arrayBuffer()), bytes);
+
+    const conflict = await app.request(
+      `/v1/sessions/${session.sessionID}/artifacts/${artifactID}`,
+      { method: "POST", headers, body: new Uint8Array([9]) },
+    );
+    assert.deepEqual(
+      [conflict.status, await conflict.json()],
+      [409, { error: "artifact_conflict" }],
+    );
+  } finally {
+    await store.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
 function packet(sessionID: string): Uint8Array {
   return encodeFramePacket({
     flags: 0,
