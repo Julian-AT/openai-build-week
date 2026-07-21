@@ -35,6 +35,8 @@ DA3_SOURCE_REVISION = "3fe327a6abe2e5db95b54444ea95463dbfef5610"
 DA3_CHECKPOINT_REVISION = "4010e39f3634a45bc60553321fb49fb760bd594e"
 DA3_CHECKPOINT_BYTES = 1_336_734_448
 DA3_CHECKPOINT_SHA256 = "bbea5b0b3ee389849cffa7ddae89de064a90abd2b055fc5aa99aac68db324776"
+DA3_CONFIG_BYTES = 847
+DA3_CONFIG_SHA256 = "a336f3e76fe375aaae17a9aed9130c9f2aa061535d317ec57dcb2f1f02e1dd53"
 DA3_METRIC_DIVISOR = 300.0
 MAX_METRIC_DEPTH_M = 500.0
 HASH_CHUNK_BYTES = 1024 * 1024
@@ -266,13 +268,18 @@ def load_da3_metric_engine(
         expected_bytes=DA3_CHECKPOINT_BYTES,
         expected_sha256=DA3_CHECKPOINT_SHA256,
     )
+    verify_file(
+        model_dir / "config.json",
+        expected_bytes=DA3_CONFIG_BYTES,
+        expected_sha256=DA3_CONFIG_SHA256,
+    )
     package_root = (source_dir / "src").resolve(strict=True)
     if any(
         name == "depth_anything_3" or name.startswith("depth_anything_3.") for name in sys.modules
     ):
         raise RuntimeError("DA3 was imported before source verification")
     sys.path.insert(0, str(package_root))
-    _install_disabled_export_boundary()
+    _install_disabled_provider_boundaries()
     try:
         api_module = importlib.import_module("depth_anything_3.api")
         factory = cast("DA3ModelFactory", api_module.DepthAnything3)
@@ -314,6 +321,11 @@ def _run_git(git: str, source_dir: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
+def _install_disabled_provider_boundaries() -> None:
+    _install_disabled_export_boundary()
+    _install_disabled_pose_alignment_boundary()
+
+
 def _install_disabled_export_boundary() -> None:
     module_name = "depth_anything_3.utils.export"
     export_module = types.ModuleType(module_name)
@@ -321,5 +333,16 @@ def _install_disabled_export_boundary() -> None:
     sys.modules[module_name] = export_module
 
 
+def _install_disabled_pose_alignment_boundary() -> None:
+    module_name = "depth_anything_3.utils.pose_align"
+    pose_module = types.ModuleType(module_name)
+    pose_module.align_poses_umeyama = _disabled_pose_alignment  # type: ignore[attr-defined]
+    sys.modules[module_name] = pose_module
+
+
 def _disabled_export(*_args: object, **_kwargs: object) -> None:
     raise RuntimeError("DA3 exporters are disabled in the metric-depth worker")
+
+
+def _disabled_pose_alignment(*_args: object, **_kwargs: object) -> None:
+    raise RuntimeError("DA3 pose alignment is disabled in the metric-depth worker")
