@@ -95,6 +95,31 @@ final class SpatialSession {
     lastTargetSeed = targetSeed
   }
 
+  /// Checks the room gateway when the operator starts voice. This is a
+  /// read-only fallback until a native WebRTC transport is linked; typed turns
+  /// remain the authoritative interaction path either way.
+  func prepareRealtimeGateway() async {
+    guard let gatewayClient else {
+      gatewayStatus = "Realtime unavailable after room connection"
+      return
+    }
+    gatewayStatus = "Connecting realtime gateway…"
+    do {
+      switch try await gatewayClient.checkGatewayHealth() {
+      case .ready:
+        gatewayStatus = "Realtime gateway connected — typed edits remain ready"
+      case .degraded:
+        gatewayStatus = "Realtime gateway degraded — typed edits remain ready"
+      }
+    } catch {
+      gatewayStatus = "Realtime gateway unavailable — typed edits remain ready"
+    }
+  }
+
+  func stopRealtimeGateway() {
+    gatewayStatus = gatewayClient == nil ? "Room not connected" : "Realtime gateway disconnected"
+  }
+
   func submitTypedTurn(_ utterance: String) async {
     guard !isSubmittingTurn else { return }
     isSubmittingTurn = true

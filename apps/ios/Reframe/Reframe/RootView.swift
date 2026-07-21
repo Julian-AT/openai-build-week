@@ -40,6 +40,10 @@ struct RootView: View {
           isListening: $isListening,
           captureVoiceTarget: {
             targetCaptureRequest = TargetCaptureRequest(source: .voiceCapture)
+            Task { await spatialSession.prepareRealtimeGateway() }
+          },
+          stopVoice: {
+            spatialSession.stopRealtimeGateway()
           },
           submitPrompt: { value in
             Task { await spatialSession.submitTypedTurn(value) }
@@ -128,6 +132,7 @@ private struct AgentComposer: View {
   @Binding var prompt: String
   @Binding var isListening: Bool
   let captureVoiceTarget: () -> Void
+  let stopVoice: () -> Void
   let submitPrompt: (String) -> Void
   let confirmPreview: () -> Void
   let restoreLatest: () -> Void
@@ -151,7 +156,11 @@ private struct AgentComposer: View {
           isListening ? "Stop listening" : "Start voice",
           systemImage: isListening ? "stop.fill" : "waveform"
         ) {
-          if !isListening { captureVoiceTarget() }
+          if isListening {
+            stopVoice()
+          } else {
+            captureVoiceTarget()
+          }
           isListening.toggle()
         }
         .labelStyle(.iconOnly)

@@ -16,6 +16,11 @@ struct VerifiedUSDZDelivery: Sendable {
   let bytes: Data
 }
 
+enum GatewayHealth: Equatable, Sendable {
+  case ready
+  case degraded
+}
+
 /// Thin room-scoped control transport. It never runs from the render loop and
 /// returns opaque JSON for the gateway-owned proposal/transaction schemas.
 struct GatewayClient: Sendable {
@@ -28,6 +33,30 @@ struct GatewayClient: Sendable {
     else { throw GatewayClientError.invalidBaseURL }
     self.baseURL = baseURL
     self.room = room
+  }
+
+  /// Performs a bounded, read-only gateway check for the native voice fallback.
+  /// The iOS target has no WebRTC framework dependency, so this deliberately
+  /// does not attempt to exchange SDP or mutate scene state. A future native
+  /// WebRTC transport can replace this probe without changing the UI contract.
+  func checkGatewayHealth() async throws -> GatewayHealth {
+    var request = URLRequest(url: endpoint("/health"))
+    request.httpMethod = "GET"
+    request.timeoutInterval = 5
+    let (bytes, response) = try await URLSession.shared.data(for: request)
+    guard let httpResponse = response as? HTTPURLResponse,
+      (200...299).contains(httpResponse.statusCode)
+    else { throw GatewayClientError.requestFailed }
+    guard
+      let object = try? JSONSerialization.jsonObject(with: bytes),
+      let dictionary = object as? [String: Any],
+      let status = dictionary["status"] as? String
+    else { throw GatewayClientError.invalidResponse }
+    switch status {
+    case "ok": return .ready
+    case "degraded": return .degraded
+    default: throw GatewayClientError.invalidResponse
+    }
   }
 
   func submitTurn(
