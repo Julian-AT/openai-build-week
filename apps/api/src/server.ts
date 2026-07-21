@@ -716,7 +716,7 @@ function editFailureResponse(context: Context, error: unknown): Response {
   ) {
     return context.json({ error: "invalid_request" }, 400);
   }
-  if (error instanceof SessionCredentialError) {
+  if (error instanceof SessionCredentialError || error instanceof RoomCredentialError) {
     return context.json({ error: "unauthorized" }, 401);
   }
   if (error instanceof TransactionNotFoundError) {
@@ -744,7 +744,7 @@ function parseEditPreviewRequest(value: unknown): { readonly proposalID: string 
 function parseSessionCreateRequest(value: unknown): {
   readonly sessionID: string;
   readonly expiresAtMilliseconds: number;
-  readonly allowedPaths: readonly ("frames" | "events" | "artifacts")[];
+  readonly allowedPaths: readonly ("frames" | "events" | "artifacts" | "scene")[];
 } {
   if (
     !isExactRecord(value, ["session_id", "expires_at_ms", "allowed_paths"]) ||
@@ -755,11 +755,11 @@ function parseSessionCreateRequest(value: unknown): {
     value.expires_at_ms < 0 ||
     !Array.isArray(value.allowed_paths) ||
     value.allowed_paths.length === 0 ||
-    value.allowed_paths.length > 3 ||
+    value.allowed_paths.length > 4 ||
     new Set(value.allowed_paths).size !== value.allowed_paths.length ||
     !value.allowed_paths.every(
-      (path): path is "frames" | "events" | "artifacts" =>
-        path === "frames" || path === "events" || path === "artifacts",
+      (path): path is "frames" | "events" | "artifacts" | "scene" =>
+        path === "frames" || path === "events" || path === "artifacts" || path === "scene",
     )
   ) {
     throw new ProtocolError("invalid_request");

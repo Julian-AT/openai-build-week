@@ -486,6 +486,7 @@ export class DurableRoomSessionStore {
       await rm(directory, { recursive: true, force: true });
       this.#database.exec("BEGIN IMMEDIATE");
       try {
+        deleteSceneRows(this.#database, claims.session_id);
         this.#database
           .prepare("DELETE FROM capture_frames WHERE session_id = ?1")
           .run(claims.session_id);
@@ -650,6 +651,23 @@ export class DurableRoomSessionStore {
     } finally {
       release?.();
     }
+  }
+}
+
+function deleteSceneRows(database: Database, sessionID: string): void {
+  for (const table of [
+    "scene_transactions",
+    "scene_previews",
+    "scene_replacements",
+    "scene_state",
+  ] as const) {
+    const exists = database
+      .query<{ name: string }, [string]>(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?1",
+      )
+      .get(table);
+    if (exists !== null)
+      database.prepare(`DELETE FROM ${table} WHERE session_id = ?1`).run(sessionID);
   }
 }
 
