@@ -46,6 +46,22 @@ public enum PlacementPreviewError: Error, Equatable, Sendable {
   case invalidInput
 }
 
+public enum AuthoritativeAssetTransformError: Error, Equatable, Sendable {
+  case invalidTransform
+}
+
+/// Validates an untrusted gateway transform without modifying its coordinate
+/// frame or translation. Replacement transforms are deterministic server
+/// output and must never be snapped to the phone's latest reticle hit.
+public enum AuthoritativeAssetTransform {
+  public static func decode(_ values: [Double]) throws -> SpatialTransform {
+    guard values.count == 16, values.allSatisfy(\.isFinite) else {
+      throw AuthoritativeAssetTransformError.invalidTransform
+    }
+    return SpatialTransform(values: values)
+  }
+}
+
 private func isSafeIdentifier(_ value: String) -> Bool {
   guard value.count <= 128 else { return false }
   return value.range(

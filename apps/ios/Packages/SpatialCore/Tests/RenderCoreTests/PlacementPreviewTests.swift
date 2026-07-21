@@ -24,6 +24,35 @@ func createsFloorPlacementPreview() throws {
     ])
 }
 
+@Test("an authoritative replacement transform is preserved exactly")
+func preservesAuthoritativeReplacementTransform() throws {
+  let serverTransform = [
+    0.0, 0.0, 1.0, 1.75,
+    0.0, 1.0, 0.0, 0.02,
+    -1.0, 0.0, 0.0, -3.25,
+    0.0, 0.0, 0.0, 1.0,
+  ]
+
+  let transform = try AuthoritativeAssetTransform.decode(serverTransform)
+
+  #expect(transform.values == serverTransform)
+}
+
+@Test("an invalid authoritative transform fails closed")
+func rejectsInvalidAuthoritativeTransform() {
+  #expect(throws: AuthoritativeAssetTransformError.invalidTransform) {
+    try AuthoritativeAssetTransform.decode(Array(repeating: 0, count: 15))
+  }
+  #expect(throws: AuthoritativeAssetTransformError.invalidTransform) {
+    try AuthoritativeAssetTransform.decode([
+      1, 0, 0, 0,
+      0, 1, 0, .infinity,
+      0, 0, 1, 0,
+      0, 0, 0, 1,
+    ])
+  }
+}
+
 @Test("asset delivery verifies its declared byte length and SHA-256 before RealityKit use")
 func verifiesAssetDeliveryBytes() throws {
   let bytes = Data([0x52, 0x46, 0x43, 0x41, 0x50])

@@ -176,7 +176,7 @@ final class SpatialSession {
       }
       if let values = jsonDoubleArray("world_from_asset", in: proposalData), values.count == 16 {
         pendingPlacementAssetID = jsonStringInObject("asset_id", key: "intent", in: proposalData)
-        pendingPlacementTransform = placementTransform(values, at: lastTargetSeed?.arkitHit)
+        pendingPlacementTransform = try AuthoritativeAssetTransform.decode(values)
       }
       let previewData = try await gatewayClient.preparePreview(proposalID: proposalID)
       pendingPreviewID = jsonString("preview_id", in: previewData)
@@ -366,15 +366,6 @@ final class SpatialSession {
     let result = (descriptor: delivery.descriptor, url: fileURL)
     verifiedUSDZFiles[assetID] = result
     return result
-  }
-
-  private func placementTransform(_ values: [Double], at hit: RaycastHit?) -> SpatialTransform {
-    guard let hit else { return SpatialTransform(values: values) }
-    var adjusted = values
-    adjusted[3] = hit.positionWorld.x
-    adjusted[7] = hit.positionWorld.y
-    adjusted[11] = hit.positionWorld.z
-    return SpatialTransform(values: adjusted)
   }
 
   private func nowMilliseconds() -> Int64 {

@@ -24,3 +24,14 @@ test("capture events reject invalid identity, timestamp, type, and oversized pay
   assert.throws(() => parseCaptureEvent({ ...event, type: "unknown" }));
   assert.throws(() => parseCaptureEvent({ ...event, payload: "x".repeat(64 * 1024 + 1) }));
 });
+
+test("capture events accept target and plane coordination events", () => {
+  for (const type of ["target_seed", "plane_upsert", "plane_remove"] as const) {
+    const coordinationEvent = {
+      ...event,
+      type,
+      payload: { frame_id: 42, pointer_context_id: "pointer_1" },
+    };
+    assert.equal(parseCaptureEvent(coordinationEvent).type, type);
+  }
+});

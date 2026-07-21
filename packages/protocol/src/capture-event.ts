@@ -10,6 +10,9 @@ export const CAPTURE_EVENT_TYPES = [
   "frame_network_eligible",
   "frame_server_acknowledged",
   "tracking_changed",
+  "target_seed",
+  "plane_upsert",
+  "plane_remove",
   "transaction",
   "session_finalized",
 ] as const;

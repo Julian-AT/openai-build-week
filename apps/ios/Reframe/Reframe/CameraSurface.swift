@@ -144,8 +144,6 @@ struct CameraSurface: UIViewRepresentable {
           )
           guard let self, !Task.isCancelled, self.placementPreviewKey == key else { return }
           guard let anchor else { return }
-          let bounds = entity.visualBounds(relativeTo: entity)
-          if bounds.min.y.isFinite { entity.position.y = -bounds.min.y }
           entity.name = "reframe-placement-\(assetID)"
           anchor.addChild(entity)
           spatialSession.placementAssetDidLoad()
