@@ -13,9 +13,6 @@ test("submit_user_turn is a closed non-mutating intent envelope", () => {
     "client_scene_revision",
     "pending_proposal_id",
   ]);
-  // The turn carries only an opaque pointer reference. It must not expose a
-  // client-supplied world position; spatial context is bound server-side from
-  // authoritative durable state.
   expect(Object.keys(submitUserTurn.properties).sort()).toEqual(
     [...submitUserTurn.required].sort(),
   );

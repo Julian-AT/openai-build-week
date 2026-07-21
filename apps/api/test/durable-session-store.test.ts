@@ -231,7 +231,6 @@ test("binds the authoritative floor contact from the durable target seed", async
       expiresAtMilliseconds: 61_000,
       allowedPaths: ["frames", "events", "scene"],
     });
-    // No target seed yet: there is no authoritative spatial context to bind.
     assert.equal(await sessions.authoritativeFloorContact(session.credential), null);
 
     await sessions.acceptFrame({

@@ -555,11 +555,7 @@ export class DurableRoomSessionStore {
     });
   }
 
-  /**
-   * Resolves the authoritative floor-contact point from the most recent durable
-   * `target_seed` event's ARKit hit. Typed turns never supply this world
-   * position; it is bound here from server-side durable state.
-   */
+  /** Floor-contact point from the most recent durable target seed's ARKit hit. */
   async authoritativeFloorContact(
     credential: string,
     expectedSessionID?: string,

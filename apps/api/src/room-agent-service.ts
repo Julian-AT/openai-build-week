@@ -76,9 +76,7 @@ export function createRoomAgentTurnServiceWithCatalog(
         options.editTransactionService === undefined
           ? 0
           : (await options.editTransactionService.readScene(credential)).scene_revision;
-      // Spatial context is bound from authoritative durable state, never from the
-      // client turn. Absent a durable target seed, the server-configured contact
-      // is used; a client-supplied world position can never reach this path.
+      // Spatial context comes from durable state, never the client turn.
       const floorContactRF =
         (await options.sessionStore.authoritativeFloorContact(credential, sessionID)) ??
         options.floorContactRF;

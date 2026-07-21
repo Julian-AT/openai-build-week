@@ -27,8 +27,6 @@ test("parses only the closed non-mutating Realtime turn envelope", () => {
   expect(() => parseRealtimeSubmitUserTurn({ ...validTurn, client_scene_revision: -1 })).toThrow(
     "invalid_realtime_turn",
   );
-  // A client-supplied world position is an unknown property and is rejected;
-  // the gateway binds spatial context from authoritative durable state.
   expect(() =>
     parseRealtimeSubmitUserTurn({
       ...validTurn,

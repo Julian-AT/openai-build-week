@@ -106,9 +106,6 @@ struct GatewayClient: Sendable {
     pendingProposalID: String? = nil,
     clientTurnID: String = "turn_\(UUID().uuidString.lowercased())"
   ) async throws -> Data {
-    // The turn carries only an opaque pointer reference. The gateway binds the
-    // authoritative pointer and spatial context from durable state; the client
-    // never sends a world position.
     try await post(
       path: "/v1/turns",
       body: [

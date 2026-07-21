@@ -66,7 +66,6 @@ test("routes an ordinary video frame to the mapping boundary without ARKit autho
   expect(frame.mapping_provider).toBe("lingbot_map");
   expect(event.event_sequence).toBe(0);
 
-  // The session must never request ARKit frame authority.
   const created = JSON.parse(
     new TextDecoder().decode(await new Response(requests[0]?.init.body).arrayBuffer()),
   ) as { allowed_paths: string[] };
@@ -84,8 +83,6 @@ test("routes an ordinary video frame to the mapping boundary without ARKit autho
   expect(envelope.mapping_provider).toBe("lingbot_map");
   expect(envelope.pose_source).toBe("none");
   expect(envelope.clock_domain).toBe("browser_monotonic_performance");
-  // The core regression: ordinary video fabricates neither camera intrinsics
-  // nor an ARKit world transform.
   expect(envelope).not.toHaveProperty("intrinsics_encoded");
   expect(envelope).not.toHaveProperty("world_from_camera_arkit");
   expect(envelope).not.toHaveProperty("tracking");

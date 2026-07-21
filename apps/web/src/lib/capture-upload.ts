@@ -4,12 +4,8 @@ const MAX_FRAME_BYTES = 2_300_000;
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const SESSION_LIFETIME_MS = 10 * 60 * 1_000;
 
-/**
- * Browser capture is ordinary RGB video. It carries no ARKit pose or intrinsics
- * and is routed to the video-mapping boundary (LingBot-Map), which owns the
- * camera trajectory and geometry for ordinary video. The frame envelope must
- * never fabricate an identity intrinsic matrix or an identity ARKit transform.
- */
+// Browser capture is ordinary RGB video: no ARKit pose or intrinsics, routed to
+// the video-mapping boundary that owns trajectory and geometry.
 const MAPPING_PROVIDER = "lingbot_map";
 
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -172,13 +168,7 @@ async function createRoomFromGateway(
     options.fetch ?? globalThis.fetch,
     new URL("/v1/sessions", gatewayURL),
     gatewayToken,
-    {
-      session_id: sessionID,
-      expires_at_ms: expiresAtMilliseconds,
-      // Ordinary browser video never claims ARKit frame authority; it only
-      // journals events and streams video frames to the mapping boundary.
-      allowed_paths: ["events"],
-    },
+    { session_id: sessionID, expires_at_ms: expiresAtMilliseconds, allowed_paths: ["events"] },
   );
   const created = parseCreatedSession(response);
   return { gateway_url: gatewayURL.toString().replace(/\/$/u, ""), ...created };
@@ -234,8 +224,6 @@ function encodeOrdinaryVideoFrame(
   },
 ): OrdinaryVideoFrameEnvelope {
   assertJPEGFrame(input);
-  // No intrinsics_encoded and no world_from_camera_arkit: ordinary video carries
-  // no ARKit pose or calibration. Metric pose is the mapping provider's job.
   return {
     session_id: input.sessionID,
     frame_index: input.frameIndex,
@@ -416,8 +404,6 @@ function generatedSessionID(): string {
   return `room_browser_${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`;
 }
 function timestampNanoseconds(): number {
-  // The monotonic, session-relative browser clock keeps the nanosecond
-  // timestamp within the exact safe-integer range.
   const value = Math.floor(
     (typeof performance === "undefined" ? Date.now() : performance.now()) * 1_000_000,
   );

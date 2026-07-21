@@ -9,10 +9,7 @@ export interface FixedRoomModel {
   readonly parts: readonly RoomModelPart[];
 }
 
-/**
- * The meshed room used as the 3D-model side of the comparison. It mirrors the
- * point-cloud layout as solid geometry and stays source-owned, never a binary.
- */
+/** The meshed room shown as the 3D-model side of the comparison. */
 export function createFixedRoomModel(): FixedRoomModel {
   const parts: RoomModelPart[] = [
     { size: [7.6, 0.06, 5.45], position: [0, 0, -2.02], color: "#474033" },

@@ -17,12 +17,7 @@ export interface AgentTurnService {
   submit(credential: string, turn: AgentTurnRequest, signal: AbortSignal): Promise<unknown>;
 }
 
-/**
- * Parses the untrusted typed-turn envelope. It carries only an opaque
- * `pointer_context_id`; the gateway binds authoritative pointer, frame, scene
- * revision, identity, and spatial context from durable state. A client-supplied
- * world position is an unknown property and is rejected.
- */
+/** Parses the untrusted typed-turn envelope; unknown keys are rejected. */
 export function parseAgentTurnRequest(value: unknown): AgentTurnRequest {
   const keys = [
     "client_turn_id",

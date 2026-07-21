@@ -7,12 +7,7 @@ export interface RealtimeSubmitUserTurn {
   readonly pending_proposal_id: string | null;
 }
 
-/**
- * Strictly validates the untrusted Realtime function arguments before forwarding
- * them. The turn carries only an opaque `pointer_context_id`; the gateway binds
- * the authoritative pointer, frame, and spatial context from durable state. A
- * client-supplied world position is rejected as an unknown property.
- */
+/** Strictly validates the untrusted Realtime arguments; unknown keys are rejected. */
 export function parseRealtimeSubmitUserTurn(value: unknown): RealtimeSubmitUserTurn {
   if (!isRecord(value)) throw new Error("invalid_realtime_turn");
   const keys = Object.keys(value);

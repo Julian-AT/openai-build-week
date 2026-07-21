@@ -215,8 +215,6 @@ function createPreparedPreviewAuthority(options: {
   let resolvedTarget: KnownTarget | null = null;
   const trackedCatalog: CatalogRetriever = {
     async search(request, signal) {
-      // Catalog unavailability propagates as a typed error. It is never rescued
-      // with a fabricated placement candidate.
       const hits = await options.catalog.search(request, signal);
       for (const hit of hits) {
         eligibleAssetIDs.add(hit.assetID);
