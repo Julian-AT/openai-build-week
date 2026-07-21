@@ -21,6 +21,8 @@ html {
 body {
   margin: 0;
   min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden;
   background:
     radial-gradient(circle at 78% 12%, rgba(215, 255, 100, 0.08), transparent 28rem), #10120f;
 }
@@ -29,9 +31,39 @@ a {
   color: inherit;
 }
 
-.shell {
-  width: min(100% - 40px, 1240px);
-  margin: 0 auto;
+.splat-showcase {
+  width: 100%;
+  min-height: 100svh;
+}
+
+.gaussian-room-background {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 75% 34%, rgba(129, 151, 112, 0.19), transparent 34%),
+    linear-gradient(145deg, #151812 0%, #0e100d 68%);
+}
+
+.gaussian-room-background::after {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 54% 42%, transparent 32%, rgba(8, 10, 8, 0.42) 100%);
+  content: "";
+}
+
+.gaussian-room-background canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+
+.gaussian-room-background canvas[data-renderer-state="ready"] {
+  opacity: 1;
 }
 
 .navigation {
@@ -292,13 +324,17 @@ h1 {
 }
 
 @media (max-width: 720px) {
-  .shell {
-    width: min(100% - 28px, 1240px);
-  }
-
   .actions {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .gaussian-room-background::after {
+    background: radial-gradient(circle at 54% 42%, transparent 24%, rgba(8, 10, 8, 0.5) 100%);
+  }
+
+  .gaussian-room-background canvas[data-renderer-state="ready"] {
+    opacity: 1;
   }
 
   .capabilities {
@@ -328,6 +364,10 @@ h1 {
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .gaussian-room-background canvas {
+    transition: none;
   }
 }
 
