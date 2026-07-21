@@ -29,6 +29,8 @@ export const SUBMIT_USER_TURN_TOOL = {
   parameters: submitUserTurnParameters,
 } as const;
 
+export { parseRealtimeSubmitUserTurn, type RealtimeSubmitUserTurn } from "./realtime-turn.ts";
+
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface OpenAIRealtimeSessionServiceOptions {

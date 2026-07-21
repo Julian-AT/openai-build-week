@@ -1,7 +1,33 @@
-import { test } from "bun:test";
+import { expect, test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { createOpenAIRealtimeSessionService, REALTIME_MODEL } from "../src/index.ts";
+import {
+  createOpenAIRealtimeSessionService,
+  parseRealtimeSubmitUserTurn,
+  REALTIME_MODEL,
+} from "../src/index.ts";
+
+const validTurn = {
+  client_turn_id: "turn_browser_1",
+  utterance: "Replace this chair",
+  intent_hint: "replace",
+  pointer_context_id: "pointer_1",
+  client_scene_revision: 4,
+  pending_proposal_id: null,
+} as const;
+
+test("parses only the closed non-mutating Realtime turn envelope", () => {
+  expect(parseRealtimeSubmitUserTurn(validTurn)).toEqual(validTurn);
+  expect(() => parseRealtimeSubmitUserTurn({ ...validTurn, commit: true })).toThrow(
+    "invalid_realtime_turn",
+  );
+  expect(() => parseRealtimeSubmitUserTurn({ ...validTurn, utterance: " padded" })).toThrow(
+    "invalid_realtime_turn",
+  );
+  expect(() => parseRealtimeSubmitUserTurn({ ...validTurn, client_scene_revision: -1 })).toThrow(
+    "invalid_realtime_turn",
+  );
+});
 
 test("the Realtime service exchanges browser SDP through the unified WebRTC interface", async () => {
   let requestedURL: string | undefined;

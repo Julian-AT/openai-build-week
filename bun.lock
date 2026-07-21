@@ -17,6 +17,7 @@
       "dependencies": {
         "@reframe/agent": "workspace:*",
         "@reframe/catalog": "workspace:*",
+        "@reframe/protocol": "workspace:*",
         "hono": "4.12.31",
       },
       "devDependencies": {
@@ -33,6 +34,8 @@
       "name": "@reframe/web",
       "version": "0.0.0",
       "dependencies": {
+        "@reframe/agent": "workspace:*",
+        "@reframe/protocol": "workspace:*",
         "next": "16.2.10",
         "react": "19.2.7",
         "react-dom": "19.2.7",

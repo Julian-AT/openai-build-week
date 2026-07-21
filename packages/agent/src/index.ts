@@ -40,9 +40,11 @@ export {
 export {
   createOpenAIRealtimeSessionService,
   type OpenAIRealtimeSessionServiceOptions,
+  parseRealtimeSubmitUserTurn,
   REALTIME_INSTRUCTIONS,
   REALTIME_MODEL,
   type RealtimeSessionService,
+  type RealtimeSubmitUserTurn,
   SUBMIT_USER_TURN_TOOL,
 } from "./openai-realtime-session.ts";
 export {
