@@ -8,6 +8,7 @@ enum GatewayClientError: Error, Equatable {
   case invalidAssetDeliveryHeaders
   case unauthorized
   case invalidResponse
+  case gatewayUnreachable
   case requestFailed
 }
 
@@ -43,7 +44,13 @@ struct GatewayClient: Sendable {
     var request = URLRequest(url: endpoint("/health"))
     request.httpMethod = "GET"
     request.timeoutInterval = 5
-    let (bytes, response) = try await URLSession.shared.data(for: request)
+    let bytes: Data
+    let response: URLResponse
+    do {
+      (bytes, response) = try await URLSession.shared.data(for: request)
+    } catch is URLError {
+      throw GatewayClientError.gatewayUnreachable
+    }
     guard let httpResponse = response as? HTTPURLResponse,
       (200...299).contains(httpResponse.statusCode)
     else { throw GatewayClientError.requestFailed }
@@ -131,7 +138,13 @@ struct GatewayClient: Sendable {
     var request = URLRequest(url: signedURL)
     request.httpMethod = "GET"
     request.setValue("Bearer \(room.credential)", forHTTPHeaderField: "Authorization")
-    let (bytes, response) = try await URLSession.shared.data(for: request)
+    let bytes: Data
+    let response: URLResponse
+    do {
+      (bytes, response) = try await URLSession.shared.data(for: request)
+    } catch is URLError {
+      throw GatewayClientError.gatewayUnreachable
+    }
     guard (response as? HTTPURLResponse)?.statusCode == 200 else {
       throw GatewayClientError.requestFailed
     }
@@ -153,7 +166,13 @@ struct GatewayClient: Sendable {
     var request = URLRequest(url: endpoint("/v1/assets/\(assetID)/usdz"))
     request.httpMethod = "GET"
     request.setValue("Bearer \(room.credential)", forHTTPHeaderField: "Authorization")
-    let (bytes, response) = try await URLSession.shared.data(for: request)
+    let bytes: Data
+    let response: URLResponse
+    do {
+      (bytes, response) = try await URLSession.shared.data(for: request)
+    } catch is URLError {
+      throw GatewayClientError.gatewayUnreachable
+    }
     guard let httpResponse = response as? HTTPURLResponse else {
       throw GatewayClientError.invalidResponse
     }

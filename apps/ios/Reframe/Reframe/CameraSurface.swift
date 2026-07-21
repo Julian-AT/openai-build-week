@@ -154,7 +154,7 @@ struct CameraSurface: UIViewRepresentable {
           // dimensionally misleading stand-in. Surface the failure so the
           // operator can retry instead of mistaking it for tracking loss.
           guard !Task.isCancelled else { return }
-          spatialSession.placementAssetDidFail()
+          spatialSession.placementAssetDidFail(error)
         }
       }
     }

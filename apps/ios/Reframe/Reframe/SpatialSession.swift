@@ -170,6 +170,8 @@ final class SpatialSession {
         pendingPlacementTransform == nil
         ? "Preview ready — confirm to commit"
         : "Preview ready — loading verified model…"
+    } catch GatewayClientError.gatewayUnreachable {
+      gatewayStatus = "Gateway unreachable — use the Mac LAN address"
     } catch {
       gatewayStatus = "Typed preview unavailable"
     }
@@ -183,9 +185,15 @@ final class SpatialSession {
 
   /// A missing or invalid catalog derivative must be visible to the operator;
   /// silently leaving an empty anchor looks like a spatial tracking failure.
-  func placementAssetDidFail() {
+  func placementAssetDidFail(_ error: Error) {
     guard pendingPlacementTransform != nil else { return }
-    gatewayStatus = "Preview model unavailable — try again"
+    if let gatewayError = error as? GatewayClientError,
+      gatewayError == .gatewayUnreachable
+    {
+      gatewayStatus = "Gateway unreachable — use the Mac LAN address"
+    } else {
+      gatewayStatus = "Preview model unavailable — try again"
+    }
   }
 
   func confirmPendingPreview() async {
