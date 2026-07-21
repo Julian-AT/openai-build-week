@@ -24,7 +24,6 @@ from .contracts import (
     InferenceJob,
     InferenceJobResponse,
     MaskResult,
-    PointPrompt,
     ProviderIdentity,
     SegmentationJob,
     TaskReadiness,
@@ -252,21 +251,25 @@ def encode_binary_rle(mask: NDArray[np.bool_]) -> tuple[tuple[int, ...], int, st
 
 
 def _seed_from_job(job: SegmentationJob) -> TargetSeedBinding:
-    if not isinstance(job.prompt, PointPrompt):
-        raise ProviderUnavailableError
+    prompt = job.prompt
+    if prompt.kind == "point":
+        pixel_x, pixel_y = prompt.x, prompt.y
+    else:
+        pixel_x = prompt.x + prompt.width // 2
+        pixel_y = prompt.y + prompt.height // 2
     return TargetSeedBinding(
         session_id=_require_session_id(cast("str", job.session_id)),
         frame_id=cast("int", job.frame_index),
         encoded_width=job.image.width,
         encoded_height=job.image.height,
-        pixel_x=job.prompt.x,
-        pixel_y=job.prompt.y,
+        pixel_x=pixel_x,
+        pixel_y=pixel_y,
     )
 
 
 def _prompt_from_job(job: SegmentationJob) -> SAMPrompt:
     prompt = job.prompt
-    if isinstance(prompt, PointPrompt):
+    if prompt.kind == "point":
         return SAMPrompt(kind="point", x=prompt.x, y=prompt.y, label=prompt.label)
     return SAMPrompt(
         kind="box",

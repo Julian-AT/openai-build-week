@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+# NumPy's reduction overloads are intentionally dynamic across supported
+# versions; all values are converted to finite float64 vectors at the boundary.
+# pyright: reportAny=false
 import math
 from dataclasses import dataclass
 from typing import Literal

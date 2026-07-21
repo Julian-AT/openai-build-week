@@ -120,3 +120,22 @@ def test_segmentation_contract_accepts_box_prompt_and_rejects_out_of_bounds() ->
                 "prompt": {"kind": "box", "x": 0, "y": 0, "width": 2, "height": 1},
             }
         )
+
+
+def test_box_prompt_starts_a_track_from_the_box_center() -> None:
+    async def run() -> None:
+        provider = SAMProvider(FakeEngine(), provider_revision="hfsha-srcsha")
+        boxed = job(0)
+        boxed = SegmentationJob.model_validate(
+            {
+                **boxed.model_dump(),
+                "prompt": {"kind": "box", "x": 0, "y": 0, "width": 1, "height": 1},
+            }
+        )
+        await provider.run(boxed)
+        track = provider.track("room_alpha")
+        assert track is not None
+        assert track.seed.pixel_x == 0
+        assert track.seed.pixel_y == 0
+
+    asyncio.run(run())
