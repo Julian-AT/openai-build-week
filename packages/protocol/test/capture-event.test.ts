@@ -25,13 +25,53 @@ test("capture events reject invalid identity, timestamp, type, and oversized pay
   assert.throws(() => parseCaptureEvent({ ...event, payload: "x".repeat(64 * 1024 + 1) }));
 });
 
-test("capture events accept target and plane coordination events", () => {
-  for (const type of ["target_seed", "plane_upsert", "plane_remove"] as const) {
-    const coordinationEvent = {
-      ...event,
-      type,
-      payload: { frame_id: 42, pointer_context_id: "pointer_1" },
-    };
-    assert.equal(parseCaptureEvent(coordinationEvent).type, type);
-  }
+test("capture events strictly parse calibrated target and plane coordination payloads", () => {
+  const targetSeed = coordinationEvent("target_seed", {
+    type: "target_seed",
+    session_id: "room_2026_07_21_target",
+    frame_id: 42,
+    pixel_encoded: [318, 251],
+    ray_world: { origin: [1.42, 1.53, -2.18], direction: [0.11, -0.18, -0.98] },
+    arkit_hit: { surface_id: "arkit_plane_07", position_world: [1.66, 0.01, -4.31] },
+    source: "tap",
+  });
+  const planeUpsert = coordinationEvent("plane_upsert", {
+    type: "plane_upsert",
+    session_id: "room_2026_07_21_target",
+    plane_id: "arkit_plane_07",
+    revision: 4,
+    classification: "floor",
+    world_from_plane: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    extent_m: [3.82, 4.1],
+    boundary_vertices_local_xz_m: [
+      [-1.9, -2],
+      [1.9, -2],
+      [1.9, 2.1],
+    ],
+    confidence: 0.88,
+  });
+  const planeRemove = coordinationEvent("plane_remove", {
+    type: "plane_remove",
+    session_id: "room_2026_07_21_target",
+    plane_id: "arkit_plane_07",
+    revision: 5,
+  });
+
+  assert.equal(parseCaptureEvent(targetSeed).type, "target_seed");
+  assert.equal(parseCaptureEvent(planeUpsert).type, "plane_upsert");
+  assert.equal(parseCaptureEvent(planeRemove).type, "plane_remove");
+  assert.throws(() => parseCaptureEvent({ ...targetSeed, payload: { frame_id: 42 } }));
+  assert.throws(() =>
+    parseCaptureEvent({
+      ...planeRemove,
+      payload: { ...planeRemove.payload, client_object_id: "object_attacker" },
+    }),
+  );
 });
+
+function coordinationEvent(
+  type: "target_seed" | "plane_upsert" | "plane_remove",
+  payload: unknown,
+) {
+  return { ...event, type, payload };
+}

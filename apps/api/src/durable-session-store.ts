@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
   type CaptureEventInput,
+  type CoordinationEventPayload,
   canonicalJSONSHA256,
   canonicalJSONStringify,
   type FramePacket,
@@ -389,6 +390,7 @@ export class DurableRoomSessionStore {
       }
       const event = parseCaptureEvent(input.event);
       const sessionID = claims.session_id;
+      validateCoordinationEvent(this.#database, sessionID, event);
       const payloadSHA256 = canonicalJSONSHA256(event.payload);
       const existingByID = this.#database
         .query<EventRow, [string, string]>(
@@ -737,6 +739,40 @@ export async function createDurableRoomSessionStore(
     signingSecret: new TextEncoder().encode(options.signingSecret),
     now: options.nowMilliseconds ?? Date.now,
   });
+}
+
+function validateCoordinationEvent(
+  database: Database,
+  sessionID: string,
+  event: CaptureEventInput,
+): void {
+  if (
+    event.type !== "target_seed" &&
+    event.type !== "plane_upsert" &&
+    event.type !== "plane_remove"
+  ) {
+    return;
+  }
+  const payload = event.payload as CoordinationEventPayload;
+  if (payload.session_id !== sessionID) throw new TypeError("invalid_capture_event");
+  if (payload.type !== "target_seed") return;
+
+  const frame = database
+    .query<{ metadata_json: string }, [string, number]>(
+      "SELECT metadata_json FROM capture_frames WHERE session_id = ?1 AND frame_id = ?2",
+    )
+    .get(sessionID, payload.frame_id);
+  if (frame === null) throw new TypeError("invalid_capture_event");
+  const metadata = JSON.parse(frame.metadata_json) as FramePacket["metadata"];
+  const [pixelX, pixelY] = payload.pixel_encoded;
+  if (
+    pixelX < 0 ||
+    pixelY < 0 ||
+    pixelX >= metadata.image.width ||
+    pixelY >= metadata.image.height
+  ) {
+    throw new TypeError("invalid_capture_event");
+  }
 }
 
 async function synchronizeFrameJournal(

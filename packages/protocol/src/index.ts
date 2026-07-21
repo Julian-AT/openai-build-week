@@ -6,8 +6,12 @@ export {
   CAPTURE_EVENT_TYPES,
   type CaptureEventInput,
   type CaptureEventType,
+  type CoordinationEventPayload,
   captureEventSHA256,
+  type PlaneRemovePayload,
+  type PlaneUpsertPayload,
   parseCaptureEvent,
+  type TargetSeedPayload,
 } from "./capture-event.ts";
 export {
   C_ARKIT_FROM_OPENCV_ROW_MAJOR,

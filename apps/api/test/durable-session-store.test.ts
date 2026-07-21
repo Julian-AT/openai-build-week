@@ -166,6 +166,76 @@ test("appends accepted frame journal records without replacing prior durable byt
   }
 });
 
+test("accepts a target seed only for the authenticated room and a durable in-bounds frame pixel", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-session-store-target-seed-"));
+  const sessions = await createDurableRoomSessionStore({
+    dataDirectory,
+    signingSecret: "test-signing-secret-with-sufficient-length",
+    nowMilliseconds: () => 1_000,
+  });
+  try {
+    const session = await sessions.createSession({
+      sessionID: "room_2026_07_21_target_seed",
+      expiresAtMilliseconds: 61_000,
+      allowedPaths: ["frames", "events"],
+    });
+    await sessions.acceptFrame({
+      credential: session.credential,
+      bytes: packet(session.sessionID, jpeg, 842),
+    });
+
+    await assert.rejects(
+      sessions.acceptEvent({
+        credential: session.credential,
+        event: targetSeedEvent("room_another_room", 842, [318, 251]),
+      }),
+      /invalid_capture_event/,
+    );
+    await assert.rejects(
+      sessions.acceptEvent({
+        credential: session.credential,
+        event: targetSeedEvent(session.sessionID, 843, [318, 251]),
+      }),
+      /invalid_capture_event/,
+    );
+    await assert.rejects(
+      sessions.acceptEvent({
+        credential: session.credential,
+        event: targetSeedEvent(session.sessionID, 842, [640, 251]),
+      }),
+      /invalid_capture_event/,
+    );
+
+    const accepted = await sessions.acceptEvent({
+      credential: session.credential,
+      event: targetSeedEvent(session.sessionID, 842, [318, 251]),
+    });
+    assert.equal(accepted.type, "target_seed");
+    assert.equal(accepted.event_sequence, 0);
+  } finally {
+    await sessions.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+function targetSeedEvent(sessionID: string, frameID: number, pixel: readonly [number, number]) {
+  return {
+    event_id: "event_12345678-1234-4123-8123-123456789abc",
+    event_sequence: 0,
+    monotonic_timestamp_ns: "1783918472391823",
+    type: "target_seed" as const,
+    payload: {
+      type: "target_seed",
+      session_id: sessionID,
+      frame_id: frameID,
+      pixel_encoded: pixel,
+      ray_world: { origin: [1.42, 1.53, -2.18], direction: [0.11, -0.18, -0.98] },
+      arkit_hit: { surface_id: "arkit_plane_07", position_world: [1.66, 0.01, -4.31] },
+      source: "tap",
+    },
+  };
+}
+
 function packet(sessionID: string, image: Uint8Array, frameID = 842): Uint8Array {
   return encodeFramePacket({
     flags: 0,
