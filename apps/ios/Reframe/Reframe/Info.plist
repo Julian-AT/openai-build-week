@@ -14,6 +14,13 @@
 	<string>Reframe uses the camera to understand your space and preview spatial edits.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Reframe uses the microphone for realtime design conversations you start.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Reframe connects to your room gateway on the local network.</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
