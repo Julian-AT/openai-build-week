@@ -1,4 +1,5 @@
 import { createOpenAIRealtimeSessionService } from "@reframe/agent";
+import { createCachedAgentTurnService } from "./cached-agent-turn-service.ts";
 import type { DurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableRoomSessionStore } from "./durable-session-store.ts";
@@ -33,13 +34,15 @@ const agentTurnService = createAgentTurnServiceFromEnvironment(
   openAIAPIKey,
   editTransactionService,
 );
+const cachedAgentTurnService =
+  agentTurnService === undefined ? undefined : createCachedAgentTurnService(agentTurnService);
 
 const app = createGatewayApp({
   gatewayToken,
   runtimeReadiness,
   durableSessionStore,
   editTransactionService,
-  ...(agentTurnService ? { agentTurnService } : {}),
+  ...(cachedAgentTurnService ? { agentTurnService: cachedAgentTurnService } : {}),
   ...(realtimeService ? { realtimeService } : {}),
   ...(inferenceService ? { inferenceService } : {}),
   requestTimeoutMilliseconds: requestTimeoutFromEnvironment(process.env),
@@ -64,7 +67,7 @@ process.stdout.write(
     port: server.port,
     protected_routes_enabled: gatewayToken.length > 0,
     realtime_enabled: realtimeService !== undefined,
-    agent_turns_enabled: agentTurnService !== undefined,
+    agent_turns_enabled: cachedAgentTurnService !== undefined,
     inference_routes_enabled: inferenceService !== undefined,
     durable_capture_enabled: true,
   })}\n`,
