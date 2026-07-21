@@ -12,7 +12,7 @@ model-output corpus.
 
 ## Environment and verification
 
-The package pins CPython `3.13.12`, accepts the lock-compatible uv
+The package pins CPython `3.12`, accepts the lock-compatible uv
 `>=0.9.26,<0.12` line, pins every direct dependency, and retains all resolved
 artifacts in `uv.lock`. CI installs one exact uv release. From this directory:
 
@@ -46,8 +46,10 @@ install:
 uv sync --frozen --extra torch
 ```
 
-Installing PyTorch makes runtime/MPS capability visible at `/readyz`; model
-downloads remain an explicit preparation step. The `geometry` profile accepts
+Installing PyTorch makes runtime/MPS capability visible at `/readyz`; on Linux
+x86_64 the lock selects the official CUDA 12.4 wheel, while other supported
+platforms retain the default package index. Model downloads remain an explicit
+preparation step. The `geometry` profile accepts
 only the official Apache-2.0 DA3Metric-Large source revision
 `3fe327a6abe2e5db95b54444ea95463dbfef5610` and checkpoint revision
 `4010e39f3634a45bc60553321fb49fb760bd594e`. It verifies the clean source
