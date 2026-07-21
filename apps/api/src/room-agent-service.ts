@@ -31,7 +31,6 @@ export interface RoomAgentServiceOptions {
   readonly cacheProfile: string;
   readonly floorContactRF: { readonly x: number; readonly y: number; readonly z: number };
   readonly yawRadians: number;
-  readonly showcaseAssetID?: string;
   readonly targetRegistry?: KnownTargetRegistry;
 }
 
@@ -88,9 +87,6 @@ export function createRoomAgentTurnServiceWithCatalog(
         scope,
         floorContactRF: turn.pointer_context?.world_position ?? options.floorContactRF,
         yawRadians: options.yawRadians,
-        ...(options.showcaseAssetID === undefined
-          ? {}
-          : { showcaseAssetID: options.showcaseAssetID }),
         ...(options.targetRegistry === undefined ? {} : { targetRegistry: options.targetRegistry }),
         apiKey: options.openAIAPIKey,
       });

@@ -145,9 +145,6 @@ function createAgentTurnServiceFromEnvironment(
       cacheProfile: environment.REFRAME_AGENT_CACHE_PROFILE?.trim() || "ios-primary",
       floorContactRF: { x: 0, y: 0, z: -2 },
       yawRadians: 0,
-      ...(environment.REFRAME_SHOWCASE_ASSET_ID?.trim()
-        ? { showcaseAssetID: environment.REFRAME_SHOWCASE_ASSET_ID.trim() }
-        : {}),
       ...(targetRegistry === undefined ? {} : { targetRegistry }),
     });
   } catch {

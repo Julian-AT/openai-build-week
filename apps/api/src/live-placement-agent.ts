@@ -45,16 +45,11 @@ export interface LivePlacementPreview {
   };
   /** RF-COORD-1 column-vector transform serialized in row-major order. */
   readonly world_from_asset: readonly number[];
-  readonly model:
-    | {
-        readonly provider: "openai";
-        readonly model: typeof PROPOSAL_MODEL;
-        readonly response_id: string;
-      }
-    | {
-        readonly provider: "deterministic";
-        readonly model: "showcase";
-      };
+  readonly model: {
+    readonly provider: "openai";
+    readonly model: typeof PROPOSAL_MODEL;
+    readonly response_id: string;
+  };
   readonly explanation: string;
   /** Internal staging metadata; never used as model authority. */
   readonly replacement?: {
@@ -70,7 +65,6 @@ export interface LivePlacementAgentTurnServiceOptions {
   readonly scope: LivePlacementScope;
   readonly floorContactRF: Readonly<{ x: number; y: number; z: number }>;
   readonly yawRadians: number;
-  readonly showcaseAssetID?: string;
   readonly apiKey?: string;
   readonly plannerFactory?: { create(): AgentPlanner };
   readonly nextProposalID?: () => string;
@@ -105,15 +99,6 @@ export function createLivePlacementAgentTurnService(
     async submit(credential, turn, signal) {
       signal.throwIfAborted();
       authorize(credential, options.credential);
-      if (options.showcaseAssetID !== undefined) {
-        return createShowcasePlacementPreview({
-          assetID: options.showcaseAssetID,
-          context: authoritativeContext,
-          floorContactRF: options.floorContactRF,
-          yawRadians: options.yawRadians,
-          proposalID: nextProposalID(),
-        });
-      }
       if (
         turn.intent_hint !== null &&
         turn.intent_hint !== "place" &&
@@ -150,35 +135,6 @@ export function createLivePlacementAgentTurnService(
       return prepared.finalize(modelResult.proposal, modelResult.responseID);
     },
   };
-}
-
-function createShowcasePlacementPreview(input: {
-  readonly assetID: string;
-  readonly context: AuthoritativeTurnContext;
-  readonly floorContactRF: Readonly<{ x: number; y: number; z: number }>;
-  readonly yawRadians: number;
-  readonly proposalID: string;
-}): LivePlacementPreview {
-  if (!PROPOSAL_ID.test(input.proposalID)) {
-    throw new AgentPlacementError("invalid_agent_proposal_id");
-  }
-  const localPreview = createFloorPlacementPreview({
-    assetID: input.assetID,
-    baseSceneRevision: input.context.sceneRevision,
-    supportSurfaceID: "floor_support_showcase",
-    floorContactWorld: input.floorContactRF,
-    yawRadians: input.yawRadians,
-  });
-  return Object.freeze({
-    type: "placement_preview" as const,
-    status: "pending_confirmation" as const,
-    proposal_id: input.proposalID,
-    base_scene_revision: localPreview.baseSceneRevision,
-    intent: Object.freeze({ operation: "place" as const, asset_id: input.assetID }),
-    world_from_asset: localPreview.worldFromAsset,
-    model: Object.freeze({ provider: "deterministic" as const, model: "showcase" as const }),
-    explanation: "Showcase asset ready for placement.",
-  });
 }
 
 export class AgentPlacementError extends Error {
@@ -259,45 +215,9 @@ function createPreparedPreviewAuthority(options: {
   let resolvedTarget: KnownTarget | null = null;
   const trackedCatalog: CatalogRetriever = {
     async search(request, signal) {
-      const showcaseAssetID = process.env.REFRAME_SHOWCASE_ASSET_ID?.trim();
-      if (showcaseAssetID) {
-        const hits = [
-          {
-            id: "showcase-stockholm-2025",
-            assetID: showcaseAssetID,
-            score: 1,
-            name: "STOCKHOLM 2025 armchair",
-            category: "side_table",
-            dimensionsM: { width: 0.776, height: 0.74, depth: 0.686 },
-            supportType: "floor" as const,
-            cacheProfile: request.cacheProfile,
-          },
-        ];
-        for (const hit of hits) {
-          eligibleAssetIDs.add(hit.assetID);
-          catalogHits.set(hit.assetID, hit);
-        }
-        return hits;
-      }
-      let hits: Awaited<ReturnType<CatalogRetriever["search"]>>;
-      try {
-        hits = await options.catalog.search(request, signal);
-      } catch (error) {
-        const showcaseAssetID = process.env.REFRAME_SHOWCASE_ASSET_ID?.trim();
-        if (!showcaseAssetID) throw error;
-        hits = [
-          {
-            id: "showcase-stockholm-2025",
-            assetID: showcaseAssetID,
-            score: 1,
-            name: "STOCKHOLM 2025 armchair",
-            category: "side_table",
-            dimensionsM: { width: 0.776, height: 0.74, depth: 0.686 },
-            supportType: "floor",
-            cacheProfile: request.cacheProfile,
-          },
-        ];
-      }
+      // Catalog unavailability propagates as a typed error. It is never rescued
+      // with a fabricated placement candidate.
+      const hits = await options.catalog.search(request, signal);
       for (const hit of hits) {
         eligibleAssetIDs.add(hit.assetID);
         catalogHits.set(hit.assetID, hit);
@@ -487,7 +407,6 @@ function assertOptions(options: LivePlacementAgentTurnServiceOptions): void {
     !Number.isFinite(options.yawRadians) ||
     options.yawRadians < -Math.PI ||
     options.yawRadians > Math.PI ||
-    (options.showcaseAssetID !== undefined && !isSafeIdentifier(options.showcaseAssetID)) ||
     (options.plannerFactory === undefined &&
       (options.apiKey === undefined || options.apiKey.length === 0))
   ) {

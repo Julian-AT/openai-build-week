@@ -94,61 +94,48 @@ test("binds a GPT placement preview to a same-turn eligible catalog candidate", 
   });
 });
 
-test("prepares the configured showcase asset without waiting for catalog or model I/O", async () => {
-  let catalogCalls = 0;
-  let plannerCalls = 0;
-  const service = createLivePlacementAgentTurnService({
-    credential: "scoped-agent-smoke-token",
-    context,
-    showcaseAssetID: assetID,
-    catalog: {
-      search: async () => {
-        catalogCalls += 1;
-        throw new Error("catalog_must_not_run");
+test("never fabricates a placement when the catalog is unavailable, even with a leftover showcase env", async () => {
+  const previous = process.env.REFRAME_SHOWCASE_ASSET_ID;
+  process.env.REFRAME_SHOWCASE_ASSET_ID = assetID;
+  try {
+    const service = createLivePlacementAgentTurnService({
+      credential: "scoped-agent-smoke-token",
+      context,
+      catalog: {
+        search: async () => {
+          throw new Error("catalog_unavailable");
+        },
       },
-    },
-    scope: {
-      category: "side_table",
-      maxDimensionsM: { width: 2, height: 2, depth: 2 },
-      supportType: "floor",
-      cacheProfile: "ios-primary",
-    },
-    floorContactRF: { x: 0.4, y: 0, z: -1.2 },
-    yawRadians: 0,
-    nextProposalID: () => "proposal_10000000-0000-4000-8000-000000000009",
-    plannerFactory: {
-      create: () => {
-        plannerCalls += 1;
-        return placementPlanner();
+      scope: {
+        category: "side_table",
+        maxDimensionsM: { width: 2, height: 2, depth: 2 },
+        supportType: "floor",
+        cacheProfile: "ios-primary",
       },
-    },
-  });
+      floorContactRF: { x: 0.4, y: 0, z: -1.2 },
+      yawRadians: 0,
+      nextProposalID: () => "proposal_10000000-0000-4000-8000-000000000009",
+      plannerFactory: { create: () => placementPlanner() },
+    });
 
-  const result = await service.submit(
-    "scoped-agent-smoke-token",
-    {
-      client_turn_id: "turn_showcase_smoke",
-      utterance: "Anything at all",
-      intent_hint: null,
-      pointer_context_id: "pointer_showcase",
-      client_scene_revision: 0,
-      pending_proposal_id: null,
-    },
-    new AbortController().signal,
-  );
-
-  expect(catalogCalls).toBe(0);
-  expect(plannerCalls).toBe(0);
-  expect(result).toEqual({
-    type: "placement_preview",
-    status: "pending_confirmation",
-    proposal_id: "proposal_10000000-0000-4000-8000-000000000009",
-    base_scene_revision: 11,
-    intent: { operation: "place", asset_id: assetID },
-    world_from_asset: [1, 0, 0, 0.4, 0, 1, 0, 0, -0, 0, 1, -1.2, 0, 0, 0, 1],
-    model: { provider: "deterministic", model: "showcase" },
-    explanation: "Showcase asset ready for placement.",
-  });
+    await expect(
+      service.submit(
+        "scoped-agent-smoke-token",
+        {
+          client_turn_id: "turn_placement_smoke",
+          utterance: "Place a small oak side table on the floor.",
+          intent_hint: "place",
+          pointer_context_id: null,
+          client_scene_revision: 11,
+          pending_proposal_id: null,
+        },
+        new AbortController().signal,
+      ),
+    ).rejects.toThrow("catalog_unavailable");
+  } finally {
+    if (previous === undefined) delete process.env.REFRAME_SHOWCASE_ASSET_ID;
+    else process.env.REFRAME_SHOWCASE_ASSET_ID = previous;
+  }
 });
 
 test("rejects a model response that does not reference the deterministic preview", async () => {
