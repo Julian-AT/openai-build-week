@@ -360,31 +360,33 @@ class SAM3PredictorEngine:
             request["bounding_box_labels"] = torch.tensor([1], dtype=torch.int32)
         autocast = getattr(torch, "autocast", None)
         bfloat16 = getattr(torch, "bfloat16", None)
-        if autocast is None or bfloat16 is None:
-            # Lightweight test doubles do not expose CUDA autocast.
-            response = self._predictor.handle_request(request)
-        else:
-            # The gateway invokes provider work on a bounded worker thread.
-            # SAM's predictor creates its BF16 context on the construction
-            # thread, so re-enter it here to keep matmul dtypes consistent.
-            with autocast(device_type="cuda", dtype=bfloat16):
+        for _attempt in range(2):
+            if autocast is None or bfloat16 is None:
+                # Lightweight test doubles do not expose CUDA autocast.
                 response = self._predictor.handle_request(request)
-        outputs = cast("dict[str, object]", response.get("outputs", {}))
-        object_ids = np.asarray(cast("object", outputs.get("out_obj_ids", [])))
-        masks = np.asarray(cast("object", outputs.get("out_binary_masks", [])))
-        probabilities = np.asarray(cast("object", outputs.get("out_probs", [])), dtype=np.float32)
-        matching = np.flatnonzero(object_ids == TARGET_OBJECT_INDEX)
-        if masks.ndim != MASK_OUTPUT_DIMENSIONS:
-            raise ProviderUnavailableError
-        if matching.size:
-            index = int(matching[0])
-        elif object_ids.size == 1 and masks.shape[0] == 1:
-            # Some SAM3.1 predictor builds normalize a single prompt to object
-            # id zero. A sole output is safe to bind to this server-owned
-            # target; multiple unbound objects fail closed.
-            index = 0
+            else:
+                # The gateway invokes provider work on a bounded worker thread.
+                # SAM's predictor creates its BF16 context on the construction
+                # thread, so re-enter it here to keep matmul dtypes consistent.
+                with autocast(device_type="cuda", dtype=bfloat16):
+                    response = self._predictor.handle_request(request)
+            outputs = cast("dict[str, object]", response.get("outputs", {}))
+            object_ids = np.asarray(cast("object", outputs.get("out_obj_ids", [])))
+            masks = np.asarray(cast("object", outputs.get("out_binary_masks", [])))
+            probabilities = np.asarray(
+                cast("object", outputs.get("out_probs", [])), dtype=np.float32
+            )
+            matching = np.flatnonzero(object_ids == TARGET_OBJECT_INDEX)
+            if masks.ndim == MASK_OUTPUT_DIMENSIONS and (
+                matching.size or (object_ids.size == 1 and masks.shape[0] == 1)
+            ):
+                break
         else:
             raise ProviderUnavailableError
+        # Some SAM3.1 predictor builds normalize a single prompt to object id
+        # zero. A sole output is safe to bind to this server-owned target;
+        # multiple unbound objects fail closed.
+        index = int(matching[0]) if matching.size else 0
         confidence = float(probabilities[index]) if index < len(probabilities) else 0.0
         return SAMPrediction(mask=np.asarray(masks[index], dtype=np.bool_), confidence=confidence)
 

@@ -261,6 +261,51 @@ def test_predictor_engine_maps_box_prompt_to_normalized_xywh(
     assert request["bounding_box_labels"] == ([1], "int32")
 
 
+def test_predictor_engine_retries_warmup_empty_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakePredictor:
+        def __init__(self) -> None:
+            self.prompt_calls = 0
+
+        def handle_request(self, request: dict[str, object]) -> dict[str, object]:
+            if request["type"] != "add_prompt":
+                return {"session_id": "room_alpha"}
+            self.prompt_calls += 1
+            if self.prompt_calls == 1:
+                return {"outputs": {}}
+            return {
+                "outputs": {
+                    "out_obj_ids": np.asarray([1]),
+                    "out_binary_masks": np.asarray([[[True]]]),
+                    "out_probs": np.asarray([0.8], dtype=np.float32),
+                }
+            }
+
+    class FakeTorch:
+        float32 = "float32"
+        int32 = "int32"
+
+        @staticmethod
+        def tensor(value: object, *, dtype: object) -> tuple[object, object]:
+            return (value, dtype)
+
+    monkeypatch.setitem(
+        sys.modules,
+        "torch",
+        SimpleNamespace(float32=FakeTorch.float32, int32=FakeTorch.int32, tensor=FakeTorch.tensor),
+    )
+    predictor = FakePredictor()
+    engine = SAM3PredictorEngine(predictor, tmp_path)
+    image = image_from_job(job(0))
+    engine.start_session("room_alpha", image, 0)
+    result = engine.segment(
+        "room_alpha", 0, image, SAMPrompt(kind="point", x=0, y=0, label="foreground")
+    )
+    assert result.mask.tolist() == [[True]]
+    assert predictor.prompt_calls == 2
+
+
 def test_predictor_engine_rejects_multiple_unbound_object_ids(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
