@@ -103,10 +103,12 @@ struct GatewayClient: Sendable {
     utterance: String,
     sceneRevision: Int,
     pointerContextID: String? = nil,
-    pointerContext: RaycastHit? = nil,
     pendingProposalID: String? = nil,
     clientTurnID: String = "turn_\(UUID().uuidString.lowercased())"
   ) async throws -> Data {
+    // The turn carries only an opaque pointer reference. The gateway binds the
+    // authoritative pointer and spatial context from durable state; the client
+    // never sends a world position.
     try await post(
       path: "/v1/turns",
       body: [
@@ -114,16 +116,6 @@ struct GatewayClient: Sendable {
         "utterance": utterance,
         "intent_hint": NSNull(),
         "pointer_context_id": pointerContextID ?? NSNull(),
-        "pointer_context": pointerContext.map {
-          [
-            "world_position": [
-              "x": $0.positionWorld.x,
-              "y": $0.positionWorld.y,
-              "z": $0.positionWorld.z,
-            ],
-            "surface_id": $0.surfaceID,
-          ]
-        } ?? NSNull(),
         "client_scene_revision": sceneRevision,
         "pending_proposal_id": pendingProposalID ?? NSNull(),
       ]

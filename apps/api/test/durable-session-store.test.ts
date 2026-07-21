@@ -218,6 +218,42 @@ test("accepts a target seed only for the authenticated room and a durable in-bou
   }
 });
 
+test("binds the authoritative floor contact from the durable target seed", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-session-store-contact-"));
+  const sessions = await createDurableRoomSessionStore({
+    dataDirectory,
+    signingSecret: "test-signing-secret-with-sufficient-length",
+    nowMilliseconds: () => 1_000,
+  });
+  try {
+    const session = await sessions.createSession({
+      sessionID: "room_2026_07_21_contact",
+      expiresAtMilliseconds: 61_000,
+      allowedPaths: ["frames", "events", "scene"],
+    });
+    // No target seed yet: there is no authoritative spatial context to bind.
+    assert.equal(await sessions.authoritativeFloorContact(session.credential), null);
+
+    await sessions.acceptFrame({
+      credential: session.credential,
+      bytes: packet(session.sessionID, jpeg, 842),
+    });
+    await sessions.acceptEvent({
+      credential: session.credential,
+      event: targetSeedEvent(session.sessionID, 842, [318, 251]),
+    });
+
+    assert.deepEqual(await sessions.authoritativeFloorContact(session.credential), {
+      x: 1.66,
+      y: 0.01,
+      z: -4.31,
+    });
+  } finally {
+    await sessions.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
 function targetSeedEvent(sessionID: string, frameID: number, pixel: readonly [number, number]) {
   return {
     event_id: "event_12345678-1234-4123-8123-123456789abc",

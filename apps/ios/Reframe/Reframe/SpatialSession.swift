@@ -167,8 +167,7 @@ final class SpatialSession {
       let proposalData = try await gatewayClient.submitTurn(
         utterance: utterance,
         sceneRevision: lastCommittedRevision ?? 0,
-        pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" },
-        pointerContext: lastTargetSeed?.arkitHit
+        pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" }
       )
       let proposalID: String
       if jsonString("type", in: proposalData) == "placement_preview" {

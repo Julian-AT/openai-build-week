@@ -9,10 +9,6 @@ const turn: AgentTurnRequest = {
   utterance: "Place the table in front of me.",
   intent_hint: "place",
   pointer_context_id: "pointer_floor_01",
-  pointer_context: {
-    world_position: { x: 0, y: -0.8, z: -1.4 },
-    surface_id: "plane_floor_01",
-  },
   client_scene_revision: 3,
   pending_proposal_id: null,
 };

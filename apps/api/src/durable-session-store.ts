@@ -555,6 +555,39 @@ export class DurableRoomSessionStore {
     });
   }
 
+  /**
+   * Resolves the authoritative floor-contact point from the most recent durable
+   * `target_seed` event's ARKit hit. Typed turns never supply this world
+   * position; it is bound here from server-side durable state.
+   */
+  async authoritativeFloorContact(
+    credential: string,
+    expectedSessionID?: string,
+  ): Promise<{ readonly x: number; readonly y: number; readonly z: number } | null> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(credential, "scene");
+      if (expectedSessionID !== undefined && expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      const row = this.#database
+        .query<{ payload_json: string }, [string]>(
+          "SELECT payload_json FROM capture_events WHERE session_id = ?1 AND event_type = 'target_seed' ORDER BY event_sequence DESC LIMIT 1",
+        )
+        .get(claims.session_id);
+      if (row === null) return null;
+      let payload: CoordinationEventPayload;
+      try {
+        payload = JSON.parse(row.payload_json) as CoordinationEventPayload;
+      } catch {
+        return null;
+      }
+      if (payload.type !== "target_seed" || payload.arkit_hit === null) return null;
+      const [x, y, z] = payload.arkit_hit.position_world;
+      if (![x, y, z].every((component) => Number.isFinite(component))) return null;
+      return Object.freeze({ x, y, z });
+    });
+  }
+
   async deleteSession(credential: string, expectedSessionID?: string): Promise<void> {
     await this.#exclusive(async () => {
       const claims = this.#authorize(credential);

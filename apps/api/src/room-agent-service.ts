@@ -76,6 +76,12 @@ export function createRoomAgentTurnServiceWithCatalog(
         options.editTransactionService === undefined
           ? 0
           : (await options.editTransactionService.readScene(credential)).scene_revision;
+      // Spatial context is bound from authoritative durable state, never from the
+      // client turn. Absent a durable target seed, the server-configured contact
+      // is used; a client-supplied world position can never reach this path.
+      const floorContactRF =
+        (await options.sessionStore.authoritativeFloorContact(credential, sessionID)) ??
+        options.floorContactRF;
       const service = createLivePlacementAgentTurnService({
         credential,
         context: Object.freeze({
@@ -85,7 +91,7 @@ export function createRoomAgentTurnServiceWithCatalog(
         }),
         catalog,
         scope,
-        floorContactRF: turn.pointer_context?.world_position ?? options.floorContactRF,
+        floorContactRF,
         yawRadians: options.yawRadians,
         ...(options.targetRegistry === undefined ? {} : { targetRegistry: options.targetRegistry }),
         apiKey: options.openAIAPIKey,

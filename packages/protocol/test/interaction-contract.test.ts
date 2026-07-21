@@ -13,14 +13,13 @@ test("submit_user_turn is a closed non-mutating intent envelope", () => {
     "client_scene_revision",
     "pending_proposal_id",
   ]);
+  // The turn carries only an opaque pointer reference. It must not expose a
+  // client-supplied world position; spatial context is bound server-side from
+  // authoritative durable state.
   expect(Object.keys(submitUserTurn.properties).sort()).toEqual(
-    [...submitUserTurn.required, "pointer_context"].sort(),
+    [...submitUserTurn.required].sort(),
   );
-  expect(submitUserTurn.properties.pointer_context.additionalProperties).toBeFalse();
-  expect(submitUserTurn.properties.pointer_context.required).toEqual([
-    "world_position",
-    "surface_id",
-  ]);
+  expect(submitUserTurn.properties).not.toHaveProperty("pointer_context");
 });
 
 test("all native pointing modes share one closed target seed contract", () => {

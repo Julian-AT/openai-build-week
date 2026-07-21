@@ -140,7 +140,7 @@ final class NativeRealtimeVoiceTransport: NSObject, RTCDataChannelDelegate {
       let argumentData = arguments.data(using: .utf8),
       let argumentObject = try? JSONSerialization.jsonObject(with: argumentData),
       let argumentMap = argumentObject as? [String: Any],
-      argumentMap.count == 6 || argumentMap.count == 7,
+      argumentMap.count == 6,
       [
         "client_turn_id", "utterance", "intent_hint", "pointer_context_id",
         "client_scene_revision", "pending_proposal_id",
@@ -148,7 +148,7 @@ final class NativeRealtimeVoiceTransport: NSObject, RTCDataChannelDelegate {
       argumentMap.keys.allSatisfy({
         [
           "client_turn_id", "utterance", "intent_hint", "pointer_context_id",
-          "pointer_context", "client_scene_revision", "pending_proposal_id",
+          "client_scene_revision", "pending_proposal_id",
         ].contains($0)
       }),
       let clientTurnID = argumentMap["client_turn_id"] as? String,

@@ -27,6 +27,14 @@ test("parses only the closed non-mutating Realtime turn envelope", () => {
   expect(() => parseRealtimeSubmitUserTurn({ ...validTurn, client_scene_revision: -1 })).toThrow(
     "invalid_realtime_turn",
   );
+  // A client-supplied world position is an unknown property and is rejected;
+  // the gateway binds spatial context from authoritative durable state.
+  expect(() =>
+    parseRealtimeSubmitUserTurn({
+      ...validTurn,
+      pointer_context: { world_position: { x: 0, y: 0, z: 0 }, surface_id: null },
+    }),
+  ).toThrow("invalid_realtime_turn");
 });
 
 test("the Realtime service exchanges browser SDP through the unified WebRTC interface", async () => {
@@ -93,24 +101,6 @@ test("the Realtime service exchanges browser SDP through the unified WebRTC inte
             enum: ["place", "replace", "remove", "restore", null],
           },
           pointer_context_id: { type: ["string", "null"], maxLength: 128 },
-          pointer_context: {
-            type: ["object", "null"],
-            additionalProperties: false,
-            required: ["world_position", "surface_id"],
-            properties: {
-              world_position: {
-                type: "object",
-                additionalProperties: false,
-                required: ["x", "y", "z"],
-                properties: {
-                  x: { type: "number" },
-                  y: { type: "number" },
-                  z: { type: "number" },
-                },
-              },
-              surface_id: { type: ["string", "null"], maxLength: 128 },
-            },
-          },
           client_scene_revision: { type: "integer", minimum: 0 },
           pending_proposal_id: { type: ["string", "null"], maxLength: 128 },
         },

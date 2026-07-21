@@ -3,15 +3,16 @@ export interface RealtimeSubmitUserTurn {
   readonly utterance: string;
   readonly intent_hint: "place" | "replace" | "remove" | "restore" | null;
   readonly pointer_context_id: string | null;
-  readonly pointer_context?: {
-    readonly world_position: { readonly x: number; readonly y: number; readonly z: number };
-    readonly surface_id: string | null;
-  } | null;
   readonly client_scene_revision: number;
   readonly pending_proposal_id: string | null;
 }
 
-/** Strictly validates the untrusted Realtime function arguments before forwarding them. */
+/**
+ * Strictly validates the untrusted Realtime function arguments before forwarding
+ * them. The turn carries only an opaque `pointer_context_id`; the gateway binds
+ * the authoritative pointer, frame, and spatial context from durable state. A
+ * client-supplied world position is rejected as an unknown property.
+ */
 export function parseRealtimeSubmitUserTurn(value: unknown): RealtimeSubmitUserTurn {
   if (!isRecord(value)) throw new Error("invalid_realtime_turn");
   const keys = Object.keys(value);
@@ -24,9 +25,8 @@ export function parseRealtimeSubmitUserTurn(value: unknown): RealtimeSubmitUserT
     "pending_proposal_id",
   ];
   if (
-    keys.some((key) => !required.includes(key) && key !== "pointer_context") ||
+    keys.some((key) => !required.includes(key)) ||
     required.some((key) => !(key in value)) ||
-    keys.length > required.length + 1 ||
     !isOpaqueReference(value.client_turn_id) ||
     !isNormalizedUtterance(value.utterance) ||
     !(
@@ -39,18 +39,15 @@ export function parseRealtimeSubmitUserTurn(value: unknown): RealtimeSubmitUserT
     !isNullableReference(value.pointer_context_id) ||
     !Number.isSafeInteger(value.client_scene_revision) ||
     (value.client_scene_revision as number) < 0 ||
-    !isNullableReference(value.pending_proposal_id) ||
-    ("pointer_context" in value && !isNullablePointerContext(value.pointer_context))
+    !isNullableReference(value.pending_proposal_id)
   ) {
     throw new Error("invalid_realtime_turn");
   }
-  const pointerContext = "pointer_context" in value ? value.pointer_context : undefined;
   return Object.freeze({
     client_turn_id: value.client_turn_id,
     utterance: value.utterance,
     intent_hint: value.intent_hint,
     pointer_context_id: value.pointer_context_id,
-    ...(pointerContext === undefined ? {} : { pointer_context: pointerContext }),
     client_scene_revision: value.client_scene_revision,
     pending_proposal_id: value.pending_proposal_id,
   }) as RealtimeSubmitUserTurn;
@@ -79,22 +76,4 @@ function isNormalizedUtterance(value: unknown): value is string {
   return ![...value].some(
     (character) => character.charCodeAt(0) <= 31 || character.charCodeAt(0) === 127,
   );
-}
-
-function isNullablePointerContext(value: unknown): boolean {
-  if (value === null) return true;
-  if (!isRecord(value) || !hasExactKeys(value, ["world_position", "surface_id"])) return false;
-  const world = value.world_position;
-  return (
-    isRecord(world) &&
-    hasExactKeys(world, ["x", "y", "z"]) &&
-    [world.x, world.y, world.z].every(
-      (component) => typeof component === "number" && Number.isFinite(component),
-    ) &&
-    isNullableReference(value.surface_id)
-  );
-}
-
-function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-  return Object.keys(value).length === keys.length && keys.every((key) => key in value);
 }
