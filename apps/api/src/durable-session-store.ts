@@ -4,9 +4,11 @@ import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 
 import {
+  type CaptureEventInput,
   canonicalJSONSHA256,
   canonicalJSONStringify,
   type FramePacket,
+  parseCaptureEvent,
   parseFramePacket,
 } from "@reframe/protocol";
 
@@ -62,6 +64,13 @@ export interface CaptureArtifactReceipt {
   readonly replayed: boolean;
 }
 
+export interface CaptureEventReceipt extends CaptureEventInput {
+  readonly sessionID: string;
+  readonly payloadSha256: string;
+  readonly acceptedAtMilliseconds: number;
+  readonly replayed: boolean;
+}
+
 export const isRoomSessionID = (value: string): boolean => ROOM_ID.test(value);
 
 interface RoomCredentialClaims {
@@ -98,6 +107,17 @@ interface ArtifactRow {
   accepted_at_ms: number;
 }
 
+interface EventRow {
+  session_id: string;
+  event_id: string;
+  event_sequence: number;
+  monotonic_timestamp_ns: string;
+  event_type: CaptureEventInput["type"];
+  payload_json: string;
+  payload_sha256: string;
+  accepted_at_ms: number;
+}
+
 export class RoomCredentialError extends Error {
   constructor() {
     super("invalid_room_credential");
@@ -123,6 +143,13 @@ export class CaptureArtifactNotFoundError extends Error {
   constructor() {
     super("capture_artifact_not_found");
     this.name = "CaptureArtifactNotFoundError";
+  }
+}
+
+export class CaptureEventConflictError extends Error {
+  constructor() {
+    super("capture_event_conflict");
+    this.name = "CaptureEventConflictError";
   }
 }
 
@@ -332,6 +359,105 @@ export class DurableRoomSessionStore {
         throw new CaptureArtifactNotFoundError();
       }
       return { receipt: artifactReceipt(row, false), bytes };
+    });
+  }
+
+  async acceptEvent(input: {
+    credential: string;
+    event: CaptureEventInput;
+    expectedSessionID?: string;
+  }): Promise<CaptureEventReceipt> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(input.credential, "events");
+      if (input.expectedSessionID !== undefined && input.expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      const event = parseCaptureEvent(input.event);
+      const sessionID = claims.session_id;
+      const payloadSHA256 = canonicalJSONSHA256(event.payload);
+      const existingByID = this.#database
+        .query<EventRow, [string, string]>(
+          "SELECT session_id, event_id, event_sequence, monotonic_timestamp_ns, event_type, payload_json, payload_sha256, accepted_at_ms FROM capture_events WHERE session_id = ?1 AND event_id = ?2",
+        )
+        .get(sessionID, event.event_id);
+      if (existingByID !== null) {
+        if (
+          existingByID.event_sequence !== event.event_sequence ||
+          existingByID.monotonic_timestamp_ns !== event.monotonic_timestamp_ns ||
+          existingByID.event_type !== event.type ||
+          existingByID.payload_json !== canonicalJSONStringify(event.payload)
+        ) {
+          throw new CaptureEventConflictError();
+        }
+        await synchronizeEventJournal(this.#database, this.#rfcapDirectory(sessionID), sessionID);
+        return eventReceipt(existingByID, true);
+      }
+      const previous = this.#database
+        .query<{ event_sequence: number }, [string]>(
+          "SELECT event_sequence FROM capture_events WHERE session_id = ?1 ORDER BY event_sequence DESC LIMIT 1",
+        )
+        .get(sessionID);
+      const expectedSequence = previous === null ? 0 : previous.event_sequence + 1;
+      if (event.event_sequence !== expectedSequence) throw new CaptureEventConflictError();
+      const sequenceConflict = this.#database
+        .query<EventRow, [string, number]>(
+          "SELECT session_id, event_id, event_sequence, monotonic_timestamp_ns, event_type, payload_json, payload_sha256, accepted_at_ms FROM capture_events WHERE session_id = ?1 AND event_sequence = ?2",
+        )
+        .get(sessionID, event.event_sequence);
+      if (sequenceConflict !== null) throw new CaptureEventConflictError();
+      const now = this.#now();
+      assertTimestamp(now);
+      const row: EventRow = {
+        session_id: sessionID,
+        event_id: event.event_id,
+        event_sequence: event.event_sequence,
+        monotonic_timestamp_ns: event.monotonic_timestamp_ns,
+        event_type: event.type,
+        payload_json: canonicalJSONStringify(event.payload),
+        payload_sha256: payloadSHA256,
+        accepted_at_ms: now,
+      };
+      this.#database.exec("BEGIN IMMEDIATE");
+      try {
+        this.#database
+          .prepare(
+            "INSERT INTO capture_events (session_id, event_id, event_sequence, monotonic_timestamp_ns, event_type, payload_json, payload_sha256, accepted_at_ms) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+          )
+          .run(
+            row.session_id,
+            row.event_id,
+            row.event_sequence,
+            row.monotonic_timestamp_ns,
+            row.event_type,
+            row.payload_json,
+            row.payload_sha256,
+            row.accepted_at_ms,
+          );
+        this.#database.exec("COMMIT");
+      } catch (error) {
+        this.#database.exec("ROLLBACK");
+        throw error;
+      }
+      await synchronizeEventJournal(this.#database, this.#rfcapDirectory(sessionID), sessionID);
+      return eventReceipt(row, false);
+    });
+  }
+
+  async recentEvents(
+    credential: string,
+    expectedSessionID?: string,
+  ): Promise<readonly CaptureEventReceipt[]> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(credential, "events");
+      if (expectedSessionID !== undefined && expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      const rows = this.#database
+        .query<EventRow, [string]>(
+          "SELECT session_id, event_id, event_sequence, monotonic_timestamp_ns, event_type, payload_json, payload_sha256, accepted_at_ms FROM capture_events WHERE session_id = ?1 ORDER BY event_sequence",
+        )
+        .all(claims.session_id);
+      return Object.freeze(rows.map((row) => eventReceipt(row, false)));
     });
   }
 
@@ -559,6 +685,18 @@ export async function createDurableRoomSessionStore(
       accepted_at_ms INTEGER NOT NULL,
       PRIMARY KEY (session_id, artifact_id)
     ) STRICT;
+    CREATE TABLE IF NOT EXISTS capture_events (
+      session_id TEXT NOT NULL REFERENCES room_sessions(session_id) ON DELETE CASCADE,
+      event_id TEXT NOT NULL,
+      event_sequence INTEGER NOT NULL,
+      monotonic_timestamp_ns TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      payload_sha256 TEXT NOT NULL,
+      accepted_at_ms INTEGER NOT NULL,
+      PRIMARY KEY (session_id, event_id),
+      UNIQUE (session_id, event_sequence)
+    ) STRICT;
   `);
   return new DurableRoomSessionStore({
     database,
@@ -615,6 +753,53 @@ function artifactReceipt(row: ArtifactRow, replayed: boolean): CaptureArtifactRe
     contentType: row.content_type,
     acceptedAtMilliseconds: row.accepted_at_ms,
     replayed,
+  });
+}
+
+function eventReceipt(row: EventRow, replayed: boolean): CaptureEventReceipt {
+  return Object.freeze({
+    ...(JSON.parse(
+      canonicalJSONStringify({
+        event_id: row.event_id,
+        event_sequence: row.event_sequence,
+        monotonic_timestamp_ns: row.monotonic_timestamp_ns,
+        type: row.event_type,
+        payload: JSON.parse(row.payload_json),
+      }),
+    ) as CaptureEventInput),
+    sessionID: row.session_id,
+    payloadSha256: row.payload_sha256,
+    acceptedAtMilliseconds: row.accepted_at_ms,
+    replayed,
+  });
+}
+
+async function synchronizeEventJournal(
+  database: Database,
+  rfcapDirectory: string,
+  sessionID: string,
+): Promise<void> {
+  const rows = database
+    .query<EventRow, [string]>(
+      "SELECT session_id, event_id, event_sequence, monotonic_timestamp_ns, event_type, payload_json, payload_sha256, accepted_at_ms FROM capture_events WHERE session_id = ?1 ORDER BY event_sequence",
+    )
+    .all(sessionID);
+  const lines = rows.map(eventJournalLine).join("\n");
+  await writeAtomically(
+    join(rfcapDirectory, "events", "events.jsonl"),
+    lines.length === 0 ? "" : `${lines}\n`,
+  );
+}
+
+function eventJournalLine(row: EventRow): string {
+  return canonicalJSONStringify({
+    event_id: row.event_id,
+    event_sequence: row.event_sequence,
+    monotonic_timestamp_ns: row.monotonic_timestamp_ns,
+    type: row.event_type,
+    payload: JSON.parse(row.payload_json),
+    payload_sha256: row.payload_sha256,
+    accepted_at_ms: row.accepted_at_ms,
   });
 }
 

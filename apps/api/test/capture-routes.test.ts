@@ -1,10 +1,10 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { encodeFramePacket } from "@reframe/protocol";
+import { canonicalJSONSHA256, encodeFramePacket } from "@reframe/protocol";
 
 import { createDurableRoomSessionStore } from "../src/durable-session-store.ts";
 import { createGatewayApp } from "../src/server.ts";
@@ -225,6 +225,95 @@ test("uploads and hash-verifies room-scoped artifacts with idempotent replay", a
       [conflict.status, await conflict.json()],
       [409, { error: "artifact_conflict" }],
     );
+  } finally {
+    await store.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
+test("journals strictly ordered room events with idempotent replay", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-event-routes-"));
+  const store = await createDurableRoomSessionStore({
+    dataDirectory,
+    signingSecret: "test-signing-secret-with-sufficient-length",
+    nowMilliseconds: () => 3_000,
+  });
+  try {
+    const app = createGatewayApp({ gatewayToken: "gateway-token", durableSessionStore: store });
+    const session = await store.createSession({
+      sessionID: "room_2026_07_13_events",
+      expiresAtMilliseconds: 61_000,
+      allowedPaths: ["events"],
+    });
+    const event = {
+      event_id: "event_12345678-1234-4123-8123-123456789abc",
+      event_sequence: 0,
+      monotonic_timestamp_ns: "1783918472391823",
+      type: "session_started",
+      payload: { source: "ios" },
+    };
+    const headers = {
+      authorization: `Bearer ${session.credential}`,
+      "content-type": "application/json",
+    };
+    const accepted = await app.request(`/v1/sessions/${session.sessionID}/events`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(event),
+    });
+    assert.equal(accepted.status, 202);
+    assert.deepEqual(await accepted.json(), {
+      accepted_at_ms: 3_000,
+      event_id: event.event_id,
+      event_sequence: 0,
+      monotonic_timestamp_ns: event.monotonic_timestamp_ns,
+      payload: event.payload,
+      payload_sha256: canonicalJSONSHA256(event.payload),
+      replayed: false,
+      session_id: session.sessionID,
+      type: event.type,
+    });
+    const replay = await app.request(`/v1/sessions/${session.sessionID}/events`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(event),
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(((await replay.json()) as { replayed: boolean }).replayed, true);
+
+    const recent = await app.request(`/v1/sessions/${session.sessionID}/events`, {
+      headers: { authorization: `Bearer ${session.credential}` },
+    });
+    assert.deepEqual(await recent.json(), {
+      events: [
+        {
+          accepted_at_ms: 3_000,
+          event_id: event.event_id,
+          event_sequence: 0,
+          monotonic_timestamp_ns: event.monotonic_timestamp_ns,
+          payload: event.payload,
+          payload_sha256: canonicalJSONSHA256(event.payload),
+          session_id: session.sessionID,
+          type: event.type,
+        },
+      ],
+    });
+    const journal = await readFile(
+      join(dataDirectory, "sessions", session.sessionID, "session.rfcap", "events", "events.jsonl"),
+      "utf8",
+    );
+    assert.match(journal, new RegExp(event.event_id));
+
+    const skipped = await app.request(`/v1/sessions/${session.sessionID}/events`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        ...event,
+        event_id: "event_abcdefab-cdef-4abc-8def-abcdefabcdef",
+        event_sequence: 2,
+      }),
+    });
+    assert.deepEqual([skipped.status, await skipped.json()], [409, { error: "event_conflict" }]);
   } finally {
     await store.close();
     await rm(dataDirectory, { recursive: true, force: true });

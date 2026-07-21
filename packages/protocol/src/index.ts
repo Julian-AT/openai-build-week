@@ -3,6 +3,13 @@ export {
   canonicalJSONStringify,
 } from "./canonical.ts";
 export {
+  CAPTURE_EVENT_TYPES,
+  type CaptureEventInput,
+  type CaptureEventType,
+  captureEventSHA256,
+  parseCaptureEvent,
+} from "./capture-event.ts";
+export {
   C_ARKIT_FROM_OPENCV_ROW_MAJOR,
   type EncodedImageIntrinsics,
   projectEncodedPixelToOpenCVRay,

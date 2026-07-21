@@ -1,12 +1,14 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 
 import type { RealtimeSessionService } from "@reframe/agent";
+import { parseCaptureEvent } from "@reframe/protocol";
 import { type Context, Hono } from "hono";
 
 import { type AgentTurnService, parseAgentTurnRequest } from "./agent-turn.ts";
 import {
   CaptureArtifactConflictError,
   CaptureArtifactNotFoundError,
+  CaptureEventConflictError,
   CaptureFrameConflictError,
   type DurableRoomSessionStore,
   isRoomSessionID,
@@ -147,6 +149,12 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.get("/v1/sessions/:sessionID/artifacts/:artifactID", async (context) =>
     handleArtifactDownload(context, options),
   );
+  app.post("/v1/sessions/:sessionID/events", async (context) =>
+    handleEventIngest(context, options),
+  );
+  app.get("/v1/sessions/:sessionID/events", async (context) =>
+    handleRecentEvents(context, options),
+  );
   app.get("/v1/sessions/:sessionID/frames/recent", async (context) =>
     handleRecentFrames(context, options),
   );
@@ -166,6 +174,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.all("/v1/sessions/:sessionID/artifacts/:artifactID", (context) =>
     methodNotAllowed(context, "GET, POST"),
   );
+  app.all("/v1/sessions/:sessionID/events", (context) => methodNotAllowed(context, "GET, POST"));
   app.all("/v1/sessions/:sessionID/frames/recent", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/sessions/:sessionID", (context) => methodNotAllowed(context, "DELETE"));
   app.all("/v1/edit/previews", (context) => methodNotAllowed(context, "POST"));
@@ -481,6 +490,78 @@ async function handleArtifactDownload(
       error instanceof CaptureArtifactConflictError
     )
       return context.json({ error: "not_found" }, 404);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleEventIngest(context: Context, options: GatewayAppOptions): Promise<Response> {
+  if (!options.durableSessionStore) return context.json({ error: "service_unavailable" }, 503);
+  const sessionID = context.req.param("sessionID");
+  if (typeof sessionID !== "string" || !isRoomSessionID(sessionID)) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  if (!hasJSONContentType(context.req.header("content-type"))) {
+    return context.json({ error: "unsupported_media_type" }, 415);
+  }
+  try {
+    const event = parseCaptureEvent(await readJSON(context.req.raw));
+    const receipt = await options.durableSessionStore.acceptEvent({
+      credential,
+      event,
+      expectedSessionID: sessionID,
+    });
+    return context.json(
+      {
+        session_id: receipt.sessionID,
+        event_id: receipt.event_id,
+        event_sequence: receipt.event_sequence,
+        monotonic_timestamp_ns: receipt.monotonic_timestamp_ns,
+        type: receipt.type,
+        payload: receipt.payload,
+        payload_sha256: receipt.payloadSha256,
+        accepted_at_ms: receipt.acceptedAtMilliseconds,
+        replayed: receipt.replayed,
+      },
+      receipt.replayed ? 200 : 202,
+    );
+  } catch (error) {
+    if (error instanceof BodyTooLargeError)
+      return context.json({ error: "payload_too_large" }, 413);
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    if (error instanceof SyntaxError || error instanceof TypeError)
+      return context.json({ error: "invalid_request" }, 400);
+    if (error instanceof CaptureEventConflictError)
+      return context.json({ error: "event_conflict" }, 409);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleRecentEvents(context: Context, options: GatewayAppOptions): Promise<Response> {
+  if (!options.durableSessionStore) return context.json({ error: "service_unavailable" }, 503);
+  const sessionID = context.req.param("sessionID");
+  if (typeof sessionID !== "string" || !isRoomSessionID(sessionID)) {
+    return context.json({ error: "not_found" }, 404);
+  }
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  try {
+    const events = await options.durableSessionStore.recentEvents(credential, sessionID);
+    return context.json({
+      events: events.map((event) => ({
+        session_id: event.sessionID,
+        event_id: event.event_id,
+        event_sequence: event.event_sequence,
+        monotonic_timestamp_ns: event.monotonic_timestamp_ns,
+        type: event.type,
+        payload: event.payload,
+        payload_sha256: event.payloadSha256,
+        accepted_at_ms: event.acceptedAtMilliseconds,
+      })),
+    });
+  } catch (error) {
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
     return context.json({ error: "internal_failure" }, 500);
   }
 }
