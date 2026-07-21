@@ -149,3 +149,34 @@ test("preserves the provider response identifier with a completed proposal", asy
     responseID: "resp_placement_123",
   });
 });
+
+test("emits only redacted lifecycle facts when tracing a turn", async () => {
+  const events: Array<Record<string, unknown>> = [];
+  const planner: AgentPlanner = {
+    next: async () => ({
+      type: "proposal",
+      responseID: "resp_secret",
+      proposal: { status: "preview_ready" },
+    }),
+  };
+
+  await runBoundedAgentTurnResult(
+    {
+      clientTurnID: "turn_private",
+      utterance: "Do not record this room prompt",
+      authoritativeContext: {
+        sessionID: "room_private",
+        sceneRevision: 4,
+        pointerContextID: null,
+      },
+    },
+    planner,
+    { execute: async () => ({}) },
+    new AbortController().signal,
+    (event) => events.push(event),
+  );
+
+  expect(events.map((event) => event.type)).toEqual(["turn_started", "proposal"]);
+  expect(events[0]).not.toHaveProperty("utterance");
+  expect(events[0]).toHaveProperty("sessionID", "room_private");
+});

@@ -7,6 +7,7 @@ export {
   type AgentToolCall,
   type AgentToolOutput,
   AgentToolPolicyError,
+  type AgentTraceSink,
   type AgentTurnInput,
   type AgentTurnRunResult,
   type AuthoritativeTurnContext,
@@ -15,6 +16,18 @@ export {
   runBoundedAgentTurn,
   runBoundedAgentTurnResult,
 } from "./bounded-tool-runner.ts";
+export {
+  createOpenAIModelCapabilityProbe,
+  type OpenAIModelCapabilityProbe,
+  type OpenAIModelCapabilitySnapshot,
+  REQUIRED_OPENAI_MODELS,
+  type RequiredOpenAIModel,
+} from "./model-capability.ts";
+export {
+  type AgentTraceEvent,
+  createRedactedTraceSink,
+  type RedactedAgentTraceEvent,
+} from "./observability.ts";
 export {
   type AgentFunctionToolDefinition,
   type AgentResponseGenerationRequest,

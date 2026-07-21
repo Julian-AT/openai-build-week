@@ -62,6 +62,18 @@ export interface AgentTurnRunResult {
   readonly responseID?: string;
 }
 
+export type AgentTraceSink = (event: {
+  readonly type: "turn_started" | "tool_call" | "tool_result" | "proposal" | "failure";
+  readonly clientTurnID?: string;
+  readonly sessionID?: string;
+  readonly sceneRevision?: number;
+  readonly name?: string;
+  readonly callID?: string;
+  readonly responseID?: string | null;
+  readonly outputBytes?: number;
+  readonly code?: string;
+}) => void;
+
 export class AgentToolPolicyError extends Error {
   constructor(message = "agent_tool_policy_violation") {
     super(message);
@@ -91,22 +103,39 @@ export async function runBoundedAgentTurnResult(
   planner: AgentPlanner,
   tools: AgentReadToolExecutor,
   signal: AbortSignal,
+  trace?: AgentTraceSink,
 ): Promise<AgentTurnRunResult> {
   const outputs: AgentToolOutput[] = [];
+  trace?.({
+    type: "turn_started",
+    clientTurnID: input.clientTurnID,
+    sessionID: input.authoritativeContext.sessionID,
+    sceneRevision: input.authoritativeContext.sceneRevision,
+  });
   for (let stepIndex = 0; stepIndex <= MAX_AGENT_TOOL_CALLS; stepIndex += 1) {
-    signal.throwIfAborted();
-    const step = await planner.next(input, outputs, signal);
-    if (step.type === "proposal") {
-      return {
-        proposal: step.proposal,
-        ...(step.responseID === undefined ? {} : { responseID: step.responseID }),
-      };
+    try {
+      signal.throwIfAborted();
+      const step = await planner.next(input, outputs, signal);
+      if (step.type === "proposal") {
+        trace?.({ type: "proposal", responseID: step.responseID ?? null });
+        return {
+          proposal: step.proposal,
+          ...(step.responseID === undefined ? {} : { responseID: step.responseID }),
+        };
+      }
+      assertAllowedCall(step);
+      if (stepIndex === MAX_AGENT_TOOL_CALLS)
+        throw new AgentToolPolicyError("agent_tool_budget_exceeded");
+      trace?.({ type: "tool_call", name: step.name, callID: step.callID });
+      const output = await tools.execute(step, input.authoritativeContext, signal);
+      const outputBytes = new TextEncoder().encode(JSON.stringify(output) ?? "null").byteLength;
+      outputs.push({ callID: step.callID, name: step.name, output });
+      trace?.({ type: "tool_result", name: step.name, callID: step.callID, outputBytes });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "agent_turn_failed";
+      trace?.({ type: "failure", code });
+      throw error;
     }
-    assertAllowedCall(step);
-    if (stepIndex === MAX_AGENT_TOOL_CALLS)
-      throw new AgentToolPolicyError("agent_tool_budget_exceeded");
-    const output = await tools.execute(step, input.authoritativeContext, signal);
-    outputs.push({ callID: step.callID, name: step.name, output });
   }
   throw new AgentToolPolicyError("agent_tool_budget_exceeded");
 }
