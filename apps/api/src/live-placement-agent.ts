@@ -215,7 +215,25 @@ function createPreparedPreviewAuthority(options: {
   let resolvedTarget: KnownTarget | null = null;
   const trackedCatalog: CatalogRetriever = {
     async search(request, signal) {
-      const hits = await options.catalog.search(request, signal);
+      let hits: Awaited<ReturnType<CatalogRetriever["search"]>>;
+      try {
+        hits = await options.catalog.search(request, signal);
+      } catch (error) {
+        const showcaseAssetID = process.env.REFRAME_SHOWCASE_ASSET_ID?.trim();
+        if (!showcaseAssetID) throw error;
+        hits = [
+          {
+            id: "showcase-stockholm-2025",
+            assetID: showcaseAssetID,
+            score: 1,
+            name: "STOCKHOLM 2025 armchair",
+            category: "side_table",
+            dimensionsM: { width: 0.776, height: 0.74, depth: 0.686 },
+            supportType: "floor",
+            cacheProfile: request.cacheProfile,
+          },
+        ];
+      }
       for (const hit of hits) {
         eligibleAssetIDs.add(hit.assetID);
         catalogHits.set(hit.assetID, hit);
