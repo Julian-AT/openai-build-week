@@ -200,6 +200,8 @@ final class SpatialSession {
         : "Preview ready — loading verified model…"
     } catch GatewayClientError.gatewayUnreachable {
       gatewayStatus = "Gateway unreachable — use the Mac LAN address"
+    } catch GatewayClientError.upstreamUnavailable {
+      gatewayStatus = "Catalog unavailable — restore prepared assets"
     } catch {
       gatewayStatus = "Typed preview unavailable"
     }

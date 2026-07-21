@@ -9,6 +9,7 @@ enum GatewayClientError: Error, Equatable {
   case unauthorized
   case invalidResponse
   case gatewayUnreachable
+  case upstreamUnavailable
   case requestFailed
 }
 
@@ -242,6 +243,7 @@ struct GatewayClient: Sendable {
     switch httpResponse.statusCode {
     case 200...299: return bytes
     case 401: throw GatewayClientError.unauthorized
+    case 502: throw GatewayClientError.upstreamUnavailable
     default: throw GatewayClientError.requestFailed
     }
   }
