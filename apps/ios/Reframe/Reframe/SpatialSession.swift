@@ -2,6 +2,7 @@ import ARKit
 import AVFoundation
 import CaptureCore
 import Observation
+import Security
 import SpatialProtocol
 
 @MainActor
@@ -32,6 +33,7 @@ final class SpatialSession {
   private var delegate: SessionDelegate?
   private var planeStore = ObservedPlaneStore()
   private var gatewayClient: GatewayClient?
+  private let roomConnectionStore = RoomConnectionStore()
 
   var lightEstimate: SpatialLightEstimate? { latestFrameObservation?.lightEstimate }
   var cameraPose: SpatialTransform? { latestFrameObservation?.worldFromCameraARKit }
@@ -109,7 +111,7 @@ final class SpatialSession {
       }
       if let values = jsonDoubleArray("world_from_asset", in: proposalData), values.count == 16 {
         pendingPlacementAssetID = jsonStringInObject("asset_id", key: "intent", in: proposalData)
-        pendingPlacementTransform = SpatialTransform(values: values)
+        pendingPlacementTransform = placementTransform(values, at: lastTargetSeed?.arkitHit)
       }
       let previewData = try await gatewayClient.preparePreview(proposalID: proposalID)
       pendingPreviewID = jsonString("preview_id", in: previewData)
@@ -215,7 +217,7 @@ final class SpatialSession {
   }
 
   private func configureRoomFromEnvironment() {
-    guard let roomID = ProcessInfo.processInfo.environment["REFRAME_ROOM_ID"],
+    if let roomID = ProcessInfo.processInfo.environment["REFRAME_ROOM_ID"],
       let credential = ProcessInfo.processInfo.environment["REFRAME_ROOM_CREDENTIAL"],
       let expiryText = ProcessInfo.processInfo.environment["REFRAME_ROOM_EXPIRES_AT_MS"],
       let expiresAt = Int64(expiryText),
@@ -227,11 +229,42 @@ final class SpatialSession {
         expiresAtMilliseconds: expiresAt
       ),
       let client = try? GatewayClient(baseURL: baseURL, room: room)
-    else { return }
+    {
+      connect(room: room, client: client)
+      roomConnectionStore.save(room: room, baseURL: baseURL)
+      return
+    }
+    guard let saved = roomConnectionStore.load(),
+      saved.room.expiresAtMilliseconds > nowMilliseconds()
+    else {
+      gatewayStatus = "Room connection expired"
+      return
+    }
+    guard let client = try? GatewayClient(baseURL: saved.baseURL, room: saved.room) else {
+      gatewayStatus = "Room connection unavailable"
+      return
+    }
+    connect(room: saved.room, client: client)
+  }
+
+  private func connect(room: RoomSessionCredentials, client: GatewayClient) {
     sessionID = room.sessionID
     roomCredentials = room
     gatewayClient = client
     gatewayStatus = "Room connected"
+  }
+
+  private func placementTransform(_ values: [Double], at hit: RaycastHit?) -> SpatialTransform {
+    guard let hit else { return SpatialTransform(values: values) }
+    var adjusted = values
+    adjusted[3] = hit.positionWorld.x
+    adjusted[7] = hit.positionWorld.y
+    adjusted[11] = hit.positionWorld.z
+    return SpatialTransform(values: adjusted)
+  }
+
+  private func nowMilliseconds() -> Int64 {
+    Int64(Date().timeIntervalSince1970 * 1_000)
   }
 
   private func accept(_ observation: CameraFrameObservation) {
@@ -258,6 +291,53 @@ final class SpatialSession {
     @unknown default:
       false
     }
+  }
+}
+
+private struct RoomConnectionStore {
+  private let service = "com.julianschmidt.reframe.room-connection"
+  private let account = "active"
+
+  func save(room: RoomSessionCredentials, baseURL: URL) {
+    guard let data = try? JSONEncoder().encode(StoredRoomConnection(room: room, baseURL: baseURL))
+    else { return }
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: account,
+    ]
+    SecItemDelete(query as CFDictionary)
+    var attributes = query
+    attributes[kSecValueData as String] = data
+    attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+    SecItemAdd(attributes as CFDictionary, nil)
+  }
+
+  func load() -> (room: RoomSessionCredentials, baseURL: URL)? {
+    let query: [String: Any] = [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: account,
+      kSecReturnData as String: true,
+      kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+    var result: CFTypeRef?
+    guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+      let data = result as? Data,
+      let stored = try? JSONDecoder().decode(StoredRoomConnection.self, from: data),
+      let baseURL = URL(string: stored.baseURL)
+    else { return nil }
+    return (stored.room, baseURL)
+  }
+}
+
+private struct StoredRoomConnection: Codable {
+  let room: RoomSessionCredentials
+  let baseURL: String
+
+  init(room: RoomSessionCredentials, baseURL: URL) {
+    self.room = room
+    self.baseURL = baseURL.absoluteString
   }
 }
 
