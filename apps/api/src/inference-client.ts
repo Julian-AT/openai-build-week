@@ -114,7 +114,7 @@ export function createInferenceWorkerClient(
               signal: workerSignal,
               maximumResponseBytes: MAX_JOB_RESPONSE_BYTES,
               fetchImplementation,
-              body: JSON.stringify(request),
+              body: JSON.stringify(workerRequest(request)),
             });
             response = parseInferenceJobResponse(value, request);
           } catch (error) {
@@ -131,6 +131,16 @@ export function createInferenceWorkerClient(
       if (failure instanceof InferenceWorkerError) throw failure;
       throw invalidWorkerResponse(failure);
     },
+  };
+}
+
+function workerRequest(request: InferenceJobRequest): InferenceJobRequest {
+  if (request.task !== "segment") return request;
+  return {
+    ...request,
+    session_id: request.session_id ?? `worker_${request.request_id}`,
+    target_id: request.target_id ?? "target_0",
+    frame_index: request.frame_index ?? 0,
   };
 }
 

@@ -32,6 +32,10 @@ export interface SegmentationJobRequest {
     y: number;
     label: "foreground" | "background";
   };
+  /** Optional SAM identity; the worker client supplies a bounded fallback for standalone jobs. */
+  session_id?: string;
+  target_id?: string;
+  frame_index?: number;
 }
 
 export interface MetricDepthJobRequest {
@@ -128,7 +132,10 @@ export function parseInferenceJobRequest(value: unknown): InferenceJobRequest {
   }
   if (!matchesString(value.request_id, inferenceIDPattern)) throw invalidProtocol();
   if (value.task === "segment") {
-    if (!hasExactKeys(value, ["protocol_version", "request_id", "task", "image", "prompt"])) {
+    const baseKeys = ["protocol_version", "request_id", "task", "image", "prompt"] as const;
+    const identityKeys = ["session_id", "target_id", "frame_index"] as const;
+    const hasIdentity = hasExactKeys(value, [...baseKeys, ...identityKeys]);
+    if (!hasExactKeys(value, baseKeys) && !hasIdentity) {
       throw invalidProtocol();
     }
     const image = parseImage(value.image);
@@ -140,6 +147,14 @@ export function parseInferenceJobRequest(value: unknown): InferenceJobRequest {
       !isBoundedInteger(prompt.x, 0, image.width - 1) ||
       !isBoundedInteger(prompt.y, 0, image.height - 1) ||
       (prompt.label !== "foreground" && prompt.label !== "background")
+    ) {
+      throw invalidProtocol();
+    }
+    if (
+      hasIdentity &&
+      (!isBoundedIdentifier(value.session_id) ||
+        !isBoundedIdentifier(value.target_id) ||
+        !isBoundedInteger(value.frame_index, 0, Number.MAX_SAFE_INTEGER))
     ) {
       throw invalidProtocol();
     }
@@ -427,6 +442,10 @@ function hasExactKeys(value: Record<string, unknown>, expected: readonly string[
 
 function matchesString(value: unknown, pattern: RegExp): value is string {
   return typeof value === "string" && pattern.test(value);
+}
+
+function isBoundedIdentifier(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9._-]{1,128}$/u.test(value);
 }
 
 function isBoundedString(value: unknown, minimum: number, maximum: number): value is string {

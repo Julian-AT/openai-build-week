@@ -45,6 +45,19 @@ const metricDepthJob = {
 test("inference requests are exact, digest-bound, and prompt-bound", () => {
   assert.deepEqual(parseInferenceJobRequest(segmentJob), segmentJob);
 
+  const trackedSegmentJob = {
+    ...segmentJob,
+    session_id: "room_smoke",
+    target_id: "target_smoke",
+    frame_index: 0,
+  } as const;
+  assert.deepEqual(parseInferenceJobRequest(trackedSegmentJob), trackedSegmentJob);
+  assert.throws(() => parseInferenceJobRequest({ ...segmentJob, session_id: "room_smoke" }));
+  assert.throws(() => parseInferenceJobRequest({ ...trackedSegmentJob, frame_index: -1 }));
+  assert.throws(() =>
+    parseInferenceJobRequest({ ...trackedSegmentJob, target_id: "target/unsafe" }),
+  );
+
   assert.throws(() =>
     parseInferenceJobRequest({
       ...segmentJob,

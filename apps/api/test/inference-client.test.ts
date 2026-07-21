@@ -155,7 +155,12 @@ test("worker job responses are request-bound and cancellation is forwarded", asy
   assert.equal(observed?.url, "https://private-worker.example/v1/jobs");
   assert.equal(observed?.headers.get("content-type"), "application/json");
   assert.equal(observed?.signal.aborted, false);
-  assert.deepEqual(await observed?.json(), request);
+  assert.deepEqual(await observed?.json(), {
+    ...request,
+    session_id: `worker_${request.request_id}`,
+    target_id: "target_0",
+    frame_index: 0,
+  });
 });
 
 test("worker client uses the gateway GPU priority lane before dispatching private jobs", async () => {
