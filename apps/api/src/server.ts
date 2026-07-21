@@ -124,7 +124,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   });
 
   app.post("/v1/realtime/calls", async (context) => {
-    const rejection = authorizeSDPRequest(context, options.gatewayToken);
+    const rejection = await authorizeSDPRequest(context, options);
     if (rejection !== undefined) return rejection;
     return handleRealtimeSecret(context, options);
   });
@@ -200,9 +200,30 @@ function authorizeJSONRequest(context: Context, gatewayToken: string): Response 
   return undefined;
 }
 
-function authorizeSDPRequest(context: Context, gatewayToken: string): Response | undefined {
-  const bearerRejection = authorizeBearerRequest(context, gatewayToken);
-  if (bearerRejection !== undefined) return bearerRejection;
+async function authorizeSDPRequest(
+  context: Context,
+  options: GatewayAppOptions,
+): Promise<Response | undefined> {
+  const authorization = context.req.header("authorization");
+  const hasGatewayCredential = hasValidBearer(authorization, options.gatewayToken);
+  if (!hasGatewayCredential) {
+    const roomCredential = authorization?.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length)
+      : "";
+    if (!options.durableSessionStore || roomCredential.length === 0) {
+      return context.json({ error: "unauthorized" }, 401);
+    }
+    try {
+      // Realtime is a room-scoped capability. Validate the editor credential
+      // against the authoritative scene store without exposing its claims.
+      await options.durableSessionStore.withAuthorizedScene(roomCredential, () => undefined);
+    } catch (error) {
+      if (error instanceof RoomCredentialError) {
+        return context.json({ error: "unauthorized" }, 401);
+      }
+      return context.json({ error: "internal_failure" }, 500);
+    }
+  }
   if (context.req.header("content-type")?.split(";", 1)[0]?.trim() !== "application/sdp") {
     return context.json({ error: "unsupported_media_type" }, 415);
   }

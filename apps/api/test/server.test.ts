@@ -1,7 +1,8 @@
+import type { Database } from "bun:sqlite";
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-
+import { type DurableRoomSessionStore, RoomCredentialError } from "../src/durable-session-store.ts";
 import { InferenceWorkerError } from "../src/inference-client.ts";
 import type { InferenceJobRequest } from "../src/inference-protocol.ts";
 import { createGatewayApp } from "../src/server.ts";
@@ -179,6 +180,60 @@ test("Realtime exchanges SDP without exposing the server credential", async () =
   assert.equal(response.headers.get("content-type"), "application/sdp; charset=UTF-8");
   assert.equal(await response.text(), "answer-sdp");
   assert.equal(receivedOffer, "offer-sdp");
+});
+
+test("Realtime accepts a valid room credential without exposing the gateway credential", async () => {
+  let receivedCredential: string | undefined;
+  const app = createGatewayApp({
+    gatewayToken: "gateway-token",
+    durableSessionStore: {
+      withAuthorizedScene: async (
+        credential: string,
+        operation: (sessionID: string, database: Database) => unknown,
+      ) => {
+        receivedCredential = credential;
+        return await operation("room_demo", {} as Database);
+      },
+    } as unknown as DurableRoomSessionStore,
+    realtimeService: {
+      exchange: async (offer) => `answer-for-${offer}`,
+    },
+  });
+  const response = await app.request("/v1/realtime/calls", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer room-scoped-token",
+      "content-type": "application/sdp",
+    },
+    body: "offer-sdp",
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), "answer-for-offer-sdp");
+  assert.equal(receivedCredential, "room-scoped-token");
+});
+
+test("Realtime rejects a room credential when the authoritative scene store rejects it", async () => {
+  const app = createGatewayApp({
+    gatewayToken: "gateway-token",
+    durableSessionStore: {
+      withAuthorizedScene: async () => {
+        throw new RoomCredentialError();
+      },
+    } as unknown as DurableRoomSessionStore,
+    realtimeService: { exchange: async () => "must-not-run" },
+  });
+  const response = await app.request("/v1/realtime/calls", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer room-scoped-token",
+      "content-type": "application/sdp",
+    },
+    body: "offer-sdp",
+  });
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "unauthorized" });
 });
 
 test("the legacy one-shot proposal surface is absent", async () => {
