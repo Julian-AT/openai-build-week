@@ -46,6 +46,50 @@ public struct SceneReplica: Sendable {
     scene = snapshot
   }
 
+  /// Starts an incremental replica when the first gateway event is a committed
+  /// delta rather than a full snapshot. Only state proven by that delta's exact
+  /// inverse is reconstructed; applying the forward operations still fails
+  /// closed if any required affected state is missing.
+  public static func applyingFirstDelta(
+    sessionID: String,
+    delta: EditDelta
+  ) throws -> SceneReplica {
+    var objects: [SceneObject] = []
+    var reveals: [SceneReveal] = []
+    var assetInstances: [AssetInstance] = []
+    for operation in delta.inverseOperations {
+      switch operation {
+      case .setObjectVisibility(let objectID, let visibility):
+        if !objects.contains(where: { $0.id == objectID }) {
+          objects.append(SceneObject(id: objectID, assetID: nil, visibility: visibility))
+        }
+      case .setRevealVisibility(let revealID, let isVisible):
+        if !reveals.contains(where: { $0.id == revealID }) {
+          reveals.append(SceneReveal(id: revealID, isVisible: isVisible))
+        }
+      case .placeAsset(let assetID, let instanceID, let transform):
+        if !assetInstances.contains(where: { $0.id == instanceID }) {
+          assetInstances.append(
+            AssetInstance(id: instanceID, assetID: assetID, worldFromAsset: transform)
+          )
+        }
+      case .removeAssetInstance:
+        break
+      }
+    }
+    var replica = SceneReplica(
+      snapshot: SceneSnapshot(
+        sessionID: sessionID,
+        sceneRevision: delta.baseSceneRevision,
+        objects: objects,
+        reveals: reveals,
+        assetInstances: assetInstances
+      )
+    )
+    _ = try replica.apply(delta)
+    return replica
+  }
+
   public func preview(
     id: String,
     baseSceneRevision: Int,
@@ -85,6 +129,20 @@ public struct SceneReplica: Sendable {
         base: delta.baseSceneRevision,
         committed: delta.sceneRevision
       )
+    }
+
+    if let pendingUndo {
+      guard let original = deltasByTransactionID[pendingUndo.transactionID],
+        delta.operations == original.inverseOperations,
+        delta.inverseOperations == original.operations
+      else {
+        throw SceneReplicaError.idempotencyConflict
+      }
+      scene.sceneRevision = delta.sceneRevision
+      deltasByTransactionID[delta.transactionID] = delta
+      transactionIDByIdempotencyKey[delta.idempotencyKey] = delta.transactionID
+      self.pendingUndo = nil
+      return .applied
     }
 
     var next = try reducing(delta.operations, into: scene)

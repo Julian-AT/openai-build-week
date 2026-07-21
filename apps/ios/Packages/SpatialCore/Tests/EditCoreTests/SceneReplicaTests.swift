@@ -153,6 +153,45 @@ func localInverse() throws {
   #expect(try replica.applyLocalInverse(transactionID: "txn_replace") == .alreadyApplied)
 }
 
+@Test("a first authoritative delta can bootstrap only the state described by its exact inverse")
+func firstDeltaBootstrapsAffectedState() throws {
+  let replica = try SceneReplica.applyingFirstDelta(
+    sessionID: "session_1",
+    delta: replacementDelta
+  )
+
+  #expect(replica.scene.sceneRevision == 8)
+  #expect(
+    replica.scene.objects == [
+      SceneObject(id: "object_chair", assetID: nil, visibility: .hidden)
+    ])
+  #expect(replica.scene.reveals == [SceneReveal(id: "reveal_chair", isVisible: true)])
+  #expect(replica.scene.assetInstances.map(\.id) == ["instance_chair"])
+}
+
+@Test("a synchronized compensating delta acknowledges an already-applied local inverse")
+func synchronizedLocalInverseDoesNotApplyTwice() throws {
+  var replica = SceneReplica(snapshot: initialScene)
+  _ = try replica.apply(replacementDelta)
+  _ = try replica.applyLocalInverse(transactionID: "txn_replace")
+  let restore = EditDelta(
+    sceneRevision: 9,
+    baseSceneRevision: 8,
+    transactionID: "txn_restore",
+    idempotencyKey: "idem_restore",
+    operations: replacementDelta.inverseOperations,
+    inverseOperations: replacementDelta.operations,
+    localUndo: LocalUndoToken(token: "undo_restore", validForCommittedRevision: 9)
+  )
+
+  #expect(try replica.apply(restore) == .applied)
+  #expect(replica.scene.sceneRevision == 9)
+  #expect(replica.scene.objects.first?.visibility == .visible)
+  #expect(replica.scene.reveals.first?.isVisible == false)
+  #expect(replica.scene.assetInstances.isEmpty)
+  #expect(replica.pendingUndo == nil)
+}
+
 @Test("a newer snapshot replaces state while stale and divergent snapshots are rejected")
 func snapshotReconciliation() throws {
   var replica = SceneReplica(snapshot: initialScene)

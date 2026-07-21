@@ -1,6 +1,7 @@
 import ARKit
 import AVFoundation
 import CaptureCore
+import EditCore
 import Observation
 import RenderCore
 import Security
@@ -29,14 +30,21 @@ final class SpatialSession {
   private(set) var isSubmittingTurn = false
   private(set) var lastTransactionID: String?
   private(set) var lastCommittedRevision: Int?
+  private(set) var committedAssetInstances: [AssetInstance] = []
 
   /// Observation token consumed by the AR view. Keeping this as a value (rather
   /// than relying on the session reference changing) ensures a newly prepared
   /// preview invalidates the SwiftUI representable and gets materialized.
   var placementPreviewToken: String? {
-    guard let transform = pendingPlacementTransform else { return nil }
-    let assetID = pendingPlacementAssetID ?? "placement-preview"
-    return "\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
+    let preview = pendingPlacementTransform.map { transform in
+      let assetID = pendingPlacementAssetID ?? "placement-preview"
+      return "preview:\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
+    }
+    let committed = committedAssetInstances.map { instance in
+      "committed:\(instance.id):\(instance.assetID):\(instance.worldFromAsset.values.map { String($0) }.joined(separator: ","))"
+    }.joined(separator: "|")
+    guard preview != nil || !committed.isEmpty else { return nil }
+    return "\(preview ?? "no-preview")#\(committed)"
   }
 
   let session = ARSession()
@@ -47,6 +55,7 @@ final class SpatialSession {
   private let realtimeVoice = NativeRealtimeVoiceTransport()
   private let roomConnectionStore = RoomConnectionStore()
   private var verifiedUSDZFiles: [String: (descriptor: AssetDeliveryDescriptor, url: URL)] = [:]
+  private var sceneReplica: SceneReplica?
 
   var lightEstimate: SpatialLightEstimate? { latestFrameObservation?.lightEstimate }
   var cameraPose: SpatialTransform? { latestFrameObservation?.worldFromCameraARKit }
@@ -230,10 +239,12 @@ final class SpatialSession {
         expectedSceneRevision: revision,
         idempotencyKey: "txidem_\(UUID().uuidString.lowercased())"
       )
-      lastTransactionID = jsonString("transaction_id", in: delta)
-      lastCommittedRevision = jsonInt("scene_revision", in: delta)
+      let editDelta = try JSONDecoder().decode(EditDelta.self, from: delta)
+      try apply(editDelta)
       pendingPreviewID = nil
       pendingPreviewRevision = nil
+      pendingPlacementAssetID = nil
+      pendingPlacementTransform = nil
       gatewayStatus = "Edit committed"
     } catch {
       gatewayStatus = "Confirmation rejected safely"
@@ -251,7 +262,8 @@ final class SpatialSession {
         expectedSceneRevision: expectedSceneRevision,
         idempotencyKey: idempotencyKey
       )
-      lastCommittedRevision = jsonInt("scene_revision", in: delta) ?? lastCommittedRevision
+      let editDelta = try JSONDecoder().decode(EditDelta.self, from: delta)
+      try apply(editDelta)
       gatewayStatus = "Restore synchronized"
     } catch {
       gatewayStatus = "Restore pending synchronization"
@@ -263,11 +275,39 @@ final class SpatialSession {
       gatewayStatus = "No committed edit to restore"
       return
     }
+    if var replica = sceneReplica {
+      do {
+        _ = try replica.applyLocalInverse(transactionID: transactionID)
+        sceneReplica = replica
+        synchronizeReplicaState()
+        gatewayStatus = "Restored locally — synchronizing…"
+      } catch {
+        gatewayStatus = "Restore unavailable for the current revision"
+        return
+      }
+    }
     await restore(
       transactionID: transactionID,
       expectedSceneRevision: lastCommittedRevision ?? 1,
       idempotencyKey: "txidem_\(UUID().uuidString.lowercased())"
     )
+  }
+
+  private func apply(_ delta: EditDelta) throws {
+    if var replica = sceneReplica {
+      _ = try replica.apply(delta)
+      sceneReplica = replica
+    } else {
+      sceneReplica = try SceneReplica.applyingFirstDelta(sessionID: sessionID, delta: delta)
+    }
+    lastTransactionID = delta.transactionID
+    synchronizeReplicaState()
+  }
+
+  private func synchronizeReplicaState() {
+    guard let scene = sceneReplica?.scene else { return }
+    lastCommittedRevision = scene.sceneRevision
+    committedAssetInstances = scene.assetInstances
   }
 
   private func jsonString(_ key: String, in data: Data) -> String? {

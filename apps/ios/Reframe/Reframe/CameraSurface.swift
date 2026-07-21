@@ -36,6 +36,7 @@ struct CameraSurface: UIViewRepresentable {
     }
     context.coordinator.consume(captureRequest)
     context.coordinator.consumePlacementPreview()
+    context.coordinator.consumeCommittedAssets()
   }
 
   static func dismantleUIView(_ view: ARView, coordinator: Coordinator) {
@@ -54,6 +55,9 @@ struct CameraSurface: UIViewRepresentable {
     private var placementPreviewAnchor: AnchorEntity?
     private var placementPreviewKey: String?
     private var placementLoadTask: Task<Void, Never>?
+    private var committedAnchors: [String: AnchorEntity] = [:]
+    private var committedKeys: [String: String] = [:]
+    private var committedLoadTasks: [String: Task<Void, Never>] = [:]
 
     init(parent: CameraSurface) {
       self.parent = parent
@@ -71,6 +75,11 @@ struct CameraSurface: UIViewRepresentable {
     func detach() {
       placementLoadTask?.cancel()
       placementLoadTask = nil
+      for task in committedLoadTasks.values { task.cancel() }
+      committedLoadTasks.removeAll()
+      for anchor in committedAnchors.values { anchor.removeFromParent() }
+      committedAnchors.removeAll()
+      committedKeys.removeAll()
       displayLink?.invalidate()
       displayLink = nil
       view = nil
@@ -99,33 +108,7 @@ struct CameraSurface: UIViewRepresentable {
       guard key != placementPreviewKey else { return }
       placementLoadTask?.cancel()
       placementPreviewAnchor?.removeFromParent()
-      let matrix = simd_float4x4(rows: [
-        SIMD4<Float>(
-          Float(transform.values[0]),
-          Float(transform.values[1]),
-          Float(transform.values[2]),
-          Float(transform.values[3])
-        ),
-        SIMD4<Float>(
-          Float(transform.values[4]),
-          Float(transform.values[5]),
-          Float(transform.values[6]),
-          Float(transform.values[7])
-        ),
-        SIMD4<Float>(
-          Float(transform.values[8]),
-          Float(transform.values[9]),
-          Float(transform.values[10]),
-          Float(transform.values[11])
-        ),
-        SIMD4<Float>(
-          Float(transform.values[12]),
-          Float(transform.values[13]),
-          Float(transform.values[14]),
-          Float(transform.values[15])
-        ),
-      ])
-      let anchor = AnchorEntity(world: matrix)
+      let anchor = AnchorEntity(world: worldMatrix(transform))
       view.scene.addAnchor(anchor)
       placementPreviewAnchor = anchor
       placementPreviewKey = key
@@ -155,6 +138,68 @@ struct CameraSurface: UIViewRepresentable {
           spatialSession.placementAssetDidFail(error)
         }
       }
+    }
+
+    func consumeCommittedAssets() {
+      guard let view else { return }
+      let instances = parent.spatialSession.committedAssetInstances
+      let desiredIDs = Set(instances.map(\.id))
+      for instanceID in Array(committedAnchors.keys) where !desiredIDs.contains(instanceID) {
+        committedLoadTasks.removeValue(forKey: instanceID)?.cancel()
+        committedAnchors.removeValue(forKey: instanceID)?.removeFromParent()
+        committedKeys.removeValue(forKey: instanceID)
+      }
+      for instance in instances {
+        let transformKey = instance.worldFromAsset.values.map { String($0) }.joined(separator: ",")
+        let key = "\(instance.assetID):\(transformKey)"
+        guard committedKeys[instance.id] != key else { continue }
+        committedLoadTasks.removeValue(forKey: instance.id)?.cancel()
+        committedAnchors.removeValue(forKey: instance.id)?.removeFromParent()
+        let anchor = AnchorEntity(world: worldMatrix(instance.worldFromAsset))
+        view.scene.addAnchor(anchor)
+        committedAnchors[instance.id] = anchor
+        committedKeys[instance.id] = key
+        let spatialSession = parent.spatialSession
+        committedLoadTasks[instance.id] = Task { @MainActor [weak self, weak anchor] in
+          defer { self?.committedLoadTasks.removeValue(forKey: instance.id) }
+          do {
+            let delivery = try await spatialSession.verifiedUSDZFile(for: instance.assetID)
+            let entity = try await RealityKitAssetLoader.loadUSDZ(
+              from: delivery.url,
+              delivery: delivery.descriptor
+            )
+            guard let self, !Task.isCancelled, self.committedKeys[instance.id] == key,
+              let anchor
+            else { return }
+            entity.name = "reframe-committed-\(instance.id)"
+            anchor.addChild(entity)
+          } catch {
+            guard !Task.isCancelled else { return }
+            spatialSession.placementAssetDidFail(error)
+          }
+        }
+      }
+    }
+
+    private func worldMatrix(_ transform: SpatialTransform) -> simd_float4x4 {
+      simd_float4x4(rows: [
+        SIMD4<Float>(
+          Float(transform.values[0]), Float(transform.values[1]),
+          Float(transform.values[2]), Float(transform.values[3])
+        ),
+        SIMD4<Float>(
+          Float(transform.values[4]), Float(transform.values[5]),
+          Float(transform.values[6]), Float(transform.values[7])
+        ),
+        SIMD4<Float>(
+          Float(transform.values[8]), Float(transform.values[9]),
+          Float(transform.values[10]), Float(transform.values[11])
+        ),
+        SIMD4<Float>(
+          Float(transform.values[12]), Float(transform.values[13]),
+          Float(transform.values[14]), Float(transform.values[15])
+        ),
+      ])
     }
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
