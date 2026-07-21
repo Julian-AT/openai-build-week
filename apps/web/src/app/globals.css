@@ -36,25 +36,16 @@ a {
   min-height: 100svh;
 }
 
-.gaussian-room-background {
+.room-comparison {
   position: fixed;
   z-index: 0;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(circle at 75% 34%, rgba(129, 151, 112, 0.19), transparent 34%),
-    linear-gradient(145deg, #151812 0%, #0e100d 68%);
+  background: linear-gradient(145deg, #151812 0%, #0e100d 68%);
 }
 
-.gaussian-room-background::after {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 54% 42%, transparent 32%, rgba(8, 10, 8, 0.42) 100%);
-  content: "";
-}
-
-.gaussian-room-background canvas {
+.room-comparison canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -62,8 +53,51 @@ a {
   transition: opacity 240ms ease-out;
 }
 
-.gaussian-room-background canvas[data-renderer-state="ready"] {
+.room-comparison canvas[data-renderer-state="ready"] {
   opacity: 1;
+}
+
+.room-comparison__divider {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 1px;
+  height: 100%;
+  background: var(--line);
+  transform: translateX(-0.5px);
+}
+
+.room-comparison__label {
+  position: absolute;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.room-comparison__label--points {
+  top: 20px;
+  left: 22px;
+}
+
+.room-comparison__label--model {
+  right: 22px;
+  bottom: 20px;
+}
+
+@media (max-aspect-ratio: 1 / 1) {
+  .room-comparison__divider {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    transform: translateY(-0.5px);
+  }
+
+  .room-comparison__label--model {
+    right: auto;
+    left: 22px;
+  }
 }
 
 .eyebrow {
@@ -82,22 +116,12 @@ h1 {
   letter-spacing: -0.075em;
 }
 
-@media (max-width: 720px) {
-  .gaussian-room-background::after {
-    background: radial-gradient(circle at 54% 42%, transparent 24%, rgba(8, 10, 8, 0.5) 100%);
-  }
-
-  .gaussian-room-background canvas[data-renderer-state="ready"] {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
 
-  .gaussian-room-background canvas {
+  .room-comparison canvas {
     transition: none;
   }
 }
