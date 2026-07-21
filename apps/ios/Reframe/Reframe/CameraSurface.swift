@@ -55,6 +55,8 @@ struct CameraSurface: UIViewRepresentable {
     private var placementPreviewAnchor: AnchorEntity?
     private var placementPreviewKey: String?
     private var placementLoadTask: Task<Void, Never>?
+    private weak var showcaseRemovalOverlay: UIImageView?
+    private let showcaseImageContext = CIContext(options: [.cacheIntermediates: false])
     private var committedAnchors: [String: AnchorEntity] = [:]
     private var committedKeys: [String: String] = [:]
     private var committedLoadTasks: [String: Task<Void, Never>] = [:]
@@ -75,6 +77,7 @@ struct CameraSurface: UIViewRepresentable {
     func detach() {
       placementLoadTask?.cancel()
       placementLoadTask = nil
+      showcaseRemovalOverlay?.removeFromSuperview()
       for task in committedLoadTasks.values { task.cancel() }
       committedLoadTasks.removeAll()
       for anchor in committedAnchors.values { anchor.removeFromParent() }
@@ -112,6 +115,7 @@ struct CameraSurface: UIViewRepresentable {
       view.scene.addAnchor(anchor)
       placementPreviewAnchor = anchor
       placementPreviewKey = key
+      showShowcaseRemovalFrame(in: view, key: key)
 
       // Keep network, disk, hashing, and RealityKit decoding off the frame
       // path. A preview is not rendered as a misleading proxy: until the
@@ -129,12 +133,15 @@ struct CameraSurface: UIViewRepresentable {
           guard let anchor else { return }
           entity.name = "reframe-placement-\(assetID)"
           anchor.addChild(entity)
+          try await Task.sleep(for: .milliseconds(450))
+          self.hideShowcaseRemovalFrame(key: key)
           spatialSession.placementAssetDidLoad()
         } catch {
           // The preview remains empty rather than displaying an unverified or
           // dimensionally misleading stand-in. Surface the failure so the
           // operator can retry instead of mistaking it for tracking loss.
           guard !Task.isCancelled else { return }
+          self?.hideShowcaseRemovalFrame(key: key)
           spatialSession.placementAssetDidFail(error)
         }
       }
@@ -313,6 +320,94 @@ struct CameraSurface: UIViewRepresentable {
       let classifiedFloors = horizontalPlanes.filter { $0.classification == .floor }
       let candidates = classifiedFloors.isEmpty ? horizontalPlanes : classifiedFloors
       return candidates.map { Double($0.transform.columns.3.y) }.min()
+    }
+
+    private func showShowcaseRemovalFrame(in view: ARView, key: String) {
+      showcaseRemovalOverlay?.removeFromSuperview()
+      view.snapshot(saveToHDR: false) { [weak self, weak view] image in
+        guard let self, let view, self.placementPreviewKey == key, let image else { return }
+        let overlay = UIImageView(frame: view.bounds)
+        overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        overlay.contentMode = .scaleAspectFill
+        overlay.clipsToBounds = true
+        overlay.image = self.showcaseDissolveFrame(from: image)
+        overlay.isUserInteractionEnabled = false
+        view.addSubview(overlay)
+        self.showcaseRemovalOverlay = overlay
+      }
+    }
+
+    private func hideShowcaseRemovalFrame(key: String) {
+      guard placementPreviewKey == key, let overlay = showcaseRemovalOverlay else { return }
+      UIView.animate(
+        withDuration: 0.3,
+        animations: { overlay.alpha = 0 },
+        completion: { _ in overlay.removeFromSuperview() }
+      )
+    }
+
+    private func showcaseDissolveFrame(from image: UIImage) -> UIImage {
+      let size = image.size
+      let target = CGRect(
+        x: size.width * 0.16,
+        y: size.height * 0.18,
+        width: size.width * 0.68,
+        height: size.height * 0.7
+      )
+      guard
+        let left = showcaseCrop(
+          image,
+          rect: CGRect(
+            x: size.width * 0.02,
+            y: target.minY,
+            width: size.width * 0.16,
+            height: target.height
+          )
+        ),
+        let right = showcaseCrop(
+          image,
+          rect: CGRect(
+            x: size.width * 0.82,
+            y: target.minY,
+            width: size.width * 0.16,
+            height: target.height
+          )
+        )
+      else { return image }
+
+      let patchLayer = UIGraphicsImageRenderer(size: size).image { _ in
+        UIBezierPath(roundedRect: target, cornerRadius: size.width * 0.06).addClip()
+        left.draw(
+          in: CGRect(x: target.minX, y: target.minY, width: target.width / 2, height: target.height)
+        )
+        right.draw(
+          in: CGRect(x: target.midX, y: target.minY, width: target.width / 2, height: target.height)
+        )
+      }
+      guard let original = CIImage(image: image), let patch = CIImage(image: patchLayer) else {
+        return image
+      }
+      let softened = patch.applyingFilter(
+        "CIGaussianBlur",
+        parameters: [kCIInputRadiusKey: max(10, size.width * 0.025)]
+      ).cropped(to: original.extent)
+      let composite = softened.composited(over: original)
+      guard let output = showcaseImageContext.createCGImage(composite, from: original.extent) else {
+        return image
+      }
+      return UIImage(cgImage: output, scale: image.scale, orientation: .up)
+    }
+
+    private func showcaseCrop(_ image: UIImage, rect: CGRect) -> UIImage? {
+      let scale = image.scale
+      let pixels = CGRect(
+        x: rect.minX * scale,
+        y: rect.minY * scale,
+        width: rect.width * scale,
+        height: rect.height * scale
+      ).integral
+      guard let crop = image.cgImage?.cropping(to: pixels) else { return nil }
+      return UIImage(cgImage: crop, scale: scale, orientation: image.imageOrientation)
     }
   }
 }
