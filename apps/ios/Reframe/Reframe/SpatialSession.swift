@@ -76,7 +76,7 @@ final class SpatialSession {
 
   func targetFrame(matching timestamp: TimeInterval) -> TargetFrame? {
     guard let targetFrame = latestFrameObservation?.targetFrame,
-      abs(targetFrame.timestamp - timestamp) < 0.000_001
+      abs(targetFrame.timestamp - timestamp) < 0.25
     else { return nil }
     return targetFrame
   }

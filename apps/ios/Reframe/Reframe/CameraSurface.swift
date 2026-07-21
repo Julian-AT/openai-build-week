@@ -202,9 +202,10 @@ struct CameraSurface: UIViewRepresentable {
       let normalizedImagePoint = normalizedViewPoint.applying(imageFromView)
       let result = raycastResult(in: view, at: point)
       let hit = result.flatMap { result -> RaycastHit? in
-        guard let anchorID = result.anchor?.identifier else { return nil }
+        let surfaceID =
+          result.anchor.map { planeIdentifier($0.identifier) } ?? "arkit_estimated_surface"
         return RaycastHit(
-          surfaceID: planeIdentifier(anchorID),
+          surfaceID: surfaceID,
           positionWorld: spatialVector(result.worldTransform.columns.3)
         )
       }
@@ -238,6 +239,12 @@ struct CameraSurface: UIViewRepresentable {
         alignment: .any
       ).flatMap { view.session.raycast($0).first }
       if let exact { return exact }
+      let infinite = view.makeRaycastQuery(
+        from: point,
+        allowing: .existingPlaneInfinite,
+        alignment: .horizontal
+      ).flatMap { view.session.raycast($0).first }
+      if let infinite { return infinite }
       return view.makeRaycastQuery(
         from: point,
         allowing: .estimatedPlane,
