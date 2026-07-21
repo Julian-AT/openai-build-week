@@ -354,7 +354,17 @@ class SAM3PredictorEngine:
                 dtype=torch.float32,
             )
             request["bounding_box_labels"] = torch.tensor([1], dtype=torch.int32)
-        response = self._predictor.handle_request(request)
+        autocast = getattr(torch, "autocast", None)
+        bfloat16 = getattr(torch, "bfloat16", None)
+        if autocast is None or bfloat16 is None:
+            # Lightweight test doubles do not expose CUDA autocast.
+            response = self._predictor.handle_request(request)
+        else:
+            # The gateway invokes provider work on a bounded worker thread.
+            # SAM's predictor creates its BF16 context on the construction
+            # thread, so re-enter it here to keep matmul dtypes consistent.
+            with autocast(device_type="cuda", dtype=bfloat16):
+                response = self._predictor.handle_request(request)
         outputs = cast("dict[str, object]", response.get("outputs", {}))
         object_ids = np.asarray(cast("object", outputs.get("out_obj_ids", [])))
         masks = np.asarray(cast("object", outputs.get("out_binary_masks", [])))

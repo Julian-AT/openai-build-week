@@ -148,6 +148,16 @@ def test_box_prompt_starts_a_track_from_the_box_center() -> None:
 def test_predictor_engine_binds_point_prompt_and_reads_target_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    autocast_seen = False
+
+    class FakeAutocast:
+        def __enter__(self) -> None:
+            nonlocal autocast_seen
+            autocast_seen = True
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
     class FakePredictor:
         def __init__(self) -> None:
             self.requests: list[dict[str, object]] = []
@@ -155,6 +165,7 @@ def test_predictor_engine_binds_point_prompt_and_reads_target_output(
         def handle_request(self, request: dict[str, object]) -> dict[str, object]:
             self.requests.append(request)
             if request["type"] == "add_prompt":
+                assert autocast_seen
                 return {
                     "outputs": {
                         # The multiplex predictor may normalize a sole object to id 0.
@@ -168,16 +179,29 @@ def test_predictor_engine_binds_point_prompt_and_reads_target_output(
     class FakeTorch:
         float32 = "float32"
         int32 = "int32"
+        bfloat16 = "bfloat16"
 
         @staticmethod
         def tensor(value: object, *, dtype: object) -> tuple[object, object]:
             return (value, dtype)
 
+        @staticmethod
+        def autocast(*, device_type: str, dtype: object) -> FakeAutocast:
+            assert device_type == "cuda"
+            assert dtype == FakeTorch.bfloat16
+            return FakeAutocast()
+
     predictor = FakePredictor()
     monkeypatch.setitem(
         sys.modules,
         "torch",
-        SimpleNamespace(float32=FakeTorch.float32, int32=FakeTorch.int32, tensor=FakeTorch.tensor),
+        SimpleNamespace(
+            float32=FakeTorch.float32,
+            int32=FakeTorch.int32,
+            bfloat16=FakeTorch.bfloat16,
+            autocast=FakeTorch.autocast,
+            tensor=FakeTorch.tensor,
+        ),
     )
     engine = SAM3PredictorEngine(predictor, tmp_path)
     image = SegmentationJob.model_validate(job(0)).image
