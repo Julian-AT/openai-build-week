@@ -48,6 +48,33 @@ test("POST /v1/turns passes a closed turn and separate scoped authority", async 
   assert.equal(receivedSignal instanceof AbortSignal, true);
 });
 
+test("POST /v1/turns preserves the authenticated pointer context for deterministic placement", async () => {
+  let receivedTurn: AgentTurnRequest | undefined;
+  const service: AgentTurnService = {
+    submit: async (_credential, turn) => {
+      receivedTurn = turn;
+      return { status: "preview_ready" };
+    },
+  };
+  const app = createGatewayApp({ gatewayToken: "gateway-token", agentTurnService: service });
+  const pointerContext = {
+    world_position: { x: 0.12, y: -0.84, z: -1.4 },
+    surface_id: "plane_floor_01",
+  };
+
+  const response = await app.request("/v1/turns", {
+    method: "POST",
+    headers: {
+      authorization: "Bearer scoped-room-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({ ...validTurn, pointer_context: pointerContext }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(receivedTurn?.pointer_context, pointerContext);
+});
+
 test("POST /v1/turns rejects client-injected authority and mutation fields", async () => {
   let calls = 0;
   const service: AgentTurnService = {

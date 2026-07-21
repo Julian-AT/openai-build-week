@@ -83,7 +83,7 @@ export function createRoomAgentTurnServiceWithCatalog(
         }),
         catalog,
         scope,
-        floorContactRF: options.floorContactRF,
+        floorContactRF: turn.pointer_context?.world_position ?? options.floorContactRF,
         yawRadians: options.yawRadians,
         apiKey: options.openAIAPIKey,
       });
