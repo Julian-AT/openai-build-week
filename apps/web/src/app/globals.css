@@ -36,68 +36,36 @@ a {
   min-height: 100svh;
 }
 
-.room-comparison {
+.apartment-viewer {
   position: fixed;
   z-index: 0;
   inset: 0;
   overflow: hidden;
-  pointer-events: none;
   background: linear-gradient(145deg, #151812 0%, #0e100d 68%);
 }
 
-.room-comparison canvas {
+.apartment-viewer canvas {
   display: block;
   width: 100%;
   height: 100%;
   opacity: 0;
   transition: opacity 240ms ease-out;
+  touch-action: none;
 }
 
-.room-comparison canvas[data-renderer-state="ready"] {
+.apartment-viewer canvas[data-renderer-state="ready"] {
   opacity: 1;
 }
 
-.room-comparison__divider {
+.apartment-viewer__status {
   position: absolute;
-  top: 0;
-  left: 50%;
-  width: 1px;
-  height: 100%;
-  background: var(--line);
-  transform: translateX(-0.5px);
-}
-
-.room-comparison__label {
-  position: absolute;
+  bottom: 20px;
+  left: 22px;
   color: var(--muted);
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-}
-
-.room-comparison__label--points {
-  top: 20px;
-  left: 22px;
-}
-
-.room-comparison__label--model {
-  right: 22px;
-  bottom: 20px;
-}
-
-@media (max-aspect-ratio: 1 / 1) {
-  .room-comparison__divider {
-    top: 50%;
-    left: 0;
-    width: 100%;
-    height: 1px;
-    transform: translateY(-0.5px);
-  }
-
-  .room-comparison__label--model {
-    right: auto;
-    left: 22px;
-  }
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -121,7 +89,7 @@ h1 {
     scroll-behavior: auto;
   }
 
-  .room-comparison canvas {
+  .apartment-viewer canvas {
     transition: none;
   }
 }

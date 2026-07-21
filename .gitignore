@@ -55,3 +55,8 @@ coverage/
 
 # Turborepo local cache
 .turbo/
+
+# Uploaded capture assets and template archives (never committed)
+apps/web/public/*.ply
+*.zip
+mlpc_template_extracted/
