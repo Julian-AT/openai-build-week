@@ -237,9 +237,18 @@ function parseWorkerBaseURL(raw: string): URL {
   } catch {
     throw new Error("invalid_inference_url");
   }
-  const isLoopback = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname);
+  // Docker Desktop exposes host services to containers through this fixed,
+  // local-only DNS name. It is equivalent to loopback for the development
+  // compose topology; all other non-TLS worker origins remain rejected.
+  const isLocalWorkerHost = [
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "[::1]",
+    "host.docker.internal",
+  ].includes(url.hostname);
   if (
-    (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) ||
+    (url.protocol !== "https:" && !(url.protocol === "http:" && isLocalWorkerHost)) ||
     url.username !== "" ||
     url.password !== "" ||
     (url.pathname !== "" && url.pathname !== "/") ||

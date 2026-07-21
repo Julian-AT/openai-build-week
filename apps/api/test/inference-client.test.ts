@@ -65,6 +65,12 @@ const readiness = {
 } as const;
 
 test("worker client accepts only private-safe origins and a bounded token", () => {
+  assert.doesNotThrow(() =>
+    createInferenceWorkerClient({
+      baseURL: "http://host.docker.internal:8790",
+      token: "secret",
+    }),
+  );
   assert.throws(() =>
     createInferenceWorkerClient({ baseURL: "http://worker.example.com", token: "secret" }),
   );
