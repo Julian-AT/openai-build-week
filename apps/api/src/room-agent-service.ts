@@ -9,6 +9,7 @@ import {
 import type { AgentTurnRequest, AgentTurnService } from "./agent-turn.ts";
 import type { DurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import type { DurableRoomSessionStore } from "./durable-session-store.ts";
+import type { KnownTargetRegistry } from "./known-target-registry.ts";
 import {
   createLivePlacementAgentTurnService,
   type LivePlacementScope,
@@ -30,6 +31,7 @@ export interface RoomAgentServiceOptions {
   readonly cacheProfile: string;
   readonly floorContactRF: { readonly x: number; readonly y: number; readonly z: number };
   readonly yawRadians: number;
+  readonly targetRegistry?: KnownTargetRegistry;
 }
 
 /**
@@ -85,15 +87,35 @@ export function createRoomAgentTurnServiceWithCatalog(
         scope,
         floorContactRF: turn.pointer_context?.world_position ?? options.floorContactRF,
         yawRadians: options.yawRadians,
+        ...(options.targetRegistry === undefined ? {} : { targetRegistry: options.targetRegistry }),
         apiKey: options.openAIAPIKey,
       });
       const preview = await service.submit(credential, turn, signal);
-      await options.editTransactionService?.stagePlacementPreview(credential, {
-        proposalID: preview.proposal_id,
-        baseSceneRevision: preview.base_scene_revision,
-        assetID: preview.intent.asset_id,
-        worldFromAsset: preview.world_from_asset,
-      });
+      if (preview.intent.operation === "replace") {
+        const replacement = preview.replacement;
+        if (replacement === undefined || preview.intent.target_id === undefined) {
+          throw new Error("replacement_staging_metadata_missing");
+        }
+        await options.editTransactionService?.stageValidatedReplacement(credential, {
+          sessionID,
+          proposalID: preview.proposal_id,
+          baseSceneRevision: preview.base_scene_revision,
+          targetID: preview.intent.target_id,
+          assetID: preview.intent.asset_id,
+          replacementInstanceID: replacement.instance_id,
+          revealBundleID: replacement.reveal_bundle_id,
+          worldFromAsset: preview.world_from_asset,
+        });
+        const { replacement: _replacement, ...publicPreview } = preview;
+        return publicPreview;
+      } else {
+        await options.editTransactionService?.stagePlacementPreview(credential, {
+          proposalID: preview.proposal_id,
+          baseSceneRevision: preview.base_scene_revision,
+          assetID: preview.intent.asset_id,
+          worldFromAsset: preview.world_from_asset,
+        });
+      }
       return preview;
     },
   };

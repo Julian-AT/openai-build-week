@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AgentPlanner } from "@reframe/agent";
 import type { CatalogRetriever } from "@reframe/catalog";
-
+import { createInMemoryKnownTargetRegistry } from "../src/known-target-registry.ts";
 import {
   createLivePlacementAgentTurnService,
   LIVE_PLACEMENT_PROPOSAL_SCHEMA,
@@ -142,6 +142,76 @@ test("rejects a model response that does not reference the deterministic preview
   ).rejects.toThrow("agent_preview_not_authoritative");
 });
 
+test("prepares a replacement only for a resolved trusted target and fitting asset", async () => {
+  const replacementContext = {
+    sessionID: "room_agent_replace",
+    sceneRevision: 4,
+    pointerContextID: "pointer_42",
+  } as const;
+  const targetID = "object_80000000-0000-4000-8000-000000000001";
+  const registry = createInMemoryKnownTargetRegistry([
+    {
+      sessionID: replacementContext.sessionID,
+      targetID,
+      pointerContextID: "pointer_42",
+      languageReferences: ["chair", "the chair"],
+      revealBundleID: "reveal_90000000-0000-4000-8000-000000000001",
+      worldFromTarget: [1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, -2, 0, 0, 0, 1],
+      dimensionsM: { width: 0.9, height: 1.1, depth: 0.9 },
+    },
+  ]);
+  const service = createLivePlacementAgentTurnService({
+    credential: "scoped-agent-smoke-token",
+    context: replacementContext,
+    targetRegistry: registry,
+    catalog: {
+      search: async () => [
+        {
+          id: "ikea-us-40541421",
+          assetID,
+          score: 0.99,
+          name: "HOLMERUD side table",
+          category: "side_table",
+          dimensionsM: { width: 0.81, height: 0.53, depth: 0.31 },
+          supportType: "floor",
+          cacheProfile: "ios-primary",
+        },
+      ],
+    } satisfies CatalogRetriever,
+    scope: {
+      category: "side_table",
+      maxDimensionsM: { width: 0.9, height: 1.2, depth: 0.9 },
+      supportType: "floor",
+      cacheProfile: "ios-primary",
+    },
+    floorContactRF: { x: 0, y: 0, z: 0 },
+    yawRadians: 0,
+    nextProposalID: () => "proposal_10000000-0000-4000-8000-000000000003",
+    nextReplacementInstanceID: () => "instance_10000000-0000-4000-8000-000000000004",
+    plannerFactory: { create: () => replacementPlanner(targetID) },
+  });
+
+  const result = await service.submit(
+    "scoped-agent-smoke-token",
+    {
+      client_turn_id: "turn_replace_smoke",
+      utterance: "Replace this chair with something warmer and red.",
+      intent_hint: "replace",
+      pointer_context_id: "pointer_42",
+      client_scene_revision: 4,
+      pending_proposal_id: null,
+    },
+    new AbortController().signal,
+  );
+
+  expect(result.intent).toEqual({ operation: "replace", target_id: targetID, asset_id: assetID });
+  expect(result.world_from_asset).toEqual([1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, -2, 0, 0, 0, 1]);
+  expect(result.replacement).toEqual({
+    instance_id: "instance_10000000-0000-4000-8000-000000000004",
+    reveal_bundle_id: "reveal_90000000-0000-4000-8000-000000000001",
+  });
+});
+
 function placementPlanner(requestedCategory = "side_table"): AgentPlanner {
   return {
     next: async (_input, outputs) => {
@@ -199,6 +269,62 @@ function invalidProposalPlanner(): AgentPlanner {
         proposal: {
           ...(step.proposal as Record<string, unknown>),
           proposal_id: "proposal_20000000-0000-4000-8000-000000000002",
+        },
+      };
+    },
+  };
+}
+
+function replacementPlanner(targetID: string): AgentPlanner {
+  return {
+    next: async (_input, outputs) => {
+      if (outputs.length === 0) {
+        return {
+          type: "tool_call",
+          callID: "call_resolve",
+          name: "resolve_target",
+          arguments: { pointer_context_id: null, language_reference: "chair" },
+        };
+      }
+      if (outputs.length === 1) {
+        return {
+          type: "tool_call",
+          callID: "call_catalog",
+          name: "search_catalog",
+          arguments: {
+            query: "warmer red chair",
+            category: "side_table",
+            style: null,
+            color: "red",
+            material: null,
+            limit: 1,
+          },
+        };
+      }
+      if (outputs.length === 2) {
+        return {
+          type: "tool_call",
+          callID: "call_validate",
+          name: "validate_candidate",
+          arguments: { target_id: targetID, asset_id: assetID, constraints: [] },
+        };
+      }
+      if (outputs.length === 3) {
+        return {
+          type: "tool_call",
+          callID: "call_preview",
+          name: "prepare_edit_preview",
+          arguments: { intent: "replace", target_id: targetID, asset_id: assetID, constraints: [] },
+        };
+      }
+      const prepared = outputs[3]?.output as { proposal_id: string };
+      return {
+        type: "proposal",
+        responseID: "resp_replace_123",
+        proposal: {
+          status: "preview_ready",
+          proposal_id: prepared.proposal_id,
+          explanation: "The trusted chair target has a fitting replacement preview.",
         },
       };
     },

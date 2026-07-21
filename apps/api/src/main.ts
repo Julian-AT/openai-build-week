@@ -5,6 +5,11 @@ import type { DurableEditTransactionService } from "./durable-edit-transaction-s
 import { createDurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableRoomSessionStore } from "./durable-session-store.ts";
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
+import {
+  createInMemoryKnownTargetRegistry,
+  type KnownTarget,
+  type KnownTargetRegistry,
+} from "./known-target-registry.ts";
 import { createRoomAgentTurnService } from "./room-agent-service.ts";
 import { runtimeReadinessFromEnvironment } from "./runtime-readiness.ts";
 import { createGatewayApp, type GatewayLogRecord, MAX_REQUEST_BYTES } from "./server.ts";
@@ -120,6 +125,7 @@ function createAgentTurnServiceFromEnvironment(
   }
   const qdrantURL = environment.REFRAME_QDRANT_URL?.trim();
   if (qdrantURL === undefined || qdrantURL.length === 0) return undefined;
+  const targetRegistry = knownTargetRegistryFromEnvironment(environment);
   try {
     return createRoomAgentTurnService({
       openAIAPIKey,
@@ -139,7 +145,22 @@ function createAgentTurnServiceFromEnvironment(
       cacheProfile: environment.REFRAME_AGENT_CACHE_PROFILE?.trim() || "ios-primary",
       floorContactRF: { x: 0, y: 0, z: -2 },
       yawRadians: 0,
+      ...(targetRegistry === undefined ? {} : { targetRegistry }),
     });
+  } catch {
+    return undefined;
+  }
+}
+
+function knownTargetRegistryFromEnvironment(
+  environment: Record<string, string | undefined>,
+): KnownTargetRegistry | undefined {
+  const encoded = environment.REFRAME_KNOWN_TARGETS_JSON?.trim();
+  if (encoded === undefined || encoded.length === 0 || encoded.length > 1_000_000) return undefined;
+  try {
+    const records: unknown = JSON.parse(encoded);
+    if (!Array.isArray(records)) return undefined;
+    return createInMemoryKnownTargetRegistry(records as readonly KnownTarget[]);
   } catch {
     return undefined;
   }
