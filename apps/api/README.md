@@ -1,45 +1,37 @@
 # Reframe gateway
 
-The Bun/Hono gateway is the only public service boundary. It owns scoped
-authentication, bounded ingress, authoritative scene revisions, edit
-transactions, GPT-5.6 agent turns, Realtime SDP exchange, and access to private
-vision workers.
+The Bun gateway is Reframe's trusted public service boundary and sole
+scene-revision authority.
 
-The model can read scene facts, resolve a target, retrieve injection-ready
-catalog candidates, validate them, and prepare a revision-neutral preview. It
-cannot commit, restore, change visibility, choose transforms, or override the
-server's session, pointer, or revision context.
+## Ownership
 
-## Local commands
+The gateway owns room-scoped authentication, durable sessions, bounded ingress,
+pointer and target context, preview records, CAS transactions, compensating
+restore, artifact access, worker coordination, catalog access, GPT-5.6 planning,
+and Realtime credential exchange.
+
+Models and clients never own spatial truth, target identity, revisions,
+transforms, confirmation, commit, or restore. Product routes must not fabricate
+room facts or use showcase assets when a dependency is unavailable.
+
+## Commands
 
 ```sh
 bun run --cwd apps/api test
 bun run --cwd apps/api typecheck
 bun run --cwd apps/api build
 bun run --cwd apps/api start
-bun run --cwd apps/api agent:smoke
 ```
 
-`agent:smoke` is a server-side proof operator. It requires the explicit
-`REFRAME_AGENT_SMOKE_*` values from `.env.example`, plus OpenAI and Qdrant
-credentials; it can only prepare one local placement preview and has no commit
-path.
+`bun run --cwd apps/api dev:local` starts the current API/Qdrant development
+profile. Persistent state belongs under an operator-selected data directory
+outside Git. Configuration names and empty examples live in `.env.example`;
+credentials stay server-side.
 
-Configuration names are listed in the root `.env.example`. Keep OpenAI,
-Qdrant, vision-worker, and gateway credentials server-side. Routes whose real
-dependencies are not configured fail closed.
-## Local durable runtime
+## Known limitations
 
-Install workspace dependencies, set `REFRAME_DATA_DIR` to an absolute location
-outside this repository, and set non-empty `REFRAME_GATEWAY_TOKEN` and
-`QDRANT_API_KEY` values. Then start the API, SQLite catalog store, writable
-asset storage, and persistent Qdrant service together:
-
-```sh
-bun run dev:local
-```
-
-The API is available only on loopback at `http://127.0.0.1:8787`; its public
-`/health` response reports catalog storage, asset storage, and Qdrant
-readiness without exposing paths or credentials. All persistent runtime data
-lives under `REFRAME_DATA_DIR`, never in the repository.
+The current compose profile is not the complete GPU service topology. Signed
+short-lived GLB/USDZ delivery, binary frame WebSocket ingest, artifact event
+fan-out, reconnect activation state, and full deletion/retention acceptance are
+open. Deadline-only showcase paths must be removed according to the web
+submission cleanup plan.
