@@ -1,7 +1,9 @@
 import { createOpenAIRealtimeSessionService } from "@reframe/agent";
+import type { DurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableEditTransactionService } from "./durable-edit-transaction-service.ts";
 import { createDurableRoomSessionStore } from "./durable-session-store.ts";
 import { createInferenceWorkerClientFromEnvironment } from "./inference-client.ts";
+import { createRoomAgentTurnService } from "./room-agent-service.ts";
 import { runtimeReadinessFromEnvironment } from "./runtime-readiness.ts";
 import { createGatewayApp, type GatewayLogRecord, MAX_REQUEST_BYTES } from "./server.ts";
 
@@ -25,14 +27,22 @@ const durableSessionStore = await createDurableRoomSessionStore({
   signingSecret: roomSigningSecret,
 });
 const editTransactionService = createDurableEditTransactionService(durableSessionStore);
+const agentTurnService = createAgentTurnServiceFromEnvironment(
+  process.env,
+  durableSessionStore,
+  openAIAPIKey,
+  editTransactionService,
+);
 
 const app = createGatewayApp({
   gatewayToken,
   runtimeReadiness,
   durableSessionStore,
   editTransactionService,
+  ...(agentTurnService ? { agentTurnService } : {}),
   ...(realtimeService ? { realtimeService } : {}),
   ...(inferenceService ? { inferenceService } : {}),
+  requestTimeoutMilliseconds: requestTimeoutFromEnvironment(process.env),
   logger: writeRequestLog,
 });
 
@@ -54,7 +64,7 @@ process.stdout.write(
     port: server.port,
     protected_routes_enabled: gatewayToken.length > 0,
     realtime_enabled: realtimeService !== undefined,
-    agent_turns_enabled: false,
+    agent_turns_enabled: agentTurnService !== undefined,
     inference_routes_enabled: inferenceService !== undefined,
     durable_capture_enabled: true,
   })}\n`,
@@ -88,4 +98,53 @@ function parsePort(value: string | undefined): number {
 
 function writeRequestLog(record: GatewayLogRecord): void {
   process.stdout.write(`${JSON.stringify({ event: "request", ...record })}\n`);
+}
+
+function createAgentTurnServiceFromEnvironment(
+  environment: Record<string, string | undefined>,
+  sessionStore: typeof durableSessionStore,
+  openAIAPIKey: string | undefined,
+  editTransactionService: DurableEditTransactionService,
+) {
+  if (environment.REFRAME_AGENT_TURNS_ENABLED !== "true" || openAIAPIKey === undefined) {
+    return undefined;
+  }
+  const qdrantURL = environment.REFRAME_QDRANT_URL?.trim();
+  if (qdrantURL === undefined || qdrantURL.length === 0) return undefined;
+  try {
+    return createRoomAgentTurnService({
+      openAIAPIKey,
+      qdrantURL,
+      ...(environment.QDRANT_API_KEY === undefined
+        ? {}
+        : { qdrantAPIKey: environment.QDRANT_API_KEY }),
+      sessionStore,
+      editTransactionService,
+      category: environment.REFRAME_AGENT_CATEGORY?.trim() || "side_table",
+      maxDimensionsM: {
+        width: positiveMeter(environment.REFRAME_AGENT_MAX_WIDTH_M, 2),
+        height: positiveMeter(environment.REFRAME_AGENT_MAX_HEIGHT_M, 2),
+        depth: positiveMeter(environment.REFRAME_AGENT_MAX_DEPTH_M, 2),
+      },
+      supportType: "floor",
+      cacheProfile: environment.REFRAME_AGENT_CACHE_PROFILE?.trim() || "ios-primary",
+      floorContactRF: { x: 0, y: 0, z: -2 },
+      yawRadians: 0,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+function positiveMeter(value: string | undefined, fallback: number): number {
+  const parsed = value === undefined ? fallback : Number(value);
+  return Number.isFinite(parsed) && parsed > 0 && parsed < 100 ? parsed : fallback;
+}
+
+function requestTimeoutFromEnvironment(environment: Record<string, string | undefined>): number {
+  const value = environment.REFRAME_REQUEST_TIMEOUT_MS;
+  if (value === undefined || value.trim() === "") return 15_000;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1_000 || parsed > 60_000) return 15_000;
+  return parsed;
 }

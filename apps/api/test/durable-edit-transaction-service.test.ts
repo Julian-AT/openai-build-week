@@ -74,6 +74,45 @@ test("scene credentials are required and stale confirmations fail closed", async
   }
 });
 
+test("durable scene authority stages and commits a floor placement preview", async () => {
+  const dataDirectory = await mkdtemp(join(tmpdir(), "reframe-durable-placement-"));
+  const store = await createDurableRoomSessionStore({ dataDirectory, signingSecret });
+  try {
+    const session = await store.createSession({
+      sessionID: "room_2026_07_21_scene_place",
+      expiresAtMilliseconds: Date.now() + 60_000,
+      allowedPaths: ["scene"],
+    });
+    const service = createDurableEditTransactionService(store);
+    await service.stagePlacementPreview(session.credential, {
+      proposalID: "proposal_30000000-0000-4000-8000-000000000001",
+      baseSceneRevision: 0,
+      assetID: "ikea-us-40541421-d74d34f0a861",
+      worldFromAsset: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -2, 1],
+    });
+    const preview = await service.prepareReplacementPreview(
+      session.credential,
+      "proposal_30000000-0000-4000-8000-000000000001",
+    );
+    assert.equal(preview.base_scene_revision, 0);
+    assert.equal(preview.intent.operation, "place");
+    assert.equal(preview.intent.target_id, null);
+    assert.equal(preview.ops.length, 1);
+    assert.equal(preview.ops[0]?.op, "place_asset");
+    const delta = await service.confirmPreview(session.credential, {
+      previewID: preview.preview_id,
+      expectedSceneRevision: 0,
+      idempotencyKey: "txidem_e0000000-0000-4000-8000-000000000001",
+    });
+    assert.equal(delta.scene_revision, 1);
+    assert.equal(delta.ops[0]?.op, "place_asset");
+    assert.equal(delta.inverse_ops[0]?.op, "remove_asset_instance");
+  } finally {
+    await store.close();
+    await rm(dataDirectory, { recursive: true, force: true });
+  }
+});
+
 function replacement() {
   return {
     sessionID,

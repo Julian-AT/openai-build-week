@@ -25,8 +25,8 @@ export interface ReplacementPreview {
   readonly proposal_id: string;
   readonly base_scene_revision: number;
   readonly intent: {
-    readonly operation: "replace";
-    readonly target_id: string;
+    readonly operation: "place" | "replace";
+    readonly target_id: string | null;
     readonly asset_id: string;
   };
   readonly ops: readonly ReplacementOperation[];

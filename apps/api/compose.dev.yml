@@ -37,8 +37,13 @@ services:
       REFRAME_DATA_DIR: /data
       REFRAME_QDRANT_URL: http://qdrant:6333
       QDRANT_API_KEY: ${QDRANT_API_KEY:?Set QDRANT_API_KEY in the environment}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REFRAME_AGENT_TURNS_ENABLED: ${REFRAME_AGENT_TURNS_ENABLED:-false}
+      REFRAME_AGENT_CATEGORY: ${REFRAME_AGENT_CATEGORY:-side_table}
+      REFRAME_AGENT_CACHE_PROFILE: ${REFRAME_AGENT_CACHE_PROFILE:-ios-primary}
+      REFRAME_REQUEST_TIMEOUT_MS: ${REFRAME_REQUEST_TIMEOUT_MS:-15000}
     ports:
-      - "127.0.0.1:8787:8787"
+      - "${REFRAME_GATEWAY_BIND:-127.0.0.1}:8787:8787"
     volumes:
       - ../..:/workspace:ro
       - ${REFRAME_DATA_DIR:?Set an absolute REFRAME_DATA_DIR outside the repository}:/data

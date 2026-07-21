@@ -55,6 +55,15 @@ interface TransactionRow {
 
 export interface DurableEditTransactionService extends EditTransactionService {
   stageValidatedReplacement(credential: string, replacement: ValidatedReplacement): Promise<void>;
+  stagePlacementPreview(
+    credential: string,
+    placement: {
+      readonly proposalID: string;
+      readonly baseSceneRevision: number;
+      readonly assetID: string;
+      readonly worldFromAsset: readonly number[];
+    },
+  ): Promise<void>;
   readScene(credential: string): Promise<{
     readonly scene_revision: number;
     readonly transactions: readonly EditDelta[];
@@ -100,6 +109,58 @@ export function createDurableEditTransactionService(
               replacement.replacementInstanceID,
               replacement.revealBundleID,
               JSON.stringify(replacement.worldFromAsset),
+            );
+        });
+      }),
+    stagePlacementPreview: async (credential, placement) =>
+      await run(credential, (sessionID, database) => {
+        ensureSchema(database);
+        transaction(database, () => {
+          const revision = ensureScene(database, sessionID);
+          if (placement.baseSceneRevision !== revision) {
+            throw new RevisionConflictError(placement.baseSceneRevision, revision);
+          }
+          if (
+            !/^proposal_[0-9a-f-]{36}$/u.test(placement.proposalID) ||
+            !isSafeAssetID(placement.assetID) ||
+            placement.worldFromAsset.length !== 16 ||
+            !placement.worldFromAsset.every(Number.isFinite)
+          ) {
+            throw new TypeError("invalid placement preview");
+          }
+          const existing = database
+            .query<{ committed: number }, [string, string]>(
+              "SELECT committed FROM scene_previews WHERE session_id = ?1 AND proposal_id = ?2",
+            )
+            .get(sessionID, placement.proposalID);
+          if (existing !== null) {
+            if (existing.committed !== 0) throw new TransactionConflictError();
+            return;
+          }
+          const previewID = generatedID("preview");
+          const instanceID = `instance_${randomUUID()}`;
+          const operations: readonly ReplacementOperation[] = [
+            {
+              op: "place_asset",
+              asset_id: placement.assetID,
+              instance_id: instanceID,
+              world_from_asset: [...placement.worldFromAsset],
+            },
+          ];
+          const inverseOperations: readonly ReplacementOperation[] = [
+            { op: "remove_asset_instance", instance_id: instanceID },
+          ];
+          database
+            .prepare(
+              "INSERT INTO scene_previews (session_id, preview_id, proposal_id, base_revision, ops_json, inverse_json, committed) VALUES (?1, ?2, ?3, ?4, ?5, ?6, 0)",
+            )
+            .run(
+              sessionID,
+              previewID,
+              placement.proposalID,
+              revision,
+              JSON.stringify(operations),
+              JSON.stringify(inverseOperations),
             );
         });
       }),
@@ -362,19 +423,19 @@ function createDelta(
 }
 
 function decodePreview(row: PreviewRow): ReplacementPreview {
+  const operations = parseOperations(row.ops_json);
+  const targetID = operations.find((op) => op.op === "set_object_visibility")?.object_id ?? null;
   return Object.freeze({
     type: "edit_preview",
     preview_id: row.preview_id,
     proposal_id: row.proposal_id,
     base_scene_revision: row.base_revision,
     intent: Object.freeze({
-      operation: "replace" as const,
-      target_id:
-        parseOperations(row.ops_json).find((op) => op.op === "set_object_visibility")?.object_id ??
-        "",
-      asset_id: parseOperations(row.ops_json).find((op) => op.op === "place_asset")?.asset_id ?? "",
+      operation: targetID === null ? ("place" as const) : ("replace" as const),
+      target_id: targetID,
+      asset_id: operations.find((op) => op.op === "place_asset")?.asset_id ?? "",
     }),
-    ops: freezeOperations(parseOperations(row.ops_json)),
+    ops: freezeOperations(operations),
     status: "pending_confirmation",
   });
 }
@@ -467,6 +528,10 @@ function validateCommitInput(
 
 function generatedID(prefix: "preview" | "tx" | "undo"): string {
   return `${prefix}_${randomUUID()}`;
+}
+
+function isSafeAssetID(value: string): boolean {
+  return /^[A-Za-z0-9][A-Za-z0-9._-]{0,255}$/u.test(value);
 }
 
 function freezeOperations(

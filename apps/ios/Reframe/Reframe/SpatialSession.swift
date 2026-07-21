@@ -90,7 +90,16 @@ final class SpatialSession {
         sceneRevision: 0,
         pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" }
       )
-      guard let proposalID = jsonString("proposal_id", in: proposalData) else {
+      let proposalID: String
+      if jsonString("type", in: proposalData) == "placement_preview" {
+        guard let placementProposalID = jsonString("proposal_id", in: proposalData) else {
+          gatewayStatus = "Typed response was not a preview"
+          return
+        }
+        proposalID = placementProposalID
+      } else if let responseProposalID = jsonString("proposal_id", in: proposalData) {
+        proposalID = responseProposalID
+      } else {
         gatewayStatus = "Typed response was not a preview"
         return
       }
