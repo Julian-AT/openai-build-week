@@ -69,9 +69,9 @@ test("capture events strictly parse calibrated target and plane coordination pay
   );
 });
 
-function coordinationEvent(
+function coordinationEvent<Payload>(
   type: "target_seed" | "plane_upsert" | "plane_remove",
-  payload: unknown,
+  payload: Payload,
 ) {
   return { ...event, type, payload };
 }
