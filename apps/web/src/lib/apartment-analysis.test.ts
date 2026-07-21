@@ -22,7 +22,7 @@ function buildScene(): Float32Array {
 }
 
 test("labels the dominant plane and a separated cluster from geometry alone", () => {
-  const labels = labelVoxels(buildScene(), 1);
+  const { labels, up } = labelVoxels(buildScene(), 1);
   const texts = labels.map((label) => label.text);
 
   expect(texts).toContain("Floor");
@@ -31,8 +31,12 @@ test("labels the dominant plane and a separated cluster from geometry alone", ()
     expect(label.position).toHaveLength(3);
     expect(label.position.every((value) => Number.isFinite(value))).toBeTrue();
   }
+  // The floor is the y = 0 plane, so the detected up-axis is vertical.
+  expect(up).not.toBeNull();
+  const upVec = up as readonly [number, number, number];
+  expect(Math.abs(upVec[1])).toBeGreaterThan(0.9);
 });
 
 test("returns nothing for an empty cloud", () => {
-  expect(labelVoxels(new Float32Array([]), 1)).toEqual([]);
+  expect(labelVoxels(new Float32Array([]), 1)).toEqual({ labels: [], up: null });
 });

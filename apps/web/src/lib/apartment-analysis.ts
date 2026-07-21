@@ -3,6 +3,12 @@ export interface RegionLabel {
   readonly position: readonly [number, number, number];
 }
 
+export interface ScanLabels {
+  readonly labels: RegionLabel[];
+  /** Unit up-axis (dominant plane normal, oriented toward the interior), or null. */
+  readonly up: readonly [number, number, number] | null;
+}
+
 interface Vec3 {
   readonly x: number;
   readonly y: number;
@@ -20,9 +26,9 @@ interface Plane {
  * and the remaining connected voxel clusters become Regions. No object semantics
  * are invented.
  */
-export function labelVoxels(centers: Float32Array, voxelSize: number): RegionLabel[] {
+export function labelVoxels(centers: Float32Array, voxelSize: number): ScanLabels {
   const count = Math.floor(centers.length / 3);
-  if (count < 3 || voxelSize <= 0) return [];
+  if (count < 3 || voxelSize <= 0) return { labels: [], up: null };
   const random = seededRandom(0x52_46_52_4d);
   const threshold = voxelSize * 1.5;
   const active = new Uint8Array(count).fill(1);
@@ -31,13 +37,13 @@ export function labelVoxels(centers: Float32Array, voxelSize: number): RegionLab
   let up: Vec3 | null = null;
   const floor = ransacPlane(centers, active, threshold, 240, random);
   if (floor && floor.inliers.length > count * 0.04) {
-    up = planeNormal(centers, floor.inliers);
+    up = orientToward(floor.normal, centroid(centers, floor.inliers), meanPoint(centers));
     consume(active, floor.inliers);
     const opposite = ransacPlane(centers, active, threshold, 240, random);
     const parallel =
       opposite !== null &&
       opposite.inliers.length > count * 0.02 &&
-      Math.abs(dot(planeNormal(centers, opposite.inliers), up)) > 0.8;
+      Math.abs(dot(opposite.normal, up)) > 0.8;
     // Gravity is unknown, so the larger of the two dominant horizontal planes is
     // taken as the floor and its parallel opposite as the ceiling.
     const floorInliers =
@@ -54,7 +60,7 @@ export function labelVoxels(centers: Float32Array, voxelSize: number): RegionLab
   for (let attempt = 0; attempt < 5 && wall <= 3; attempt += 1) {
     const plane = ransacPlane(centers, active, threshold, 200, random);
     if (!plane || plane.inliers.length < count * 0.025) break;
-    const vertical = up === null || Math.abs(dot(planeNormal(centers, plane.inliers), up)) < 0.35;
+    const vertical = up === null || Math.abs(dot(plane.normal, up)) < 0.35;
     consume(active, plane.inliers);
     if (vertical) {
       labels.push({ text: `Wall ${wall}`, position: centroid(centers, plane.inliers) });
@@ -66,11 +72,30 @@ export function labelVoxels(centers: Float32Array, voxelSize: number): RegionLab
   const minCluster = Math.max(8, Math.floor(count * 0.01));
   let region = 1;
   for (const cluster of clusters) {
-    if (cluster.length < minCluster || region > 5) break;
+    if (cluster.length < minCluster || region > 3) break;
     labels.push({ text: `Region ${region}`, position: centroid(centers, cluster) });
     region += 1;
   }
-  return labels;
+  return { labels, up: up ? [up.x, up.y, up.z] : null };
+}
+
+function orientToward(normal: Vec3, from: readonly number[], to: readonly number[]): Vec3 {
+  const aligned =
+    normal.x * (to[0] - from[0]) + normal.y * (to[1] - from[1]) + normal.z * (to[2] - from[2]) >= 0;
+  return aligned ? normal : { x: -normal.x, y: -normal.y, z: -normal.z };
+}
+
+function meanPoint(centers: Float32Array): [number, number, number] {
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  const count = centers.length / 3;
+  for (let i = 0; i < centers.length; i += 3) {
+    x += centers[i];
+    y += centers[i + 1];
+    z += centers[i + 2];
+  }
+  return [x / count, y / count, z / count];
 }
 
 function ransacPlane(
@@ -167,15 +192,6 @@ function neighbors(key: number): number[] {
     key + 1,
     key - 1,
   ];
-}
-
-function planeNormal(centers: Float32Array, inliers: readonly number[]): Vec3 {
-  const a = inliers[0] as number;
-  const b = inliers[(inliers.length / 3) | 0] as number;
-  const c = inliers[inliers.length - 1] as number;
-  const normal = cross(sub(centers, b, a), sub(centers, c, a));
-  const length = Math.hypot(normal.x, normal.y, normal.z) || 1;
-  return { x: normal.x / length, y: normal.y / length, z: normal.z / length };
 }
 
 function centroid(centers: Float32Array, indices: readonly number[]): [number, number, number] {

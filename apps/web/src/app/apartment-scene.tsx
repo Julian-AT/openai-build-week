@@ -9,6 +9,7 @@ import { labelVoxels, type RegionLabel } from "../lib/apartment-analysis.ts";
 
 const SOURCE = "/apartment.ply";
 const VOXEL_GRID = 150;
+const LABEL_GAP = 26;
 
 type View = "points" | "model";
 
@@ -20,7 +21,6 @@ export default function ApartmentScene() {
   const [labels, setLabels] = useState<readonly RegionLabel[]>([]);
 
   const viewRef = useRef<View>(view);
-  const apiRef = useRef<{ setView: (next: View) => void } | null>(null);
   viewRef.current = view;
 
   useEffect(() => {
@@ -44,31 +44,24 @@ export default function ApartmentScene() {
     keyLight.position.set(1, 2, 1.5);
     scene.add(keyLight);
 
-    const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 100_000);
+    const camera = new THREE.PerspectiveCamera(58, 1, 0.01, 100_000);
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
     controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.35;
+    controls.autoRotateSpeed = 0.28;
 
+    const contentQuat = new THREE.Quaternion();
     let points: THREE.Points | undefined;
+    let pointsMaterial: THREE.PointsMaterial | undefined;
     let model: THREE.InstancedMesh | undefined;
+    let modelMaterial: THREE.MeshLambertMaterial | undefined;
     let modelReady = false;
     let disposed = false;
     let frame = 0;
-    let labelAnchors: readonly RegionLabel[] = [];
-
-    const applyView = () => {
-      const next = viewRef.current;
-      if (points) points.visible = next === "points" || !modelReady;
-      if (model) model.visible = next === "model" && modelReady;
-      labelsHost.style.opacity = next === "model" && modelReady ? "1" : "0";
-    };
-    apiRef.current = {
-      setView: (next) => {
-        viewRef.current = next;
-        applyView();
-      },
-    };
+    let pointsOpacity = 1;
+    let modelOpacity = 0;
+    let anchors: readonly RegionLabel[] = [];
 
     const resize = () => {
       const bounds = canvas.getBoundingClientRect();
@@ -84,16 +77,32 @@ export default function ApartmentScene() {
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       const spans = labelsHost.children;
-      for (let i = 0; i < labelAnchors.length; i += 1) {
+      const placed: { span: HTMLElement; x: number; y: number }[] = [];
+      for (let i = 0; i < anchors.length; i += 1) {
         const span = spans[i] as HTMLElement | undefined;
         if (!span) continue;
-        const anchor = labelAnchors[i];
-        projected.set(anchor.position[0], anchor.position[1], anchor.position[2]).project(camera);
-        const inFront = projected.z < 1;
-        span.style.opacity = inFront ? "1" : "0";
-        span.style.transform = `translate(-50%, -50%) translate(${
-          (projected.x * 0.5 + 0.5) * width
-        }px, ${(-projected.y * 0.5 + 0.5) * height}px)`;
+        projected
+          .set(anchors[i].position[0], anchors[i].position[1], anchors[i].position[2])
+          .applyQuaternion(contentQuat)
+          .project(camera);
+        if (projected.z >= 1) {
+          span.style.opacity = "0";
+          continue;
+        }
+        span.style.opacity = "1";
+        placed.push({
+          span,
+          x: (projected.x * 0.5 + 0.5) * width,
+          y: (-projected.y * 0.5 + 0.5) * height,
+        });
+      }
+      placed.sort((a, b) => a.y - b.y);
+      for (let i = 1; i < placed.length; i += 1) {
+        const previous = placed[i - 1] as { y: number };
+        if (placed[i].y < previous.y + LABEL_GAP) placed[i].y = previous.y + LABEL_GAP;
+      }
+      for (const item of placed) {
+        item.span.style.transform = `translate(-50%, -50%) translate(${item.x}px, ${item.y}px)`;
       }
     };
 
@@ -108,31 +117,45 @@ export default function ApartmentScene() {
         geometry.computeBoundingSphere();
         const radius = geometry.boundingSphere?.radius ?? 1;
 
-        points = new THREE.Points(
-          geometry,
-          new THREE.PointsMaterial({ size: 1.25, sizeAttenuation: false, vertexColors: true }),
-        );
+        pointsMaterial = new THREE.PointsMaterial({
+          size: 1.5,
+          sizeAttenuation: false,
+          vertexColors: true,
+          transparent: true,
+        });
+        points = new THREE.Points(geometry, pointsMaterial);
         scene.add(points);
 
         camera.near = radius / 500;
         camera.far = radius * 40;
-        camera.position.set(radius * 1.4, radius * 0.9, radius * 1.4);
+        camera.position.set(radius * 1.3, radius * 0.85, radius * 1.3);
         controls.target.set(0, 0, 0);
         controls.update();
         canvas.dataset.rendererState = "ready";
-        applyView();
         setStatus("Building 3D model…");
 
         window.setTimeout(() => {
-          if (disposed) return;
+          if (disposed || !points) return;
           const built = buildModel(geometry, VOXEL_GRID);
           model = built.mesh;
+          modelMaterial = model.material as THREE.MeshLambertMaterial;
+          modelMaterial.transparent = true;
+          modelMaterial.opacity = 0;
+
+          const result = labelVoxels(built.centers, built.voxelSize);
+          anchors = result.labels;
+          if (result.up) {
+            contentQuat.setFromUnitVectors(
+              new THREE.Vector3(result.up[0], result.up[1], result.up[2]).normalize(),
+              new THREE.Vector3(0, 1, 0),
+            );
+          }
+          points.quaternion.copy(contentQuat);
+          model.quaternion.copy(contentQuat);
           scene.add(model);
-          labelAnchors = labelVoxels(built.centers, built.voxelSize);
           modelReady = true;
-          setLabels(labelAnchors);
+          setLabels(anchors);
           setStatus("");
-          applyView();
         }, 30);
       },
       undefined,
@@ -144,8 +167,20 @@ export default function ApartmentScene() {
 
     const renderLoop = () => {
       controls.update();
+      const showModel = viewRef.current === "model" && modelReady;
+      pointsOpacity += ((showModel ? 0 : 1) - pointsOpacity) * 0.16;
+      modelOpacity += ((showModel ? 1 : 0) - modelOpacity) * 0.16;
+      if (points && pointsMaterial) {
+        pointsMaterial.opacity = pointsOpacity;
+        points.visible = pointsOpacity > 0.02;
+      }
+      if (model && modelMaterial) {
+        modelMaterial.opacity = modelOpacity;
+        model.visible = modelOpacity > 0.02;
+      }
+      labelsHost.style.opacity = String(modelOpacity);
       renderer.render(scene, camera);
-      if (viewRef.current === "model" && modelReady) positionLabels();
+      if (modelReady && modelOpacity > 0.02) positionLabels();
       frame = window.requestAnimationFrame(renderLoop);
     };
     resize();
@@ -161,15 +196,14 @@ export default function ApartmentScene() {
 
     return () => {
       disposed = true;
-      apiRef.current = null;
       window.cancelAnimationFrame(frame);
       canvas.removeEventListener("webglcontextlost", handleContextLost);
       resizeObserver.disconnect();
       controls.dispose();
       points?.geometry.dispose();
-      (points?.material as THREE.Material | undefined)?.dispose();
+      pointsMaterial?.dispose();
       model?.geometry.dispose();
-      (model?.material as THREE.Material | undefined)?.dispose();
+      modelMaterial?.dispose();
       renderer.dispose();
       renderer.forceContextLoss();
     };
@@ -177,7 +211,7 @@ export default function ApartmentScene() {
 
   const changeView = (next: View) => {
     setView(next);
-    apiRef.current?.setView(next);
+    viewRef.current = next;
   };
 
   return (
