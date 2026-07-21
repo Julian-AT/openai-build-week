@@ -1,3 +1,7 @@
+import CapturePanel from "./capture-panel";
+
+import RealtimeVoicePanel from "./realtime-voice-panel.tsx";
+
 const capabilities = [
   ["Capture", "Native spatial understanding on iPhone"],
   ["Design", "Realtime voice and visual collaboration"],
@@ -27,6 +31,7 @@ export default function HomePage() {
           </a>
           <span>iPhone capture · browser collaboration</span>
         </div>
+        <RealtimeVoicePanel />
       </section>
 
       <section className="capabilities" id="capabilities" aria-label="Core capabilities">
@@ -38,6 +43,8 @@ export default function HomePage() {
           </article>
         ))}
       </section>
+
+      <CapturePanel />
     </main>
   );
 }

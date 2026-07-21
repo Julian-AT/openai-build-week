@@ -168,7 +168,7 @@ public struct FramePacketMetadata: Codable, Equatable, Sendable {
       submapID >= 0,
       frameID <= UInt64(Int.max),
       timestampNanoseconds <= UInt64(Int.max),
-      clockDomain == "ios_monotonic_uptime",
+      ["ios_monotonic_uptime", "browser_monotonic_performance"].contains(clockDomain),
       image.codec == "jpeg",
       (1...4_096).contains(image.width),
       (1...4_096).contains(image.height),

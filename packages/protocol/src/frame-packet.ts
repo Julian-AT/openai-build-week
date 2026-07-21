@@ -8,7 +8,7 @@ export interface FramePacketMetadata {
   readonly submap_id: number;
   readonly frame_id: number;
   readonly timestamp_ns: number;
-  readonly clock_domain: "ios_monotonic_uptime";
+  readonly clock_domain: "ios_monotonic_uptime" | "browser_monotonic_performance";
   readonly image: {
     readonly codec: "jpeg";
     readonly width: number;
@@ -138,7 +138,7 @@ function assertFrameMetadata(metadata: FramePacketMetadata, image: Uint8Array): 
     !isInteger(metadata.submap_id, 0, 2 ** 31 - 1) ||
     !isInteger(metadata.frame_id, 0, Number.MAX_SAFE_INTEGER) ||
     !isInteger(metadata.timestamp_ns, 0, Number.MAX_SAFE_INTEGER) ||
-    metadata.clock_domain !== "ios_monotonic_uptime" ||
+    !["ios_monotonic_uptime", "browser_monotonic_performance"].includes(metadata.clock_domain) ||
     !isRecord(metadata.image) ||
     !hasExactKeys(metadata.image, IMAGE_KEYS) ||
     metadata.image.codec !== "jpeg" ||
