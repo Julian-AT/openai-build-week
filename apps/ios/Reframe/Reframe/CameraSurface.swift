@@ -31,6 +31,7 @@ struct CameraSurface: UIViewRepresentable {
       view.session = spatialSession.session
     }
     context.coordinator.consume(captureRequest)
+    context.coordinator.consumePlacementPreview()
   }
 
   static func dismantleUIView(_ view: ARView, coordinator: Coordinator) {
@@ -46,6 +47,8 @@ struct CameraSurface: UIViewRepresentable {
     private var lastCaptureRequestID: UUID?
     private var pendingCaptureRequest: TargetCaptureRequest?
     private var dwellTracker = ReticleDwellTracker()
+    private var placementPreviewAnchor: AnchorEntity?
+    private var placementPreviewKey: String?
 
     init(parent: CameraSurface) {
       self.parent = parent
@@ -70,6 +73,57 @@ struct CameraSurface: UIViewRepresentable {
       guard let request, request.id != lastCaptureRequestID else { return }
       pendingCaptureRequest = request
       capturePendingRequest()
+    }
+
+    func consumePlacementPreview() {
+      guard let view else { return }
+      guard let transform = parent.spatialSession.pendingPlacementTransform else {
+        placementPreviewAnchor?.removeFromParent()
+        placementPreviewAnchor = nil
+        placementPreviewKey = nil
+        return
+      }
+      let assetID = parent.spatialSession.pendingPlacementAssetID ?? "placement-preview"
+      let key = "\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
+      guard key != placementPreviewKey else { return }
+      placementPreviewAnchor?.removeFromParent()
+      let matrix = simd_float4x4(rows: [
+        SIMD4<Float>(
+          Float(transform.values[0]),
+          Float(transform.values[1]),
+          Float(transform.values[2]),
+          Float(transform.values[3])
+        ),
+        SIMD4<Float>(
+          Float(transform.values[4]),
+          Float(transform.values[5]),
+          Float(transform.values[6]),
+          Float(transform.values[7])
+        ),
+        SIMD4<Float>(
+          Float(transform.values[8]),
+          Float(transform.values[9]),
+          Float(transform.values[10]),
+          Float(transform.values[11])
+        ),
+        SIMD4<Float>(
+          Float(transform.values[12]),
+          Float(transform.values[13]),
+          Float(transform.values[14]),
+          Float(transform.values[15])
+        ),
+      ])
+      let anchor = AnchorEntity(world: matrix)
+      let material = SimpleMaterial(
+        color: UIColor.systemBlue.withAlphaComponent(0.48),
+        isMetallic: false
+      )
+      let preview = ModelEntity(mesh: .generateBox(size: 0.45), materials: [material])
+      preview.name = "reframe-placement-preview"
+      anchor.addChild(preview)
+      view.scene.addAnchor(anchor)
+      placementPreviewAnchor = anchor
+      placementPreviewKey = key
     }
 
     @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {

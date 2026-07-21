@@ -22,6 +22,8 @@ final class SpatialSession {
   private(set) var gatewayStatus = "Room not connected"
   private(set) var pendingPreviewID: String?
   private(set) var pendingPreviewRevision: Int?
+  private(set) var pendingPlacementAssetID: String?
+  private(set) var pendingPlacementTransform: SpatialTransform?
   private(set) var lastTransactionID: String?
   private(set) var lastCommittedRevision: Int?
 
@@ -80,6 +82,8 @@ final class SpatialSession {
   }
 
   func submitTypedTurn(_ utterance: String) async {
+    pendingPlacementAssetID = nil
+    pendingPlacementTransform = nil
     guard let gatewayClient else {
       gatewayStatus = "Preview available after room connection"
       return
@@ -102,6 +106,10 @@ final class SpatialSession {
       } else {
         gatewayStatus = "Typed response was not a preview"
         return
+      }
+      if let values = jsonDoubleArray("world_from_asset", in: proposalData), values.count == 16 {
+        pendingPlacementAssetID = jsonStringInObject("asset_id", key: "intent", in: proposalData)
+        pendingPlacementTransform = SpatialTransform(values: values)
       }
       let previewData = try await gatewayClient.preparePreview(proposalID: proposalID)
       pendingPreviewID = jsonString("preview_id", in: previewData)
@@ -183,6 +191,25 @@ final class SpatialSession {
     guard let object = try? JSONSerialization.jsonObject(with: data),
       let dictionary = object as? [String: Any],
       let value = dictionary[key] as? Int
+    else { return nil }
+    return value
+  }
+
+  private func jsonDoubleArray(_ key: String, in data: Data) -> [Double]? {
+    guard let object = try? JSONSerialization.jsonObject(with: data),
+      let dictionary = object as? [String: Any],
+      let values = dictionary[key] as? [NSNumber]
+    else { return nil }
+    let result = values.map(\.doubleValue)
+    return result.allSatisfy(\.isFinite) ? result : nil
+  }
+
+  private func jsonStringInObject(_ key: String, key objectKey: String, in data: Data) -> String? {
+    guard let object = try? JSONSerialization.jsonObject(with: data),
+      let dictionary = object as? [String: Any],
+      let nested = dictionary[objectKey] as? [String: Any],
+      let value = nested[key] as? String,
+      !value.isEmpty
     else { return nil }
     return value
   }
