@@ -20,6 +20,12 @@ credentials, or machine-specific paths.
   single-output fallback for predictor builds that normalize the object ID to
   zero. The local fake-provider and predictor-boundary tests pass alongside
   the vision suite.
+- On the permitted A100 80 GB runtime, the pinned SAM 3.1 release source
+  (`9f22cb976fb6e38dad5bb34940fad852dd897d0e`) initialized the official
+  multiplex predictor from the verified checkpoint SHA-256
+  `0567debeec80ba4ac6369540c6c248025283cb3ff2b92827509e57e2b3541cb6`.
+  A normalized box prompt over a 640x480 frame returned one mask with object
+  ID zero, confidence 0.996, and 72,770 foreground pixels.
 
 ## Errors found and handled
 
@@ -35,12 +41,11 @@ credentials, or machine-specific paths.
 
 ## Pending capability gates
 
-- SAM 3.1 activation remains pending. The reachable A100 80 GB PCIe host
-  reports driver 550.127.05 and Torch 2.4.1+cu124, while the official SAM 3.1
-  runtime requires Torch 2.7+ and CUDA 12.6+. No compatible `HF_TOKEN` was
-  present in the server environment, so no gated checkpoint was downloaded.
-  The provider consequently fails closed with degraded readiness until the
-  external runtime and immutable checkpoint manifest are prepared.
+- SAM 3.1 model activation is verified on the prepared A100 runtime, but the
+  repository still cannot claim a production worker deployment: the local
+  vision lock remains on its older Torch/CUDA profile and the physical room
+  capture path has not yet supplied a real frame. A synthetic box smoke is
+  runtime evidence only, not a target-track quality or device acceptance.
 - Robust ARKit/depth alignment, conservative volume extraction, Open3D TSDF,
   plane atlases, and isolated reveal generation still need provider-backed
   implementation and recorded quality gates.
@@ -57,3 +62,5 @@ credentials, or machine-specific paths.
 - Persist redacted provider timing and rejection diagnostics alongside each
   artifact revision so replay can distinguish source, alignment, and model
   failures without retaining raw room imagery.
+- Add a real ARKit frame acceptance using a box/reticle seed, then verify
+  cross-frame tracking and conservative geometry before enabling replacement.
