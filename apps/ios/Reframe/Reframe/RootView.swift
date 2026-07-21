@@ -13,7 +13,8 @@ struct RootView: View {
     ZStack {
       CameraSurface(
         spatialSession: spatialSession,
-        captureRequest: targetCaptureRequest
+        captureRequest: targetCaptureRequest,
+        placementToken: spatialSession.placementPreviewToken
       )
       .ignoresSafeArea()
 

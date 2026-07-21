@@ -13,6 +13,9 @@ struct TargetCaptureRequest: Equatable, Identifiable {
 struct CameraSurface: UIViewRepresentable {
   let spatialSession: SpatialSession
   let captureRequest: TargetCaptureRequest?
+  /// Explicitly observes preview changes so SwiftUI updates the representable
+  /// even though the session object itself remains the same reference.
+  let placementToken: String?
 
   func makeCoordinator() -> Coordinator {
     Coordinator(parent: self)
@@ -90,7 +93,9 @@ struct CameraSurface: UIViewRepresentable {
         return
       }
       let assetID = parent.spatialSession.pendingPlacementAssetID ?? "placement-preview"
-      let key = "\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
+      let key =
+        parent.placementToken
+        ?? "\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
       guard key != placementPreviewKey else { return }
       placementLoadTask?.cancel()
       placementPreviewAnchor?.removeFromParent()
@@ -143,9 +148,13 @@ struct CameraSurface: UIViewRepresentable {
           if bounds.min.y.isFinite { entity.position.y = -bounds.min.y }
           entity.name = "reframe-placement-\(assetID)"
           anchor.addChild(entity)
+          spatialSession.placementAssetDidLoad()
         } catch {
           // The preview remains empty rather than displaying an unverified or
-          // dimensionally misleading stand-in. The next turn can retry.
+          // dimensionally misleading stand-in. Surface the failure so the
+          // operator can retry instead of mistaking it for tracking loss.
+          guard !Task.isCancelled else { return }
+          spatialSession.placementAssetDidFail()
         }
       }
     }

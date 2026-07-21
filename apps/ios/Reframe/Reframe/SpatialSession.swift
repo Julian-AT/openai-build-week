@@ -30,6 +30,15 @@ final class SpatialSession {
   private(set) var lastTransactionID: String?
   private(set) var lastCommittedRevision: Int?
 
+  /// Observation token consumed by the AR view. Keeping this as a value (rather
+  /// than relying on the session reference changing) ensures a newly prepared
+  /// preview invalidates the SwiftUI representable and gets materialized.
+  var placementPreviewToken: String? {
+    guard let transform = pendingPlacementTransform else { return nil }
+    let assetID = pendingPlacementAssetID ?? "placement-preview"
+    return "\(assetID):\(transform.values.map { String($0) }.joined(separator: ","))"
+  }
+
   let session = ARSession()
   private(set) var sessionID = "room_pending"
   private var delegate: SessionDelegate?
@@ -132,10 +141,26 @@ final class SpatialSession {
         gatewayStatus = "Preview response was incomplete"
         return
       }
-      gatewayStatus = "Preview ready — confirm to commit"
+      gatewayStatus =
+        pendingPlacementTransform == nil
+        ? "Preview ready — confirm to commit"
+        : "Preview ready — loading verified model…"
     } catch {
       gatewayStatus = "Typed preview unavailable"
     }
+  }
+
+  /// Called by the render coordinator after the verified USDZ has been loaded.
+  func placementAssetDidLoad() {
+    guard pendingPlacementTransform != nil else { return }
+    gatewayStatus = "Preview ready — confirm to commit"
+  }
+
+  /// A missing or invalid catalog derivative must be visible to the operator;
+  /// silently leaving an empty anchor looks like a spatial tracking failure.
+  func placementAssetDidFail() {
+    guard pendingPlacementTransform != nil else { return }
+    gatewayStatus = "Preview model unavailable — try again"
   }
 
   func confirmPendingPreview() async {
