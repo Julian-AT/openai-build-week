@@ -256,10 +256,12 @@ struct CameraSurface: UIViewRepresentable {
       let hit = result.flatMap { result -> RaycastHit? in
         let surfaceID =
           result.anchor.map { planeIdentifier($0.identifier) } ?? "arkit_estimated_surface"
-        return RaycastHit(
+        let aimedHit = RaycastHit(
           surfaceID: surfaceID,
           positionWorld: spatialVector(result.worldTransform.columns.3)
         )
+        guard let floorYWorld = floorYWorld(in: frame) else { return aimedHit }
+        return floorProjectedReplacementHit(aimedHit, floorYWorld: floorYWorld)
       }
 
       let direction = simd_normalize(ray.direction)
@@ -302,6 +304,15 @@ struct CameraSurface: UIViewRepresentable {
         allowing: .estimatedPlane,
         alignment: .any
       ).flatMap { view.session.raycast($0).first }
+    }
+
+    private func floorYWorld(in frame: ARFrame) -> Double? {
+      let horizontalPlanes = frame.anchors.compactMap { $0 as? ARPlaneAnchor }.filter {
+        $0.alignment == .horizontal
+      }
+      let classifiedFloors = horizontalPlanes.filter { $0.classification == .floor }
+      let candidates = classifiedFloors.isEmpty ? horizontalPlanes : classifiedFloors
+      return candidates.map { Double($0.transform.columns.3.y) }.min()
     }
   }
 }
