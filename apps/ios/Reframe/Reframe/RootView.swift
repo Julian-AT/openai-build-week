@@ -40,7 +40,11 @@ struct RootView: View {
           isListening: $isListening,
           captureVoiceTarget: {
             targetCaptureRequest = TargetCaptureRequest(source: .voiceCapture)
-            Task { await spatialSession.prepareRealtimeGateway() }
+            Task {
+              if !(await spatialSession.startRealtimeVoice()) {
+                isListening = false
+              }
+            }
           },
           stopVoice: {
             spatialSession.stopRealtimeGateway()

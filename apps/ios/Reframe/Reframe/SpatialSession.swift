@@ -44,6 +44,7 @@ final class SpatialSession {
   private var delegate: SessionDelegate?
   private var planeStore = ObservedPlaneStore()
   private var gatewayClient: GatewayClient?
+  private let realtimeVoice = NativeRealtimeVoiceTransport()
   private let roomConnectionStore = RoomConnectionStore()
   private var verifiedUSDZFiles: [String: (descriptor: AssetDeliveryDescriptor, url: URL)] = [:]
 
@@ -81,6 +82,7 @@ final class SpatialSession {
 
   func pause() {
     session.pause()
+    realtimeVoice.stop()
   }
 
   func targetFrame(matching timestamp: TimeInterval) -> TargetFrame? {
@@ -96,27 +98,44 @@ final class SpatialSession {
   }
 
   /// Checks the room gateway when the operator starts voice. This is a
-  /// read-only fallback until a native WebRTC transport is linked; typed turns
-  /// remain the authoritative interaction path either way.
-  func prepareRealtimeGateway() async {
+  /// room-scoped WebRTC session. Realtime only owns audio and diagnostics;
+  /// deterministic typed turns retain all scene authority.
+  func startRealtimeVoice() async -> Bool {
     guard let gatewayClient else {
       gatewayStatus = "Realtime unavailable after room connection"
-      return
+      return false
     }
-    gatewayStatus = "Connecting realtime gateway…"
+    gatewayStatus = "Requesting microphone and connecting realtime voice…"
     do {
-      switch try await gatewayClient.checkGatewayHealth() {
-      case .ready:
-        gatewayStatus = "Realtime gateway connected — typed edits remain ready"
-      case .degraded:
-        gatewayStatus = "Realtime gateway degraded — typed edits remain ready"
+      try await realtimeVoice.start(client: gatewayClient) { [weak self] utterance in
+        guard let self else { return "{\"status\":\"unavailable\"}" }
+        await self.submitTypedTurn(utterance)
+        let output: [String: String] = [
+          "status": "accepted",
+          "gateway_status": self.gatewayStatus,
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: output),
+          let text = String(data: data, encoding: .utf8),
+          text.utf8.count <= 8_000
+        else { return "{\"status\":\"accepted\"}" }
+        return text
       }
+      gatewayStatus = "Realtime voice connected — scene edits still require typed confirmation"
+      return true
+    } catch RealtimeVoiceError.microphonePermissionDenied {
+      gatewayStatus = "Microphone permission denied — typed edits remain ready"
+    } catch GatewayClientError.gatewayUnreachable {
+      gatewayStatus = "Gateway unreachable — use the Mac LAN address"
+    } catch GatewayClientError.unauthorized {
+      gatewayStatus = "Realtime authorization expired — reconnect the room"
     } catch {
-      gatewayStatus = "Realtime gateway unavailable — typed edits remain ready"
+      gatewayStatus = "Realtime voice unavailable — typed edits remain ready"
     }
+    return false
   }
 
   func stopRealtimeGateway() {
+    realtimeVoice.stop()
     gatewayStatus = gatewayClient == nil ? "Room not connected" : "Realtime gateway disconnected"
   }
 

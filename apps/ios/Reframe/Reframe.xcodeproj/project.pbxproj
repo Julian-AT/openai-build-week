@@ -16,6 +16,8 @@
 		B10000000000000000000007 /* CaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000003 /* CaptureCore */; };
 		B10000000000000000000008 /* RenderCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000004 /* RenderCore */; };
 		B10000000000000000000009 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000007 /* GatewayClient.swift */; };
+		B10000000000000000000010 /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000005 /* WebRTC */; };
+		B10000000000000000000011 /* RealtimeVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000008 /* RealtimeVoice.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +28,7 @@
 		F10000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F10000000000000000000006 /* Reframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Reframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000000000000000000007 /* GatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClient.swift; sourceTree = "<group>"; };
+		F10000000000000000000008 /* RealtimeVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealtimeVoice.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,6 +40,7 @@
 				B10000000000000000000006 /* EditCore in Frameworks */,
 				B10000000000000000000007 /* CaptureCore in Frameworks */,
 				B10000000000000000000008 /* RenderCore in Frameworks */,
+				B10000000000000000000010 /* WebRTC in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -59,6 +63,7 @@
 				F10000000000000000000003 /* SpatialSession.swift */,
 				F10000000000000000000004 /* CameraSurface.swift */,
 				F10000000000000000000007 /* GatewayClient.swift */,
+				F10000000000000000000008 /* RealtimeVoice.swift */,
 				F10000000000000000000005 /* Info.plist */,
 			);
 			path = Reframe;
@@ -93,6 +98,7 @@
 				D10000000000000000000002 /* EditCore */,
 				D10000000000000000000003 /* CaptureCore */,
 				D10000000000000000000004 /* RenderCore */,
+				D10000000000000000000005 /* WebRTC */,
 			);
 			productName = Reframe;
 			productReference = F10000000000000000000006 /* Reframe.app */;
@@ -124,6 +130,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				K10000000000000000000001 /* XCLocalSwiftPackageReference "../Packages/SpatialCore" */,
+				K10000000000000000000002 /* XCRemoteSwiftPackageReference "WebRTC" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = G10000000000000000000003 /* Products */;
@@ -155,6 +162,7 @@
 				B10000000000000000000003 /* SpatialSession.swift in Sources */,
 				B10000000000000000000004 /* CameraSurface.swift in Sources */,
 				B10000000000000000000009 /* GatewayClient.swift in Sources */,
+				B10000000000000000000011 /* RealtimeVoice.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -273,6 +281,17 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		K10000000000000000000002 /* XCRemoteSwiftPackageReference "WebRTC" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/stasel/WebRTC";
+			requirement = {
+				kind = exactVersion;
+				version = 150.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		D10000000000000000000001 /* SpatialProtocol */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -289,6 +308,11 @@
 		D10000000000000000000004 /* RenderCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = RenderCore;
+		};
+		D10000000000000000000005 /* WebRTC */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = K10000000000000000000002 /* XCRemoteSwiftPackageReference "WebRTC" */;
+			productName = WebRTC;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

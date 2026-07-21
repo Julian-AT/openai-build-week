@@ -36,10 +36,8 @@ struct GatewayClient: Sendable {
     self.room = room
   }
 
-  /// Performs a bounded, read-only gateway check for the native voice fallback.
-  /// The iOS target has no WebRTC framework dependency, so this deliberately
-  /// does not attempt to exchange SDP or mutate scene state. A future native
-  /// WebRTC transport can replace this probe without changing the UI contract.
+  /// Performs a bounded, read-only gateway health check for the native voice
+  /// transport. It never runs on the render loop or mutates scene state.
   func checkGatewayHealth() async throws -> GatewayHealth {
     var request = URLRequest(url: endpoint("/health"))
     request.httpMethod = "GET"
@@ -64,6 +62,40 @@ struct GatewayClient: Sendable {
     case "degraded": return .degraded
     default: throw GatewayClientError.invalidResponse
     }
+  }
+
+  /// Exchanges a native WebRTC offer for the gateway's OpenAI Realtime answer.
+  /// The room credential is scoped to this request; the OpenAI key never leaves
+  /// the gateway.
+  func exchangeRealtimeSDP(offer: String) async throws -> String {
+    guard !offer.isEmpty, offer.utf8.count <= 64_000 else {
+      throw GatewayClientError.invalidResponse
+    }
+    var request = URLRequest(url: endpoint("/v1/realtime/calls"))
+    request.httpMethod = "POST"
+    request.httpBody = Data(offer.utf8)
+    request.timeoutInterval = 20
+    request.setValue("application/sdp", forHTTPHeaderField: "Content-Type")
+    request.setValue("Bearer \(room.credential)", forHTTPHeaderField: "Authorization")
+    let bytes: Data
+    let response: URLResponse
+    do {
+      (bytes, response) = try await URLSession.shared.data(for: request)
+    } catch is URLError {
+      throw GatewayClientError.gatewayUnreachable
+    }
+    guard let httpResponse = response as? HTTPURLResponse else {
+      throw GatewayClientError.invalidResponse
+    }
+    guard httpResponse.statusCode == 200 else {
+      if httpResponse.statusCode == 401 { throw GatewayClientError.unauthorized }
+      throw GatewayClientError.requestFailed
+    }
+    guard let answer = String(data: bytes, encoding: .utf8),
+      !answer.isEmpty,
+      answer.utf8.count <= 64_000
+    else { throw GatewayClientError.invalidResponse }
+    return answer
   }
 
   func submitTurn(
