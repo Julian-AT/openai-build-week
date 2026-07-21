@@ -39,7 +39,17 @@ struct RootView: View {
           isListening: $isListening,
           captureVoiceTarget: {
             targetCaptureRequest = TargetCaptureRequest(source: .voiceCapture)
-          }
+          },
+          submitPrompt: { value in
+            Task { await spatialSession.submitTypedTurn(value) }
+          },
+          confirmPreview: {
+            Task { await spatialSession.confirmPendingPreview() }
+          },
+          restoreLatest: {
+            Task { await spatialSession.restoreLatest() }
+          },
+          gatewayStatus: spatialSession.gatewayStatus
         )
       }
       .padding(.horizontal, 18)
@@ -116,6 +126,10 @@ private struct AgentComposer: View {
   @Binding var prompt: String
   @Binding var isListening: Bool
   let captureVoiceTarget: () -> Void
+  let submitPrompt: (String) -> Void
+  let confirmPreview: () -> Void
+  let restoreLatest: () -> Void
+  let gatewayStatus: String
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
@@ -162,6 +176,16 @@ private struct AgentComposer: View {
       Text("Every suggestion becomes a reversible preview. Reframe commits only after you confirm.")
         .font(.caption2)
         .foregroundStyle(.secondary)
+      Text(gatewayStatus)
+        .font(.caption2.weight(.medium))
+        .foregroundStyle(.tertiary)
+      HStack(spacing: 10) {
+        Button("Confirm preview", action: confirmPreview)
+          .buttonStyle(.borderedProminent)
+          .tint(.green)
+        Button("Restore", action: restoreLatest)
+          .buttonStyle(.bordered)
+      }
     }
     .padding(16)
     .background(.ultraThinMaterial, in: .rect(cornerRadius: 24))
@@ -170,6 +194,9 @@ private struct AgentComposer: View {
   }
 
   private func submit() {
-    prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    let value = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !value.isEmpty else { return }
+    prompt = value
+    submitPrompt(value)
   }
 }

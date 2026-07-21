@@ -18,17 +18,30 @@ final class SpatialSession {
   private(set) var phase: Phase = .awaitingPermission
   private(set) var latestFrameObservation: CameraFrameObservation?
   private(set) var lastTargetSeed: TargetSeed?
+  private(set) var roomCredentials: RoomSessionCredentials?
+  private(set) var gatewayStatus = "Room not connected"
+  private(set) var pendingPreviewID: String?
+  private(set) var pendingPreviewRevision: Int?
+  private(set) var lastTransactionID: String?
+  private(set) var lastCommittedRevision: Int?
 
   let session = ARSession()
-  let sessionID = "session_\(UUID().uuidString.lowercased())"
+  private(set) var sessionID = "room_pending"
   private var delegate: SessionDelegate?
   private var planeStore = ObservedPlaneStore()
+  private var gatewayClient: GatewayClient?
 
   var lightEstimate: SpatialLightEstimate? { latestFrameObservation?.lightEstimate }
   var cameraPose: SpatialTransform? { latestFrameObservation?.worldFromCameraARKit }
   var observedPlanes: [String: ObservedPlane] { planeStore.planes }
 
+  func adopt(room credentials: RoomSessionCredentials) {
+    sessionID = credentials.sessionID
+    roomCredentials = credentials
+  }
+
   func start() async {
+    configureRoomFromEnvironment()
     let granted = await requestCameraAccess()
     guard granted else {
       phase = .unavailable
@@ -64,6 +77,125 @@ final class SpatialSession {
   func record(_ targetSeed: TargetSeed) {
     guard targetSeed.sessionID == sessionID else { return }
     lastTargetSeed = targetSeed
+  }
+
+  func submitTypedTurn(_ utterance: String) async {
+    guard let gatewayClient else {
+      gatewayStatus = "Preview available after room connection"
+      return
+    }
+    do {
+      let proposalData = try await gatewayClient.submitTurn(
+        utterance: utterance,
+        sceneRevision: 0,
+        pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" }
+      )
+      guard let proposalID = jsonString("proposal_id", in: proposalData) else {
+        gatewayStatus = "Typed response was not a preview"
+        return
+      }
+      let previewData = try await gatewayClient.preparePreview(proposalID: proposalID)
+      pendingPreviewID = jsonString("preview_id", in: previewData)
+      pendingPreviewRevision = jsonInt("base_scene_revision", in: previewData)
+      guard pendingPreviewID != nil, pendingPreviewRevision != nil else {
+        gatewayStatus = "Preview response was incomplete"
+        return
+      }
+      gatewayStatus = "Preview ready — confirm to commit"
+    } catch {
+      gatewayStatus = "Typed preview unavailable"
+    }
+  }
+
+  func confirmPendingPreview() async {
+    guard let gatewayClient else {
+      gatewayStatus = "Room not connected"
+      return
+    }
+    guard let previewID = pendingPreviewID, let revision = pendingPreviewRevision else {
+      gatewayStatus = "No preview is waiting for confirmation"
+      return
+    }
+    do {
+      let delta = try await gatewayClient.confirmPreview(
+        previewID: previewID,
+        expectedSceneRevision: revision,
+        idempotencyKey: "txidem_\(UUID().uuidString.lowercased())"
+      )
+      lastTransactionID = jsonString("transaction_id", in: delta)
+      lastCommittedRevision = jsonInt("scene_revision", in: delta)
+      pendingPreviewID = nil
+      pendingPreviewRevision = nil
+      gatewayStatus = "Edit committed"
+    } catch {
+      gatewayStatus = "Confirmation rejected safely"
+    }
+  }
+
+  func restore(transactionID: String, expectedSceneRevision: Int, idempotencyKey: String) async {
+    guard let gatewayClient else {
+      gatewayStatus = "Room not connected"
+      return
+    }
+    do {
+      _ = try await gatewayClient.restore(
+        transactionID: transactionID,
+        expectedSceneRevision: expectedSceneRevision,
+        idempotencyKey: idempotencyKey
+      )
+      gatewayStatus = "Restore synchronized"
+    } catch {
+      gatewayStatus = "Restore pending synchronization"
+    }
+  }
+
+  func restoreLatest() async {
+    guard let transactionID = lastTransactionID else {
+      gatewayStatus = "No committed edit to restore"
+      return
+    }
+    await restore(
+      transactionID: transactionID,
+      expectedSceneRevision: lastCommittedRevision ?? 1,
+      idempotencyKey: "txidem_\(UUID().uuidString.lowercased())"
+    )
+  }
+
+  private func jsonString(_ key: String, in data: Data) -> String? {
+    guard let object = try? JSONSerialization.jsonObject(with: data),
+      let dictionary = object as? [String: Any],
+      let value = dictionary[key] as? String,
+      !value.isEmpty
+    else { return nil }
+    return value
+  }
+
+  private func jsonInt(_ key: String, in data: Data) -> Int? {
+    guard let object = try? JSONSerialization.jsonObject(with: data),
+      let dictionary = object as? [String: Any],
+      let value = dictionary[key] as? Int
+    else { return nil }
+    return value
+  }
+
+  private func configureRoomFromEnvironment() {
+    guard let roomID = ProcessInfo.processInfo.environment["REFRAME_ROOM_ID"],
+      let credential = ProcessInfo.processInfo.environment["REFRAME_ROOM_CREDENTIAL"],
+      let expiryText = ProcessInfo.processInfo.environment["REFRAME_ROOM_EXPIRES_AT_MS"],
+      let expiresAt = Int64(expiryText),
+      let baseURLText = ProcessInfo.processInfo.environment["REFRAME_GATEWAY_URL"],
+      let baseURL = URL(string: baseURLText),
+      let room = try? RoomSessionCredentials(
+        sessionID: roomID,
+        credential: credential,
+        expiresAtMilliseconds: expiresAt
+      ),
+      let client = try? GatewayClient(baseURL: baseURL, room: room)
+    else { return }
+    sessionID = room.sessionID
+    roomCredentials = room
+    gatewayClient = client
+    gatewayStatus = "Room connected"
   }
 
   private func accept(_ observation: CameraFrameObservation) {

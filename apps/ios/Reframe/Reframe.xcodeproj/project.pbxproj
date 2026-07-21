@@ -10,6 +10,7 @@
 		B10000000000000000000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* RootView.swift */; };
 		B10000000000000000000003 /* SpatialSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* SpatialSession.swift */; };
 		B10000000000000000000004 /* CameraSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* CameraSurface.swift */; };
+		B10000000000000000000009 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000007 /* GatewayClient.swift */; };
 		B10000000000000000000005 /* SpatialProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000001 /* SpatialProtocol */; };
 		B10000000000000000000006 /* EditCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000002 /* EditCore */; };
 		B10000000000000000000007 /* CaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000003 /* CaptureCore */; };
@@ -23,6 +24,7 @@
 		F10000000000000000000004 /* CameraSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraSurface.swift; sourceTree = "<group>"; };
 		F10000000000000000000005 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F10000000000000000000006 /* Reframe.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Reframe.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F10000000000000000000007 /* GatewayClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GatewayClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +57,7 @@
 				F10000000000000000000002 /* RootView.swift */,
 				F10000000000000000000003 /* SpatialSession.swift */,
 				F10000000000000000000004 /* CameraSurface.swift */,
+				F10000000000000000000007 /* GatewayClient.swift */,
 				F10000000000000000000005 /* Info.plist */,
 			);
 			path = Reframe;
@@ -140,6 +143,7 @@
 				B10000000000000000000002 /* RootView.swift in Sources */,
 				B10000000000000000000003 /* SpatialSession.swift in Sources */,
 				B10000000000000000000004 /* CameraSurface.swift in Sources */,
+				B10000000000000000000009 /* GatewayClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
