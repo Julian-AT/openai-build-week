@@ -113,7 +113,7 @@ final class SpatialSession {
     do {
       let proposalData = try await gatewayClient.submitTurn(
         utterance: utterance,
-        sceneRevision: 0,
+        sceneRevision: lastCommittedRevision ?? 0,
         pointerContextID: lastTargetSeed.map { "pointer_\($0.frameID)" },
         pointerContext: lastTargetSeed?.arkitHit
       )
@@ -194,11 +194,12 @@ final class SpatialSession {
       return
     }
     do {
-      _ = try await gatewayClient.restore(
+      let delta = try await gatewayClient.restore(
         transactionID: transactionID,
         expectedSceneRevision: expectedSceneRevision,
         idempotencyKey: idempotencyKey
       )
+      lastCommittedRevision = jsonInt("scene_revision", in: delta) ?? lastCommittedRevision
       gatewayStatus = "Restore synchronized"
     } catch {
       gatewayStatus = "Restore pending synchronization"
