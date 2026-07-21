@@ -1,4 +1,9 @@
 from .app import InferenceAppOptions, create_inference_app
+from .conservative_geometry import (
+    ConservativeGeometry,
+    EncodedIntrinsics,
+    estimate_conservative_geometry,
+)
 from .da3_metric import DA3MetricProvider, DepthPlane
 from .providers import (
     DisabledProvider,
@@ -27,10 +32,12 @@ from .target_track import (
 )
 
 __all__ = [
+    "ConservativeGeometry",
     "DA3MetricProvider",
     "DepthPlane",
     "DisabledProvider",
     "DisabledRevealFillProvider",
+    "EncodedIntrinsics",
     "HttpRevealFillProvider",
     "InferenceAppOptions",
     "InferenceProvider",
@@ -52,4 +59,5 @@ __all__ = [
     "assess_reveal",
     "assess_target_views",
     "create_inference_app",
+    "estimate_conservative_geometry",
 ]
