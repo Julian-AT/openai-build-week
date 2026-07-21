@@ -72,6 +72,19 @@ export interface CaptureEventReceipt extends CaptureEventInput {
   readonly replayed: boolean;
 }
 
+export interface ActiveTargetStatus {
+  readonly sessionID: string;
+  readonly targetID: string;
+  readonly objectID: string;
+  readonly pointerID: string;
+  readonly targetRevision: number;
+  readonly frameID: number;
+  readonly pixelEncoded: readonly [number, number];
+  readonly source: string;
+  readonly status: "seeded" | "closed";
+  readonly seededAtMilliseconds: number;
+}
+
 export const isRoomSessionID = (value: string): boolean => ROOM_ID.test(value);
 
 interface RoomCredentialClaims {
@@ -450,6 +463,25 @@ export class DurableRoomSessionStore {
             row.payload_sha256,
             row.accepted_at_ms,
           );
+        if (event.type === "target_seed") {
+          const payload = event.payload as CoordinationEventPayload & { type: "target_seed" };
+          this.#database
+            .prepare(
+              "INSERT OR REPLACE INTO active_targets (session_id,target_id,object_id,pointer_id,target_revision,frame_id,pixel_x,pixel_y,source,status,seeded_at_ms) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,'seeded',?10)",
+            )
+            .run(
+              sessionID,
+              `target_${randomUUID()}`,
+              `object_${randomUUID()}`,
+              `pointer_${randomUUID()}`,
+              1,
+              payload.frame_id,
+              payload.pixel_encoded[0],
+              payload.pixel_encoded[1],
+              payload.source,
+              now,
+            );
+        }
         this.#database.exec("COMMIT");
       } catch (error) {
         this.#database.exec("ROLLBACK");
@@ -475,6 +507,51 @@ export class DurableRoomSessionStore {
         )
         .all(claims.session_id);
       return Object.freeze(rows.map((row) => eventReceipt(row, false)));
+    });
+  }
+
+  async activeTarget(
+    credential: string,
+    expectedSessionID?: string,
+  ): Promise<ActiveTargetStatus | null> {
+    return await this.#exclusive(async () => {
+      const claims = this.#authorize(credential, "scene");
+      if (expectedSessionID !== undefined && expectedSessionID !== claims.session_id) {
+        throw new RoomCredentialError();
+      }
+      const row = this.#database
+        .query<
+          {
+            session_id: string;
+            target_id: string;
+            object_id: string;
+            pointer_id: string;
+            target_revision: number;
+            frame_id: number;
+            pixel_x: number;
+            pixel_y: number;
+            source: string;
+            status: "seeded" | "closed";
+            seeded_at_ms: number;
+          },
+          [string]
+        >(
+          "SELECT session_id,target_id,object_id,pointer_id,target_revision,frame_id,pixel_x,pixel_y,source,status,seeded_at_ms FROM active_targets WHERE session_id = ?1 AND status = 'seeded'",
+        )
+        .get(claims.session_id);
+      if (row === null) return null;
+      return Object.freeze({
+        sessionID: row.session_id,
+        targetID: row.target_id,
+        objectID: row.object_id,
+        pointerID: row.pointer_id,
+        targetRevision: row.target_revision,
+        frameID: row.frame_id,
+        pixelEncoded: [row.pixel_x, row.pixel_y] as const,
+        source: row.source,
+        status: row.status,
+        seededAtMilliseconds: row.seeded_at_ms,
+      });
     });
   }
 
@@ -662,6 +739,7 @@ function deleteSceneRows(database: Database, sessionID: string): void {
     "scene_previews",
     "scene_replacements",
     "scene_state",
+    "active_targets",
   ] as const) {
     const exists = database
       .query<{ name: string }, [string]>(
@@ -731,6 +809,19 @@ export async function createDurableRoomSessionStore(
       accepted_at_ms INTEGER NOT NULL,
       PRIMARY KEY (session_id, event_id),
       UNIQUE (session_id, event_sequence)
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS active_targets (
+      session_id TEXT PRIMARY KEY REFERENCES room_sessions(session_id) ON DELETE CASCADE,
+      target_id TEXT NOT NULL,
+      object_id TEXT NOT NULL,
+      pointer_id TEXT NOT NULL,
+      target_revision INTEGER NOT NULL,
+      frame_id INTEGER NOT NULL,
+      pixel_x REAL NOT NULL,
+      pixel_y REAL NOT NULL,
+      source TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('seeded','closed')),
+      seeded_at_ms INTEGER NOT NULL
     ) STRICT;
   `);
   return new DurableRoomSessionStore({

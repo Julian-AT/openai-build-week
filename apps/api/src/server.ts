@@ -157,6 +157,9 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
   app.get("/v1/sessions/:sessionID/events", async (context) =>
     handleRecentEvents(context, options),
   );
+  app.get("/v1/sessions/:sessionID/target", async (context) =>
+    handleActiveTarget(context, options),
+  );
   app.get("/v1/sessions/:sessionID/frames/recent", async (context) =>
     handleRecentFrames(context, options),
   );
@@ -178,6 +181,7 @@ export function createGatewayApp(options: GatewayAppOptions): Hono {
     methodNotAllowed(context, "GET, POST"),
   );
   app.all("/v1/sessions/:sessionID/events", (context) => methodNotAllowed(context, "GET, POST"));
+  app.all("/v1/sessions/:sessionID/target", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/sessions/:sessionID/frames/recent", (context) => methodNotAllowed(context, "GET"));
   app.all("/v1/sessions/:sessionID", (context) => methodNotAllowed(context, "DELETE"));
   app.all("/v1/edit/previews", (context) => methodNotAllowed(context, "POST"));
@@ -584,6 +588,38 @@ async function handleRecentEvents(context: Context, options: GatewayAppOptions):
         payload_sha256: event.payloadSha256,
         accepted_at_ms: event.acceptedAtMilliseconds,
       })),
+    });
+  } catch (error) {
+    if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
+    return context.json({ error: "internal_failure" }, 500);
+  }
+}
+
+async function handleActiveTarget(context: Context, options: GatewayAppOptions): Promise<Response> {
+  if (!options.durableSessionStore) return context.json({ error: "service_unavailable" }, 503);
+  const sessionID = context.req.param("sessionID");
+  if (typeof sessionID !== "string" || !isRoomSessionID(sessionID))
+    return context.json({ error: "not_found" }, 404);
+  const credential = authorizeRoomCredential(context);
+  if (credential instanceof Response) return credential;
+  try {
+    const target = await options.durableSessionStore.activeTarget(credential, sessionID);
+    return context.json({
+      target:
+        target === null
+          ? null
+          : {
+              session_id: target.sessionID,
+              target_id: target.targetID,
+              object_id: target.objectID,
+              pointer_id: target.pointerID,
+              target_revision: target.targetRevision,
+              frame_id: target.frameID,
+              pixel_encoded: target.pixelEncoded,
+              source: target.source,
+              status: target.status,
+              seeded_at_ms: target.seededAtMilliseconds,
+            },
     });
   } catch (error) {
     if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
