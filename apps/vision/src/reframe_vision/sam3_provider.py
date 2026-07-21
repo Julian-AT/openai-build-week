@@ -40,6 +40,7 @@ SAM_PROVIDER_ID = "sam3_1"
 SESSION_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 MAX_TRACK_SESSIONS = 8
 MAX_PROVIDER_REVISION_LENGTH = 128
+SAM_MULTIPLEX_COUNT = 16
 MASK_DIMENSIONS = 2
 MASK_OUTPUT_DIMENSIONS = 3
 TARGET_OBJECT_INDEX = 1
@@ -398,7 +399,7 @@ def load_sam3_engine(
         predictor = builder.build_sam3_multiplex_video_predictor(
             checkpoint_path=str(checkpoint_path),
             max_num_objects=1,
-            multiplex_count=1,
+            multiplex_count=SAM_MULTIPLEX_COUNT,
             use_fa3=False,
             compile=False,
             async_loading_frames=False,
