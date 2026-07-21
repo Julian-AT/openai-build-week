@@ -21,6 +21,11 @@ Updated 2026-07-21 after the current verification run.
   Swift package tests, and the Reframe simulator target build successfully.
 - The web replay route validates ordered room events and can load a verified GLB
   into a Three.js scene twin.
+- Live local proof completed against the persistent runtime: OpenAI returned a
+  1,024-dimensional `text-embedding-3-small` query vector, Qdrant returned the
+  eligible HOLMERUD asset, local GLB/USDZ delivery verified the recorded byte
+  lengths and SHA-256 digests, and GPT-5.6 Sol produced a deterministic floor
+  placement preview for that same asset.
 
 ## Open acceptance gates
 
@@ -28,10 +33,9 @@ Updated 2026-07-21 after the current verification run.
   runtime requirement (its driver/Torch CUDA stack is older), and no server-side
   Hugging Face checkpoint credential is available in that runtime. SAM therefore
   reports unavailable instead of silently substituting a model.
-- No live IKEA smoke run, normalized asset delivery, OpenAI embedding, Qdrant
-  point, or signed GLB/USDZ delivery was performed in this checkout. Those
-  require external service credentials, persistent volumes, and a permitted
-  source run.
+- A fresh authorized IKEA downloader smoke run and signed HTTP delivery still
+  need to be repeated; the current proof uses the already persisted, authorized
+  prepared asset and Qdrant point on the local runtime volume.
 - The physical iPhone path, ARKit capture transport, RealityKit visual load,
   WebRTC Realtime session, 60 Hz/thermal measurements, and human visual review
   remain unverified.
