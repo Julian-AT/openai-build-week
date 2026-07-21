@@ -26,16 +26,29 @@ Updated 2026-07-21 after the current verification run.
   eligible HOLMERUD asset, local GLB/USDZ delivery verified the recorded byte
   lengths and SHA-256 digests, and GPT-5.6 Sol produced a deterministic floor
   placement preview for that same asset.
+- Fresh live catalog smoke completed with the authorized IKEA source: the
+  pinned downloader/import path acquired product `ikea-us-40541421`, validated
+  an 887,544-byte source GLB, produced a prepared asset and Qdrant point, and
+  independently verified the 608,696-byte GLB and 1,234,260-byte USDZ
+  derivatives by content hash. The first attempt used swapped height/depth
+  environment axes and failed closed; correcting the operator inputs made the
+  run pass without a code change.
+- The official SAM 3.1 multiplex predictor initialized on the permitted A100
+  from the pinned source revision and verified checkpoint. A normalized box
+  prompt returned one 640x480 mask with confidence 0.996; the adapter now
+  safely binds a sole provider output even when the external model assigns ID
+  zero.
 
 ## Open acceptance gates
 
-- The configured Runpod image cannot currently satisfy the official SAM 3.1
-  runtime requirement (its driver/Torch CUDA stack is older), and no server-side
-  Hugging Face checkpoint credential is available in that runtime. SAM therefore
-  reports unavailable instead of silently substituting a model.
-- A fresh authorized IKEA downloader smoke run and signed HTTP delivery still
-  need to be repeated; the current proof uses the already persisted, authorized
-  prepared asset and Qdrant point on the local runtime volume.
+- The repository's default vision lock remains on its older Torch/CUDA profile;
+  SAM 3.1 is verified only on the separately prepared A100 worker runtime and
+  is not silently substituted into the default worker when that capability is
+  unavailable.
+- Signed HTTP asset delivery remains open: the current gateway has verified
+  local CAS delivery but does not yet expose the required authenticated,
+  short-lived signed asset endpoint. This must be implemented before claiming
+  the complete delivery gate.
 - The physical iPhone path, ARKit capture transport, RealityKit visual load,
   WebRTC Realtime session, 60 Hz/thermal measurements, and human visual review
   remain unverified.
