@@ -208,6 +208,15 @@ test("uploads and hash-verifies room-scoped artifacts with idempotent replay", a
     );
     assert.deepEqual(new Uint8Array(await download.arrayBuffer()), bytes);
 
+    const malformedDownload = await app.request(
+      `/v1/sessions/${session.sessionID}/artifacts/not-an-artifact`,
+      { headers: { authorization: `Bearer ${session.credential}` } },
+    );
+    assert.deepEqual(
+      [malformedDownload.status, await malformedDownload.json()],
+      [404, { error: "not_found" }],
+    );
+
     const conflict = await app.request(
       `/v1/sessions/${session.sessionID}/artifacts/${artifactID}`,
       { method: "POST", headers, body: new Uint8Array([9]) },

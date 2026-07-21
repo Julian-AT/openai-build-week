@@ -476,7 +476,10 @@ async function handleArtifactDownload(
     });
   } catch (error) {
     if (error instanceof RoomCredentialError) return context.json({ error: "unauthorized" }, 401);
-    if (error instanceof CaptureArtifactNotFoundError)
+    if (
+      error instanceof CaptureArtifactNotFoundError ||
+      error instanceof CaptureArtifactConflictError
+    )
       return context.json({ error: "not_found" }, 404);
     return context.json({ error: "internal_failure" }, 500);
   }
