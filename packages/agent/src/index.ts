@@ -45,4 +45,16 @@ export {
   type RealtimeSessionService,
   SUBMIT_USER_TURN_TOOL,
 } from "./openai-realtime-session.ts";
+export {
+  connectRealtimeWebRTC,
+  type RealtimeDataChannel,
+  type RealtimeMediaDevices,
+  type RealtimeMediaStream,
+  type RealtimeMediaTrack,
+  type RealtimePeerConnection,
+  type RealtimeSessionDescription,
+  type RealtimeTrackEvent,
+  type RealtimeWebRTCClientOptions,
+  type RealtimeWebRTCConnection,
+} from "./realtime-webrtc-client.ts";
 export { PROPOSAL_MODEL, type ProposalOutputSchema } from "./types.ts";
