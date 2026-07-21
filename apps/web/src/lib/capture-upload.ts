@@ -1,10 +1,17 @@
-import { encodeFramePacket, type FramePacketMetadata } from "@reframe/protocol";
-
 const ROOM_ID = /^room_[a-z0-9_]{3,120}$/u;
 const CREDENTIAL_MINIMUM = 8;
 const MAX_FRAME_BYTES = 2_300_000;
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const SESSION_LIFETIME_MS = 10 * 60 * 1_000;
+
+/**
+ * Browser capture is ordinary RGB video. It carries no ARKit pose or intrinsics
+ * and is routed to the video-mapping boundary (LingBot-Map), which owns the
+ * camera trajectory and geometry for ordinary video. The frame envelope must
+ * never fabricate an identity intrinsic matrix or an identity ARKit transform.
+ */
+const MAPPING_PROVIDER = "lingbot_map";
+
 type FetchImplementation = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
 export interface CaptureSessionOptions {
@@ -28,15 +35,15 @@ export interface CaptureSession {
   readonly sessionID: string;
   readonly credential: string;
   readonly expiresAtMilliseconds: number;
-  uploadJPEGFrame(input: JPEGFrameInput): Promise<FrameReceipt>;
+  uploadOrdinaryVideoFrame(input: OrdinaryVideoFrameInput): Promise<OrdinaryVideoFrameReceipt>;
   appendEvent(input: CaptureEventInput): Promise<EventReceipt>;
 }
 
-export interface JPEGFrameInput {
+export interface OrdinaryVideoFrameInput {
   readonly bytes: Uint8Array;
   readonly width: number;
   readonly height: number;
-  readonly frameID?: number;
+  readonly frameIndex?: number;
   readonly timestampNanoseconds?: number;
 }
 
@@ -59,13 +66,13 @@ export interface CaptureEventInput {
   readonly monotonicTimestampNanoseconds?: string;
 }
 
-export interface FrameReceipt {
+export interface OrdinaryVideoFrameReceipt {
   readonly session_id: string;
-  readonly frame_id: number;
+  readonly frame_index: number;
   readonly sha256: string;
   readonly byte_length: number;
   readonly accepted_at_ms: number;
-  readonly replayed: boolean;
+  readonly mapping_provider: string;
 }
 
 export interface EventReceipt {
@@ -89,32 +96,32 @@ export async function createCaptureSession(
       ? await createRoomFromGateway(options, nowMilliseconds)
       : parseCaptureRoom(options.room);
   const gatewayURL = parseGatewayURL(created.gateway_url);
-  let nextFrameID = 0;
+  let nextFrameIndex = 0;
   let nextEventSequence = 0;
   return {
     sessionID: created.session_id,
     credential: created.credential,
     expiresAtMilliseconds: created.expires_at_ms,
-    async uploadJPEGFrame(input) {
-      const frameID = input.frameID ?? nextFrameID;
-      if (!Number.isSafeInteger(frameID) || frameID < 0 || frameID < nextFrameID) {
-        throw new Error("invalid_capture_frame_id");
+    async uploadOrdinaryVideoFrame(input) {
+      const frameIndex = input.frameIndex ?? nextFrameIndex;
+      if (!Number.isSafeInteger(frameIndex) || frameIndex < 0 || frameIndex < nextFrameIndex) {
+        throw new Error("invalid_capture_frame_index");
       }
-      nextFrameID = frameID + 1;
-      const packet = encodeBrowserFramePacket({
+      nextFrameIndex = frameIndex + 1;
+      const envelope = encodeOrdinaryVideoFrame({
         ...input,
         sessionID: created.session_id,
-        frameID,
+        frameIndex,
         timestampNanoseconds: input.timestampNanoseconds ?? timestampNanoseconds(),
       });
       const response = await requestBinary(
         options.fetch ?? globalThis.fetch,
-        new URL(`/v1/sessions/${created.session_id}/frames`, gatewayURL),
+        new URL(`/v1/sessions/${created.session_id}/video-frames`, gatewayURL),
         created.credential,
-        packet,
-        "application/vnd.reframe.framepacket",
+        new TextEncoder().encode(JSON.stringify(envelope)),
+        "application/json",
       );
-      return parseFrameReceipt(response);
+      return parseOrdinaryVideoFrameReceipt(response);
     },
     async appendEvent(input) {
       const eventSequence = input.eventSequence ?? nextEventSequence;
@@ -168,7 +175,9 @@ async function createRoomFromGateway(
     {
       session_id: sessionID,
       expires_at_ms: expiresAtMilliseconds,
-      allowed_paths: ["frames", "events"],
+      // Ordinary browser video never claims ARKit frame authority; it only
+      // journals events and streams video frames to the mapping boundary.
+      allowed_paths: ["events"],
     },
   );
   const created = parseCreatedSession(response);
@@ -199,21 +208,41 @@ function parseCaptureRoom(room: CaptureRoom): {
   };
 }
 
-function encodeBrowserFramePacket(
-  input: JPEGFrameInput & {
+interface OrdinaryVideoFrameEnvelope {
+  readonly session_id: string;
+  readonly frame_index: number;
+  readonly timestamp_ns: number;
+  readonly clock_domain: "browser_monotonic_performance";
+  readonly mapping_provider: typeof MAPPING_PROVIDER;
+  readonly pose_source: "none";
+  readonly image: {
+    readonly codec: "jpeg";
+    readonly width: number;
+    readonly height: number;
+    readonly orientation: "up";
+    readonly color_space: "sRGB";
+    readonly payload_bytes: number;
+    readonly data_base64: string;
+  };
+}
+
+function encodeOrdinaryVideoFrame(
+  input: OrdinaryVideoFrameInput & {
     readonly sessionID: string;
-    readonly frameID: number;
+    readonly frameIndex: number;
     readonly timestampNanoseconds: number;
   },
-): Uint8Array {
+): OrdinaryVideoFrameEnvelope {
   assertJPEGFrame(input);
-  const metadata: FramePacketMetadata = {
-    protocol_version: 1,
+  // No intrinsics_encoded and no world_from_camera_arkit: ordinary video carries
+  // no ARKit pose or calibration. Metric pose is the mapping provider's job.
+  return {
     session_id: input.sessionID,
-    submap_id: 0,
-    frame_id: input.frameID,
+    frame_index: input.frameIndex,
     timestamp_ns: input.timestampNanoseconds,
     clock_domain: "browser_monotonic_performance",
+    mapping_provider: MAPPING_PROVIDER,
+    pose_source: "none",
     image: {
       codec: "jpeg",
       width: input.width,
@@ -221,23 +250,12 @@ function encodeBrowserFramePacket(
       orientation: "up",
       color_space: "sRGB",
       payload_bytes: input.bytes.byteLength,
-    },
-    intrinsics_encoded: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-    world_from_camera_arkit: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
-    tracking: { state: "not_available", reason: "browser_capture", world_frame_version: 0 },
-    capture_quality: {
-      blur_score: 0,
-      angular_velocity_rad_s: 0,
-      translation_since_last_m: 0,
-      rotation_since_last_deg: 0,
-      exposure_s: 1 / 60,
-      iso: 100,
+      data_base64: base64FromBytes(input.bytes),
     },
   };
-  return encodeFramePacket({ metadata, image: input.bytes, flags: 0 });
 }
 
-function assertJPEGFrame(input: JPEGFrameInput): void {
+function assertJPEGFrame(input: OrdinaryVideoFrameInput): void {
   if (
     input.bytes.byteLength < 4 ||
     input.bytes.byteLength > MAX_FRAME_BYTES ||
@@ -254,6 +272,15 @@ function assertJPEGFrame(input: JPEGFrameInput): void {
   ) {
     throw new Error("invalid_capture_jpeg");
   }
+}
+
+function base64FromBytes(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let index = 0; index < bytes.byteLength; index += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunk));
+  }
+  return btoa(binary);
 }
 
 async function requestJSON(
@@ -273,7 +300,7 @@ async function requestBinary(
   body: Uint8Array,
   contentType: string,
 ): Promise<Uint8Array> {
-  if (body.byteLength > MAX_RESPONSE_BYTES * 10) throw new Error("capture_payload_too_large");
+  if (body.byteLength > MAX_RESPONSE_BYTES * 20) throw new Error("capture_payload_too_large");
   const response = await fetchImplementation(url, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
@@ -310,19 +337,19 @@ function parseCreatedSession(value: Uint8Array): {
   };
 }
 
-function parseFrameReceipt(value: Uint8Array): FrameReceipt {
+function parseOrdinaryVideoFrameReceipt(value: Uint8Array): OrdinaryVideoFrameReceipt {
   const parsed = parseJSON(value, "invalid_capture_frame_receipt");
   if (
     !isRecord(parsed) ||
     typeof parsed.session_id !== "string" ||
-    typeof parsed.frame_id !== "number" ||
+    typeof parsed.frame_index !== "number" ||
     typeof parsed.sha256 !== "string" ||
     typeof parsed.byte_length !== "number" ||
     typeof parsed.accepted_at_ms !== "number" ||
-    typeof parsed.replayed !== "boolean"
+    typeof parsed.mapping_provider !== "string"
   )
     throw new Error("invalid_capture_frame_receipt");
-  return parsed as unknown as FrameReceipt;
+  return parsed as unknown as OrdinaryVideoFrameReceipt;
 }
 
 function parseEventReceipt(value: Uint8Array): EventReceipt {
@@ -389,8 +416,8 @@ function generatedSessionID(): string {
   return `room_browser_${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`;
 }
 function timestampNanoseconds(): number {
-  // FramePacket timestamps are numbers and therefore stay within the exact
-  // integer range by using the monotonic, session-relative browser clock.
+  // The monotonic, session-relative browser clock keeps the nanosecond
+  // timestamp within the exact safe-integer range.
   const value = Math.floor(
     (typeof performance === "undefined" ? Date.now() : performance.now()) * 1_000_000,
   );

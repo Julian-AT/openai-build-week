@@ -37,7 +37,9 @@ export async function createCaptureRoom(options: CaptureRoomBrokerOptions): Prom
     body: JSON.stringify({
       session_id: sessionID,
       expires_at_ms: expiresAtMilliseconds,
-      allowed_paths: ["frames", "events"],
+      // Ordinary browser video journals events and streams frames to the
+      // mapping boundary; it never claims ARKit frame authority.
+      allowed_paths: ["events"],
     }),
   });
   const bytes = new Uint8Array(await response.arrayBuffer());
