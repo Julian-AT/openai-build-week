@@ -164,8 +164,12 @@ class SAMProvider:
                 raise ProviderUnavailableError
             if job.frame_index <= session.last_frame_index:
                 raise ProviderUnavailableError
-            prediction = await asyncio.to_thread(
-                self._engine.segment,
+            # SAM's predictor owns a process-wide CUDA autocast context.  It
+            # is created during provider startup and is thread-local in
+            # PyTorch, so crossing into asyncio's worker pool drops the
+            # context and produces mixed BF16/FP32 matmul failures.  The
+            # provider lock bounds this call to one in-flight inference.
+            prediction = self._engine.segment(
                 session_id,
                 job.frame_index,
                 job.image,
