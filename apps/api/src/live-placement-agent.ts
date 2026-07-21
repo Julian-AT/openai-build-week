@@ -7,6 +7,7 @@ import {
   type AuthoritativeTurnContext,
   createOpenAIResponsesAgentPlanner,
   PROPOSAL_MODEL,
+  REFRAME_AGENT_TOOLS,
   runBoundedAgentTurnResult,
 } from "@reframe/agent";
 import type { AssetSupportType, CatalogDimensionsM, CatalogRetriever } from "@reframe/catalog";
@@ -128,6 +129,13 @@ function createPlannerFactory(apiKey: string): { create(): AgentPlanner } {
     create: () =>
       createOpenAIResponsesAgentPlanner({
         apiKey,
+        // Placement only needs catalog retrieval and a revision-neutral
+        // preview. Keeping scene/target/fit tools out of this active set
+        // avoids an unnecessary model round trip while preserving the same
+        // deterministic authority checks in createPreparedPreviewAuthority.
+        tools: REFRAME_AGENT_TOOLS.filter(
+          (tool) => tool.name === "search_catalog" || tool.name === "prepare_edit_preview",
+        ),
         instructions: [
           "You prepare exactly one Reframe placement preview and never commit an edit.",
           "Use only the supplied read-only or preview-only functions.",
