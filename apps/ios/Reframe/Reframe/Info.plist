@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleIdentifier</key>
-	<string>com.reframe.app</string>
+	<string>com.julianschmidt.reframe</string>
 	<key>CFBundleExecutable</key>
 	<string>Reframe</string>
 	<key>CFBundlePackageType</key>

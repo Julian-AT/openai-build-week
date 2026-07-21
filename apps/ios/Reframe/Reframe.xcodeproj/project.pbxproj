@@ -1,7 +1,8 @@
 // !$*UTF8*$!
 {
 	archiveVersion = 1;
-	classes = {};
+	classes = {
+	};
 	objectVersion = 77;
 	objects = {
 
@@ -10,11 +11,11 @@
 		B10000000000000000000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000002 /* RootView.swift */; };
 		B10000000000000000000003 /* SpatialSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000003 /* SpatialSession.swift */; };
 		B10000000000000000000004 /* CameraSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000004 /* CameraSurface.swift */; };
-		B10000000000000000000009 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000007 /* GatewayClient.swift */; };
 		B10000000000000000000005 /* SpatialProtocol in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000001 /* SpatialProtocol */; };
 		B10000000000000000000006 /* EditCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000002 /* EditCore */; };
 		B10000000000000000000007 /* CaptureCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000003 /* CaptureCore */; };
 		B10000000000000000000008 /* RenderCore in Frameworks */ = {isa = PBXBuildFile; productRef = D10000000000000000000004 /* RenderCore */; };
+		B10000000000000000000009 /* GatewayClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000000000000000000007 /* GatewayClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -82,8 +83,10 @@
 				P10000000000000000000002 /* Frameworks */,
 				P10000000000000000000003 /* Resources */,
 			);
-			buildRules = ();
-			dependencies = ();
+			buildRules = (
+			);
+			dependencies = (
+			);
 			name = Reframe;
 			packageProductDependencies = (
 				D10000000000000000000001 /* SpatialProtocol */,
@@ -105,13 +108,18 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
-					T10000000000000000000001 = { CreatedOnToolsVersion = 26.4; };
+					T10000000000000000000001 = {
+						CreatedOnToolsVersion = 26.4;
+					};
 				};
 			};
 			buildConfigurationList = L10000000000000000000002 /* Build configuration list for PBXProject "Reframe" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (en, Base);
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = G10000000000000000000001;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
@@ -121,7 +129,9 @@
 			productRefGroup = G10000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			targets = (T10000000000000000000001 /* Reframe */);
+			targets = (
+				T10000000000000000000001 /* Reframe */,
+			);
 		};
 /* End PBXProject section */
 
@@ -129,7 +139,8 @@
 		P10000000000000000000003 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
-			files = ();
+			files = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
@@ -156,12 +167,16 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Reframe/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.reframe.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.julianschmidt.reframe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -178,12 +193,16 @@
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZP2PFF43D2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Reframe/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
-				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.reframe.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.julianschmidt.reframe;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -229,13 +248,19 @@
 /* Begin XCConfigurationList section */
 		L10000000000000000000001 /* Build configuration list for PBXNativeTarget "Reframe" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (C10000000000000000000001 /* Debug */, C10000000000000000000002 /* Release */);
+			buildConfigurations = (
+				C10000000000000000000001 /* Debug */,
+				C10000000000000000000002 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		L10000000000000000000002 /* Build configuration list for PBXProject "Reframe" */ = {
 			isa = XCConfigurationList;
-			buildConfigurations = (C10000000000000000000003 /* Debug */, C10000000000000000000004 /* Release */);
+			buildConfigurations = (
+				C10000000000000000000003 /* Debug */,
+				C10000000000000000000004 /* Release */,
+			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
@@ -249,10 +274,22 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		D10000000000000000000001 /* SpatialProtocol */ = {isa = XCSwiftPackageProductDependency; productName = SpatialProtocol; };
-		D10000000000000000000002 /* EditCore */ = {isa = XCSwiftPackageProductDependency; productName = EditCore; };
-		D10000000000000000000003 /* CaptureCore */ = {isa = XCSwiftPackageProductDependency; productName = CaptureCore; };
-		D10000000000000000000004 /* RenderCore */ = {isa = XCSwiftPackageProductDependency; productName = RenderCore; };
+		D10000000000000000000001 /* SpatialProtocol */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SpatialProtocol;
+		};
+		D10000000000000000000002 /* EditCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = EditCore;
+		};
+		D10000000000000000000003 /* CaptureCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = CaptureCore;
+		};
+		D10000000000000000000004 /* RenderCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RenderCore;
+		};
 /* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = J10000000000000000000001 /* Project object */;
