@@ -18,6 +18,13 @@ from .reveal import (
     assess_reveal,
 )
 from .target_geometry import TargetView, TargetViewAssessment, assess_target_views
+from .target_track import (
+    TargetMaskObservation,
+    TargetSeedBinding,
+    TargetTrack,
+    TargetTrackError,
+    TargetTrackStore,
+)
 
 __all__ = [
     "DA3MetricProvider",
@@ -34,6 +41,11 @@ __all__ = [
     "RevealFillResult",
     "RevealFillUnavailableError",
     "RevealMetrics",
+    "TargetMaskObservation",
+    "TargetSeedBinding",
+    "TargetTrack",
+    "TargetTrackError",
+    "TargetTrackStore",
     "TargetView",
     "TargetViewAssessment",
     "VisionServiceEndpoints",
