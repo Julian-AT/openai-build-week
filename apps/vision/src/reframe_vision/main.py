@@ -13,6 +13,7 @@ from .providers import (
     ModelServiceProvider,
     VisionServiceEndpoints,
 )
+from .sam3_provider import create_sam_provider_from_environment
 
 MAX_PORT = 65_535
 
@@ -41,6 +42,8 @@ def main() -> None:
                 requested_device=os.environ.get("REFRAME_DA3_DEVICE", "auto"),
             )
         )
+    elif profile == "sam":
+        provider = create_sam_provider_from_environment()
     else:
         raise RuntimeError("unknown inference profile")
     app = create_inference_app(InferenceAppOptions(token=token, provider=provider))

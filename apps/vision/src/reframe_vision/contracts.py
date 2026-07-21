@@ -58,17 +58,44 @@ class PointPrompt(StrictModel):
     label: Literal["foreground", "background"]
 
 
+class BoxPrompt(StrictModel):
+    kind: Literal["box"]
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(gt=0)
+    height: int = Field(gt=0)
+
+
+SegmentationPrompt = Annotated[
+    PointPrompt | BoxPrompt,
+    Field(discriminator="kind"),
+]
+
+
 class SegmentationJob(StrictModel):
     protocol_version: Literal["1.0.0"]
     request_id: str = Field(pattern=INFERENCE_ID_PATTERN)
     task: Literal["segment"]
     image: ImageInput
-    prompt: PointPrompt
+    prompt: SegmentationPrompt
+    session_id: str | None = Field(default=None, min_length=1, max_length=128)
+    target_id: str | None = Field(default=None, min_length=1, max_length=128)
+    frame_index: int | None = Field(default=None, ge=0)
 
     @model_validator(mode="after")
     def validate_prompt_bounds(self) -> SegmentationJob:
-        if self.prompt.x >= self.image.width or self.prompt.y >= self.image.height:
-            raise ValueError("prompt is outside image")
+        if (self.session_id is None) != (self.target_id is None):
+            raise ValueError("session and target identity must be supplied together")
+        if self.session_id is None and self.frame_index is not None:
+            raise ValueError("frame index requires session identity")
+        if isinstance(self.prompt, PointPrompt):
+            if self.prompt.x >= self.image.width or self.prompt.y >= self.image.height:
+                raise ValueError("prompt is outside image")
+        elif (
+            self.prompt.x + self.prompt.width > self.image.width
+            or self.prompt.y + self.prompt.height > self.image.height
+        ):
+            raise ValueError("prompt box is outside image")
         return self
 
 
