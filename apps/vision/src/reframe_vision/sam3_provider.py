@@ -360,9 +360,17 @@ class SAM3PredictorEngine:
         masks = np.asarray(cast("object", outputs.get("out_binary_masks", [])))
         probabilities = np.asarray(cast("object", outputs.get("out_probs", [])), dtype=np.float32)
         matching = np.flatnonzero(object_ids == TARGET_OBJECT_INDEX)
-        if matching.size == 0 or masks.ndim != MASK_OUTPUT_DIMENSIONS:
+        if masks.ndim != MASK_OUTPUT_DIMENSIONS:
             raise ProviderUnavailableError
-        index = int(matching[0])
+        if matching.size:
+            index = int(matching[0])
+        elif object_ids.size == 1 and masks.shape[0] == 1:
+            # Some SAM3.1 predictor builds normalize a single prompt to object
+            # id zero. A sole output is safe to bind to this server-owned
+            # target; multiple unbound objects fail closed.
+            index = 0
+        else:
+            raise ProviderUnavailableError
         confidence = float(probabilities[index]) if index < len(probabilities) else 0.0
         return SAMPrediction(mask=np.asarray(masks[index], dtype=np.bool_), confidence=confidence)
 

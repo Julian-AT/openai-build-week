@@ -15,6 +15,11 @@ credentials, or machine-specific paths.
 - Model-source, checkpoint, configuration, input, and output digests are
   checked before a result can be used. Pose alignment and exporters are
   deliberately disabled at this boundary.
+- The SAM 3.1 adapter has strict point/box prompt binding, bounded one-target
+  session state, monotonic frame checks, RLE digest validation, and a safe
+  single-output fallback for predictor builds that normalize the object ID to
+  zero. The local fake-provider and predictor-boundary tests pass alongside
+  the vision suite.
 
 ## Errors found and handled
 
@@ -30,8 +35,12 @@ credentials, or machine-specific paths.
 
 ## Pending capability gates
 
-- SAM 3.1 semantics requires a confirmed compatible license and a verified
-  checkpoint before download or activation.
+- SAM 3.1 activation remains pending. The reachable A100 80 GB PCIe host
+  reports driver 550.127.05 and Torch 2.4.1+cu124, while the official SAM 3.1
+  runtime requires Torch 2.7+ and CUDA 12.6+. No compatible `HF_TOKEN` was
+  present in the server environment, so no gated checkpoint was downloaded.
+  The provider consequently fails closed with degraded readiness until the
+  external runtime and immutable checkpoint manifest are prepared.
 - Robust ARKit/depth alignment, conservative volume extraction, Open3D TSDF,
   plane atlases, and isolated reveal generation still need provider-backed
   implementation and recorded quality gates.
