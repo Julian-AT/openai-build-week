@@ -43,7 +43,7 @@ operations, and the no-dense fallback remain usable without a multi-gigabyte
 install:
 
 ```sh
-uv sync --frozen --extra torch
+uv sync --frozen --extra torch --extra da3
 ```
 
 Installing PyTorch makes runtime/MPS capability visible at `/readyz`; on Linux
@@ -60,3 +60,11 @@ Set `REFRAME_DA3_SOURCE_DIR`, `REFRAME_DA3_MODEL_DIR`, and optionally
 `REFRAME_VISION_PROFILE=geometry`. The worker applies the official focal-length
 conversion to encoded-frame intrinsics and returns digest-bound metric depth.
 It does not install, select, or download a model during startup.
+
+The verified CUDA path was exercised on an NVIDIA A100 with Torch 2.6.0+cu124:
+the pinned DA3Metric-Large checkpoint cold-loaded in about 42 seconds and a
+canonical JPEG completed warm metric-depth inference in about 3 seconds. These
+timings are operational evidence, not a performance guarantee for an iPhone
+session. SAM semantics, dense TSDF extraction, and reveal generation remain
+separate capability gates and must stay disabled until their provider and
+quality prerequisites are verified.
