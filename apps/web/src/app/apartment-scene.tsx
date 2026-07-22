@@ -6,9 +6,10 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 
 import { labelVoxels, type RegionLabel } from "../lib/apartment-analysis.ts";
+import { reconstructSurface } from "../lib/apartment-surface.ts";
 
 const SOURCE = "/apartment.ply";
-const VOXEL_GRID = 150;
+const SURFACE_RES = 190;
 const LABEL_GAP = 26;
 
 type View = "points" | "model";
@@ -54,12 +55,11 @@ export default function ApartmentScene() {
     const contentQuat = new THREE.Quaternion();
     let points: THREE.Points | undefined;
     let pointsMaterial: THREE.PointsMaterial | undefined;
-    let model: THREE.InstancedMesh | undefined;
-    let modelMaterial: THREE.MeshLambertMaterial | undefined;
+    let model: THREE.Mesh | undefined;
+    let modelMaterial: THREE.MeshStandardMaterial | undefined;
     let modelReady = false;
     let disposed = false;
     let frame = 0;
-    let pointsOpacity = 1;
     let modelOpacity = 0;
     let anchors: readonly RegionLabel[] = [];
 
@@ -121,14 +121,13 @@ export default function ApartmentScene() {
           size: 1.5,
           sizeAttenuation: false,
           vertexColors: true,
-          transparent: true,
         });
         points = new THREE.Points(geometry, pointsMaterial);
         scene.add(points);
 
         camera.near = radius / 500;
         camera.far = radius * 40;
-        camera.position.set(radius * 1.3, radius * 0.85, radius * 1.3);
+        camera.position.set(radius * 1.6, radius * 1.05, radius * 1.6);
         controls.target.set(0, 0, 0);
         controls.update();
         canvas.dataset.rendererState = "ready";
@@ -136,13 +135,13 @@ export default function ApartmentScene() {
 
         window.setTimeout(() => {
           if (disposed || !points) return;
-          const built = buildModel(geometry, VOXEL_GRID);
+          const built = buildSurface(geometry, SURFACE_RES);
           model = built.mesh;
-          modelMaterial = model.material as THREE.MeshLambertMaterial;
+          modelMaterial = model.material as THREE.MeshStandardMaterial;
           modelMaterial.transparent = true;
           modelMaterial.opacity = 0;
 
-          const result = labelVoxels(built.centers, built.voxelSize);
+          const result = labelVoxels(built.centers, built.cellSize);
           anchors = result.labels;
           if (result.up) {
             contentQuat.setFromUnitVectors(
@@ -168,19 +167,16 @@ export default function ApartmentScene() {
     const renderLoop = () => {
       controls.update();
       const showModel = viewRef.current === "model" && modelReady;
-      pointsOpacity += ((showModel ? 0 : 1) - pointsOpacity) * 0.16;
       modelOpacity += ((showModel ? 1 : 0) - modelOpacity) * 0.16;
-      if (points && pointsMaterial) {
-        pointsMaterial.opacity = pointsOpacity;
-        points.visible = pointsOpacity > 0.02;
-      }
+      // The point cloud stays opaque and crisp; only the model fades in over it.
+      if (points) points.visible = !showModel || modelOpacity < 0.92;
       if (model && modelMaterial) {
         modelMaterial.opacity = modelOpacity;
-        model.visible = modelOpacity > 0.02;
+        model.visible = modelOpacity > 0.03;
       }
-      labelsHost.style.opacity = String(modelOpacity);
+      labelsHost.style.opacity = String(Math.max(0, (modelOpacity - 0.25) / 0.75));
       renderer.render(scene, camera);
-      if (modelReady && modelOpacity > 0.02) positionLabels();
+      if (modelReady && modelOpacity > 0.25) positionLabels();
       frame = window.requestAnimationFrame(renderLoop);
     };
     resize();
@@ -237,66 +233,27 @@ export default function ApartmentScene() {
   );
 }
 
-function buildModel(
+function buildSurface(
   geometry: THREE.BufferGeometry,
-  grid: number,
-): { mesh: THREE.InstancedMesh; centers: Float32Array; voxelSize: number } {
-  const position = geometry.attributes.position;
-  const color = geometry.attributes.color;
-  const size = new THREE.Vector3();
-  geometry.boundingBox?.getSize(size);
-  const voxelSize = Math.max(size.x, size.y, size.z) / grid || 1;
+  resolution: number,
+): { mesh: THREE.Mesh; centers: Float32Array; cellSize: number } {
+  const positions = geometry.attributes.position.array as Float32Array;
+  const surface = reconstructSurface(positions, resolution);
 
-  const cells = new Map<
-    number,
-    { sx: number; sy: number; sz: number; r: number; g: number; b: number; n: number }
-  >();
-  const offset = 4096;
-  const span = 8192;
-  for (let i = 0; i < position.count; i += 1) {
-    const x = position.getX(i);
-    const y = position.getY(i);
-    const z = position.getZ(i);
-    const key =
-      ((Math.round(x / voxelSize) + offset) * span + (Math.round(y / voxelSize) + offset)) * span +
-      (Math.round(z / voxelSize) + offset);
-    let cell = cells.get(key);
-    if (!cell) {
-      cell = { sx: 0, sy: 0, sz: 0, r: 0, g: 0, b: 0, n: 0 };
-      cells.set(key, cell);
-    }
-    cell.sx += x;
-    cell.sy += y;
-    cell.sz += z;
-    cell.r += color.getX(i);
-    cell.g += color.getY(i);
-    cell.b += color.getZ(i);
-    cell.n += 1;
-  }
+  const meshGeometry = new THREE.BufferGeometry();
+  meshGeometry.setAttribute("position", new THREE.BufferAttribute(surface.positions, 3));
+  meshGeometry.setIndex(new THREE.BufferAttribute(surface.indices, 1));
+  meshGeometry.computeVertexNormals();
 
-  const centers = new Float32Array(cells.size * 3);
-  const mesh = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(voxelSize, voxelSize, voxelSize),
-    new THREE.MeshLambertMaterial(),
-    cells.size,
-  );
-  const dummy = new THREE.Object3D();
-  const tint = new THREE.Color();
-  let index = 0;
-  for (const cell of cells.values()) {
-    const cx = cell.sx / cell.n;
-    const cy = cell.sy / cell.n;
-    const cz = cell.sz / cell.n;
-    centers[index * 3] = cx;
-    centers[index * 3 + 1] = cy;
-    centers[index * 3 + 2] = cz;
-    dummy.position.set(cx, cy, cz);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(index, dummy.matrix);
-    mesh.setColorAt(index, tint.setRGB(cell.r / cell.n, cell.g / cell.n, cell.b / cell.n));
-    index += 1;
-  }
-  mesh.instanceMatrix.needsUpdate = true;
-  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  return { mesh, centers, voxelSize };
+  const material = new THREE.MeshStandardMaterial({
+    color: 0xd8d3c6,
+    roughness: 0.92,
+    metalness: 0,
+    side: THREE.DoubleSide,
+  });
+  return {
+    mesh: new THREE.Mesh(meshGeometry, material),
+    centers: surface.centers,
+    cellSize: surface.cellSize,
+  };
 }
