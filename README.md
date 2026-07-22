@@ -171,10 +171,10 @@ Reframe is available under the [MIT License](LICENSE). Built for OpenAI Build
 Week 2026.
 
 <p align="center">
-  <img src="https://media.licdn.com/dms/image/v2/D4D03AQEP4yaSLcLxfQ/profile-displayphoto-crop_800_800/B4DZ0F5UKXIIAI-/0/1773920405497?e=1786579200&amp;v=beta&amp;t=LLCR66FEqjS4fwKHu9Cy1FoeQFZwkFpnYD2RneSNfBI" width="64" height="64" alt="Reframe team member 1" style="border-radius: 50%;" />
-  <img src="https://media.licdn.com/dms/image/v2/D4D03AQH2COk8J5Q3iw/profile-displayphoto-crop_800_800/B4DZ6zX0OlKkAM-/0/1781125825888?e=1786579200&amp;v=beta&amp;t=WYLBftgdgRML9VoZOH8HS5S-eW6chxyc_Q66xlIonCQ" width="64" height="64" alt="Reframe team member 2" style="border-radius: 50%;" />
-  <img src="https://media.licdn.com/dms/image/v2/D4E03AQGZXPeAiL8ngQ/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1678966687367?e=1786579200&amp;v=beta&amp;t=ruqvynVCSOaDPQspo4rvA2RFQZNJP4C123LhxleHeeY" width="64" height="64" alt="Reframe team member 3" style="border-radius: 50%;" />
-  <img src="https://media.licdn.com/dms/image/v2/D4D03AQHeqvbQkxJ63A/profile-displayphoto-crop_800_800/B4DZ47Rw.QJUAI-/0/1779110975008?e=1786579200&amp;v=beta&amp;t=P5HM7oHzz7VIz45ZCQm33styRv3pdNzUry6fqEx5YkA" width="64" height="64" alt="Reframe team member 4" style="border-radius: 50%;" />
+  <a href="https://www.linkedin.com/in/julian-at/"><img src="https://media.licdn.com/dms/image/v2/D4D03AQEP4yaSLcLxfQ/profile-displayphoto-crop_800_800/B4DZ0F5UKXIIAI-/0/1773920405497?e=1786579200&amp;v=beta&amp;t=LLCR66FEqjS4fwKHu9Cy1FoeQFZwkFpnYD2RneSNfBI" width="52" height="52" alt="Julian" style="border-radius: 50%; object-fit: cover;" /></a>
+  <a href="https://www.linkedin.com/in/hayat-%C3%B6ner/"><img src="https://media.licdn.com/dms/image/v2/D4D03AQH2COk8J5Q3iw/profile-displayphoto-crop_800_800/B4DZ6zX0OlKkAM-/0/1781125825888?e=1786579200&amp;v=beta&amp;t=WYLBftgdgRML9VoZOH8HS5S-eW6chxyc_Q66xlIonCQ" width="52" height="52" alt="Hayat Öner" style="border-radius: 50%; object-fit: cover;" /></a>
+  <a href="https://www.linkedin.com/in/filip-paunovic-397484257/"><img src="https://media.licdn.com/dms/image/v2/D4E03AQGZXPeAiL8ngQ/profile-displayphoto-shrink_400_400/profile-displayphoto-shrink_400_400/0/1678966687367?e=1786579200&amp;v=beta&amp;t=ruqvynVCSOaDPQspo4rvA2RFQZNJP4C123LhxleHeeY" width="52" height="52" alt="Filip Paunovic" style="border-radius: 50%; object-fit: cover;" /></a>
+  <a href="https://www.linkedin.com/in/lorenz-benke-4771a12b3/"><img src="https://media.licdn.com/dms/image/v2/D4D03AQHeqvbQkxJ63A/profile-displayphoto-crop_800_800/B4DZ47Rw.QJUAI-/0/1779110975008?e=1786579200&amp;v=beta&amp;t=P5HM7oHzz7VIz45ZCQm33styRv3pdNzUry6fqEx5YkA" width="52" height="52" alt="Lorenz Benke" style="border-radius: 50%; object-fit: cover;" /></a>
 </p>
 
 <p align="center">❤️ Thanks to <a href="https://www.linkedin.com/in/benedict-k/">Benedict Kerres</a> at OpenAI for providing the Codex 20x Pro Plan.</p>
