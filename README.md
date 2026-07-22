@@ -6,32 +6,35 @@
 ![iOS 18+](https://img.shields.io/badge/iOS-18%2B-111111?style=flat-square&logo=apple&logoColor=white)
 [![MIT License](https://img.shields.io/badge/license-MIT-d7ff64?style=flat-square)](LICENSE)
 
-![Reframe room model reconstructed from an apartment point cloud](assets/readme/reframe-room-model.png)
+![Apartment captured as a spatial point cloud in Reframe](assets/readme/reframe-room-point-cloud.png)
 
-Reframe turns room capture into reversible spatial-editing previews. The native
-iPhone experience combines ARKit tracking with cloud-assisted understanding,
-prepared 3D assets, and an OpenAI design assistant while keeping rendering and
-scene authority deterministic.
+Reframe turns a live room capture into reversible spatial edits. The native
+iPhone experience combines ARKit tracking, spatial understanding, prepared 3D
+assets, and an OpenAI design assistant without giving cloud services control of
+the render loop or canonical scene state.
 
-The product exposes four operations: **place**, **replace**, **remove**, and
-**restore**. Every suggested change is a preview until the user confirms it.
+Instead of treating AR as a model viewer, Reframe understands what already
+occupies the room, finds an asset that physically fits, and previews the change
+against the live camera. The four operations are **place**, **replace**,
+**remove**, and **restore**.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    IOS[iPhone<br/>ARKit capture + 60 Hz AR render] -->|frames + events| API[Gateway<br/>scene authority]
-    API -->|revisioned edits| IOS
-    API <--> VISION[Vision<br/>tracking + geometry]
-    API <--> CATALOG[Catalog<br/>validated 3D assets]
-    API <--> AI[OpenAI<br/>voice + bounded planning]
-    API <--> WEB[Web<br/>room model + replay]
+    CAPTURE[Capture<br/>ARKit poses + room frames] --> UNDERSTAND[Understand<br/>tracking + geometry]
+    UNDERSTAND --> RETRIEVE[Retrieve<br/>eligible 3D assets]
+    RETRIEVE --> PROPOSE[Propose<br/>voice + bounded AI tools]
+    PROPOSE --> PREVIEW[Preview<br/>local RealityKit render]
+    PREVIEW -->|user confirms| COMMIT[Commit<br/>revisioned transaction]
+    COMMIT --> PREVIEW
 ```
 
-The iPhone owns the live camera and 60 Hz render loop. The gateway owns room
-identity, revisions, transactions, and confirmation, and reaches vision,
-catalog, web, and OpenAI services only through typed boundaries. Models can
-understand, retrieve, clarify, and propose; they cannot commit scene changes.
+The iPhone owns the camera, tracking, and 60 Hz render loop. The gateway owns
+room identity, revisions, transactions, and confirmation. Vision, catalog, and
+OpenAI integrations sit behind typed boundaries; the web app consumes the same
+room and transaction contracts. Models can understand, retrieve, clarify, and
+propose, but only deterministic code can commit a scene change.
 
 ## Workspace
 
@@ -44,9 +47,6 @@ understand, retrieve, clarify, and propose; they cannot commit scene changes.
 | [Agent](packages/agent/README.md) | Bounded Responses and Realtime adapters |
 | [Catalog](packages/catalog/README.md) | Acquisition, preparation, retrieval, and delivery of 3D assets |
 | [Protocol](packages/protocol/README.md) | Canonical schemas, coordinates, and transaction behavior |
-
-The [Master Technical Prompt](MASTER_TECHNICAL_PROMPT.md) is the product and
-architecture authority.
 
 ## Quickstart
 
