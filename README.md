@@ -21,25 +21,76 @@ against the live camera. The four operations are **place**, **replace**,
 ## How it works
 
 ```mermaid
-flowchart LR
-    CAPTURE("01 · CAPTURE<br/>ARKit pose + room frames")
-    MODEL("02 · UNDERSTAND<br/>Tracking + 3D geometry")
-    DESIGN("03 · DESIGN<br/>Intent + fitting assets")
-    PREVIEW("04 · PREVIEW<br/>Local AR at 60 FPS")
-    CONFIRM("05 · CONFIRM<br/>Revisioned + reversible")
+%%{init: {"theme": "neutral"}}%%
+flowchart TB
+    subgraph DEVICE["ON DEVICE | 60 FPS AND OFFLINE SAFE"]
+        direction LR
+        ARKIT["ARKit session<br/>poses, planes, frame quality"]
+        ADMISSION["Frame admission<br/>quality, baseline, backpressure"]
+        REPLICA["Local scene replica<br/>revisioned artifact cache"]
+        RENDER["RealityKit compositor<br/>camera, occlusion, reveal, assets"]
+        ARKIT --> ADMISSION
+        ARKIT --> RENDER
+        REPLICA --> RENDER
+    end
 
-    CAPTURE --> MODEL --> DESIGN --> PREVIEW --> CONFIRM
+    subgraph PERCEPTION["SPATIAL UNDERSTANDING | ASYNCHRONOUS GPU PATHS"]
+        direction LR
+        INGEST["Typed frame ingest"]
+        FAST["Fast path<br/>semantic track, silhouette volume"]
+        DENSE["Dense path<br/>metric depth, alignment, TSDF"]
+        OBJECT["Object model<br/>identity, bounds, support"]
+        GEOMETRY["Scene geometry<br/>surfaces, dimensions, occluders"]
+        REVEAL["Reveal synthesis<br/>observed atlas, bounded fill"]
+        ARTIFACTS["Versioned spatial artifacts"]
+        INGEST --> FAST --> OBJECT
+        INGEST --> DENSE --> GEOMETRY
+        OBJECT --> REVEAL
+        GEOMETRY --> REVEAL
+        OBJECT --> ARTIFACTS
+        GEOMETRY --> ARTIFACTS
+        REVEAL --> ARTIFACTS
+    end
 
-    classDef stage fill:#111827,stroke:#374151,color:#f9fafb,stroke-width:1px
-    classDef confirm fill:#d7ff64,stroke:#a3c63a,color:#111827,stroke-width:1px
-    class CAPTURE,MODEL,DESIGN,PREVIEW stage
-    class CONFIRM confirm
+    subgraph CONTROL["DESIGN CONTROL | BOUNDED AI AND DETERMINISTIC TOOLS"]
+        direction LR
+        INTENT["Voice, tap, pointer context"]
+        CATALOG["Eligible asset catalog<br/>dimensions, provenance, render profile"]
+        PLAN["Typed design proposal"]
+        VALIDATE{"Deterministic validation<br/>target, fit, clearance, revision"}
+        PREVIEW["Preview transaction"]
+        INTENT --> PLAN
+        CATALOG --> PLAN
+        PLAN --> VALIDATE --> PREVIEW
+    end
+
+    subgraph AUTHORITY["SCENE AUTHORITY | PREVIEW BEFORE COMMIT"]
+        direction LR
+        ACTIVATE["Local preview activation"]
+        CONFIRM{"User confirmation"}
+        COMMIT["Compare and swap commit<br/>undo, restore, replay"]
+        ACTIVATE --> CONFIRM --> COMMIT
+    end
+
+    ADMISSION --> INGEST
+    ARTIFACTS --> REPLICA
+    ARTIFACTS --> PLAN
+    PREVIEW --> ACTIVATE
+    PREVIEW --> REPLICA
+    COMMIT --> REPLICA
 ```
 
-Capture and preview stay responsive on the iPhone while vision workers deepen
-the room model asynchronously. Voice and retrieval shape a typed proposal; the
-gateway validates the target, physical fit, and scene revision before anything
-can be committed. **AI proposes. You confirm. Every edit is reversible.**
+Reframe separates rendering, inference, planning, and state mutation. ARKit is
+the metric pose authority. Accepted frames fan out into a fast semantic path
+for target identity and a dense reconstruction path for surfaces, dimensions,
+and occlusion. Both paths publish versioned artifacts without entering the 60
+FPS render loop.
+
+Voice and tap input carry explicit pointer and scene context. The agent may
+interpret intent and retrieve eligible assets, but deterministic tools resolve
+the target, validate physical fit, and reject stale revisions. The iPhone
+renders the proposal from its local replica. Only user confirmation creates a
+new scene revision, and every committed edit remains undoable and restorable.
 
 ## Workspace
 
