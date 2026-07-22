@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "bunx turbo run build --filter=@reframe/web",
+  "outputDirectory": "apps/web/.next"
+}
