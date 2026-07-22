@@ -21,20 +21,57 @@ against the live camera. The four operations are **place**, **replace**,
 ## How it works
 
 ```mermaid
-flowchart LR
-    CAPTURE[Capture<br/>ARKit poses + room frames] --> UNDERSTAND[Understand<br/>tracking + geometry]
-    UNDERSTAND --> RETRIEVE[Retrieve<br/>eligible 3D assets]
-    RETRIEVE --> PROPOSE[Propose<br/>voice + bounded AI tools]
-    PROPOSE --> PREVIEW[Preview<br/>local RealityKit render]
-    PREVIEW -->|user confirms| COMMIT[Commit<br/>revisioned transaction]
-    COMMIT --> PREVIEW
+flowchart TB
+    subgraph SENSE["01 · SENSE THE ROOM"]
+        direction LR
+        CAPTURE["📱 ARKit capture<br/>metric pose · planes · frames"]
+        VISION["◉ Spatial intelligence<br/>track · depth · geometry · reveal"]
+        TWIN(("LIVE ROOM MODEL<br/>objects · surfaces · dimensions"))
+        CAPTURE ==>|calibrated observations| VISION
+        CAPTURE ==> TWIN
+        VISION ==> TWIN
+    end
+
+    subgraph REASON["02 · DESIGN WITH CONSTRAINTS"]
+        direction LR
+        INTENT["🎙 Speak or tap<br/>intent + spatial pointer"]
+        AGENT["✦ Bounded design agent<br/>understand · retrieve · clarify"]
+        CATALOG[("3D asset catalog<br/>fit · provenance · render profiles")]
+        GATE{"DETERMINISTIC GATE<br/>target · clearance · revision"}
+        INTENT ==> AGENT
+        TWIN ==> AGENT
+        CATALOG ==> AGENT
+        AGENT ==>|typed proposal| GATE
+        TWIN --> GATE
+    end
+
+    subgraph EXPERIENCE["03 · PREVIEW, CONFIRM, REVERSE"]
+        direction LR
+        PREVIEW["✨ Live AR preview<br/>RealityKit · local · 60 FPS"]
+        CONFIRM{"YOU CONFIRM"}
+        COMMIT["✓ Revisioned spatial edit<br/>commit · undo · restore · replay"]
+        GATE ==> PREVIEW
+        PREVIEW ==> CONFIRM
+        CONFIRM ==>|accept| COMMIT
+        CONFIRM -.->|refine| AGENT
+        COMMIT -.->|scene delta| TWIN
+    end
+
+    classDef sensor fill:#082f49,stroke:#38bdf8,color:#f0f9ff,stroke-width:2px
+    classDef intelligence fill:#2e1065,stroke:#a78bfa,color:#faf5ff,stroke-width:2px
+    classDef authority fill:#422006,stroke:#facc15,color:#fefce8,stroke-width:3px
+    classDef experience fill:#052e16,stroke:#4ade80,color:#f0fdf4,stroke-width:2px
+    class CAPTURE sensor
+    class VISION,TWIN,INTENT,AGENT,CATALOG intelligence
+    class GATE,CONFIRM authority
+    class PREVIEW,COMMIT experience
 ```
 
-The iPhone owns the camera, tracking, and 60 Hz render loop. The gateway owns
-room identity, revisions, transactions, and confirmation. Vision, catalog, and
-OpenAI integrations sit behind typed boundaries; the web app consumes the same
-room and transaction contracts. Models can understand, retrieve, clarify, and
-propose, but only deterministic code can commit a scene change.
+Two loops run at once. The iPhone keeps tracking and rendering responsive at 60
+FPS while cloud workers deepen the room model asynchronously. Voice, vision,
+and retrieval can shape a proposal, but the gateway validates the target,
+physical fit, and scene revision. **AI proposes; deterministic code commits; the
+user can always reverse the result.**
 
 ## Workspace
 
@@ -48,19 +85,40 @@ propose, but only deterministic code can commit a scene change.
 | [Catalog](packages/catalog/README.md) | Acquisition, preparation, retrieval, and delivery of 3D assets |
 | [Protocol](packages/protocol/README.md) | Canonical schemas, coordinates, and transaction behavior |
 
-## Quickstart
+## Development setup
 
-The standalone web room viewer is the fastest way to explore the project. It
-requires [Bun 1.3.11](https://bun.sh/) and no service credentials.
+Reframe is a multi-runtime spatial system, not a one-command application. The
+complete experience spans a physical iPhone, a trusted gateway, Qdrant, private
+GPU vision workers, the web client, prepared 3D assets, and optional OpenAI
+voice and planning.
 
-```sh
-bun install --frozen-lockfile
-bun run --cwd apps/web dev
-```
+### Prerequisites
 
-Open [localhost:3000](http://localhost:3000) and switch between the source point
-cloud and reconstructed 3D model. Full-stack setup is documented by the owning
-application or package.
+| Requirement | Used for |
+| --- | --- |
+| macOS, Xcode with the iOS 18 SDK, and a physical iPhone | ARKit capture and the live spatial editor |
+| [Bun 1.3.11](https://bun.sh/) | Gateway, web client, and TypeScript packages |
+| Python 3.12 and `uv >=0.9.26,<0.12` | Vision service and its verification toolchain |
+| Docker with Compose | Local gateway and Qdrant topology |
+| CUDA-capable GPU plus prepared DA3 and SAM sources/checkpoints | Live depth, geometry, and target tracking |
+| OpenAI API credentials | Realtime voice and bounded design-agent turns |
+
+Install the JavaScript workspace with `bun install --frozen-lockfile`, then
+bring up the system capability by capability:
+
+| Order | Component | Required configuration | Runbook |
+| ---: | --- | --- | --- |
+| 1 | Gateway + Qdrant | Gateway, room-signing, and Qdrant secrets; absolute data directory | [API setup](apps/api/README.md) |
+| 2 | Vision workers | Private service token, profile, model sources, checkpoints, revisions, and hashes | [Vision setup](apps/vision/README.md) |
+| 3 | Asset catalog | Authorized source frontier, external asset store, processor tools, embeddings, and Qdrant access | [Catalog setup](packages/catalog/README.md) |
+| 4 | Web client | Gateway URL and server-side token for connected routes | [Web setup](apps/web/README.md) |
+| 5 | iPhone app | Gateway URL, room ID, short-lived room credential, and signing configuration | [iOS setup](apps/ios/README.md) |
+
+The services must agree on gateway and vision URLs, scoped tokens, room/session
+identity, and artifact storage. Model repositories and checkpoints are prepared
+explicitly; workers do not download them at startup. The landing-page point
+cloud viewer can run without those services, but it is a **UI-only preview**,
+not a full Reframe deployment.
 
 Run the repository checks with:
 
