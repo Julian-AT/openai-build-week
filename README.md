@@ -169,3 +169,5 @@ bun run test:swift
 
 Reframe is available under the [MIT License](LICENSE). Built for OpenAI Build
 Week 2026.
+
+<p align="center">❤️ Thanks to <a href="https://www.linkedin.com/in/benedict-k/">Benedict Kerres</a> at OpenAI for providing the Codex 20x Pro Plan.</p>
