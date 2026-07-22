@@ -21,57 +21,25 @@ against the live camera. The four operations are **place**, **replace**,
 ## How it works
 
 ```mermaid
-flowchart TB
-    subgraph SENSE["01 · SENSE THE ROOM"]
-        direction LR
-        CAPTURE["📱 ARKit capture<br/>metric pose · planes · frames"]
-        VISION["◉ Spatial intelligence<br/>track · depth · geometry · reveal"]
-        TWIN(("LIVE ROOM MODEL<br/>objects · surfaces · dimensions"))
-        CAPTURE ==>|calibrated observations| VISION
-        CAPTURE ==> TWIN
-        VISION ==> TWIN
-    end
+flowchart LR
+    CAPTURE("01 · CAPTURE<br/>ARKit pose + room frames")
+    MODEL("02 · UNDERSTAND<br/>Tracking + 3D geometry")
+    DESIGN("03 · DESIGN<br/>Intent + fitting assets")
+    PREVIEW("04 · PREVIEW<br/>Local AR at 60 FPS")
+    CONFIRM("05 · CONFIRM<br/>Revisioned + reversible")
 
-    subgraph REASON["02 · DESIGN WITH CONSTRAINTS"]
-        direction LR
-        INTENT["🎙 Speak or tap<br/>intent + spatial pointer"]
-        AGENT["✦ Bounded design agent<br/>understand · retrieve · clarify"]
-        CATALOG[("3D asset catalog<br/>fit · provenance · render profiles")]
-        GATE{"DETERMINISTIC GATE<br/>target · clearance · revision"}
-        INTENT ==> AGENT
-        TWIN ==> AGENT
-        CATALOG ==> AGENT
-        AGENT ==>|typed proposal| GATE
-        TWIN --> GATE
-    end
+    CAPTURE --> MODEL --> DESIGN --> PREVIEW --> CONFIRM
 
-    subgraph EXPERIENCE["03 · PREVIEW, CONFIRM, REVERSE"]
-        direction LR
-        PREVIEW["✨ Live AR preview<br/>RealityKit · local · 60 FPS"]
-        CONFIRM{"YOU CONFIRM"}
-        COMMIT["✓ Revisioned spatial edit<br/>commit · undo · restore · replay"]
-        GATE ==> PREVIEW
-        PREVIEW ==> CONFIRM
-        CONFIRM ==>|accept| COMMIT
-        CONFIRM -.->|refine| AGENT
-        COMMIT -.->|scene delta| TWIN
-    end
-
-    classDef sensor fill:#082f49,stroke:#38bdf8,color:#f0f9ff,stroke-width:2px
-    classDef intelligence fill:#2e1065,stroke:#a78bfa,color:#faf5ff,stroke-width:2px
-    classDef authority fill:#422006,stroke:#facc15,color:#fefce8,stroke-width:3px
-    classDef experience fill:#052e16,stroke:#4ade80,color:#f0fdf4,stroke-width:2px
-    class CAPTURE sensor
-    class VISION,TWIN,INTENT,AGENT,CATALOG intelligence
-    class GATE,CONFIRM authority
-    class PREVIEW,COMMIT experience
+    classDef stage fill:#111827,stroke:#374151,color:#f9fafb,stroke-width:1px
+    classDef confirm fill:#d7ff64,stroke:#a3c63a,color:#111827,stroke-width:1px
+    class CAPTURE,MODEL,DESIGN,PREVIEW stage
+    class CONFIRM confirm
 ```
 
-Two loops run at once. The iPhone keeps tracking and rendering responsive at 60
-FPS while cloud workers deepen the room model asynchronously. Voice, vision,
-and retrieval can shape a proposal, but the gateway validates the target,
-physical fit, and scene revision. **AI proposes; deterministic code commits; the
-user can always reverse the result.**
+Capture and preview stay responsive on the iPhone while vision workers deepen
+the room model asynchronously. Voice and retrieval shape a typed proposal; the
+gateway validates the target, physical fit, and scene revision before anything
+can be committed. **AI proposes. You confirm. Every edit is reversible.**
 
 ## Workspace
 
